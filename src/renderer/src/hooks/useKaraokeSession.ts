@@ -108,6 +108,7 @@ export function useKaraokeSession() {
 
                     const item: QueueItem = {
                         id: `${row.track_id}-${Date.now()}`,
+                        stageTheme: row.stage_theme || null,
                         track: {
                             id: catalogEntry.trackId,
                             name: catalogEntry.name,

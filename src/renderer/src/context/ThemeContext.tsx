@@ -71,6 +71,40 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
 }
 
+export function StageThemeProvider({ themeName, children }: { themeName?: string | null; children: ReactNode }) {
+  const parent = useContext(ThemeContext)
+  const resolvedName = themeName && THEMES[themeName] ? themeName : undefined
+  const theme = resolvedName ? THEMES[resolvedName] : undefined
+
+  useEffect(() => {
+    if (!theme) return
+    document.documentElement.dataset.theme = theme.name
+
+    let style = document.getElementById('theme-global-css') as HTMLStyleElement | null
+    if (!style) {
+      style = document.createElement('style')
+      style.id = 'theme-global-css'
+      document.head.appendChild(style)
+    }
+    style.textContent = theme.globalCss ?? ''
+
+    return () => {
+      if (style) style.textContent = ''
+    }
+  }, [theme?.name, theme?.globalCss])
+
+  if (!theme) return <>{children}</>
+
+  const value: ThemeContextValue = {
+    ...theme,
+    setThemeName: parent.setThemeName,
+    cycleTheme: parent.cycleTheme,
+    themeList: THEME_LIST,
+  }
+
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
+}
+
 export function useTheme(): ThemeContextValue {
   return useContext(ThemeContext)
 }

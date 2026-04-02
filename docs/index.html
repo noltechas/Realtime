@@ -9,7 +9,7 @@
 <title>Realtime Karaoke</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&family=Patrick+Hand&family=Oswald:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
 :root {
   --black: #050508;
@@ -107,6 +107,7 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
 .search-bar { position: relative; margin-bottom: 16px; }
 .search-bar svg {
   position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
+  width: 18px; height: 18px;
   color: var(--white-muted); pointer-events: none;
 }
 .search-input {
@@ -309,6 +310,32 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
   border: 1px solid rgba(167,139,250,0.2); border-radius: 99px;
   font-size: 10px; font-family: var(--font-display); font-weight: 600; color: var(--violet);
 }
+.queue-singer-pills { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.queue-singer-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px 2px 2px; border-radius: 99px; font-size: 10px;
+  font-family: var(--font-display); font-weight: 600; color: var(--white);
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+}
+.queue-singer-dot { width: 14px; height: 14px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 700; color: #000; }
+.queue-singer-role { font-size: 9px; color: var(--white-muted); font-weight: 400; }
+.theme-picker { margin-top: 16px; margin-bottom: 8px; }
+.theme-picker-label {
+  font-family: var(--font-display); font-weight: 600; font-size: 14px;
+  margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
+  color: var(--white);
+}
+.theme-picker-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.theme-pick-btn {
+  padding: 14px 12px; cursor: pointer; text-align: center;
+  font-weight: 700; font-size: 13px; letter-spacing: 0.5px;
+  transition: transform 0.15s, box-shadow 0.15s; position: relative;
+}
+.theme-pick-btn:active { transform: scale(0.96); }
+.theme-pick-btn.selected::after {
+  content: "\2713"; position: absolute; top: 6px; right: 8px;
+  font-size: 14px; font-weight: 900;
+}
 .queue-empty {
   text-align: center; padding: 60px 20px; color: var(--white-faint); font-size: 14px;
 }
@@ -377,7 +404,7 @@ var NC=[
 {c:"#d946ef",g:"rgba(217,70,239,0.3)"},
 {c:"#e11d48",g:"rgba(225,29,72,0.3)"}
 ];
-var S={screen:"loading",sessionCode:null,sessionId:null,guestId:null,guestName:"",catalog:[],searchQuery:"",selectedTrack:null,singerCount:1,singers:[{name:"",color:NC[0].c,colorGlow:NC[0].g,roleIndices:[]}],queue:[],nowPlaying:null,errorMessage:"",theme_name:"neo-brutal"};
+var S={screen:"loading",sessionCode:null,sessionId:null,guestId:null,guestName:"",catalog:[],searchQuery:"",selectedTrack:null,singerCount:1,singers:[{name:"",color:NC[0].c,colorGlow:NC[0].g,roleIndices:[]}],queue:[],nowPlaying:null,errorMessage:"",theme_name:"neo-brutal",stage_theme:null};
 var qCh=null,sCh=null;
 function init(){
   var p=new URLSearchParams(window.location.search);
@@ -436,9 +463,11 @@ async function addToQueue(){
   var sc=S.singers.slice(0,S.singerCount).map(function(s){return{name:s.name||"Singer",color:s.color,colorGlow:s.colorGlow,roleIndices:s.roleIndices||[]};});
   var mr=await sb.from("karaoke_queue").select("position").eq("session_id",S.sessionId).order("position",{ascending:false}).limit(1).single();
   var np=(mr.data?mr.data.position:-1)+1;
-  var r=await sb.from("karaoke_queue").insert({session_id:S.sessionId,track_id:t.track_id,track_name:t.name,track_artist:t.artist,track_art_url:t.art_url,track_duration_ms:t.duration_ms,singer_configs:sc,added_by_guest_id:S.guestId,added_by_name:S.guestName,source:"remote",position:np,status:"queued"});
+  var ins={session_id:S.sessionId,track_id:t.track_id,track_name:t.name,track_artist:t.artist,track_art_url:t.art_url,track_duration_ms:t.duration_ms,singer_configs:sc,added_by_guest_id:S.guestId,added_by_name:S.guestName,source:"remote",position:np,status:"queued"};
+  if(S.stage_theme)ins.stage_theme=S.stage_theme;
+  var r=await sb.from("karaoke_queue").insert(ins);
   if(r.error){alert("Failed to add song. Try again.");return;}
-  S.selectedTrack=null;S.screen="queue";await loadQueue();render();
+  S.selectedTrack=null;S.stage_theme=null;S.screen="queue";await loadQueue();render();
 }
 function setSC(n){
   S.singerCount=n;
@@ -454,7 +483,9 @@ function applyTheme(){
   if(S.theme_name==="cyberpunk"){
     css=":root{--black:#060610;--surface-1:rgba(0,255,136,0.04);--surface-2:rgba(0,255,136,0.07);--surface-3:rgba(0,255,136,0.1);--white:#d0ffe8;--white-muted:rgba(0,255,136,0.6);--white-faint:rgba(0,255,136,0.3);--white-ghost:rgba(0,255,136,0.18);--violet:#00e5ff;--pink:#ff00aa;--cyan:#00ff88;--emerald:#00ff88;--amber:#ffcc00;--red:#ff0055;--grad-hero:linear-gradient(135deg, #00ff88, #00e5ff);--grad-text:linear-gradient(135deg, #00ff88, #00e5ff);--font-display:'Share Tech Mono', 'Courier New', monospace;--font-body:'Share Tech Mono', 'Courier New', monospace;} *{border-radius:0 !important;}";
   }else if(S.theme_name==="sketch"){
-    css=":root{--black:#faf4ed;--surface-1:rgba(0,0,0,0.04);--surface-2:rgba(0,0,0,0.08);--surface-3:rgba(0,0,0,0.12);--white:#1c1b18;--white-muted:rgba(28,27,24,0.65);--white-faint:rgba(28,27,24,0.4);--white-ghost:rgba(28,27,24,0.15);--violet:#ff4b4b;--pink:#ff4b4b;--cyan:#22d3ee;--emerald:#34d399;--amber:#ffb100;--red:#e11d48;--grad-hero:linear-gradient(135deg, #1c1b18, #333);--grad-text:linear-gradient(135deg, #1c1b18, #333);--font-display:'Comic Sans MS', 'Chalkboard SE', sans-serif;--font-body:'Comic Sans MS', 'Chalkboard SE', sans-serif;} *{box-shadow:none !important;}";
+    css=":root{--black:#fdfbf7;--surface-1:rgba(45,93,161,0.06);--surface-2:rgba(45,93,161,0.1);--surface-3:rgba(45,93,161,0.15);--white:#2d2d2d;--white-muted:rgba(45,45,45,0.7);--white-faint:rgba(45,45,45,0.4);--white-ghost:rgba(45,45,45,0.18);--violet:#2d5da1;--pink:#e74c3c;--cyan:#2d5da1;--emerald:#27ae60;--amber:#f39c12;--red:#e74c3c;--grad-hero:linear-gradient(135deg, #2d5da1, #e74c3c);--grad-text:linear-gradient(135deg, #2d5da1, #e74c3c);--font-display:'Patrick Hand', 'Comic Sans MS', cursive;--font-body:'Patrick Hand', 'Comic Sans MS', cursive;} *{box-shadow:none !important;} .song-card,.config-section,.queue-item,.singer-card{border-style:dashed !important;border-width:2px !important;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px !important;} .join-btn,.add-queue-btn,.singer-count-btn,.role-btn{border-radius:255px 15px 225px 15px / 15px 225px 15px 255px !important;}";
+  }else if(S.theme_name==="urban"){
+    css=":root{--black:#050505;--surface-1:rgba(212,255,0,0.04);--surface-2:rgba(212,255,0,0.07);--surface-3:rgba(212,255,0,0.1);--white:#f0f0f0;--white-muted:rgba(240,240,240,0.65);--white-faint:rgba(240,240,240,0.35);--white-ghost:rgba(212,255,0,0.12);--violet:#D4FF00;--pink:#ff3366;--cyan:#00e5ff;--emerald:#D4FF00;--amber:#ff9500;--red:#ff3366;--grad-hero:linear-gradient(135deg, #D4FF00, #ff3366);--grad-text:linear-gradient(135deg, #D4FF00, #ff3366);--font-display:'Oswald', 'Impact', sans-serif;--font-body:'Oswald', 'Arial Narrow', sans-serif;} .mesh-bg{background:radial-gradient(ellipse 80% 60% at 50% 30%, rgba(212,255,0,0.06), transparent 70%), radial-gradient(ellipse 60% 50% at 80% 80%, rgba(255,51,102,0.04), transparent) !important;}";
   }else{
     css="";
   }
@@ -501,7 +532,7 @@ function renderSongs(){
     '<div class="songs-header">'+
       '<div class="songs-title">Songs</div>'+
       '<div class="search-bar">'+
-        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'+
+        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'+
         '<input class="search-input" id="search-input" placeholder="Search songs or artists..." value="'+esc(S.searchQuery)+'">'+
       '</div>'+
     '</div>'+
@@ -543,6 +574,16 @@ function renderConfig(){
     '</div>'+
     '<div class="config-section"><div class="config-label"><div class="config-label-icon" style="background:rgba(244,114,182,0.1)">&#127908;</div> How many singers?</div><div class="singer-count-btns">'+scb+'</div></div>'+
     sh+
+    '<div class="theme-picker">'+
+      '<div class="theme-picker-label"><div class="config-label-icon" style="background:rgba(167,139,250,0.1)">&#127912;</div> Stage Theme</div>'+
+      '<div class="theme-picker-grid">'+
+        '<button class="theme-pick-btn'+(S.stage_theme===null?" selected":"")+'" data-stage-theme="none" style="background:#050508;color:#f4f0fb;border:1.5px solid rgba(244,240,251,0.2);border-radius:12px;font-family:\'Space Grotesk\',sans-serif;">Session Default</button>'+
+        '<button class="theme-pick-btn'+(S.stage_theme==="neo-brutal"?" selected":"")+'" data-stage-theme="neo-brutal" style="background:#FFFDF5;color:#1A1A1A;border:3px solid #1A1A1A;border-radius:8px;font-family:\'Space Grotesk\',sans-serif;box-shadow:3px 3px 0 #1A1A1A;">Neo Brutal</button>'+
+        '<button class="theme-pick-btn'+(S.stage_theme==="cyberpunk"?" selected":"")+'" data-stage-theme="cyberpunk" style="background:#0a0a1a;color:#00ff88;border:1.5px solid #00ff88;border-radius:0;font-family:\'Courier New\',monospace;text-shadow:0 0 8px rgba(0,255,136,0.5);">Cyberpunk</button>'+
+        '<button class="theme-pick-btn'+(S.stage_theme==="sketch"?" selected":"")+'" data-stage-theme="sketch" style="background:#fdfbf7;color:#2d5da1;border:2px dashed #2d5da1;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px;font-family:\'Patrick Hand\',cursive;">Sketch</button>'+
+        '<button class="theme-pick-btn'+(S.stage_theme==="urban"?" selected":"")+'" data-stage-theme="urban" style="background:#0a0a0a;color:#D4FF00;border:1.5px solid #D4FF00;border-radius:4px;font-family:\'Oswald\',sans-serif;text-transform:uppercase;letter-spacing:2px;">Urban</button>'+
+      '</div>'+
+    '</div>'+
     '<button class="add-queue-btn" id="add-queue-btn">Add to Queue</button>'+
   '</div>';
 }
@@ -553,12 +594,21 @@ function renderQueue(){
   if(S.queue.length===0){ih='<div class="queue-empty">Queue is empty. Add some songs!</div>';}
   else{ih=S.queue.map(function(q,i){
     var cs=q.singer_configs||[];
+    var cat=S.catalog.find(function(c){return c.track_id===q.track_id;});
+    var roles=cat&&cat.roles?cat.roles:[];
+    var singerPills="";
+    if(cs.length>0){
+      singerPills='<div class="queue-singer-pills">'+cs.map(function(s){
+        var rn=[];
+        if(s.roleIndices&&roles.length>0){s.roleIndices.forEach(function(ri){if(roles[ri])rn.push(roles[ri]);});}
+        return '<div class="queue-singer-pill"><div class="queue-singer-dot" style="background:'+s.color+'">'+esc((s.name||"?").charAt(0).toUpperCase())+'</div>'+esc(s.name||"Singer")+(rn.length>0?'<span class="queue-singer-role"> \u00B7 '+esc(rn.join(", "))+'</span>':"")+'</div>';
+      }).join("")+'</div>';
+    }
     return '<div class="queue-item"><div class="queue-pos">'+(i+1)+'</div>'+
       (q.track_art_url?'<img src="'+q.track_art_url+'" alt="">':"")+
       '<div class="queue-item-info"><div class="queue-item-title">'+esc(q.track_name)+'</div><div class="queue-item-artist">'+esc(q.track_artist)+'</div>'+
       (q.added_by_name?'<div class="queue-item-added">Added by '+esc(q.added_by_name)+'</div>':"")+
-      '</div><div class="queue-item-meta">'+
-      (cs.length>0?'<div class="queue-singers-badge"><span>&#128101;</span>'+cs.length+'</div>':"")+
+      singerPills+
     '</div></div>';
   }).join("");}
   return '<div class="queue-screen screen"><div class="queue-title">Queue</div>'+npH+
@@ -611,6 +661,13 @@ function bindEvents(){
       var idx=S.singers[si2].roleIndices||[];
       if(idx.indexOf(ri)>=0){S.singers[si2].roleIndices=idx.filter(function(x){return x!==ri;});}
       else{S.singers[si2].roleIndices=idx.concat([ri]);}
+      render();
+    });
+  });
+  document.querySelectorAll(".theme-pick-btn").forEach(function(btn){
+    btn.addEventListener("click",function(){
+      var v=btn.dataset.stageTheme;
+      S.stage_theme=(v==="none"?null:v);
       render();
     });
   });

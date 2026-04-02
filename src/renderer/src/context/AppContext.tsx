@@ -66,6 +66,7 @@ export interface QueueItem {
     monitorDeviceIds?: string[]
     addedBy?: string | null
     remoteQueueId?: string | null
+    stageTheme?: string | null
 }
 
 export type StageMode = 'idle' | 'ready' | 'playing'

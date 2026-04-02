@@ -127,6 +127,7 @@ export async function insertQueueItem(sessionId: string, item: {
     singerConfigs: any[]
     addedByName?: string | null
     source: 'local' | 'remote'
+    stageTheme?: string | null
 }): Promise<{ id: string }> {
     // Get next position
     const { data: maxRow } = await supabase
@@ -151,6 +152,7 @@ export async function insertQueueItem(sessionId: string, item: {
             singer_configs: item.singerConfigs,
             added_by_name: item.addedByName || null,
             source: item.source,
+            stage_theme: item.stageTheme || null,
             position: nextPosition,
             status: 'queued'
         })

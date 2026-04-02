@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { HashRouter as Router, Routes, Route, NavLink, useLocation } from 'react-router-dom'
-import { AppProvider } from './context/AppContext'
-import { ThemeProvider, useTheme } from './context/ThemeContext'
+import { AppProvider, useApp } from './context/AppContext'
+import { ThemeProvider, StageThemeProvider, useTheme } from './context/ThemeContext'
 import { useKaraokeSession } from './hooks/useKaraokeSession'
 import { AudioSyncProvider } from './context/AudioSyncContext'
 import SearchPage from './pages/SearchPage'
@@ -183,6 +183,16 @@ function TopNav() {
     )
 }
 
+function StageKaraokePage() {
+    const { state } = useApp()
+    const stageTheme = state.nowPlaying?.stageTheme
+    return (
+        <StageThemeProvider themeName={stageTheme}>
+            <KaraokePage />
+        </StageThemeProvider>
+    )
+}
+
 function AppContent() {
     const location = useLocation()
     const isKaraoke = location.pathname === '/karaoke'
@@ -201,7 +211,7 @@ function AppContent() {
                     <Route path="/" element={<SearchPage />} />
                     <Route path="/queue" element={<QueuePage />} />
                     <Route path="/controls" element={<ControlsPage />} />
-                    <Route path="/karaoke" element={<KaraokePage />} />
+                    <Route path="/karaoke" element={<StageKaraokePage />} />
                     <Route path="/admin" element={<AdminPage />} />
                 </Routes>
             </div>

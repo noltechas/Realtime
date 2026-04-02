@@ -46,12 +46,12 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
         this._smoothedRatio = 1.0;
 
         // Dual-head crossfade OLA (fixed grain size for stable COLA)
-        this._grainSize = 1024;
-        this._hanning = new Float32Array(1024);
-        this._computeHanning(1024);
+        this._grainSize = 512;
+        this._hanning = new Float32Array(512);
+        this._computeHanning(512);
 
         // Latency: how far behind wPos the heads should nominally sit (2x grain)
-        this._latency = 2048;
+        this._latency = 1024;
 
         // Head A (fractional position for interpolated reads)
         this._hAPos = 0;
@@ -106,25 +106,18 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
         this._hBProg = this._grainSize >> 1;
     }
 
-    // Soft re-centering: nudge head toward ideal position at grain boundaries.
-    // Hard-snap only if dangerously close to write head.
+    // Only prevent write-head collision. Do NOT nudge toward unshifted position
+    // — that was fighting the pitch correction.
     _safePos(headPos) {
         const bLen = this._bufSize;
-        const target = (this._wPos - this._latency + bLen) % bLen;
         let dist = (this._wPos - headPos + bLen) % bLen;
 
-        // Emergency hard snap if about to collide with write head
-        if (dist < 128 || dist > bLen - 128) {
-            return target;
+        // Only intervene if dangerously close to write head or wrapped around
+        if (dist < 256 || dist > bLen - 256) {
+            return (this._wPos - this._latency + bLen) % bLen;
         }
-
-        // Gradual nudge: move 25% toward target each grain boundary
-        let drift = target - headPos;
-        // Wrap to shortest signed path
-        if (drift > bLen / 2) drift -= bLen;
-        if (drift < -bLen / 2) drift += bLen;
-        const nudge = drift * 0.25;
-        return ((headPos + nudge) % bLen + bLen) % bLen;
+        // Otherwise leave the head where it is
+        return headPos;
     }
 
     process(inputs, outputs) {
@@ -169,13 +162,13 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
         // (where Hanning weight = 0, so snapping is click-free).
         const gs = this._grainSize;
 
-        for (let i = 0; i < len; i++) {
-            // Smooth ratio changes - speed tied to strength
-            // High strength = fast retune (robotic), low = slow (natural)
-            const rate = 0.003 + (this._strength / 100) * 0.047;
-            this._smoothedRatio += (this._ratio - this._smoothedRatio) * rate;
+        // Block-rate ratio smoothing (once per render quantum, ~2.7ms)
+        // High strength = instant snap (robotic), low = ~10-15ms retune
+        const snapSpeed = this._strength >= 80 ? 1.0 : 0.15 + (this._strength / 100) * 0.6;
+        this._smoothedRatio += (this._ratio - this._smoothedRatio) * snapSpeed;
+        const sr = this._smoothedRatio;
 
-            const sr = this._smoothedRatio;
+        for (let i = 0; i < len; i++) {
 
             // Read from both heads with linear interpolation
             const sA = this._readBufLerp(this._hAPos);
@@ -254,7 +247,7 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
         // Step 3: Absolute threshold search
         const minPeriod = Math.max(2, Math.floor(sampleRate / 2000));
         const maxPeriod = Math.min(half - 1, Math.floor(sampleRate / 60));
-        const threshold = 0.3;
+        const threshold = 0.15;
         let tauEst = -1;
 
         for (let tau = minPeriod; tau < maxPeriod; tau++) {
@@ -323,8 +316,9 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
         // Clamp to ±6 semitones (~0.707 to ~1.414)
         const clamped = Math.max(0.707, Math.min(1.414, full));
 
-        // Apply strength weighting
-        this._ratio = 1.0 + (clamped - 1.0) * (this._strength / 100);
+        // Strength controls retune speed (smoothing), not ratio magnitude.
+        // Target should always be the fully corrected pitch.
+        this._ratio = clamped;
     }
 
     _findTarget(freq) {

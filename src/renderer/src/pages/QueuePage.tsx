@@ -538,7 +538,10 @@ function NowPlayingBanner() {
                             color: theme.white, opacity: 0.8, textTransform: 'uppercase',
                             letterSpacing: '0.5px',
                         }}>
-                            {singers.map(s => s.name).join(' / ')}
+                            {singers.map(s => {
+                                const roleNames = (s.roleIndices || []).map(ri => np.roles[ri]).filter(Boolean)
+                                return s.name + (roleNames.length > 0 ? ' (' + roleNames.join(', ') + ')' : '')
+                            }).join(' / ')}
                         </div>
                     </div>
                 )}
@@ -811,14 +814,29 @@ export default function QueuePage() {
                                     )}
                                 </div>
 
-                                {/* Singer avatars */}
+                                {/* Singer avatars with names & roles */}
                                 {singers.length > 0 && (
-                                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                                        {singers.map((s, idx) => (
-                                            <div key={s.id} style={{ marginLeft: idx > 0 ? -6 : 0, zIndex: singers.length - idx }}>
-                                                <SingerAvatar name={s.name} color={s.color} />
-                                            </div>
-                                        ))}
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
+                                        {singers.map((s) => {
+                                            const roleNames = (s.roleIndices || []).map(ri => item.roles[ri]).filter(Boolean)
+                                            return (
+                                                <div key={s.id} style={{
+                                                    display: 'flex', alignItems: 'center', gap: 4,
+                                                    padding: '2px 8px 2px 2px', borderRadius: 99,
+                                                    background: `${s.color}15`, border: `1px solid ${s.color}30`,
+                                                    fontSize: 11, fontFamily: theme.fontDisplay, fontWeight: 600,
+                                                    color: theme.black,
+                                                }}>
+                                                    <SingerAvatar name={s.name} color={s.color} size={20} />
+                                                    <span>{s.name || 'Singer'}</span>
+                                                    {roleNames.length > 0 && (
+                                                        <span style={{ fontSize: 9, opacity: 0.5, fontWeight: 400 }}>
+                                                            {roleNames.join(', ')}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )
+                                        })}
                                     </div>
                                 )}
 
