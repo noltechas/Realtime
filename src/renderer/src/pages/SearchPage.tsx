@@ -357,7 +357,7 @@ export default function SearchPage() {
                                         fontFamily: theme.fontDisplay,
                                         fontWeight: 700,
                                         fontSize: 14,
-                                        color: theme.black,
+                                        color: (isHovered && theme.cardHover.color) ? theme.cardHover.color : theme.black,
                                         whiteSpace: 'nowrap',
                                         overflow: 'hidden',
                                         textOverflow: 'ellipsis',
@@ -366,7 +366,8 @@ export default function SearchPage() {
                                     </div>
                                     <div style={{
                                         fontSize: 12,
-                                        color: theme.muted,
+                                        color: (isHovered && theme.cardHover.color) ? theme.cardHover.color : theme.muted,
+                                        opacity: isHovered ? ((theme.cardHover.color) ? 0.7 : 1) : 1,
                                         marginTop: 2,
                                         whiteSpace: 'nowrap',
                                         overflow: 'hidden',
@@ -380,7 +381,8 @@ export default function SearchPage() {
                                     </div>
                                     <div style={{
                                         fontSize: 11,
-                                        color: theme.faint,
+                                        color: (isHovered && theme.cardHover.color) ? theme.cardHover.color : theme.faint,
+                                        opacity: isHovered ? ((theme.cardHover.color) ? 0.5 : 1) : 1,
                                         marginTop: 4,
                                         whiteSpace: 'nowrap',
                                         overflow: 'hidden',

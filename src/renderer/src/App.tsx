@@ -3,6 +3,7 @@ import { HashRouter as Router, Routes, Route, NavLink, useLocation } from 'react
 import { AppProvider } from './context/AppContext'
 import { ThemeProvider, useTheme } from './context/ThemeContext'
 import { useKaraokeSession } from './hooks/useKaraokeSession'
+import { AudioSyncProvider } from './context/AudioSyncContext'
 import SearchPage from './pages/SearchPage'
 import KaraokePage from './pages/KaraokePage'
 import QueuePage from './pages/QueuePage'
@@ -14,24 +15,11 @@ import './styles/karaoke.css'
 function TitleBar() {
     const isStage = window.electronAPI?.isStageWindow ?? false
     const { titlebarBg, titlebarText, fontDisplay } = useTheme()
+
+    if (isStage) return null
+
     return (
         <div className="titlebar" style={{ background: titlebarBg }}>
-            {isStage && (
-                <div className="titlebar__traffic">
-                    <button
-                        className="titlebar__dot titlebar__dot--close"
-                        onClick={() => window.electronAPI?.stageClose()}
-                    />
-                    <button
-                        className="titlebar__dot titlebar__dot--min"
-                        onClick={() => window.electronAPI?.stageMinimize()}
-                    />
-                    <button
-                        className="titlebar__dot titlebar__dot--max"
-                        onClick={() => window.electronAPI?.stageToggleFullscreen()}
-                    />
-                </div>
-            )}
             {!isStage && (
                 <span className="titlebar__brand" style={{ color: titlebarText, fontFamily: fontDisplay }}>
                     Realtime Karaoke
@@ -203,7 +191,7 @@ function AppContent() {
     useKaraokeSession()
 
     return (
-        <>
+        <AudioSyncProvider>
             {!isKaraoke && <TopNav />}
             <div
                 className={isKaraoke ? '' : 'main'}
@@ -217,21 +205,21 @@ function AppContent() {
                     <Route path="/admin" element={<AdminPage />} />
                 </Routes>
             </div>
-        </>
+        </AudioSyncProvider>
     )
 }
 
 export default function App() {
     return (
-        <ThemeProvider>
-            <AppProvider>
+        <AppProvider>
+            <ThemeProvider>
                 <Router>
                     <div className="app-shell">
                         <TitleBar />
                         <AppContent />
                     </div>
                 </Router>
-            </AppProvider>
-        </ThemeProvider>
+            </ThemeProvider>
+        </AppProvider>
     )
 }

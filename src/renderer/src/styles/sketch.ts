@@ -78,7 +78,7 @@ const GLOBAL_CSS = `
 
 export const SKETCH: Theme = {
   name: 'sketch',
-  nextThemeName: 'neo-brutal',
+  nextThemeName: 'urban',
   displayName: 'Hand-Drawn',
   globalCss: GLOBAL_CSS,
 

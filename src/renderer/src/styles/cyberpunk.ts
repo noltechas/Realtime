@@ -188,7 +188,7 @@ export const CYBERPUNK: Theme = {
   // NOTE: In cyberpunk, 'black' maps to the *foreground* text color (light),
   // not the background — because all pages use theme.black as primary text.
   black:       WHITE,
-  white:       WHITE,
+  white:       VOID,   // flipped for high-contrast blocks (light banners / row backgrounds)
   cream:       VOID_PANEL,
   creamDark:   VOID_CARD,
   hotRed:      NEON_MAGENTA,

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useApp } from '../context/AppContext'
+import { useTheme } from '../context/ThemeContext'
 
 import { VoiceEffectsEngine } from '../audio/VoiceEffectsEngine'
 
@@ -80,14 +81,17 @@ function useSingerMic(deviceId: string, enabled: boolean, effects: any, mainOutp
 }
 
 // ---- Mic Meter Component ----
-function MicMeter({ singer, active, effects, mainOutputId }: { singer: { name: string; color: string; micDeviceId: string }; active: boolean; effects: any; mainOutputId: string }) {
+function MicMeter({ singer, active, effects, mainOutputId, theme }: { singer: { name: string; color: string; micDeviceId: string }; active: boolean; effects: any; mainOutputId: string; theme: any }) {
     const level = useSingerMic(singer.micDeviceId, active, effects, mainOutputId)
     const bars = 8
     const activeBars = Math.round(level * bars * 2.5)
+    
+    // Fallback for dark bars if background is bright
+    const inactiveColor = theme.appBg === '#FFF8EE' || theme.appBg === '#faf4ed' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.08)'
 
     return (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 12, fontFamily: 'var(--font-display)', fontWeight: 600, color: 'white', letterSpacing: 0.5 }}>
+            <span style={{ fontSize: 12, fontFamily: theme.fontDisplay, fontWeight: 600, color: 'inherit', letterSpacing: 0.5 }}>
                 {singer.name}
             </span>
             <div style={{
@@ -99,7 +103,7 @@ function MicMeter({ singer, active, effects, mainOutputId }: { singer: { name: s
                     return (
                         <div key={i} style={{
                             width: 3, height: h, borderRadius: 2,
-                            background: isActive ? singer.color : 'rgba(255,255,255,0.08)',
+                            background: isActive ? singer.color : inactiveColor,
                             transition: 'background 0.08s ease',
                             boxShadow: isActive ? `0 0 4px ${singer.color}` : 'none',
                         }} />
@@ -112,7 +116,9 @@ function MicMeter({ singer, active, effects, mainOutputId }: { singer: { name: s
 
 // ---- Main Component (Display Only) ----
 export default function KaraokePage() {
-    const { state } = useApp()
+    const { state, dispatch } = useApp()
+    const theme = useTheme()
+    const containerRef = useRef<HTMLDivElement>(null)
     const [lineIdx, setLineIdx] = useState(-1)
     const [elapsed, setElapsed] = useState(0)
     const [showUI, setShowUI] = useState(true)
@@ -122,6 +128,8 @@ export default function KaraokePage() {
     // YouTube player sync
     const ytPlayerRef = useRef<any>(null)
     const ytReadyRef = useRef(false)
+    const [ytReady, setYtReady] = useState(false)
+    const [previewSlices, setPreviewSlices] = useState<number[]>([])
 
     const np = state.nowPlaying
     const track = np?.track || null
@@ -154,7 +162,16 @@ export default function KaraokePage() {
     useEffect(() => {
         setElapsed(0)
         setLineIdx(-1)
-    }, [track?.id])
+        if (track && track.duration_ms && ytId) {
+            const durationSec = Math.floor(track.duration_ms / 1000)
+            const margin = 10
+            const maxStart = Math.max(0, durationSec - margin)
+            const slices = Array.from({ length: 5 }, () => Math.floor(Math.random() * maxStart))
+            setPreviewSlices(slices)
+        } else {
+            setPreviewSlices([])
+        }
+    }, [track?.id, ytId])
 
     // Load YouTube IFrame API and create player
     useEffect(() => {
@@ -189,6 +206,7 @@ export default function KaraokePage() {
                 events: {
                     onReady: () => {
                         ytReadyRef.current = true
+                        setYtReady(true)
                         if (state.stageMode === 'playing' && state.isPlaying) {
                             ytPlayerRef.current?.playVideo()
                         }
@@ -212,19 +230,42 @@ export default function KaraokePage() {
             ytPlayerRef.current?.destroy()
             ytPlayerRef.current = null
             ytReadyRef.current = false
+            setYtReady(false)
         }
     }, [ytId])
 
-    // Sync YouTube player play/pause with stage mode
+    // Sync YouTube player play/pause and handle stage mode music video previews
     useEffect(() => {
-        const shouldPlay = state.stageMode === 'playing' && state.isPlaying
-        if (!ytReadyRef.current || !ytPlayerRef.current) return
-        if (shouldPlay) {
-            ytPlayerRef.current.playVideo()
+        if (!ytReady || !ytPlayerRef.current) return
+
+        if (state.stageMode === 'ready' && previewSlices.length > 0) {
+            let sliceIdx = 0
+            
+            const playSlice = () => {
+                if (!ytPlayerRef.current) return
+                const startSec = previewSlices[sliceIdx % previewSlices.length]
+                ytPlayerRef.current.seekTo(startSec, true)
+                ytPlayerRef.current.playVideo()
+                
+                sliceIdx++
+            }
+
+            // Play immediately
+            playSlice()
+            
+            // Then every 4 seconds
+            const interval = setInterval(playSlice, 4000)
+            return () => clearInterval(interval)
         } else {
-            ytPlayerRef.current.pauseVideo()
+            // standard playback sync
+            const shouldPlay = state.stageMode === 'playing' && state.isPlaying
+            if (shouldPlay) {
+                ytPlayerRef.current.playVideo()
+            } else {
+                ytPlayerRef.current.pauseVideo()
+            }
         }
-    }, [state.stageMode, state.isPlaying])
+    }, [state.stageMode, state.isPlaying, previewSlices, ytReady])
 
     // Auto-hide UI
     const handleMouse = useCallback(() => {
@@ -320,20 +361,30 @@ export default function KaraokePage() {
             <div className="k-bg">
                 {art && <img className="k-bg__img" src={art} alt="" />}
                 {ytId && (
-                    <div className="k-bg__yt-wrap" style={{ opacity: state.stageMode === 'playing' ? 1 : 0 }}>
+                    <div className="k-bg__yt-wrap" style={{ opacity: 1 }}>
                         <div id="yt-bg-player" />
                         <div className="k-bg__yt-mask" aria-hidden="true" />
                     </div>
                 )}
-                <div className="k-bg__scrim" />
+                {state.stageMode === 'playing' && <div className="k-bg__scrim" />}
             </div>
 
+            {/* Hidden SVG for Filters */}
+            <svg style={{ position: 'fixed', pointerEvents: 'none', width: 0, height: 0 }}>
+                <defs>
+                    <filter id="urban-rough-filter">
+                        <feTurbulence type="fractalNoise" baseFrequency="0.04 0.15" numOctaves="3" result="noise" />
+                        <feDisplacementMap in="SourceGraphic" in2="noise" scale="12" xChannelSelector="R" yChannelSelector="G" />
+                    </filter>
+                </defs>
+            </svg>
+
             {/* Song chip (top-left) */}
-            <div className="k-song-chip" style={{ opacity: showUI ? 1 : 0 }}>
+            <div className="k-song-chip" style={{ background: theme.appBg, ...theme.stickerLabel, position: 'absolute', opacity: 1 }}>
                 {art && <img className="k-song-chip__art" src={art} alt="" />}
                 <div className="k-song-chip__text">
-                    <h3>{track.name}</h3>
-                    <p>{track.artists.map((a: any) => a.name).join(', ')}</p>
+                    <h3 style={{ fontFamily: theme.fontDisplay }}>{track.name}</h3>
+                    <p style={{ color: theme.muted }}>{track.artists.map((a: any) => a.name).join(', ')}</p>
                 </div>
             </div>
 
@@ -350,14 +401,14 @@ export default function KaraokePage() {
                                 singerEffects = singerEffects[index] || singerEffects[0]
                             }
                             return (
-                                <div key={s.id} className="k-singer-tag">
-                                    <MicMeter singer={s} active={micActive} effects={singerEffects} mainOutputId={state.mainOutputId} />
+                                <div key={s.id} className="k-singer-tag" style={{ background: theme.appBg, ...theme.stickerLabel, position: 'relative', padding: '4px 12px' }}>
+                                    <MicMeter singer={s} active={micActive} effects={singerEffects} mainOutputId={state.mainOutputId} theme={theme} />
                                 </div>
                             )
                         } else {
                             return (
-                                <div key={s.id} className="k-singer-tag">
-                                    <span>{s.name}</span>
+                                <div key={s.id} className="k-singer-tag" style={{ background: theme.appBg, ...theme.stickerLabel, position: 'relative', padding: '4px 12px' }}>
+                                    <span style={{ color: 'inherit', fontFamily: theme.fontDisplay }}>{s.name}</span>
                                     <div className="k-singer-tag__dot" style={{ background: s.color }} />
                                 </div>
                             )
@@ -366,18 +417,26 @@ export default function KaraokePage() {
                 </div>
             )}
 
-            {/* Lyrics */}
+            {/* Lyrics & Stage Centerpiece */}
             <div className="k-lyrics" ref={lyricsRef}>
                 {state.stageMode === 'ready' ? (
-                    <div className="anim-enter k-upnext" style={{ textAlign: 'center', width: '100%', maxWidth: 1100, margin: '0 auto', padding: '0 48px' }}>
+                    <div className="anim-enter k-upnext" style={{ width: '100%', maxWidth: 1100, margin: '0 auto', padding: '0 48px' }}>
                         <div style={{
-                            fontSize: 12, fontWeight: 700, color: 'var(--emerald)', letterSpacing: '0.25em', textTransform: 'uppercase', marginBottom: 32,
-                            textShadow: '0 0 24px rgba(52, 211, 153, 0.5)'
+                            display: 'flex', 
+                            flexDirection: 'column', 
+                            alignItems: 'center', 
+                            gap: 40, 
                         }}>
-                            Up Next
-                        </div>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 40 }}>
+                            <div style={{
+                                background: theme.appBg,
+                                ...theme.stickerLabel,
+                                position: 'relative',
+                                display: 'inline-block',
+                                padding: '8px 24px',
+                                fontSize: 13, fontWeight: 800, color: theme.mintGreen || theme.page?.color, letterSpacing: '0.2em', textTransform: 'uppercase',
+                            }}>
+                                Up Next
+                            </div>
                             {/* Prominent album art */}
                             {art && (
                                 <img
@@ -386,47 +445,60 @@ export default function KaraokePage() {
                                     style={{
                                         width: 340,
                                         height: 340,
-                                        borderRadius: 28,
-                                        boxShadow: '0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06)',
+                                        borderRadius: theme.radius,
+                                        boxShadow: theme.shadow,
+                                        border: theme.border,
                                         objectFit: 'cover',
                                     }}
                                 />
                             )}
-                            <div style={{ textAlign: 'center' }}>
-                                <h1 style={{ fontSize: 42, fontWeight: 800, lineHeight: 1.15, marginBottom: 10, letterSpacing: '-0.5px', color: 'white' }}>
+                            <div style={{ textAlign: 'center', ...theme.card, padding: '32px 48px' }}>
+                                <h1 style={{ fontFamily: theme.fontDisplay, color: theme.page?.color as string || theme.black, fontSize: 42, fontWeight: 800, lineHeight: 1.15, marginBottom: 10, letterSpacing: '-0.5px' }}>
                                     {track.name}
                                 </h1>
-                                <p style={{ fontSize: 18, color: 'var(--white-muted)', marginBottom: 36 }}>
-                                    {track.artists.map((a: any) => a.name).join(', ')}
+                                <p style={{ fontSize: 18, color: theme.muted, opacity: 0.8, marginBottom: 36, display: 'flex', gap: 16, justifyContent: 'center', alignItems: 'center' }}>
+                                    <span>{track.artists.map((a: any) => a.name).join(', ')}</span>
+                                    {track.duration_ms && (
+                                        <>
+                                            <span style={{ opacity: 0.5 }}>•</span>
+                                            <span>
+                                                {Math.floor(track.duration_ms / 60000)}:
+                                                {Math.floor((track.duration_ms % 60000) / 1000).toString().padStart(2, '0')}
+                                            </span>
+                                        </>
+                                    )}
                                 </p>
                                 {/* Large, prominent singer names */}
                                 <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 16 }}>
-                                    {singers.map(s => (
-                                        <div
-                                            key={s.id}
-                                            style={{
-                                                padding: '20px 40px',
-                                                borderRadius: 16,
-                                                background: `linear-gradient(135deg, ${s.color}22, ${s.color}08)`,
-                                                border: `2px solid ${s.color}`,
-                                                color: s.color,
-                                                fontWeight: 700,
-                                                fontSize: 40,
-                                                letterSpacing: '0.02em',
-                                                textShadow: `0 0 30px ${s.color}66`,
-                                                boxShadow: `0 8px 32px ${s.color}22`,
-                                            }}
-                                        >
-                                            {s.name}
-                                        </div>
-                                    ))}
+                                    {singers.map(s => {
+                                        const roleStr = s.roleIndices && s.roleIndices.length > 0 && roles.length > 0
+                                            ? s.roleIndices.map(idx => roles[idx]).filter(Boolean).join(' & ')
+                                            : ''
+                                        const displayText = roleStr ? `${s.name} - ${roleStr}` : s.name
+                                        
+                                        return (
+                                            <div
+                                                key={s.id}
+                                                style={{
+                                                    background: theme.appBg,
+                                                    ...theme.stickerLabel,
+                                                    position: 'relative',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    padding: '16px 36px',
+                                                    color: s.color,
+                                                    fontWeight: 700,
+                                                    fontSize: 28,
+                                                }}
+                                            >
+                                                {displayText}
+                                            </div>
+                                        )
+                                    })}
                                 </div>
                             </div>
                         </div>
-
-                        <p style={{ color: 'var(--white-faint)', fontSize: 14, marginTop: 40 }}>
-                            Waiting for host to start... Mic is live — warm up your voice!
-                        </p>
                     </div>
                 ) : groupedLyrics.length === 0 ? (
                     <div style={{ textAlign: 'center' }}>
@@ -443,22 +515,88 @@ export default function KaraokePage() {
                             <div key={i} style={{ display: 'flex', gap: 24, justifyContent: 'center', flexWrap: 'wrap' }}>
                                 {group.map((line: any, j: number) => {
                                     let cls = 'k-line k-line--lg'
-                                    let inlineStyle: React.CSSProperties = {}
+                                    let inlineStyle: React.CSSProperties = {
+                                        fontFamily: theme.fontDisplay
+                                    }
 
                                     if (isActiveGroup) {
                                         cls += ' k-line--now'
-                                        if (line.singerIndices && line.singerIndices.length > 1) {
-                                            const colors = line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
-                                            if (colors.length > 1) {
-                                                inlineStyle.backgroundImage = `linear-gradient(90deg, ${colors.join(', ')})`
-                                                inlineStyle.WebkitBackgroundClip = 'text'
-                                                inlineStyle.WebkitTextFillColor = 'transparent'
-                                                inlineStyle.filter = `drop-shadow(0 0 15px ${colors[0]}) drop-shadow(0 0 15px ${colors[colors.length - 1]})`
+
+                                        if (theme.name === 'neo-brutal') {
+                                            const singerColor = line.singerIndex !== undefined && singers[line.singerIndex] ? singers[line.singerIndex].color : 'white'
+                                            inlineStyle.background = singerColor
+                                            inlineStyle.color = 'black'
+                                            inlineStyle.padding = '8px 24px'
+                                            inlineStyle.border = '4px solid black'
+                                            inlineStyle.boxShadow = '6px 6px 0px black'
+                                            inlineStyle.borderRadius = '0px'
+                                            inlineStyle.margin = '4px'
+
+                                            if (line.singerIndices && line.singerIndices.length > 1) {
+                                                const colors = line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
+                                                if (colors.length > 1) {
+                                                    inlineStyle.background = `linear-gradient(90deg, ${colors.join(', ')})`
+                                                }
                                             }
-                                        } else if (line.singerIndex !== undefined && singers[line.singerIndex]) {
-                                            const singer = singers[line.singerIndex]
-                                            inlineStyle.color = singer.color
-                                            inlineStyle.textShadow = `0 0 40px ${singer.colorGlow}, 0 2px 20px ${singer.colorGlow}`
+                                        } else if (theme.name === 'sketch') {
+                                            cls += ' k-line--sketch'
+                                            inlineStyle.position = 'relative'
+                                            if (line.singerIndices && line.singerIndices.length > 1) {
+                                                const colors = line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
+                                                if (colors.length > 1) {
+                                                    inlineStyle.backgroundImage = `linear-gradient(90deg, ${colors.join(', ')})`
+                                                    inlineStyle.WebkitBackgroundClip = 'text'
+                                                    inlineStyle.WebkitTextFillColor = 'transparent'
+                                                    inlineStyle.filter = `drop-shadow(2px 2px 0px rgba(0,0,0,0.15))`
+                                                }
+                                            } else if (line.singerIndex !== undefined && singers[line.singerIndex]) {
+                                                const singer = singers[line.singerIndex]
+                                                inlineStyle.color = singer.color
+                                                inlineStyle.textShadow = `2px 2px 0px rgba(0,0,0,0.15)`
+                                            }
+                                        } else if (theme.name === 'cyberpunk') {
+                                            cls += ' k-line--cyber'
+                                            if (line.singerIndices && line.singerIndices.length > 1) {
+                                                const colors = line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
+                                                if (colors.length > 1) {
+                                                    inlineStyle.backgroundImage = `linear-gradient(90deg, ${colors.join(', ')})`
+                                                    inlineStyle.WebkitBackgroundClip = 'text'
+                                                    inlineStyle.WebkitTextFillColor = 'transparent'
+                                                    inlineStyle.filter = `drop-shadow(0 0 15px ${colors[0]}) drop-shadow(0 0 15px ${colors[colors.length - 1]})`
+                                                }
+                                            } else if (line.singerIndex !== undefined && singers[line.singerIndex]) {
+                                                const singer = singers[line.singerIndex]
+                                                inlineStyle.color = singer.color
+                                                inlineStyle.textShadow = `0 0 10px ${singer.colorGlow}, 0 0 20px ${singer.colorGlow}, 0 0 40px ${singer.colorGlow}`
+                                            }
+                                        } else if (theme.name === 'urban') {
+                                            const singerColor = line.singerIndex !== undefined && singers[line.singerIndex] ? singers[line.singerIndex].color : theme.accentA
+                                            if (isActiveGroup) {
+                                                cls += ' k-line--urban-active'
+                                                // @ts-ignore (CSS variables)
+                                                inlineStyle['--highlight-color'] = singerColor
+                                                inlineStyle.color = theme.white // DARK_VOID
+                                                inlineStyle.opacity = 1
+                                            } else {
+                                                inlineStyle.display = 'inline'
+                                                inlineStyle.color = singerColor
+                                                inlineStyle.opacity = 0.4
+                                                inlineStyle.padding = '0.1em 0.3em'
+                                            }
+                                        } else {
+                                            if (line.singerIndices && line.singerIndices.length > 1) {
+                                                const colors = line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
+                                                if (colors.length > 1) {
+                                                    inlineStyle.backgroundImage = `linear-gradient(90deg, ${colors.join(', ')})`
+                                                    inlineStyle.WebkitBackgroundClip = 'text'
+                                                    inlineStyle.WebkitTextFillColor = 'transparent'
+                                                    inlineStyle.filter = `drop-shadow(0 0 15px ${colors[0]}) drop-shadow(0 0 15px ${colors[colors.length - 1]})`
+                                                }
+                                            } else if (line.singerIndex !== undefined && singers[line.singerIndex]) {
+                                                const singer = singers[line.singerIndex]
+                                                inlineStyle.color = singer.color
+                                                inlineStyle.textShadow = `0 0 40px ${singer.colorGlow}, 0 2px 20px ${singer.colorGlow}`
+                                            }
                                         }
                                     } else if (isPastGroup) {
                                         cls += ' k-line--past'
@@ -492,7 +630,35 @@ export default function KaraokePage() {
                                         });
                                     }
 
-                                    return <div key={j} className={cls} style={inlineStyle}>{displayWords}</div>
+                                    // content logic handled in styles for urban to keep crispness
+                                    let content: React.ReactNode = displayWords
+
+                                    if (theme.name === 'sketch' && isActiveGroup) {
+                                        const seed = (line.originalIndex || 0) * 11 + (j * 7) + 1
+                                        const r = (offset: number) => {
+                                            const x = Math.sin(seed + offset) * 10000;
+                                            return x - Math.floor(x);
+                                        }
+                                        // Random quadratic Bezier path mimicking a stroke
+                                        const path = `M0,${5 + r(2) * 4} Q${20 + r(3) * 20},${2 + r(4) * 6} ${50 + r(5) * 20},${5 + r(6) * 4} T100,${4 + r(7) * 5}`
+                                        const strokeW = 2 + r(8) * 2
+                                        const highlightColor = line.singerIndex !== undefined && singers[line.singerIndex] ? singers[line.singerIndex].color : 'black'
+                                        
+                                        content = (
+                                            <>
+                                                <span style={{ position: 'relative', zIndex: 1 }}>{displayWords}</span>
+                                                <svg
+                                                    style={{ position: 'absolute', bottom: 6, left: 0, width: '100%', height: '14px', pointerEvents: 'none', zIndex: 0, overflow: 'visible' }}
+                                                    viewBox="0 0 100 10"
+                                                    preserveAspectRatio="none"
+                                                >
+                                                    <path d={path} stroke={highlightColor} strokeWidth={strokeW} fill="none" strokeLinecap="round" />
+                                                </svg>
+                                            </>
+                                        )
+                                    }
+
+                                    return <div key={j} className={cls} style={inlineStyle}>{content}</div>
                                 })}
                             </div>
                         )

@@ -50,6 +50,7 @@ export interface VoiceEffects {
     chorus: { enabled: boolean; rate: number; depth: number; mix: number }
     delay: { enabled: boolean; time: number; feedback: number; mix: number }
     reverb: { enabled: boolean; decay: number; preDelay: number; mix: number }
+    micLevel?: number
 }
 
 export interface QueueItem {
@@ -115,6 +116,7 @@ export interface AppState {
     karaokeSessionId: string | null
     karaokeSessionCode: string | null
     karaokeQrDataUrl: string | null
+    themeName: string
 }
 
 export const NEON_COLORS = [
@@ -163,7 +165,8 @@ const initialState: AppState = {
     editingQueueIndex: null,
     karaokeSessionId: null,
     karaokeSessionCode: null,
-    karaokeQrDataUrl: null
+    karaokeQrDataUrl: null,
+    themeName: 'neo-brutal'
 }
 
 // ---- Actions ----
@@ -205,6 +208,7 @@ type Action =
     | { type: 'RESET' }
     | { type: 'SET_KARAOKE_SESSION'; payload: { sessionId: string; sessionCode: string; qrDataUrl: string } }
     | { type: 'CLEAR_KARAOKE_SESSION' }
+    | { type: 'SET_THEME_NAME'; payload: string }
 
 // Helper: extract mic assignments from current nowPlaying into micSlots
 function saveMicSlots(state: AppState): MicSlotConfig[] {
@@ -487,6 +491,8 @@ function reducer(state: AppState, action: Action): AppState {
             }
         case 'CLEAR_KARAOKE_SESSION':
             return { ...state, karaokeSessionId: null, karaokeSessionCode: null, karaokeQrDataUrl: null }
+        case 'SET_THEME_NAME':
+            return { ...state, themeName: action.payload }
         default:
             return state
     }

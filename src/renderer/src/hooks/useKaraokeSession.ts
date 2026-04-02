@@ -167,4 +167,17 @@ export function useKaraokeSession() {
             window.electronAPI?.syncNowPlaying(null)
         }
     }, [state.nowPlaying?.track?.id, state.karaokeSessionId])
+
+    // Sync theme changes to Supabase
+    useEffect(() => {
+        if (window.electronAPI?.isStageWindow) return
+        if (!state.karaokeSessionId) return
+        
+        supabase.from('karaoke_sessions')
+            .update({ theme_name: state.themeName })
+            .eq('id', state.karaokeSessionId)
+            .then(res => {
+                if (res.error) console.error('[Karaoke] Failed to sync theme:', res.error)
+            })
+    }, [state.themeName, state.karaokeSessionId])
 }

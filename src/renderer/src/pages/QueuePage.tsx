@@ -504,14 +504,14 @@ function NowPlayingBanner() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{
                         fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 22,
-                        color: theme.black, lineHeight: 1.2,
+                        color: theme.white, lineHeight: 1.2,
                         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                     }}>
                         {track.name}
                     </div>
                     <div style={{
                         fontFamily: theme.fontBody, fontSize: 14,
-                        color: theme.black, opacity: 0.6, marginTop: 2,
+                        color: theme.white, opacity: 0.8, marginTop: 2,
                     }}>
                         {track.artists.map(a => a.name).join(', ')}
                     </div>
@@ -535,7 +535,7 @@ function NowPlayingBanner() {
                         </div>
                         <div style={{
                             fontSize: 10, fontFamily: theme.fontDisplay, fontWeight: 700,
-                            color: theme.black, opacity: 0.6, textTransform: 'uppercase',
+                            color: theme.white, opacity: 0.8, textTransform: 'uppercase',
                             letterSpacing: '0.5px',
                         }}>
                             {singers.map(s => s.name).join(' / ')}

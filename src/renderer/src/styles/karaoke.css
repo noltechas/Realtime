@@ -5,8 +5,7 @@
 .karaoke-stage {
     position: relative;
     width: 100%;
-    height: calc(100vh - 42px);
-    /* account for titlebar */
+    height: 100vh;
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -25,7 +24,7 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
-    filter: blur(50px) brightness(0.25) saturate(1.6);
+    filter: blur(60px) saturate(1.8) brightness(0.85); /* Extremely blurred, vibrant backing */
     transform: scale(1.3);
 }
 
@@ -49,6 +48,7 @@
 .k-bg__yt-wrap iframe {
     width: 100%;
     height: 100%;
+    transform: scale(1.35); /* zoom past any encoded black letterboxing and youtube UI logos */
     border: none;
 }
 
@@ -57,11 +57,8 @@
     position: absolute;
     inset: 0;
     pointer-events: none;
-    background:
-        linear-gradient(to top, #050508 0%, #050508 15%, transparent 28%),
-        linear-gradient(to bottom, #050508 0%, transparent 6%),
-        linear-gradient(to right, #050508 0%, transparent 8%),
-        linear-gradient(to left, #050508 0%, transparent 8%);
+    box-shadow: inset 0 0 120px rgba(0,0,0,0.6); /* Soft edge shadow rather than painted dark bars */
+    background: transparent;
 }
 
 .k-bg__scrim {
@@ -135,6 +132,18 @@
     color: white;
     transform: scale(1);
     text-shadow: 0 0 40px rgba(255, 255, 255, 0.2);
+}
+
+@keyframes cyber-glitch {
+    0%, 10%, 100% { transform: translate(0); text-shadow: inherit; }
+    2% { transform: translate(-2px, 1px); text-shadow: -2px 0 red, 2px 0 cyan; }
+    4% { transform: translate(2px, -2px); text-shadow: 2px 0 red, -2px 0 cyan; }
+    6% { transform: translate(-1px, 2px); text-shadow: inherit; }
+    8% { transform: translate(2px, -1px); text-shadow: -2px 0 red, 2px 0 cyan; }
+}
+
+.k-line--cyber {
+    animation: cyber-glitch 4s infinite linear;
 }
 
 /* ---- Now Playing Dock ---- */

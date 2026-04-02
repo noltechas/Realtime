@@ -1,13 +1,16 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useEffect, ReactNode } from 'react'
 import type { Theme } from '../styles/theme'
 import { NEO } from '../styles/neo-brutal'
 import { CYBERPUNK } from '../styles/cyberpunk'
 import { SKETCH } from '../styles/sketch'
+import { URBAN } from '../styles/urban'
+import { useApp } from './AppContext'
 
 const THEMES: Record<string, Theme> = {
   'neo-brutal': NEO,
   'cyberpunk': CYBERPUNK,
   'sketch': SKETCH,
+  'urban': URBAN,
 }
 
 export const THEME_LIST = Object.entries(THEMES).map(([key, t]) => ({
@@ -29,8 +32,13 @@ const ThemeContext = createContext<ThemeContextValue>({
 })
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [themeName, setThemeName] = useState<string>('neo-brutal')
+  const { state, dispatch } = useApp()
+  const themeName = state.themeName || 'neo-brutal'
   const theme = THEMES[themeName] ?? NEO
+
+  const setThemeName = (name: string) => {
+    dispatch({ type: 'SET_THEME_NAME', payload: name })
+  }
 
   const cycleTheme = () => {
     setThemeName(theme.nextThemeName)

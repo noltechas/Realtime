@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { useApp, MicSlotConfig } from '../context/AppContext'
+import { useState, useEffect } from 'react'
+import { useApp } from '../context/AppContext'
 import { useTheme } from '../context/ThemeContext'
+import { useAudioSyncContext } from '../context/AudioSyncContext'
 import { getEngine } from '../audio/playback'
 import { VoiceEffects } from '../audio/VoiceEffectsTypes'
 
@@ -11,165 +12,19 @@ function formatTime(ms: number): string {
 
 // ---- Now Playing Controls ----
 function NowPlaying() {
-    const { state, dispatch } = useApp()
+    const { state } = useApp()
     const theme = useTheme()
-    const [elapsed, setElapsed] = useState(0)
-    const [duration, setDuration] = useState(0)
-    const [loaded, setLoaded] = useState(false)
-    const [playing, setPlaying] = useState(false)
-    const loadedPathRef = useRef<string | null>(null)
+    const audio = useAudioSyncContext()
     const [hoveredBtn, setHoveredBtn] = useState<string | null>(null)
 
     const np = state.nowPlaying
     const track = np?.track
     const art = track?.album.images[0]?.url
     const singers = np?.singers || []
-    const monitorDeviceIdsStr = (np?.monitorDeviceIds || []).join(',')
 
-    useEffect(() => {
-        const engine = getEngine()
-        if (engine.isLoaded && np?.stemsPath?.instrumental) {
-            engine.setVocalOffset(state.vocalOffsetMs)
-            loadedPathRef.current = np.stemsPath.instrumental
-            setLoaded(true)
-            setDuration(engine.durationMs || track?.duration_ms || 0)
-            setPlaying(engine.isPlaying)
-            setElapsed(engine.currentTimeMs)
-        }
-    }, [])
-
-    useEffect(() => {
-        const stemsPath = np?.stemsPath
-        const instrumentalPath = stemsPath?.instrumental
-        const monitorDeviceIds = monitorDeviceIdsStr ? monitorDeviceIdsStr.split(',').filter(Boolean) : []
-
-        if (!instrumentalPath) {
-            getEngine().destroy()
-            setLoaded(false)
-            setElapsed(0)
-            setDuration(0)
-            setPlaying(false)
-            loadedPathRef.current = null
-            return
-        }
-
-        if (loadedPathRef.current === instrumentalPath) {
-            const engine = getEngine()
-            if (engine.isLoaded) {
-                engine.setVocalOffset(state.vocalOffsetMs)
-                setLoaded(true)
-                setDuration(engine.durationMs || track?.duration_ms || 0)
-                setPlaying(engine.isPlaying)
-                setElapsed(engine.currentTimeMs)
-            }
-            engine.setOnTimeUpdate((timeMs) => {
-                setElapsed(timeMs)
-                window.electronAPI?.sendPlaybackTime(timeMs)
-            })
-            engine.setOnEnded(() => {
-                setPlaying(false)
-                dispatch({ type: 'NEXT_SONG' })
-            })
-            return
-        }
-
-        const engine = getEngine()
-        engine.destroy()
-        setLoaded(false)
-        setElapsed(0)
-        setPlaying(false)
-        loadedPathRef.current = instrumentalPath
-
-        engine.setOnTimeUpdate((timeMs) => {
-            setElapsed(timeMs)
-            window.electronAPI?.sendPlaybackTime(timeMs)
-        })
-        engine.setOnEnded(() => {
-            setPlaying(false)
-            dispatch({ type: 'NEXT_SONG' })
-        })
-
-        engine.load(stemsPath || {}, monitorDeviceIds).then(() => {
-            engine.setVocalOffset(state.vocalOffsetMs)
-            setDuration(engine.durationMs || track?.duration_ms || 0)
-            setLoaded(true)
-        }).catch(err => console.error('[Controls] Audio load failed:', err))
-    }, [np?.stemsPath?.instrumental, np?.stemsPath?.vocals, monitorDeviceIdsStr, track?.duration_ms, state.vocalOffsetMs, dispatch])
-
-    useEffect(() => {
-        getEngine().setVocalOffset(state.vocalOffsetMs)
-    }, [state.vocalOffsetMs])
-
-    useEffect(() => {
-        return () => {
-            const engine = getEngine()
-            engine.setOnTimeUpdate(() => { })
-            engine.setOnEnded(() => { })
-        }
-    }, [])
-
-    const handlePlayPause = useCallback(() => {
-        if (!loaded) return
-        const engine = getEngine()
-        engine.setVocalOffset(state.vocalOffsetMs)
-        if (playing) {
-            engine.pause()
-            setPlaying(false)
-            dispatch({ type: 'SET_PLAYING', payload: false })
-        } else {
-            engine.play()
-            setPlaying(true)
-            dispatch({ type: 'SET_PLAYING', payload: true })
-        }
-    }, [loaded, playing, state.vocalOffsetMs, dispatch])
-
-    const handleSeek = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-        if (!duration) return
-        const engine = getEngine()
-        const r = e.currentTarget.getBoundingClientRect()
-        const ratio = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width))
-        const seekMs = ratio * duration
-        engine.seek(seekMs)
-        setElapsed(seekMs)
-        window.electronAPI?.sendPlaybackSeek(seekMs)
-    }, [duration])
-
-    const handleRestart = useCallback(() => {
-        const engine = getEngine()
-        engine.setVocalOffset(state.vocalOffsetMs)
-        engine.seek(0)
-        setElapsed(0)
-        window.electronAPI?.sendPlaybackSeek(0)
-    }, [state.vocalOffsetMs])
-
-    const handleSkip = useCallback(() => {
-        const engine = getEngine()
-        engine.pause()
-        setPlaying(false)
-        dispatch({ type: 'SET_PLAYING', payload: false })
-        dispatch({ type: 'NEXT_SONG' })
-    }, [dispatch])
-
-    const handlePrev = useCallback(() => {
-        const engine = getEngine()
-        engine.pause()
-        setPlaying(false)
-        dispatch({ type: 'SET_PLAYING', payload: false })
-        dispatch({ type: 'PREV_SONG' })
-    }, [dispatch])
-
-    const handleStart = useCallback(() => {
-        dispatch({ type: 'SET_STAGE_MODE', payload: 'playing' })
-        if (loaded) {
-            const engine = getEngine()
-            engine.setVocalOffset(state.vocalOffsetMs)
-            engine.play()
-            setPlaying(true)
-            dispatch({ type: 'SET_PLAYING', payload: true })
-        }
-    }, [loaded, state.vocalOffsetMs, dispatch])
-
-    const statusColor = state.stageMode === 'playing' ? theme.mintGreen : theme.softViolet
+    const statusColor = track
+        ? (state.stageMode === 'playing' ? theme.mintGreen : theme.softViolet)
+        : theme.muted
 
     return (
         <div style={{ ...theme.card, padding: 24, marginBottom: 24 }}>
@@ -179,11 +34,11 @@ function NowPlaying() {
                 fontWeight: 700,
                 letterSpacing: '2px',
                 textTransform: 'uppercase',
-                color: track ? statusColor : theme.muted,
+                color: statusColor,
                 marginBottom: 16,
                 fontFamily: theme.fontDisplay,
             }}>
-                {!track ? '◎ No Song Loaded' : state.stageMode === 'playing' ? '▶ Now Playing' : '◎ Up Next'}
+                {!track ? '-- No Song Loaded' : state.stageMode === 'playing' ? '> Now Playing' : '-- Up Next'}
             </div>
 
             {!track ? (
@@ -286,10 +141,10 @@ function NowPlaying() {
                     fontFamily: theme.fontDisplay,
                     fontWeight: 600,
                 }}>
-                    {formatTime(elapsed)}
+                    {formatTime(audio.elapsed)}
                 </span>
                 <div
-                    onClick={handleSeek}
+                    onClick={audio.handleSeek}
                     style={{
                         flex: 1,
                         height: 8,
@@ -307,7 +162,7 @@ function NowPlaying() {
                         top: 0,
                         bottom: 0,
                         background: theme.hotRed,
-                        width: `${duration ? (elapsed / duration) * 100 : 0}%`,
+                        width: `${audio.duration ? (audio.elapsed / audio.duration) * 100 : 0}%`,
                         transition: 'width 0.15s linear',
                     }} />
                 </div>
@@ -320,7 +175,7 @@ function NowPlaying() {
                     fontWeight: 600,
                     textAlign: 'right',
                 }}>
-                    {formatTime(duration)}
+                    {formatTime(audio.duration)}
                 </span>
             </div>
 
@@ -328,7 +183,7 @@ function NowPlaying() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
                 {/* Previous */}
                 <button
-                    onClick={handlePrev}
+                    onClick={audio.handlePrev}
                     title="Previous"
                     disabled={state.history.length === 0}
                     onMouseEnter={() => setHoveredBtn('prev')}
@@ -347,7 +202,7 @@ function NowPlaying() {
 
                 {/* Restart */}
                 <button
-                    onClick={handleRestart}
+                    onClick={audio.handleRestart}
                     title="Restart"
                     onMouseEnter={() => setHoveredBtn('restart')}
                     onMouseLeave={() => setHoveredBtn(null)}
@@ -363,7 +218,7 @@ function NowPlaying() {
 
                 {/* Play / Pause */}
                 <button
-                    onClick={state.stageMode === 'ready' ? handleStart : handlePlayPause}
+                    onClick={state.stageMode === 'ready' ? audio.handleStart : audio.handlePlayPause}
                     onMouseEnter={() => setHoveredBtn('play')}
                     onMouseLeave={() => setHoveredBtn(null)}
                     style={{
@@ -373,11 +228,11 @@ function NowPlaying() {
                         border: theme.border,
                         background: state.stageMode === 'ready' ? theme.mintGreen : theme.hotRed,
                         color: '#FFFFFF',
-                        cursor: loaded ? 'pointer' : 'default',
+                        cursor: audio.loaded ? 'pointer' : 'default',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        opacity: loaded ? 1 : 0.4,
+                        opacity: audio.loaded ? 1 : 0.4,
                         transition: 'transform 0.1s, box-shadow 0.1s',
                         boxShadow: hoveredBtn === 'play' ? theme.shadowLift : theme.shadow,
                         transform: hoveredBtn === 'play' ? 'translate(-1px,-1px)' : 'none',
@@ -385,7 +240,7 @@ function NowPlaying() {
                 >
                     {state.stageMode === 'ready' ? (
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21" /></svg>
-                    ) : playing ? (
+                    ) : audio.playing ? (
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>
                     ) : (
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21" /></svg>
@@ -394,7 +249,7 @@ function NowPlaying() {
 
                 {/* Skip */}
                 <button
-                    onClick={handleSkip}
+                    onClick={audio.handleSkip}
                     title="Skip"
                     onMouseEnter={() => setHoveredBtn('skip')}
                     onMouseLeave={() => setHoveredBtn(null)}
@@ -410,7 +265,7 @@ function NowPlaying() {
             </div>
 
             {/* Loading indicator */}
-            {!loaded && np?.stemsPath?.instrumental && (
+            {!audio.loaded && np?.stemsPath?.instrumental && (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 16 }}>
                     <div
                         className="spinner"
@@ -426,7 +281,7 @@ function NowPlaying() {
             )}
 
             {/* Start hint */}
-            {state.stageMode === 'ready' && loaded && (
+            {state.stageMode === 'ready' && audio.loaded && (
                 <p style={{
                     textAlign: 'center',
                     marginTop: 12,
@@ -455,10 +310,10 @@ function AudioMixPanel() {
     const np = state.nowPlaying
     const singers = np?.singers || []
     const voiceEffects = np?.voiceEffects || null
-    const hasSong = !!np
     const hasVocals = !!np?.stemsPath?.vocals
     const vocalOutputId = state.monitorDeviceIds.length > 0 ? state.monitorDeviceIds[0] : ''
 
+    // Show all persisted mic slots, at least as many as current singers
     const slotCount = Math.max(singers.length, state.micSlots.length)
 
     useEffect(() => {
@@ -487,6 +342,14 @@ function AudioMixPanel() {
         display: 'flex',
         alignItems: 'center',
         gap: 16,
+    }
+
+    // Build a map from mic device ID to singer name for the current song
+    const micToSingerMap = new Map<string, string>()
+    for (const singer of singers) {
+        if (singer.micDeviceId) {
+            micToSingerMap.set(singer.micDeviceId, singer.name)
+        }
     }
 
     return (
@@ -636,7 +499,7 @@ function AudioMixPanel() {
                 </div>
             </div>
 
-            {/* Singer/Mic Slots */}
+            {/* Mic Slots */}
             {slotCount > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                     {/* Divider */}
@@ -658,10 +521,26 @@ function AudioMixPanel() {
                             }
                         }
 
-                        const labelColor = isActive ? singer.color : theme.faint
-                        const labelText = isActive ? `${singer.name} Mic` : `Mic Slot ${i + 1}`
                         const micDeviceId = slot.micDeviceId
                         const micLevel = slot.micLevel
+
+                        // Find the input device label for this slot
+                        const inputDevice = audioInputs.find(d => d.deviceId === micDeviceId)
+                        const deviceLabel = inputDevice?.label || (micDeviceId ? `Mic ${micDeviceId.slice(0, 6)}` : '')
+
+                        // Build the label: show device name + singer assignment if active
+                        let slotLabel: string
+                        let labelColor: string
+                        if (isActive && micDeviceId) {
+                            slotLabel = `${singer.name}'s Mic`
+                            labelColor = singer.color
+                        } else if (isActive) {
+                            slotLabel = `${singer.name} Mic`
+                            labelColor = singer.color
+                        } else {
+                            slotLabel = `Mic Slot ${i + 1}`
+                            labelColor = theme.faint
+                        }
 
                         const handleMicChange = (deviceId: string) => {
                             dispatch({ type: 'SET_MIC_SLOT', payload: { index: i, config: { micDeviceId: deviceId } } })
@@ -704,7 +583,7 @@ function AudioMixPanel() {
                                         color: labelColor,
                                         fontWeight: 700,
                                     }}>
-                                        {labelText}
+                                        {slotLabel}
                                     </div>
                                     <select
                                         value={micDeviceId}
@@ -717,12 +596,21 @@ function AudioMixPanel() {
                                         }}
                                     >
                                         <option value="">Off (No Mic)</option>
-                                        {audioInputs.map(d => (
-                                            <option key={d.deviceId} value={d.deviceId}>{d.label || `Mic ${d.deviceId.slice(0, 6)}`}</option>
-                                        ))}
+                                        {audioInputs.map(d => {
+                                            const assignedSinger = micToSingerMap.get(d.deviceId)
+                                            const suffix = assignedSinger && d.deviceId !== micDeviceId
+                                                ? ` (${assignedSinger}'s Mic)`
+                                                : ''
+                                            return (
+                                                <option key={d.deviceId} value={d.deviceId}>
+                                                    {d.label || `Mic ${d.deviceId.slice(0, 6)}`}{suffix}
+                                                </option>
+                                            )
+                                        })}
                                     </select>
                                 </div>
 
+                                {/* Always show volume slider when a mic is selected */}
                                 {micDeviceId && (
                                     <div style={rowStyle}>
                                         <div style={{ width: 96, flexShrink: 0 }} />
@@ -737,7 +625,33 @@ function AudioMixPanel() {
                                                 onChange={(e) => handleMicLevelChange(parseFloat(e.target.value))}
                                                 style={{ flex: 1, height: 4, accentColor: isActive ? singer.color : theme.faint }}
                                             />
+                                            {micDeviceId && (
+                                                <span style={{
+                                                    fontSize: 10,
+                                                    color: theme.faint,
+                                                    fontFamily: theme.fontDisplay,
+                                                    fontWeight: 600,
+                                                    minWidth: 36,
+                                                    textAlign: 'right',
+                                                }}>
+                                                    {Math.round(micLevel * 100)}%
+                                                </span>
+                                            )}
                                         </div>
+                                    </div>
+                                )}
+
+                                {/* Show device name + singer assignment below */}
+                                {micDeviceId && isActive && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                                        <div style={{ width: 96, flexShrink: 0 }} />
+                                        <span style={{
+                                            fontSize: 10,
+                                            color: theme.faint,
+                                            fontFamily: theme.fontBody,
+                                        }}>
+                                            {deviceLabel}
+                                        </span>
                                     </div>
                                 )}
                             </div>
