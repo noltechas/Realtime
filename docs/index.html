@@ -447,7 +447,7 @@ function esc(s){if(!s)return"";var d=document.createElement("div");d.textContent
 function render(){
   var a=document.getElementById("app");
   switch(S.screen){
-    case"loading":a.innerHTML=\'<div class="loading-center"><div class="spinner"></div></div>\';break;
+    case"loading":a.innerHTML='<div class="loading-center"><div class="spinner"></div></div>';break;
     case"join":a.innerHTML=renderJoin();break;
     case"songs":a.innerHTML=renderSongs()+renderBN("songs");break;
     case"config":a.innerHTML=renderConfig()+renderBN("songs");break;
@@ -457,40 +457,40 @@ function render(){
   bindEvents();
 }
 function renderJoin(){
-  return \'<div class="join-screen screen">\'+
-    \'<div class="join-logo">Realtime</div>\'+
-    \'<div class="join-title">Karaoke</div>\'+
-    \'<p class="join-sub">Enter your name to join the session</p>\'+
-    \'<input class="join-input" id="name-input" placeholder="Your name" maxlength="30" autocomplete="off">\'+
-    \'<button class="join-btn" id="join-btn" disabled>Join Session</button>\'+
-    \'<div class="join-session-code">\'+esc(S.sessionCode)+\'</div>\'+
-  \'</div>\';
+  return '<div class="join-screen screen">'+
+    '<div class="join-logo">Realtime</div>'+
+    '<div class="join-title">Karaoke</div>'+
+    '<p class="join-sub">Enter your name to join the session</p>'+
+    '<input class="join-input" id="name-input" placeholder="Your name" maxlength="30" autocomplete="off">'+
+    '<button class="join-btn" id="join-btn" disabled>Join Session</button>'+
+    '<div class="join-session-code">'+esc(S.sessionCode)+'</div>'+
+  '</div>';
 }
 function renderSongs(){
   var q=S.searchQuery.toLowerCase();
   var fl=q?S.catalog.filter(function(s){return s.name.toLowerCase().indexOf(q)>=0||s.artist.toLowerCase().indexOf(q)>=0;}):S.catalog;
   var cards="";
-  if(fl.length===0&&q){cards=\'<div class="song-empty">No songs found</div>\';}
-  else if(fl.length===0){cards=\'<div class="song-empty">No songs in the catalog yet</div>\';}
+  if(fl.length===0&&q){cards='<div class="song-empty">No songs found</div>';}
+  else if(fl.length===0){cards='<div class="song-empty">No songs in the catalog yet</div>';}
   else{cards=fl.map(function(s){
-    return \'<div class="song-card" data-track="\'+s.track_id+\'">\'+
-      (s.art_url?\'<img src="\'+s.art_url+\'" alt="" loading="lazy">\':\'<div class="song-card-placeholder">&#127925;</div>\')+
-      \'<div class="song-card-info">\'+
-        \'<div class="song-card-title">\'+esc(s.name)+\'</div>\'+
-        \'<div class="song-card-artist">\'+esc(s.artist)+\'</div>\'+
-        \'<div class="song-card-dur">\'+fmtD(s.duration_ms)+\'</div>\'+
-      \'</div></div>\';
+    return '<div class="song-card" data-track="'+s.track_id+'">'+
+      (s.art_url?'<img src="'+s.art_url+'" alt="" loading="lazy">':'<div class="song-card-placeholder">&#127925;</div>')+
+      '<div class="song-card-info">'+
+        '<div class="song-card-title">'+esc(s.name)+'</div>'+
+        '<div class="song-card-artist">'+esc(s.artist)+'</div>'+
+        '<div class="song-card-dur">'+fmtD(s.duration_ms)+'</div>'+
+      '</div></div>';
   }).join("");}
-  return \'<div class="screen">\'+
-    \'<div class="songs-header">\'+
-      \'<div class="songs-title">Songs</div>\'+
-      \'<div class="search-bar">\'+
-        \'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>\'+
-        \'<input class="search-input" id="search-input" placeholder="Search songs or artists..." value="\'+esc(S.searchQuery)+\'">\'+
-      \'</div>\'+
-    \'</div>\'+
-    \'<div class="song-grid" id="song-grid">\'+cards+\'</div>\'+
-  \'</div>\';
+  return '<div class="screen">'+
+    '<div class="songs-header">'+
+      '<div class="songs-title">Songs</div>'+
+      '<div class="search-bar">'+
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'+
+        '<input class="search-input" id="search-input" placeholder="Search songs or artists..." value="'+esc(S.searchQuery)+'">'+
+      '</div>'+
+    '</div>'+
+    '<div class="song-grid" id="song-grid">'+cards+'</div>'+
+  '</div>';
 }
 function renderConfig(){
   var t=S.selectedTrack;if(!t)return"";
@@ -500,63 +500,63 @@ function renderConfig(){
     var s=S.singers[i];
     var cd=NC.map(function(nc,ci){
       var act=s.color===nc.c;
-      return \'<button class="color-dot\'+(act?" active":"")+\'" data-singer="\'+i+\'" data-color="\'+ci+\'" style="background:\'+nc.c+(act?";box-shadow:0 0 0 2px var(--black),0 0 0 4px "+nc.c+",0 0 15px "+nc.g:"")+\'"></button>\';
+      return '<button class="color-dot'+(act?" active":"")+'" data-singer="'+i+'" data-color="'+ci+'" style="background:'+nc.c+(act?";box-shadow:0 0 0 2px var(--black),0 0 0 4px "+nc.c+",0 0 15px "+nc.g:"")+'"></button>';
     }).join("");
     var rh="";
     if(roles.length>0){
-      rh=\'<div class="field-label" style="margin-top:14px">Roles</div><div class="role-btns">\'+
-        roles.map(function(r,ri){return \'<button class="role-btn\'+((s.roleIndices||[]).indexOf(ri)>=0?" active":"")+\'" data-singer="\'+i+\'" data-role="\'+ri+\'">\'+esc(r)+\'</button>\';}).join("")+
-      \'</div>\';
+      rh='<div class="field-label" style="margin-top:14px">Roles</div><div class="role-btns">'+
+        roles.map(function(r,ri){return '<button class="role-btn'+((s.roleIndices||[]).indexOf(ri)>=0?" active":"")+'" data-singer="'+i+'" data-role="'+ri+'">'+esc(r)+'</button>';}).join("")+
+      '</div>';
     }
-    sh+=\'<div class="singer-card" style="border:1px solid \'+s.color+\'">\'+
-      \'<div class="singer-card-accent" style="background:\'+s.color+\'"></div>\'+
-      \'<div class="singer-card-header"><div class="singer-card-dot" style="background:\'+s.color+\'"></div><div class="singer-card-label">Singer \'+(i+1)+\'</div></div>\'+
-      \'<div class="field-label">Name</div>\'+
-      \'<input class="singer-name-input" data-singer="\'+i+\'" value="\'+esc(s.name)+\'" placeholder="Singer \'+(i+1)+\'">\'+
-      \'<div class="field-label">Color</div>\'+
-      \'<div class="color-dots">\'+cd+\'</div>\'+
+    sh+='<div class="singer-card" style="border:1px solid '+s.color+'">'+
+      '<div class="singer-card-accent" style="background:'+s.color+'"></div>'+
+      '<div class="singer-card-header"><div class="singer-card-dot" style="background:'+s.color+'"></div><div class="singer-card-label">Singer '+(i+1)+'</div></div>'+
+      '<div class="field-label">Name</div>'+
+      '<input class="singer-name-input" data-singer="'+i+'" value="'+esc(s.name)+'" placeholder="Singer '+(i+1)+'">'+
+      '<div class="field-label">Color</div>'+
+      '<div class="color-dots">'+cd+'</div>'+
       rh+
-    \'</div>\';
+    '</div>';
   }
-  var scb=[0,1,2,3,4].map(function(n){return \'<button class="singer-count-btn\'+(S.singerCount===n?" active":"")+\'" data-count="\'+n+\'">\'+(!n?"None":n)+\'</button>\';}).join("");
-  return \'<div class="config-screen screen">\'+
-    \'<button class="config-back" id="config-back"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Back to Songs</button>\'+
-    \'<div class="config-song">\'+
-      (t.art_url?\'<img src="\'+t.art_url+\'" alt="">\':"")+
-      \'<div><div class="config-song-title">\'+esc(t.name)+\'</div><div class="config-song-artist">\'+esc(t.artist)+\'</div></div>\'+
-    \'</div>\'+
-    \'<div class="config-section"><div class="config-label"><div class="config-label-icon" style="background:rgba(244,114,182,0.1)">&#127908;</div> How many singers?</div><div class="singer-count-btns">\'+scb+\'</div></div>\'+
+  var scb=[0,1,2,3,4].map(function(n){return '<button class="singer-count-btn'+(S.singerCount===n?" active":"")+'" data-count="'+n+'">'+(!n?"None":n)+'</button>';}).join("");
+  return '<div class="config-screen screen">'+
+    '<button class="config-back" id="config-back"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Back to Songs</button>'+
+    '<div class="config-song">'+
+      (t.art_url?'<img src="'+t.art_url+'" alt="">':"")+
+      '<div><div class="config-song-title">'+esc(t.name)+'</div><div class="config-song-artist">'+esc(t.artist)+'</div></div>'+
+    '</div>'+
+    '<div class="config-section"><div class="config-label"><div class="config-label-icon" style="background:rgba(244,114,182,0.1)">&#127908;</div> How many singers?</div><div class="singer-count-btns">'+scb+'</div></div>'+
     sh+
-    \'<button class="add-queue-btn" id="add-queue-btn">Add to Queue</button>\'+
-  \'</div>\';
+    '<button class="add-queue-btn" id="add-queue-btn">Add to Queue</button>'+
+  '</div>';
 }
 function renderQueue(){
   var npH="";
-  if(S.nowPlaying){var np=S.nowPlaying;npH=\'<div class="now-playing-card">\'+(np.artUrl?\'<img src="\'+np.artUrl+\'" alt="">\':"")+\'<div style="flex:1;min-width:0"><div class="now-playing-badge">Now Playing</div><div class="now-playing-title">\'+esc(np.name)+\'</div><div class="now-playing-artist">\'+esc(np.artist||"")+\'</div></div></div>\';}
+  if(S.nowPlaying){var np=S.nowPlaying;npH='<div class="now-playing-card">'+(np.artUrl?'<img src="'+np.artUrl+'" alt="">':"")+'<div style="flex:1;min-width:0"><div class="now-playing-badge">Now Playing</div><div class="now-playing-title">'+esc(np.name)+'</div><div class="now-playing-artist">'+esc(np.artist||"")+'</div></div></div>';}
   var ih="";
-  if(S.queue.length===0){ih=\'<div class="queue-empty">Queue is empty. Add some songs!</div>\';}
+  if(S.queue.length===0){ih='<div class="queue-empty">Queue is empty. Add some songs!</div>';}
   else{ih=S.queue.map(function(q,i){
     var cs=q.singer_configs||[];
-    return \'<div class="queue-item"><div class="queue-pos">\'+(i+1)+\'</div>\'+
-      (q.track_art_url?\'<img src="\'+q.track_art_url+\'" alt="">\':"")+
-      \'<div class="queue-item-info"><div class="queue-item-title">\'+esc(q.track_name)+\'</div><div class="queue-item-artist">\'+esc(q.track_artist)+\'</div>\'+
-      (q.added_by_name?\'<div class="queue-item-added">Added by \'+esc(q.added_by_name)+\'</div>\':"")+
-      \'</div><div class="queue-item-meta">\'+
-      (cs.length>0?\'<div class="queue-singers-badge"><span>&#128101;</span>\'+cs.length+\'</div>\':"")+
-    \'</div></div>\';
+    return '<div class="queue-item"><div class="queue-pos">'+(i+1)+'</div>'+
+      (q.track_art_url?'<img src="'+q.track_art_url+'" alt="">':"")+
+      '<div class="queue-item-info"><div class="queue-item-title">'+esc(q.track_name)+'</div><div class="queue-item-artist">'+esc(q.track_artist)+'</div>'+
+      (q.added_by_name?'<div class="queue-item-added">Added by '+esc(q.added_by_name)+'</div>':"")+
+      '</div><div class="queue-item-meta">'+
+      (cs.length>0?'<div class="queue-singers-badge"><span>&#128101;</span>'+cs.length+'</div>':"")+
+    '</div></div>';
   }).join("");}
-  return \'<div class="queue-screen screen"><div class="queue-title">Queue</div>\'+npH+
-    \'<div class="queue-section-label">Up Next \\u00B7 \'+S.queue.length+\' song\'+(S.queue.length!==1?"s":"")+\'</div>\'+ih+\'</div>\';
+  return '<div class="queue-screen screen"><div class="queue-title">Queue</div>'+npH+
+    '<div class="queue-section-label">Up Next \u00B7 '+S.queue.length+' song'+(S.queue.length!==1?"s":"")+'</div>'+ih+'</div>';
 }
 function renderBN(act){
-  return \'<div class="bottom-nav">\'+
-    \'<button class="nav-tab\'+(act==="songs"?" active":"")+\'" data-nav="songs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Songs</button>\'+
-    \'<div class="nav-guest-pill">\'+esc(S.guestName)+\'</div>\'+
-    \'<button class="nav-tab\'+(act==="queue"?" active":"")+\'" data-nav="queue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Queue</button>\'+
-  \'</div>\';
+  return '<div class="bottom-nav">'+
+    '<button class="nav-tab'+(act==="songs"?" active":"")+'" data-nav="songs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Songs</button>'+
+    '<div class="nav-guest-pill">'+esc(S.guestName)+'</div>'+
+    '<button class="nav-tab'+(act==="queue"?" active":"")+'" data-nav="queue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Queue</button>'+
+  '</div>';
 }
 function renderError(){
-  return \'<div class="error-screen screen"><div class="error-icon">&#128542;</div><div class="error-title">Session Unavailable</div><div class="error-sub">\'+esc(S.errorMessage)+\'</div></div>\';
+  return '<div class="error-screen screen"><div class="error-icon">&#128542;</div><div class="error-title">Session Unavailable</div><div class="error-sub">'+esc(S.errorMessage)+'</div></div>';
 }
 function bindEvents(){
   var ni=document.getElementById("name-input"),jb=document.getElementById("join-btn");
