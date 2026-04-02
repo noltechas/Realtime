@@ -9,7 +9,7 @@
 <title>Realtime Karaoke</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&family=Patrick+Hand&family=Oswald:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&family=Patrick+Hand&family=Kalam:wght@700&family=Oswald:wght@400;500;600;700&family=Share+Tech+Mono&family=Permanent+Marker&display=swap" rel="stylesheet">
 <style>
 :root {
   --black: #050508;
@@ -480,12 +480,59 @@ function applyTheme(){
   var tg=document.getElementById("theme-global");
   if(!tg){tg=document.createElement("style");tg.id="theme-global";document.head.appendChild(tg);}
   var css="";
-  if(S.theme_name==="cyberpunk"){
-    css=":root{--black:#060610;--surface-1:rgba(0,255,136,0.04);--surface-2:rgba(0,255,136,0.07);--surface-3:rgba(0,255,136,0.1);--white:#d0ffe8;--white-muted:rgba(0,255,136,0.6);--white-faint:rgba(0,255,136,0.3);--white-ghost:rgba(0,255,136,0.18);--violet:#00e5ff;--pink:#ff00aa;--cyan:#00ff88;--emerald:#00ff88;--amber:#ffcc00;--red:#ff0055;--grad-hero:linear-gradient(135deg, #00ff88, #00e5ff);--grad-text:linear-gradient(135deg, #00ff88, #00e5ff);--font-display:'Share Tech Mono', 'Courier New', monospace;--font-body:'Share Tech Mono', 'Courier New', monospace;} *{border-radius:0 !important;}";
+  if(S.theme_name==="neo-brutal"){
+    css=":root{--black:#FFF8EE;--surface-1:rgba(26,26,26,0.04);--surface-2:#FFFFFF;--surface-3:rgba(26,26,26,0.12);--white:#1A1A1A;--white-muted:rgba(26,26,26,0.7);--white-faint:rgba(26,26,26,0.4);--white-ghost:rgba(26,26,26,0.15);--violet:#B388FF;--pink:#FF3B30;--cyan:#00E676;--emerald:#00E676;--amber:#FFD60A;--red:#FF3B30;--grad-hero:linear-gradient(135deg, #FF3B30, #B388FF);--grad-text:linear-gradient(135deg, #FF3B30, #B388FF);--font-display:'Space Grotesk', system-ui, sans-serif;--font-body:'DM Sans', system-ui, sans-serif;}" +
+    " .mesh-bg{background:none !important;animation:none !important;}" +
+    " .song-card,.config-section,.queue-item,.singer-card,.now-playing-card{border:3px solid #1A1A1A !important;box-shadow:4px 4px 0px #1A1A1A !important;border-radius:8px !important;background:#FFFFFF !important;}" +
+    " .song-card:active{box-shadow:2px 2px 0px #1A1A1A !important;transform:translate(2px,2px) !important;}" +
+    " .join-btn,.add-queue-btn{background:#FF3B30 !important;color:#FFFFFF !important;border:3px solid #1A1A1A !important;box-shadow:4px 4px 0px #1A1A1A !important;border-radius:8px !important;}" +
+    " .join-btn:active,.add-queue-btn:active{box-shadow:2px 2px 0px #1A1A1A !important;transform:translate(2px,2px) !important;}" +
+    " .singer-count-btn{border:3px solid #1A1A1A !important;box-shadow:3px 3px 0px #1A1A1A !important;border-radius:8px !important;background:#FFFFFF !important;color:#1A1A1A !important;}" +
+    " .singer-count-btn.active{background:#FFD60A !important;}" +
+    " .role-btn{border:2px solid #1A1A1A !important;border-radius:8px !important;background:#FFFFFF !important;color:#1A1A1A !important;}" +
+    " .role-btn.active{background:#B388FF !important;color:#FFFFFF !important;}" +
+    " .join-input,.search-input,.singer-name-input{border:3px solid #1A1A1A !important;border-radius:8px !important;background:#FFFFFF !important;color:#1A1A1A !important;box-shadow:3px 3px 0px #1A1A1A !important;}" +
+    " .join-input::placeholder,.search-input::placeholder,.singer-name-input::placeholder{color:rgba(26,26,26,0.4) !important;}" +
+    " .bottom-nav{background:rgba(255,248,238,0.95) !important;border-top:3px solid #1A1A1A !important;}" +
+    " .songs-header{background:rgba(255,248,238,0.95) !important;}" +
+    " .now-playing-card{background:#FFD60A !important;border:3px solid #1A1A1A !important;animation:none !important;}";
+  }else if(S.theme_name==="cyberpunk"){
+    css=":root{--black:#060610;--surface-1:rgba(0,255,136,0.04);--surface-2:rgba(0,255,136,0.07);--surface-3:rgba(0,255,136,0.1);--white:#d0ffe8;--white-muted:rgba(0,255,136,0.6);--white-faint:rgba(0,255,136,0.3);--white-ghost:rgba(0,255,136,0.18);--violet:#00e5ff;--pink:#ff00aa;--cyan:#00ff88;--emerald:#00ff88;--amber:#ffcc00;--red:#ff0055;--grad-hero:linear-gradient(135deg, #00ff88, #00e5ff);--grad-text:linear-gradient(135deg, #00ff88, #00e5ff);--font-display:'Share Tech Mono', 'Courier New', monospace;--font-body:'Share Tech Mono', 'Courier New', monospace;}" +
+    " *{border-radius:0 !important;}" +
+    " .mesh-bg{background:repeating-linear-gradient(0deg,transparent,transparent 27px,rgba(0,255,136,0.03) 27px,rgba(0,255,136,0.03) 28px),repeating-linear-gradient(90deg,transparent,transparent 27px,rgba(0,255,136,0.03) 27px,rgba(0,255,136,0.03) 28px) !important;animation:none !important;}";
   }else if(S.theme_name==="sketch"){
-    css=":root{--black:#fdfbf7;--surface-1:rgba(45,93,161,0.06);--surface-2:rgba(45,93,161,0.1);--surface-3:rgba(45,93,161,0.15);--white:#2d2d2d;--white-muted:rgba(45,45,45,0.7);--white-faint:rgba(45,45,45,0.4);--white-ghost:rgba(45,45,45,0.18);--violet:#2d5da1;--pink:#e74c3c;--cyan:#2d5da1;--emerald:#27ae60;--amber:#f39c12;--red:#e74c3c;--grad-hero:linear-gradient(135deg, #2d5da1, #e74c3c);--grad-text:linear-gradient(135deg, #2d5da1, #e74c3c);--font-display:'Patrick Hand', 'Comic Sans MS', cursive;--font-body:'Patrick Hand', 'Comic Sans MS', cursive;} *{box-shadow:none !important;} .song-card,.config-section,.queue-item,.singer-card{border-style:dashed !important;border-width:2px !important;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px !important;} .join-btn,.add-queue-btn,.singer-count-btn,.role-btn{border-radius:255px 15px 225px 15px / 15px 225px 15px 255px !important;}";
+    css=":root{--black:#fdfbf7;--surface-1:rgba(45,93,161,0.05);--surface-2:rgba(45,45,45,0.06);--surface-3:rgba(45,45,45,0.1);--white:#2d2d2d;--white-muted:rgba(45,45,45,0.65);--white-faint:rgba(45,45,45,0.4);--white-ghost:rgba(45,45,45,0.15);--violet:#2d5da1;--pink:#ff4d4d;--cyan:#2d5da1;--emerald:#4caf50;--amber:#fff9c4;--red:#ff4d4d;--grad-hero:linear-gradient(135deg, #ff4d4d, #2d5da1);--grad-text:linear-gradient(135deg, #ff4d4d, #2d5da1);--font-display:'Kalam', cursive;--font-body:'Patrick Hand', cursive;}" +
+    " .mesh-bg{background:radial-gradient(#e5e0d8 1px, transparent 1px) !important;background-size:24px 24px !important;animation:none !important;}" +
+    " .song-card,.config-section,.queue-item,.singer-card{border:3px solid #2d2d2d !important;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px !important;box-shadow:4px 4px 0px #2d2d2d !important;background:#ffffff !important;}" +
+    " .now-playing-card{border:3px solid #2d2d2d !important;border-radius:25px 225px 15px 255px / 255px 15px 225px 15px !important;box-shadow:4px 4px 0px #2d2d2d !important;background:#fff9c4 !important;animation:none !important;}" +
+    " .join-btn,.add-queue-btn{background:#ff4d4d !important;color:#ffffff !important;border:3px solid #2d2d2d !important;box-shadow:4px 4px 0px #2d2d2d !important;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px !important;}" +
+    " .join-btn:active,.add-queue-btn:active{box-shadow:2px 2px 0px #2d2d2d !important;transform:translate(2px,2px) !important;}" +
+    " .singer-count-btn{border:3px solid #2d2d2d !important;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px !important;background:#ffffff !important;color:#2d2d2d !important;box-shadow:3px 3px 0px #2d2d2d !important;}" +
+    " .singer-count-btn.active{background:#fff9c4 !important;}" +
+    " .role-btn{border:2px dashed #2d2d2d !important;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px !important;background:#ffffff !important;color:#2d2d2d !important;}" +
+    " .role-btn.active{background:#2d5da1 !important;color:#ffffff !important;border-style:solid !important;}" +
+    " .join-input,.search-input,.singer-name-input{border:2px dashed rgba(45,45,45,0.3) !important;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px !important;background:#ffffff !important;color:#2d2d2d !important;}" +
+    " .join-input:focus,.search-input:focus,.singer-name-input:focus{border-color:#2d5da1 !important;border-style:solid !important;}" +
+    " .bottom-nav{background:rgba(253,251,247,0.95) !important;border-top:3px solid #2d2d2d !important;}" +
+    " .songs-header{background:rgba(253,251,247,0.95) !important;}" +
+    " button:hover{transform:rotate(1deg) !important;}";
   }else if(S.theme_name==="urban"){
-    css=":root{--black:#050505;--surface-1:rgba(212,255,0,0.04);--surface-2:rgba(212,255,0,0.07);--surface-3:rgba(212,255,0,0.1);--white:#f0f0f0;--white-muted:rgba(240,240,240,0.65);--white-faint:rgba(240,240,240,0.35);--white-ghost:rgba(212,255,0,0.12);--violet:#D4FF00;--pink:#ff3366;--cyan:#00e5ff;--emerald:#D4FF00;--amber:#ff9500;--red:#ff3366;--grad-hero:linear-gradient(135deg, #D4FF00, #ff3366);--grad-text:linear-gradient(135deg, #D4FF00, #ff3366);--font-display:'Oswald', 'Impact', sans-serif;--font-body:'Oswald', 'Arial Narrow', sans-serif;} .mesh-bg{background:radial-gradient(ellipse 80% 60% at 50% 30%, rgba(212,255,0,0.06), transparent 70%), radial-gradient(ellipse 60% 50% at 80% 80%, rgba(255,51,102,0.04), transparent) !important;}";
+    css=":root{--black:#050505;--surface-1:rgba(212,255,0,0.04);--surface-2:rgba(212,255,0,0.06);--surface-3:rgba(212,255,0,0.1);--white:#f0f0f0;--white-muted:rgba(176,176,176,0.8);--white-faint:rgba(176,176,176,0.5);--white-ghost:rgba(212,255,0,0.1);--violet:#D4FF00;--pink:#FF1E1E;--cyan:#00F0FF;--emerald:#D4FF00;--amber:#FFA600;--red:#FF1E1E;--grad-hero:linear-gradient(135deg, #D4FF00, #FF1E1E);--grad-text:linear-gradient(135deg, #D4FF00, #FF1E1E);--font-display:'Permanent Marker', cursive;--font-body:'Oswald', sans-serif;}" +
+    " .mesh-bg{background:radial-gradient(circle at 50% 30%, #1c1c1c 0%, #030303 80%) !important;animation:none !important;}" +
+    " body::after{content:'';position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:1000;opacity:0.12;background-image:url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\");mix-blend-mode:overlay;}" +
+    " .song-card,.config-section,.queue-item,.singer-card{clip-path:polygon(2% 0%, 100% 0%, 98% 100%, 0% 100%) !important;border-radius:0 !important;border:none !important;background:rgba(212,255,0,0.06) !important;}" +
+    " .now-playing-card{clip-path:polygon(3% 0%, 100% 0%, 97% 100%, 0% 100%) !important;border-radius:0 !important;border:none !important;background:rgba(212,255,0,0.1) !important;animation:none !important;}" +
+    " .join-btn,.add-queue-btn{background:#D4FF00 !important;color:#050505 !important;border:none !important;border-radius:0 !important;clip-path:polygon(4% 0%, 100% 0%, 96% 100%, 0% 100%) !important;font-family:'Oswald',sans-serif !important;font-weight:700 !important;text-transform:uppercase !important;letter-spacing:3px !important;box-shadow:none !important;}" +
+    " .join-btn:active,.add-queue-btn:active{clip-path:polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%) !important;transform:scale(0.95) !important;}" +
+    " .singer-count-btn{border:1px solid rgba(212,255,0,0.2) !important;border-radius:0 !important;clip-path:polygon(4% 0%, 100% 0%, 96% 100%, 0% 100%) !important;background:rgba(212,255,0,0.04) !important;color:#B0B0B0 !important;}" +
+    " .singer-count-btn.active{background:rgba(212,255,0,0.15) !important;color:#D4FF00 !important;border-color:#D4FF00 !important;}" +
+    " .role-btn{border:1px solid rgba(212,255,0,0.15) !important;border-radius:0 !important;background:rgba(212,255,0,0.04) !important;color:#B0B0B0 !important;clip-path:polygon(3% 0%, 100% 0%, 97% 100%, 0% 100%) !important;}" +
+    " .role-btn.active{background:rgba(212,255,0,0.15) !important;color:#D4FF00 !important;border-color:#D4FF00 !important;}" +
+    " .join-input,.search-input,.singer-name-input{border:1px solid rgba(212,255,0,0.15) !important;border-radius:0 !important;background:rgba(212,255,0,0.04) !important;color:#f0f0f0 !important;}" +
+    " .join-input:focus,.search-input:focus,.singer-name-input:focus{border-color:transparent !important;box-shadow:0 0 15px #D4FF00, 0 0 5px #D4FF00 inset !important;}" +
+    " .bottom-nav{background:rgba(5,5,5,0.95) !important;border-top:1px solid rgba(212,255,0,0.15) !important;}" +
+    " .songs-header{background:rgba(5,5,5,0.95) !important;}" +
+    " .songs-title,.queue-title,.join-title{font-family:'Permanent Marker',cursive !important;text-transform:uppercase !important;letter-spacing:3px !important;}";
   }else{
     css="";
   }
