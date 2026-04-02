@@ -7,7 +7,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { exec } from 'child_process'
 import QRCode from 'qrcode'
 import {
-    createSession, pushCatalog, subscribeToQueue, updateNowPlaying,
+    createSession, pushCatalog, updateNowPlaying,
     insertQueueItem, removeQueueItem, reorderQueue, closeSession,
     CatalogItem
 } from './supabase'
@@ -416,24 +416,8 @@ ipcMain.handle('karaoke:create-session', async () => {
             console.error('Failed to push catalog:', e)
         }
 
-        // Set up Realtime subscription for remote queue additions
-        subscribeToQueue(session.sessionId, {
-            onInsert: (row) => {
-                if (row.source === 'remote' && mainWindow) {
-                    mainWindow.webContents.send('karaoke:remote-queue-add', row)
-                }
-            },
-            onDelete: (row) => {
-                if (mainWindow) {
-                    mainWindow.webContents.send('karaoke:remote-queue-remove', row)
-                }
-            },
-            onUpdate: (row) => {
-                if (mainWindow) {
-                    mainWindow.webContents.send('karaoke:remote-queue-update', row)
-                }
-            }
-        })
+        // Realtime subscription is handled in the renderer process (useKaraokeSession hook)
+        // since the browser environment has native WebSocket support
 
         return {
             sessionId: session.sessionId,
