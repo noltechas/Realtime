@@ -90,7 +90,7 @@ export const SKETCH: Theme = {
   vividYellow: YELLOW,
   softViolet: BLUE,
   mintGreen: '#4caf50',
-  muted: MUTED,
+  muted: BLACK,
   faint: 'rgba(45,45,45,0.4)',
 
   accentA: RED,

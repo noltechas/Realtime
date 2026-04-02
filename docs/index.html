@@ -531,12 +531,8 @@ async function joinSession(name){
   await loadCatalog();await loadQueue();await loadGuests();subRT();S.screen="songs";render();
 }
 async function loadCatalog(){
-  var r=await sb.from("karaoke_catalog").select("*").eq("session_id",S.sessionId).order("name");
-  S.catalog=(r.data||[]).sort(function(a,b){
-    var sa=a.spotify_data&&a.spotify_data.instrumentalness!=null?2+(1-a.spotify_data.instrumentalness):a.spotify_data&&a.spotify_data.popularity!=null?1+a.spotify_data.popularity/100:-1;
-    var sb2=b.spotify_data&&b.spotify_data.instrumentalness!=null?2+(1-b.spotify_data.instrumentalness):b.spotify_data&&b.spotify_data.popularity!=null?1+b.spotify_data.popularity/100:-1;
-    if(sb2!==sa)return sb2-sa;return(a.name||"").localeCompare(b.name||"");
-  });
+  var r=await sb.from("karaoke_catalog").select("*").eq("session_id",S.sessionId);
+  S.catalog=(r.data||[]).map(function(v){return{v:v,s:Math.random()}}).sort(function(a,b){return a.s-b.s}).map(function(o){return o.v});
 }
 async function loadQueue(){
   var r=await sb.from("karaoke_queue").select("*").eq("session_id",S.sessionId).eq("status","queued").order("position");
@@ -799,8 +795,7 @@ function renderConfig(){
     '<div class="theme-picker">'+
       '<div class="theme-picker-label"><div class="config-label-icon" style="background:rgba(167,139,250,0.1)">&#127912;</div> Stage Theme</div>'+
       '<div class="theme-picker-grid">'+
-        '<button class="theme-pick-btn'+(S.stage_theme===null?" selected":"")+'" data-stage-theme="none" style="background:#050508;color:#f4f0fb;border:1.5px solid rgba(244,240,251,0.2);border-radius:12px;font-family:\'Space Grotesk\',sans-serif;">Session Default</button>'+
-        '<button class="theme-pick-btn'+(S.stage_theme==="neo-brutal"?" selected":"")+'" data-stage-theme="neo-brutal" style="background:#FFFDF5;color:#1A1A1A;border:3px solid #1A1A1A;border-radius:8px;font-family:\'Space Grotesk\',sans-serif;box-shadow:3px 3px 0 #1A1A1A;">Neo Brutal</button>'+
+        '<button class="theme-pick-btn'+(S.stage_theme==="neo-brutal" || S.stage_theme === null ?" selected":"")+'" data-stage-theme="neo-brutal" style="background:#FFFDF5;color:#1A1A1A;border:3px solid #1A1A1A;border-radius:8px;font-family:\'Space Grotesk\',sans-serif;box-shadow:3px 3px 0 #1A1A1A;">Default</button>'+
         '<button class="theme-pick-btn'+(S.stage_theme==="cyberpunk"?" selected":"")+'" data-stage-theme="cyberpunk" style="background:#0a0a1a;color:#00ff88;border:1.5px solid #00ff88;border-radius:0;font-family:\'Courier New\',monospace;text-shadow:0 0 8px rgba(0,255,136,0.5);">Cyberpunk</button>'+
         '<button class="theme-pick-btn'+(S.stage_theme==="sketch"?" selected":"")+'" data-stage-theme="sketch" style="background:#fdfbf7;color:#2d5da1;border:2px dashed #2d5da1;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px;font-family:\'Patrick Hand\',cursive;">Sketch</button>'+
         '<button class="theme-pick-btn'+(S.stage_theme==="urban"?" selected":"")+'" data-stage-theme="urban" style="background:#0a0a0a;color:#D4FF00;border:1.5px solid #D4FF00;border-radius:4px;font-family:\'Oswald\',sans-serif;text-transform:uppercase;letter-spacing:2px;">Urban</button>'+

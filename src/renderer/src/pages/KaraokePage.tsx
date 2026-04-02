@@ -81,16 +81,19 @@ function useSingerMic(deviceId: string, enabled: boolean, effects: any, mainOutp
 }
 
 // ---- Mic Meter Component ----
-function MicMeter({ singer, active, effects, mainOutputId, theme }: { singer: { name: string; color: string; micDeviceId: string }; active: boolean; effects: any; mainOutputId: string; theme: any }) {
+function MicMeter({ singer, active, effects, mainOutputId, theme }: { singer: { name: string; color: string; micDeviceId: string; profilePicture?: string }; active: boolean; effects: any; mainOutputId: string; theme: any }) {
     const level = useSingerMic(singer.micDeviceId, active, effects, mainOutputId)
     const bars = 8
     const activeBars = Math.round(level * bars * 2.5)
-    
+
     // Fallback for dark bars if background is bright
     const inactiveColor = theme.appBg === '#FFF8EE' || theme.appBg === '#faf4ed' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.08)'
 
     return (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {singer.profilePicture && (
+                <img src={singer.profilePicture} alt="" style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+            )}
             <span style={{ fontSize: 12, fontFamily: theme.fontDisplay, fontWeight: 600, color: 'inherit', letterSpacing: 0.5 }}>
                 {singer.name}
             </span>
@@ -128,6 +131,7 @@ export default function KaraokePage() {
     // YouTube player sync
     const ytPlayerRef = useRef<any>(null)
     const ytReadyRef = useRef(false)
+    const audioTimeMsRef = useRef(0)
     const [ytReady, setYtReady] = useState(false)
     const [previewSlices, setPreviewSlices] = useState<number[]>([])
 
@@ -161,9 +165,11 @@ export default function KaraokePage() {
         if (!window.electronAPI) return
         const timeHandler = window.electronAPI.onPlaybackTime((timeMs: number) => {
             setElapsed(timeMs)
+            audioTimeMsRef.current = timeMs
         })
         const seekHandler = window.electronAPI.onPlaybackSeek((timeMs: number) => {
             setElapsed(timeMs)
+            audioTimeMsRef.current = timeMs
             if (ytReadyRef.current && ytPlayerRef.current) {
                 ytPlayerRef.current.seekTo(timeMs / 1000, true)
             }
@@ -177,6 +183,7 @@ export default function KaraokePage() {
     // Reset elapsed when track changes
     useEffect(() => {
         setElapsed(0)
+        audioTimeMsRef.current = 0
         setLineIdx(-1)
         if (track && track.duration_ms && ytId) {
             const durationSec = Math.floor(track.duration_ms / 1000)
@@ -224,6 +231,7 @@ export default function KaraokePage() {
                         ytReadyRef.current = true
                         setYtReady(true)
                         if (state.stageMode === 'playing' && state.isPlaying) {
+                            ytPlayerRef.current?.seekTo(audioTimeMsRef.current / 1000, true)
                             ytPlayerRef.current?.playVideo()
                         }
                     },
@@ -273,15 +281,37 @@ export default function KaraokePage() {
             const interval = setInterval(playSlice, 4000)
             return () => clearInterval(interval)
         } else {
-            // standard playback sync
+            // standard playback sync — seek to current audio position before playing
             const shouldPlay = state.stageMode === 'playing' && state.isPlaying
             if (shouldPlay) {
+                const currentSec = audioTimeMsRef.current / 1000
+                ytPlayerRef.current.seekTo(currentSec, true)
                 ytPlayerRef.current.playVideo()
             } else {
                 ytPlayerRef.current.pauseVideo()
             }
         }
     }, [state.stageMode, state.isPlaying, previewSlices, ytReady])
+
+    // Periodic drift correction: re-sync YouTube video if it drifts from audio
+    useEffect(() => {
+        if (!ytReady || !ytPlayerRef.current) return
+        if (state.stageMode !== 'playing' || !state.isPlaying) return
+
+        const DRIFT_CHECK_INTERVAL = 3000
+        const DRIFT_THRESHOLD = 1.5
+
+        const interval = setInterval(() => {
+            if (!ytPlayerRef.current || !ytReadyRef.current) return
+            const videoSec = ytPlayerRef.current.getCurrentTime()
+            const audioSec = audioTimeMsRef.current / 1000
+            if (Math.abs(videoSec - audioSec) > DRIFT_THRESHOLD) {
+                ytPlayerRef.current.seekTo(audioSec, true)
+            }
+        }, DRIFT_CHECK_INTERVAL)
+
+        return () => clearInterval(interval)
+    }, [state.stageMode, state.isPlaying, ytReady])
 
     // Auto-hide UI
     const handleMouse = useCallback(() => {
@@ -508,7 +538,7 @@ export default function KaraokePage() {
                             Add a song!
                         </h1>
                         <p style={{
-                            fontFamily: 'Patrick Hand, cursive', fontSize: 22, color: '#2d2d2d', opacity: 0.5,
+                            fontFamily: 'Patrick Hand, cursive', fontSize: 22, color: '#2d2d2d', opacity: theme.name === 'sketch' ? 0.9 : 0.5,
                             marginBottom: 44, transform: 'rotate(0.5deg)',
                         }}>
                             Scan this to pick your tune
@@ -746,7 +776,7 @@ export default function KaraokePage() {
                                 <h1 style={{ fontFamily: theme.fontDisplay, color: theme.page?.color as string || theme.black, fontSize: 42, fontWeight: 800, lineHeight: 1.15, marginBottom: 10, letterSpacing: '-0.5px' }}>
                                     {track.name}
                                 </h1>
-                                <p style={{ fontSize: 18, color: theme.muted, opacity: 0.8, marginBottom: 36, display: 'flex', gap: 16, justifyContent: 'center', alignItems: 'center' }}>
+                                <p style={{ fontSize: 18, color: theme.muted, opacity: theme.name === 'sketch' ? 1 : 0.8, marginBottom: 36, display: 'flex', gap: 16, justifyContent: 'center', alignItems: 'center' }}>
                                     <span>{track.artists.map((a: any) => a.name).join(', ')}</span>
                                     {track.duration_ms && (
                                         <>
