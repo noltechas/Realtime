@@ -180,7 +180,7 @@ const GLOBAL_CSS = `
 // ── Theme export ─────────────────────────────────────────────────────────────
 export const CYBERPUNK: Theme = {
   name: 'cyberpunk',
-  nextThemeName: 'neo-brutal',
+  nextThemeName: 'sketch',
   displayName: 'Cyberpunk',
   globalCss: GLOBAL_CSS,
 

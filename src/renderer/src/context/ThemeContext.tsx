@@ -2,10 +2,12 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import type { Theme } from '../styles/theme'
 import { NEO } from '../styles/neo-brutal'
 import { CYBERPUNK } from '../styles/cyberpunk'
+import { SKETCH } from '../styles/sketch'
 
 const THEMES: Record<string, Theme> = {
   'neo-brutal': NEO,
   'cyberpunk': CYBERPUNK,
+  'sketch': SKETCH,
 }
 
 export const THEME_LIST = Object.entries(THEMES).map(([key, t]) => ({
