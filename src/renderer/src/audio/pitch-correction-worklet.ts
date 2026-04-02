@@ -3,7 +3,7 @@
  *
  * Real-time autotune using:
  * 1. YIN algorithm for pitch detection (~12ms analysis windows)
- * 2. Dual-head crossfade pitch shifter (OLA-based, pitch-synchronous grains)
+ * 2. Dual-head OLA pitch shifter with drift management
  * 3. Scale-aware note snapping with configurable strength
  *
  * Parameters (via MessagePort):
@@ -45,13 +45,15 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
         this._ratio = 1.0;
         this._smoothedRatio = 1.0;
 
-        // Dual-head crossfade OLA
-        this._grainSize = 512;
-        this._maxGrain = 2048;
-        this._hanning = new Float32Array(this._maxGrain);
-        this._computeHanning(this._grainSize);
+        // Dual-head crossfade OLA (fixed grain size for stable COLA)
+        this._grainSize = 1024;
+        this._hanning = new Float32Array(1024);
+        this._computeHanning(1024);
 
-        // Head A
+        // Latency: how far behind wPos the heads should nominally sit (2x grain)
+        this._latency = 2048;
+
+        // Head A (fractional position for interpolated reads)
         this._hAPos = 0;
         this._hAProg = 0;
         // Head B (offset by half grain)
@@ -59,6 +61,10 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
         this._hBProg = 0;
 
         this._initialized = false;
+
+        // === Pitch detection smoothing (median of 3) ===
+        this._freqHistory = [0, 0, 0];
+        this._freqHistIdx = 0;
 
         // === Scale lookup ===
         this._major = [0, 2, 4, 5, 7, 9, 11];
@@ -82,17 +88,43 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
         }
     }
 
-    _readBuf(pos) {
-        return this._buf[((pos | 0) % this._bufSize + this._bufSize) % this._bufSize];
+    _readBufLerp(pos) {
+        const bLen = this._bufSize;
+        const wrapped = ((pos % bLen) + bLen) % bLen;
+        const i0 = Math.floor(wrapped);
+        const i1 = (i0 + 1) % bLen;
+        const frac = wrapped - i0;
+        return this._buf[i0] * (1 - frac) + this._buf[i1] * frac;
     }
 
     _syncHeads() {
-        const behind = 256;
-        const target = (this._wPos - behind + this._bufSize) % this._bufSize;
+        const bLen = this._bufSize;
+        const target = (this._wPos - this._latency + bLen) % bLen;
         this._hAPos = target;
         this._hAProg = 0;
-        this._hBPos = (target + (this._grainSize >> 1)) % this._bufSize;
+        this._hBPos = (target + (this._grainSize >> 1)) % bLen;
         this._hBProg = this._grainSize >> 1;
+    }
+
+    // Soft re-centering: nudge head toward ideal position at grain boundaries.
+    // Hard-snap only if dangerously close to write head.
+    _safePos(headPos) {
+        const bLen = this._bufSize;
+        const target = (this._wPos - this._latency + bLen) % bLen;
+        let dist = (this._wPos - headPos + bLen) % bLen;
+
+        // Emergency hard snap if about to collide with write head
+        if (dist < 128 || dist > bLen - 128) {
+            return target;
+        }
+
+        // Gradual nudge: move 25% toward target each grain boundary
+        let drift = target - headPos;
+        // Wrap to shortest signed path
+        if (drift > bLen / 2) drift -= bLen;
+        if (drift < -bLen / 2) drift += bLen;
+        const nudge = drift * 0.25;
+        return ((headPos + nudge) % bLen + bLen) % bLen;
     }
 
     process(inputs, outputs) {
@@ -130,7 +162,11 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
             return true;
         }
 
-        // Generate pitch-shifted output via dual-head crossfade
+        // Generate pitch-shifted output via dual-head OLA crossfade
+        // Heads read at 1.0 speed within grains. Pitch shift comes from
+        // the jump at grain boundaries: jump = (ratio - 1) * grainSize.
+        // Drift management snaps heads back to safe zone at boundaries
+        // (where Hanning weight = 0, so snapping is click-free).
         const gs = this._grainSize;
 
         for (let i = 0; i < len; i++) {
@@ -141,25 +177,15 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
 
             const sr = this._smoothedRatio;
 
-            // Near unity ratio: pass through
-            if (Math.abs(sr - 1.0) < 0.0005) {
-                out[i] = this._readBuf(this._hAPos);
-                this._hAPos = (this._hAPos + 1) % bLen;
-                this._hBPos = (this._hBPos + 1) % bLen;
-                this._hAProg = (this._hAProg + 1) % gs;
-                this._hBProg = (this._hBProg + 1) % gs;
-                continue;
-            }
-
-            // Read from both heads
-            const sA = this._readBuf(this._hAPos);
-            const sB = this._readBuf(this._hBPos);
+            // Read from both heads with linear interpolation
+            const sA = this._readBufLerp(this._hAPos);
+            const sB = this._readBufLerp(this._hBPos);
 
             // Hanning windows
             const wA = this._hAProg < gs ? this._hanning[this._hAProg] : 0;
             const wB = this._hBProg < gs ? this._hanning[this._hBProg] : 0;
 
-            // Normalized crossfade (sum of complementary Hanning = 1.0 when offset by half)
+            // Normalized crossfade
             const wSum = wA + wB;
             if (wSum > 0.001) {
                 out[i] = (sA * wA + sB * wB) / wSum;
@@ -167,24 +193,29 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
                 out[i] = sA * 0.5 + sB * 0.5;
             }
 
-            // Advance heads
+            // Advance heads at 1.0 speed within grains
             this._hAPos = (this._hAPos + 1) % bLen;
             this._hBPos = (this._hBPos + 1) % bLen;
             this._hAProg++;
             this._hBProg++;
 
-            // Head A grain boundary: jump to maintain pitch shift
+            // Head A grain boundary: apply pitch-shift jump + drift management
             if (this._hAProg >= gs) {
                 this._hAProg = 0;
-                const jump = Math.round((sr - 1.0) * gs);
+                // Jump creates pitch shift: positive = skip forward (pitch up),
+                // negative = skip backward (pitch down)
+                const jump = (sr - 1.0) * gs;
                 this._hAPos = (this._hAPos + jump + bLen) % bLen;
+                // Snap back if drifted into unsafe zone (click-free: Hanning = 0 here)
+                this._hAPos = this._safePos(this._hAPos);
             }
 
             // Head B grain boundary
             if (this._hBProg >= gs) {
                 this._hBProg = 0;
-                const jump = Math.round((sr - 1.0) * gs);
+                const jump = (sr - 1.0) * gs;
                 this._hBPos = (this._hBPos + jump + bLen) % bLen;
+                this._hBPos = this._safePos(this._hBPos);
             }
         }
 
@@ -223,7 +254,7 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
         // Step 3: Absolute threshold search
         const minPeriod = Math.max(2, Math.floor(sampleRate / 2000));
         const maxPeriod = Math.min(half - 1, Math.floor(sampleRate / 60));
-        const threshold = 0.15;
+        const threshold = 0.3;
         let tauEst = -1;
 
         for (let tau = minPeriod; tau < maxPeriod; tau++) {
@@ -235,8 +266,23 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
             }
         }
 
+        // Global minimum fallback: if threshold search failed, use best tau if good enough
         if (tauEst === -1) {
-            // No pitch detected (unvoiced, silence, noise)
+            let bestTau = -1;
+            let bestVal = 1.0;
+            for (let tau = minPeriod; tau < maxPeriod; tau++) {
+                if (yin[tau] < bestVal) {
+                    bestVal = yin[tau];
+                    bestTau = tau;
+                }
+            }
+            if (bestVal < 0.5) {
+                tauEst = bestTau;
+            }
+        }
+
+        if (tauEst === -1) {
+            // Truly unvoiced / silence / noise
             this._detectedFreq = 0;
             return;
         }
@@ -249,16 +295,19 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
         const betterTau = denom !== 0 ? tauEst + (s0 - s2) / denom : tauEst;
 
         this._detectedPeriod = betterTau;
-        this._detectedFreq = sampleRate / betterTau;
+        const rawFreq = sampleRate / betterTau;
 
-        // Adapt grain size to pitch period (2x period = best OLA quality)
-        if (betterTau > 0) {
-            const ideal = Math.round(betterTau * 2);
-            const clamped = Math.max(128, Math.min(this._maxGrain, ideal));
-            if (Math.abs(clamped - this._grainSize) > 32) {
-                this._grainSize = clamped;
-                this._computeHanning(clamped);
-            }
+        // Median filter: smooth over last 3 detections to reject single-frame errors
+        this._freqHistory[this._freqHistIdx] = rawFreq;
+        this._freqHistIdx = (this._freqHistIdx + 1) % 3;
+
+        const a = this._freqHistory[0], b = this._freqHistory[1], c = this._freqHistory[2];
+        // If any history slot is 0 (onset), use raw value directly
+        if (a === 0 || b === 0 || c === 0) {
+            this._detectedFreq = rawFreq;
+        } else {
+            // Median of 3
+            this._detectedFreq = a + b + c - Math.max(a, b, c) - Math.min(a, b, c);
         }
     }
 

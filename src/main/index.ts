@@ -363,8 +363,8 @@ ipcMain.handle('karaoke:create-session', async () => {
         // Generate QR code
         const qrDataUrl = await QRCode.toDataURL(companionUrl, {
             width: 256,
-            margin: 1,
-            color: { dark: '#f4f0fb', light: '#00000000' }
+            margin: 2,
+            color: { dark: '#1A1A1A', light: '#FFFFFF' }
         })
 
         // Push catalog to Supabase
