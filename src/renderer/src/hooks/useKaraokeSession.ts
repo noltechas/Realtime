@@ -103,7 +103,8 @@ export function useKaraokeSession() {
                         colorGlow: sc.colorGlow || NEON_COLORS[i % NEON_COLORS.length].colorGlow,
                         micDeviceId: '',
                         vocalTrack: i === 0 ? 'lead' as const : 'backing' as const,
-                        roleIndices: sc.roleIndices
+                        roleIndices: sc.roleIndices,
+                        profilePicture: sc.profilePicture || undefined
                     }))
 
                     const item: QueueItem = {

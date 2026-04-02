@@ -29,6 +29,7 @@ export interface Singer {
     vocalTrack: 'lead' | 'backing' | 'both'
     roleIndices?: number[]
     whitePersonCheck?: boolean
+    profilePicture?: string
 }
 
 export interface MicSlotConfig {

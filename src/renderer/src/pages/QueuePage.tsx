@@ -52,7 +52,7 @@ const IconGrip = () => (
 )
 
 // ---- Singer Avatar (colored initial circle) ----
-function SingerAvatar({ name, color, size = 26 }: { name: string; color: string; size?: number }) {
+function SingerAvatar({ name, color, size = 26, profilePicture }: { name: string; color: string; size?: number; profilePicture?: string }) {
     const theme = useTheme()
     return (
         <div style={{
@@ -61,9 +61,12 @@ function SingerAvatar({ name, color, size = 26 }: { name: string; color: string;
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontFamily: theme.fontDisplay, fontWeight: 700,
             fontSize: size * 0.42, color: theme.black,
-            flexShrink: 0,
+            flexShrink: 0, overflow: 'hidden',
         }}>
-            {name.charAt(0).toUpperCase()}
+            {profilePicture
+                ? <img src={profilePicture} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : name.charAt(0).toUpperCase()
+            }
         </div>
     )
 }
@@ -246,7 +249,7 @@ function SetupPanel() {
                 >
                     <div style={{ position: 'absolute', top: 0, left: 0, width: 6, bottom: 0, background: singer.color }} />
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
-                        <SingerAvatar name={singer.name || `${i + 1}`} color={singer.color} size={24} />
+                        <SingerAvatar name={singer.name || `${i + 1}`} color={singer.color} size={24} profilePicture={singer.profilePicture} />
                         <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 15, color: theme.black }}>
                             Singer {i + 1}
                         </span>
@@ -529,7 +532,7 @@ function NowPlayingBanner() {
                         <div style={{ display: 'flex' }}>
                             {singers.map((s, idx) => (
                                 <div key={s.id} style={{ marginLeft: idx > 0 ? -8 : 0, zIndex: singers.length - idx }}>
-                                    <SingerAvatar name={s.name} color={s.color} size={36} />
+                                    <SingerAvatar name={s.name} color={s.color} size={36} profilePicture={s.profilePicture} />
                                 </div>
                             ))}
                         </div>
@@ -827,7 +830,7 @@ export default function QueuePage() {
                                                     fontSize: 11, fontFamily: theme.fontDisplay, fontWeight: 600,
                                                     color: theme.black,
                                                 }}>
-                                                    <SingerAvatar name={s.name} color={s.color} size={20} />
+                                                    <SingerAvatar name={s.name} color={s.color} size={20} profilePicture={s.profilePicture} />
                                                     <span>{s.name || 'Singer'}</span>
                                                     {roleNames.length > 0 && (
                                                         <span style={{ fontSize: 9, opacity: 0.5, fontWeight: 400 }}>

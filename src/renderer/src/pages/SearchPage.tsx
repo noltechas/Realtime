@@ -66,19 +66,12 @@ export default function SearchPage() {
         if (window.electronAPI) {
             const songs = await window.electronAPI.listCatalog()
 
-            const sortScore = (s: CatalogSong) => {
-                if (typeof s.spotifyData?.instrumentalness === 'number') return 2 + (1 - s.spotifyData.instrumentalness)
-                if (typeof s.spotifyData?.popularity === 'number') return 1 + s.spotifyData.popularity / 100
-                return -1
-            }
-            const sorted = [...songs].sort((a: CatalogSong, b: CatalogSong) => {
-                const scoreA = sortScore(a)
-                const scoreB = sortScore(b)
-                if (scoreB !== scoreA) return scoreB - scoreA
-                return (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' })
-            })
+            const shuffled = [...songs]
+                .map(value => ({ value, sort: Math.random() }))
+                .sort((a, b) => a.sort - b.sort)
+                .map(({ value }) => value)
 
-            setCatalog(sorted)
+            setCatalog(shuffled)
         }
         setLoading(false)
     }

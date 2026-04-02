@@ -131,6 +131,10 @@ export default function KaraokePage() {
     const [ytReady, setYtReady] = useState(false)
     const [previewSlices, setPreviewSlices] = useState<number[]>([])
 
+    // Crossfade: remember previous album art to avoid black flash on transition
+    const [prevArt, setPrevArt] = useState<string | null>(null)
+    const [artLoaded, setArtLoaded] = useState(false)
+
     const np = state.nowPlaying
     const track = np?.track || null
     const lyrics = np?.lyrics || []
@@ -139,6 +143,18 @@ export default function KaraokePage() {
     const voiceEffects = np?.voiceEffects || null
     const art = track?.album.images[0]?.url
     const ytId = np?.backgroundVideoPath ? extractYouTubeId(np.backgroundVideoPath) : null
+
+    // When art changes, keep old art visible until new one loads
+    useEffect(() => {
+        if (!art) return
+        setArtLoaded(false)
+        const img = new Image()
+        img.onload = () => {
+            setArtLoaded(true)
+            setPrevArt(art)
+        }
+        img.src = art
+    }, [art])
 
     // Receive time updates from main window via IPC
     useEffect(() => {
@@ -343,30 +359,304 @@ export default function KaraokePage() {
         return groups
     }, [lyrics, singers, roles])
 
-    // Empty state — waiting for songs (TitleBar in App handles window controls)
+    // Empty state — themed waiting screen with QR code
     if (!track) {
+        const qrUrl = state.karaokeQrDataUrl
+        const sessionCode = state.karaokeSessionCode
+
+        // ---- Neo-Brutal idle ----
+        if (theme.name === 'neo-brutal') {
+            return (
+                <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
+                    background: '#FFF8EE', position: 'relative', overflow: 'hidden',
+                }}>
+                    {/* Decorative offset blocks */}
+                    <div style={{ position: 'absolute', top: 60, left: 80, width: 120, height: 120, background: '#FFD60A', border: '3px solid #1A1A1A', boxShadow: '6px 6px 0 #1A1A1A', borderRadius: 0, transform: 'rotate(-8deg)' }} />
+                    <div style={{ position: 'absolute', bottom: 80, right: 100, width: 90, height: 90, background: '#B388FF', border: '3px solid #1A1A1A', boxShadow: '6px 6px 0 #1A1A1A', borderRadius: 0, transform: 'rotate(12deg)' }} />
+                    <div style={{ position: 'absolute', top: 140, right: 200, width: 60, height: 60, background: '#00E676', border: '3px solid #1A1A1A', boxShadow: '4px 4px 0 #1A1A1A', borderRadius: 0, transform: 'rotate(-3deg)' }} />
+                    <div style={{ position: 'absolute', bottom: 160, left: 180, width: 70, height: 70, background: '#FF3B30', border: '3px solid #1A1A1A', boxShadow: '5px 5px 0 #1A1A1A', borderRadius: 0, transform: 'rotate(6deg)' }} />
+
+                    <div style={{ textAlign: 'center', zIndex: 1 }}>
+                        <h1 style={{
+                            fontFamily: 'Space Grotesk, sans-serif', fontSize: 72, fontWeight: 800, color: '#1A1A1A',
+                            lineHeight: 1.1, marginBottom: 16,
+                            textShadow: 'none',
+                        }}>
+                            Add a Song!
+                        </h1>
+                        <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 20, color: '#1A1A1A', opacity: 0.6, marginBottom: 48 }}>
+                            Scan to join the queue
+                        </p>
+                        {qrUrl && (
+                            <div style={{
+                                display: 'inline-block', padding: 20,
+                                background: 'white', border: '4px solid #1A1A1A', boxShadow: '8px 8px 0 #1A1A1A',
+                            }}>
+                                <img src={qrUrl} alt="QR" style={{ width: 220, height: 220, display: 'block' }} />
+                            </div>
+                        )}
+                        {sessionCode && (
+                            <p style={{
+                                fontFamily: 'Space Grotesk, sans-serif', fontSize: 28, fontWeight: 800, color: '#1A1A1A',
+                                letterSpacing: '0.25em', textTransform: 'uppercase', marginTop: 24,
+                            }}>
+                                {sessionCode}
+                            </p>
+                        )}
+                    </div>
+                </div>
+            )
+        }
+
+        // ---- Cyberpunk idle ----
+        if (theme.name === 'cyberpunk') {
+            return (
+                <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
+                    background: '#060610', position: 'relative', overflow: 'hidden',
+                }}>
+                    {/* Dot grid background */}
+                    <div style={{
+                        position: 'absolute', inset: 0, opacity: 0.15,
+                        backgroundImage: 'radial-gradient(circle, #00ff88 1px, transparent 1px)',
+                        backgroundSize: '28px 28px',
+                    }} />
+                    {/* Scanline overlay */}
+                    <div style={{
+                        position: 'absolute', inset: 0, opacity: 0.04, pointerEvents: 'none',
+                        background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,136,0.3) 2px, rgba(0,255,136,0.3) 4px)',
+                    }} />
+
+                    <div style={{ textAlign: 'center', zIndex: 1 }}>
+                        <p style={{
+                            fontFamily: 'Share Tech Mono, monospace', fontSize: 16, color: '#00ff88', opacity: 0.5,
+                            letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: 12,
+                        }}>
+                            {'>'} system.queue.status
+                        </p>
+                        <h1 style={{
+                            fontFamily: 'Share Tech Mono, monospace', fontSize: 56, fontWeight: 400, color: '#00ff88',
+                            lineHeight: 1.2, marginBottom: 8,
+                            textShadow: '0 0 20px rgba(0,255,136,0.6), 0 0 60px rgba(0,255,136,0.3)',
+                        }}>
+                            // AWAITING INPUT
+                        </h1>
+                        <p style={{
+                            fontFamily: 'Share Tech Mono, monospace', fontSize: 14, color: '#00e5ff', opacity: 0.4,
+                            marginBottom: 48,
+                        }}>
+                            scan_qr_code() to enqueue track
+                        </p>
+                        {qrUrl && (
+                            <div style={{
+                                display: 'inline-block', padding: 12,
+                                border: '1px solid #00ff88',
+                                boxShadow: '0 0 15px rgba(0,255,136,0.3), inset 0 0 15px rgba(0,255,136,0.1)',
+                            }}>
+                                <img src={qrUrl} alt="QR" style={{ width: 200, height: 200, display: 'block' }} />
+                            </div>
+                        )}
+                        {sessionCode && (
+                            <p style={{
+                                fontFamily: 'Share Tech Mono, monospace', fontSize: 22, color: '#00ff88',
+                                letterSpacing: '0.3em', textTransform: 'uppercase', marginTop: 20,
+                                textShadow: '0 0 10px rgba(0,255,136,0.5)',
+                            }}>
+                                [{sessionCode}]
+                            </p>
+                        )}
+                    </div>
+                </div>
+            )
+        }
+
+        // ---- Sketch (Hand-Drawn) idle ----
+        if (theme.name === 'sketch') {
+            return (
+                <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
+                    background: '#fdfbf7', position: 'relative', overflow: 'hidden',
+                }}>
+                    {/* Dot paper background */}
+                    <div style={{
+                        position: 'absolute', inset: 0, opacity: 0.3,
+                        backgroundImage: 'radial-gradient(circle, #2d2d2d 1px, transparent 1px)',
+                        backgroundSize: '24px 24px',
+                    }} />
+
+                    {/* Hand-drawn doodle decorations */}
+                    <svg style={{ position: 'absolute', top: 80, left: 100, width: 60, height: 60, opacity: 0.2 }} viewBox="0 0 60 60">
+                        <path d="M30 5 L35 20 L50 20 L38 30 L42 45 L30 36 L18 45 L22 30 L10 20 L25 20 Z" fill="none" stroke="#2d2d2d" strokeWidth="2" strokeLinejoin="round" />
+                    </svg>
+                    <svg style={{ position: 'absolute', bottom: 100, right: 120, width: 50, height: 50, opacity: 0.15 }} viewBox="0 0 50 50">
+                        <circle cx="25" cy="25" r="20" fill="none" stroke="#ff4d4d" strokeWidth="2.5" strokeDasharray="4 3" />
+                    </svg>
+                    <svg style={{ position: 'absolute', top: 160, right: 180, width: 40, height: 40, opacity: 0.2 }} viewBox="0 0 40 40">
+                        <path d="M5 35 Q10 5 20 20 Q30 35 35 8" fill="none" stroke="#2d5da1" strokeWidth="2.5" strokeLinecap="round" />
+                    </svg>
+                    <svg style={{ position: 'absolute', bottom: 140, left: 200, width: 45, height: 30, opacity: 0.2 }} viewBox="0 0 45 30">
+                        <path d="M5 15 Q12 2 22 15 Q32 28 40 12" fill="none" stroke="#ff4d4d" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+
+                    <div style={{ textAlign: 'center', zIndex: 1 }}>
+                        <h1 style={{
+                            fontFamily: 'Kalam, cursive', fontSize: 68, fontWeight: 700, color: '#2d2d2d',
+                            lineHeight: 1.2, marginBottom: 8,
+                            transform: 'rotate(-1.5deg)',
+                        }}>
+                            Add a song!
+                        </h1>
+                        <p style={{
+                            fontFamily: 'Patrick Hand, cursive', fontSize: 22, color: '#2d2d2d', opacity: 0.5,
+                            marginBottom: 44, transform: 'rotate(0.5deg)',
+                        }}>
+                            Scan this to pick your tune
+                        </p>
+                        {qrUrl && (
+                            <div style={{
+                                display: 'inline-block', padding: 16,
+                                background: 'white', border: '3px solid #2d2d2d',
+                                borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px',
+                                boxShadow: '4px 4px 0 rgba(0,0,0,0.12)',
+                                transform: 'rotate(1deg)',
+                            }}>
+                                <img src={qrUrl} alt="QR" style={{ width: 200, height: 200, display: 'block', borderRadius: 4 }} />
+                            </div>
+                        )}
+                        {sessionCode && (
+                            <p style={{
+                                fontFamily: 'Kalam, cursive', fontSize: 26, fontWeight: 700, color: '#2d5da1',
+                                letterSpacing: '0.2em', textTransform: 'uppercase', marginTop: 20,
+                                transform: 'rotate(-0.8deg)',
+                            }}>
+                                {sessionCode}
+                            </p>
+                        )}
+                    </div>
+                </div>
+            )
+        }
+
+        // ---- Urban (Hip Hop) idle ----
         return (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', background: 'var(--black)' }}>
-                <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 48, marginBottom: 12 }}>🎤</div>
-                    <p style={{ color: 'var(--white-muted)', marginBottom: 20 }}>Waiting for songs...</p>
+            <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
+                background: '#050505', position: 'relative', overflow: 'hidden',
+            }}>
+                {/* Spotlight vignette */}
+                <div style={{
+                    position: 'absolute', inset: 0,
+                    background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.04) 0%, transparent 50%, rgba(0,0,0,0.8) 100%)',
+                }} />
+                {/* Grunge texture */}
+                <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.06, mixBlendMode: 'overlay' as const }}>
+                    <filter id="idle-noise"><feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" /></filter>
+                    <rect width="100%" height="100%" filter="url(#idle-noise)" />
+                </svg>
+
+                {/* Diagonal accent slashes */}
+                <div style={{
+                    position: 'absolute', top: 0, right: 0, width: 300, height: '100%',
+                    background: 'linear-gradient(135deg, transparent 40%, rgba(212,255,0,0.04) 40%, rgba(212,255,0,0.04) 42%, transparent 42%)',
+                }} />
+                <div style={{
+                    position: 'absolute', bottom: 0, left: 0, width: 250, height: '100%',
+                    background: 'linear-gradient(135deg, transparent 55%, rgba(255,30,30,0.03) 55%, rgba(255,30,30,0.03) 57%, transparent 57%)',
+                }} />
+
+                <div style={{ textAlign: 'center', zIndex: 1 }}>
+                    <h1 style={{
+                        fontFamily: 'Permanent Marker, cursive', fontSize: 76, color: '#FFFFFF',
+                        lineHeight: 1.1, marginBottom: 4,
+                        textShadow: '3px 3px 0 rgba(0,0,0,0.8)',
+                    }}>
+                        DROP A TRACK
+                    </h1>
+                    <p style={{
+                        fontFamily: 'Oswald, sans-serif', fontSize: 18, color: '#B0B0B0',
+                        letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: 48,
+                    }}>
+                        Scan to add your song
+                    </p>
+                    {qrUrl && (
+                        <div style={{
+                            display: 'inline-block', padding: 12,
+                            border: '2px solid #D4FF00',
+                            clipPath: 'polygon(3% 0%, 100% 0%, 97% 100%, 0% 100%)',
+                            background: 'rgba(0,0,0,0.6)',
+                        }}>
+                            <img src={qrUrl} alt="QR" style={{ width: 210, height: 210, display: 'block' }} />
+                        </div>
+                    )}
+                    {sessionCode && (
+                        <p style={{
+                            fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, color: '#D4FF00',
+                            letterSpacing: '0.35em', textTransform: 'uppercase', marginTop: 20,
+                            textShadow: '0 0 10px rgba(212,255,0,0.3)',
+                        }}>
+                            {sessionCode}
+                        </p>
+                    )}
                 </div>
             </div>
         )
     }
 
+    const qrOverlay = state.karaokeQrDataUrl ? (
+        <div style={{
+            position: 'fixed', top: 'calc(100vh - 150px)', left: 80, zIndex: 9999,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+        }}>
+            <div style={{
+                ...theme.stickerLabel,
+                background: theme.name === 'cyberpunk' || theme.name === 'urban' ? 'rgba(0,0,0,0.8)' : theme.appBg,
+                padding: 10,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 6,
+                backdropFilter: 'blur(16px)',
+            }}>
+                <img src={state.karaokeQrDataUrl} alt="QR" style={{
+                    width: 80, height: 80,
+                    borderRadius: theme.radiusSmall,
+                    display: 'block',
+                }} />
+                <span style={{
+                    fontFamily: theme.fontDisplay,
+                    fontSize: 9,
+                    fontWeight: 700,
+                    letterSpacing: '0.12em',
+                    textTransform: 'uppercase',
+                    color: theme.name === 'cyberpunk' ? '#00ff88' : theme.name === 'urban' ? '#D4FF00' : theme.muted,
+                    textAlign: 'center',
+                    display: 'block',
+                    width: '100%',
+                }}>
+                    Join
+                </span>
+            </div>
+        </div>
+    ) : null
+
     return (
+        <>
         <div className="karaoke-stage" onMouseMove={handleMouse} style={{ cursor: showUI ? 'default' : 'none' }}>
-            {/* Background */}
+            {/* Background with crossfade */}
             <div className="k-bg">
-                {art && <img className="k-bg__img" src={art} alt="" />}
+                {/* Previous art stays visible until new art loads */}
+                {prevArt && prevArt !== art && !artLoaded && (
+                    <img className="k-bg__img k-bg__img--prev" src={prevArt} alt="" style={{ opacity: 1 }} />
+                )}
+                {art && <img className="k-bg__img" src={art} alt="" style={{ opacity: artLoaded || !prevArt ? 1 : 0 }} />}
                 {ytId && (
                     <div className="k-bg__yt-wrap" style={{ opacity: 1 }}>
                         <div id="yt-bg-player" />
                         <div className="k-bg__yt-mask" aria-hidden="true" />
                     </div>
                 )}
-                {state.stageMode === 'playing' && <div className="k-bg__scrim" />}
+                <div className="k-bg__scrim" style={{ opacity: state.stageMode === 'playing' ? 1 : 0 }} />
             </div>
 
             {/* Hidden SVG for Filters */}
@@ -486,12 +776,16 @@ export default function KaraokePage() {
                                                     display: 'inline-flex',
                                                     alignItems: 'center',
                                                     justifyContent: 'center',
+                                                    gap: 12,
                                                     padding: '16px 36px',
                                                     color: s.color,
                                                     fontWeight: 700,
                                                     fontSize: 28,
                                                 }}
                                             >
+                                                {s.profilePicture && (
+                                                    <img src={s.profilePicture} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
+                                                )}
                                                 {displayText}
                                             </div>
                                         )
@@ -542,13 +836,9 @@ export default function KaraokePage() {
                                             cls += ' k-line--sketch'
                                             inlineStyle.position = 'relative'
                                             if (line.singerIndices && line.singerIndices.length > 1) {
-                                                const colors = line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
-                                                if (colors.length > 1) {
-                                                    inlineStyle.backgroundImage = `linear-gradient(90deg, ${colors.join(', ')})`
-                                                    inlineStyle.WebkitBackgroundClip = 'text'
-                                                    inlineStyle.WebkitTextFillColor = 'transparent'
-                                                    inlineStyle.filter = `drop-shadow(2px 2px 0px rgba(0,0,0,0.15))`
-                                                }
+                                                // Multi-singer gradient applied to inner span, not outer div
+                                                // (background-clip:text on parent breaks when content is in child elements)
+                                                inlineStyle.filter = `drop-shadow(2px 2px 0px rgba(0,0,0,0.15))`
                                             } else if (line.singerIndex !== undefined && singers[line.singerIndex]) {
                                                 const singer = singers[line.singerIndex]
                                                 inlineStyle.color = singer.color
@@ -642,17 +932,38 @@ export default function KaraokePage() {
                                         // Random quadratic Bezier path mimicking a stroke
                                         const path = `M0,${5 + r(2) * 4} Q${20 + r(3) * 20},${2 + r(4) * 6} ${50 + r(5) * 20},${5 + r(6) * 4} T100,${4 + r(7) * 5}`
                                         const strokeW = 2 + r(8) * 2
+                                        const multiColors = line.singerIndices && line.singerIndices.length > 1
+                                            ? line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
+                                            : []
                                         const highlightColor = line.singerIndex !== undefined && singers[line.singerIndex] ? singers[line.singerIndex].color : 'black'
-                                        
+                                        const gradientId = multiColors.length > 1 ? `sketch-grad-${line.originalIndex}-${j}` : null
+
+                                        // For multi-singer lines, apply gradient to the span text (not parent div)
+                                        const spanStyle: React.CSSProperties = { position: 'relative', zIndex: 1 }
+                                        if (multiColors.length > 1) {
+                                            spanStyle.backgroundImage = `linear-gradient(90deg, ${multiColors.join(', ')})`
+                                            spanStyle.WebkitBackgroundClip = 'text'
+                                            spanStyle.WebkitTextFillColor = 'transparent'
+                                        }
+
                                         content = (
                                             <>
-                                                <span style={{ position: 'relative', zIndex: 1 }}>{displayWords}</span>
+                                                <span style={spanStyle}>{displayWords}</span>
                                                 <svg
                                                     style={{ position: 'absolute', bottom: 6, left: 0, width: '100%', height: '14px', pointerEvents: 'none', zIndex: 0, overflow: 'visible' }}
                                                     viewBox="0 0 100 10"
                                                     preserveAspectRatio="none"
                                                 >
-                                                    <path d={path} stroke={highlightColor} strokeWidth={strokeW} fill="none" strokeLinecap="round" />
+                                                    {gradientId && (
+                                                        <defs>
+                                                            <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+                                                                {multiColors.map((c: string, ci: number) => (
+                                                                    <stop key={ci} offset={`${(ci / (multiColors.length - 1)) * 100}%`} stopColor={c} />
+                                                                ))}
+                                                            </linearGradient>
+                                                        </defs>
+                                                    )}
+                                                    <path d={path} stroke={gradientId ? `url(#${gradientId})` : highlightColor} strokeWidth={strokeW} fill="none" strokeLinecap="round" />
                                                 </svg>
                                             </>
                                         )
@@ -665,6 +976,9 @@ export default function KaraokePage() {
                     })
                 )}
             </div>
+
         </div>
+        {qrOverlay}
+        </>
     )
 }
