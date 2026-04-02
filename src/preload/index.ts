@@ -61,6 +61,14 @@ export type ElectronAPI = {
     offRemoteQueueAdd: (handler: any) => void
     onRemoteQueueRemove: (callback: (row: any) => void) => any
     offRemoteQueueRemove: (handler: any) => void
+    // Guest management
+    listGuests: () => Promise<{ id: string; sessionId: string; name: string; profilePicture: string | null }[]>
+    updateGuest: (id: string, fields: { name?: string; profilePicture?: string | null }) => Promise<void>
+    removeGuest: (id: string) => Promise<void>
+    // Reactions relay (main → stage)
+    sendReaction: (reaction: any) => void
+    onReaction: (callback: (reaction: any) => void) => any
+    offReaction: (handler: any) => void
 }
 
 const api: ElectronAPI = {
@@ -151,7 +159,19 @@ const api: ElectronAPI = {
         ipcRenderer.on('karaoke:remote-queue-remove', handler)
         return handler
     },
-    offRemoteQueueRemove: (handler) => ipcRenderer.removeListener('karaoke:remote-queue-remove', handler)
+    offRemoteQueueRemove: (handler) => ipcRenderer.removeListener('karaoke:remote-queue-remove', handler),
+    // Guest management
+    listGuests: () => ipcRenderer.invoke('karaoke:list-guests'),
+    updateGuest: (id, fields) => ipcRenderer.invoke('karaoke:update-guest', id, fields),
+    removeGuest: (id) => ipcRenderer.invoke('karaoke:remove-guest', id),
+    // Reactions relay (main → stage)
+    sendReaction: (reaction) => ipcRenderer.send('reaction:send', reaction),
+    onReaction: (callback) => {
+        const handler = (_e: any, reaction: any) => callback(reaction)
+        ipcRenderer.on('reaction:receive', handler)
+        return handler
+    },
+    offReaction: (handler) => ipcRenderer.removeListener('reaction:receive', handler)
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

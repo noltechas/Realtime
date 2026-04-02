@@ -117,6 +117,70 @@ function MicMeter({ singer, active, effects, mainOutputId, theme }: { singer: { 
     )
 }
 
+// ---- Reactions Overlay (floats above video, behind lyrics) ----
+interface ReactionData {
+    id: string
+    reactionType: 'emoji' | 'text' | 'meme' | 'photo'
+    content: string
+    senderName: string
+    senderProfilePicture?: string | null
+    x: number // random horizontal position (%)
+}
+
+function ReactionsOverlay() {
+    const [reactions, setReactions] = useState<ReactionData[]>([])
+
+    useEffect(() => {
+        if (!window.electronAPI?.onReaction) return
+
+        const handler = window.electronAPI.onReaction((reaction: any) => {
+            const r: ReactionData = {
+                ...reaction,
+                x: 10 + Math.random() * 80 // 10% to 90% of viewport width
+            }
+            setReactions(prev => {
+                const next = [...prev, r]
+                return next.length > 15 ? next.slice(-15) : next
+            })
+            setTimeout(() => {
+                setReactions(prev => prev.filter(item => item.id !== r.id))
+            }, 4500)
+        })
+
+        return () => {
+            window.electronAPI?.offReaction(handler)
+        }
+    }, [])
+
+    if (reactions.length === 0) return null
+
+    return (
+        <div className="k-reactions-overlay">
+            {reactions.map(r => (
+                <div key={r.id} className="reaction-bubble" style={{ left: r.x + '%' }}>
+                    {r.reactionType === 'emoji' && (
+                        <span className="reaction-bubble__emoji">{r.content}</span>
+                    )}
+                    {r.reactionType === 'text' && (
+                        <div className="reaction-bubble__text">{r.content}</div>
+                    )}
+                    {(r.reactionType === 'meme' || r.reactionType === 'photo') && (
+                        <img className="reaction-bubble__image" src={r.content} alt="" />
+                    )}
+                    {r.senderProfilePicture ? (
+                        <img className="reaction-bubble__avatar" src={r.senderProfilePicture} alt="" />
+                    ) : (
+                        <div className="reaction-bubble__avatar-initial">
+                            {(r.senderName || '?').charAt(0).toUpperCase()}
+                        </div>
+                    )}
+                    <span className="reaction-bubble__name">{r.senderName}</span>
+                </div>
+            ))}
+        </div>
+    )
+}
+
 // ---- Main Component (Display Only) ----
 export default function KaraokePage() {
     const { state, dispatch } = useApp()
@@ -688,6 +752,9 @@ export default function KaraokePage() {
                 )}
                 <div className="k-bg__scrim" style={{ opacity: state.stageMode === 'playing' ? 1 : 0 }} />
             </div>
+
+            {/* Reactions overlay — above video, behind lyrics */}
+            <ReactionsOverlay />
 
             {/* Hidden SVG for Filters */}
             <svg style={{ position: 'fixed', pointerEvents: 'none', width: 0, height: 0 }}>

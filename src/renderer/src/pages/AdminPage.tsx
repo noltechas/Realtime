@@ -1,11 +1,22 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { createClient, RealtimeChannel } from '@supabase/supabase-js'
 import { useApp } from '../context/AppContext'
 import { useTheme } from '../context/ThemeContext'
 import { VoiceEffects, DEFAULT_VOICE_EFFECTS, normalizeMicLevel } from '../audio/VoiceEffectsTypes'
 import { VoiceEffectsEngine } from '../audio/VoiceEffectsEngine'
 import { BUILT_IN_PRESETS, PRESET_CATEGORIES, VocalPreset } from '../audio/VocalPresets'
 
+const SUPABASE_URL = 'https://hnnbxwitjkeijvoldfuv.supabase.co'
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhubmJ4d2l0amtlaWp2b2xkZnV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MjcwMTQsImV4cCI6MjA5MDUwMzAxNH0.ENzZ2VLxszHr9StjFds06In7CyGkiyPvu6Jh1LUMMvA'
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
 const KEY_NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B']
+
+interface AdminGuest {
+    id: string
+    name: string
+    profilePicture: string | null
+}
 
 interface CatalogSong {
     trackId: string; name: string; artist: string; artUrl: string
@@ -77,6 +88,14 @@ export default function AdminPage() {
     const [presetImages, setPresetImages] = useState<Record<string, string>>({})
     const [presetImageErrors, setPresetImageErrors] = useState<Set<string>>(new Set())
 
+    const [adminTab, setAdminTab] = useState<'songs' | 'guests'>('songs')
+    const [guests, setGuests] = useState<AdminGuest[]>([])
+    const [editingGuestId, setEditingGuestId] = useState<string | null>(null)
+    const [editName, setEditName] = useState('')
+    const [editPicture, setEditPicture] = useState('')
+    const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null)
+    const guestChannelRef = useRef<RealtimeChannel | null>(null)
+
     const debounceRef = useRef<NodeJS.Timeout | null>(null)
 
     useEffect(() => {
@@ -122,6 +141,67 @@ export default function AdminPage() {
         engineRef.current = new VoiceEffectsEngine()
         return () => { engineRef.current?.destroy(); engineRef.current = null }
     }, [])
+
+    // Guest realtime subscription
+    useEffect(() => {
+        const sessionId = state.karaokeSessionId
+        if (!sessionId) { setGuests([]); return }
+
+        let cancelled = false
+        window.electronAPI.listGuests().then(list => {
+            if (!cancelled) setGuests(list.map(g => ({ id: g.id, name: g.name, profilePicture: g.profilePicture })))
+        })
+
+        const channel = supabase
+            .channel(`admin-guests-${sessionId}`)
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'karaoke_guests', filter: `session_id=eq.${sessionId}` },
+                (payload) => {
+                    const r = payload.new as any
+                    setGuests(prev => {
+                        if (prev.some(g => g.id === r.id)) return prev
+                        return [...prev, { id: r.id, name: r.name, profilePicture: r.profile_picture }]
+                    })
+                })
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'karaoke_guests', filter: `session_id=eq.${sessionId}` },
+                (payload) => {
+                    const r = payload.new as any
+                    setGuests(prev => prev.map(g => g.id === r.id ? { ...g, name: r.name, profilePicture: r.profile_picture } : g))
+                })
+            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'karaoke_guests', filter: `session_id=eq.${sessionId}` },
+                (payload) => {
+                    const id = (payload.old as any).id
+                    setGuests(prev => prev.filter(g => g.id !== id))
+                })
+            .subscribe()
+
+        guestChannelRef.current = channel
+
+        return () => {
+            cancelled = true
+            supabase.removeChannel(channel)
+            guestChannelRef.current = null
+        }
+    }, [state.karaokeSessionId])
+
+    const startEditGuest = (guest: AdminGuest) => {
+        setEditingGuestId(guest.id)
+        setEditName(guest.name)
+        setEditPicture(guest.profilePicture || '')
+    }
+
+    const saveEditGuest = async () => {
+        if (!editingGuestId) return
+        await window.electronAPI.updateGuest(editingGuestId, {
+            name: editName,
+            profilePicture: editPicture || null
+        })
+        setEditingGuestId(null)
+    }
+
+    const handleRemoveGuest = async (id: string) => {
+        await window.electronAPI.removeGuest(id)
+        setConfirmRemoveId(null)
+    }
 
     const loadCatalog = async () => {
         if (window.electronAPI) {
@@ -651,11 +731,36 @@ export default function AdminPage() {
                     Admin
                 </h1>
                 <p style={{ color: theme.muted, fontSize: 14, fontFamily: theme.fontBody }}>
-                    Add songs, sculpt effects rack, and manage the catalog
+                    {adminTab === 'songs' ? 'Add songs, sculpt effects rack, and manage the catalog' : 'View and manage guests in the current session'}
                 </p>
             </div>
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
+            {/* Tab pills */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+                {(['songs', 'guests'] as const).map(tab => (
+                    <button
+                        key={tab}
+                        onClick={() => setAdminTab(tab)}
+                        style={{
+                            padding: '8px 20px',
+                            borderRadius: theme.radius,
+                            fontSize: 14,
+                            fontWeight: 700,
+                            fontFamily: theme.fontDisplay,
+                            cursor: 'pointer',
+                            border: theme.border,
+                            background: adminTab === tab ? theme.softViolet : theme.cream,
+                            color: theme.black,
+                            boxShadow: adminTab === tab ? theme.shadow : 'none',
+                            transition: 'all 0.15s',
+                        }}
+                    >
+                        {tab === 'songs' ? 'Songs' : `Guests${guests.length ? ` (${guests.length})` : ''}`}
+                    </button>
+                ))}
+            </div>
+
+            {adminTab === 'songs' && <><div style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
 
                 {/* ── Left Column: Search & Catalog ── */}
                 {!pending && (
@@ -1402,6 +1507,196 @@ export default function AdminPage() {
                     />
                 </div>
             </section>
+            </>}
+
+            {/* ═══ Guests Tab ═══ */}
+            {adminTab === 'guests' && (
+                <div>
+                    {!state.karaokeSessionId ? (
+                        <section style={sectionCard}>
+                            <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                                <div style={{ fontSize: 36, marginBottom: 12 }}>📡</div>
+                                <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 16, color: theme.black, marginBottom: 6 }}>
+                                    No Active Session
+                                </div>
+                                <div style={{ color: theme.muted, fontSize: 13, fontFamily: theme.fontBody }}>
+                                    Start a karaoke session from the Search page to manage guests
+                                </div>
+                            </div>
+                        </section>
+                    ) : guests.length === 0 ? (
+                        <section style={sectionCard}>
+                            <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                                <div style={{ fontSize: 36, marginBottom: 12 }}>👥</div>
+                                <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 16, color: theme.black, marginBottom: 6 }}>
+                                    No Guests Yet
+                                </div>
+                                <div style={{ color: theme.muted, fontSize: 13, fontFamily: theme.fontBody }}>
+                                    Guests will appear here when they join via the companion site
+                                </div>
+                            </div>
+                        </section>
+                    ) : (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+                            {guests.map(guest => {
+                                const isEditing = editingGuestId === guest.id
+                                const isConfirmingRemove = confirmRemoveId === guest.id
+                                const initial = guest.name.charAt(0).toUpperCase()
+                                const hue = guest.name.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 360
+
+                                return (
+                                    <section key={guest.id} style={{ ...sectionCard, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                                            {/* Avatar */}
+                                            {guest.profilePicture ? (
+                                                <img
+                                                    src={guest.profilePicture}
+                                                    alt={guest.name}
+                                                    style={{
+                                                        width: 48, height: 48, borderRadius: '50%',
+                                                        objectFit: 'cover', border: theme.border,
+                                                        flexShrink: 0,
+                                                    }}
+                                                />
+                                            ) : (
+                                                <div style={{
+                                                    width: 48, height: 48, borderRadius: '50%',
+                                                    background: `hsl(${hue}, 65%, 55%)`,
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    fontFamily: theme.fontDisplay, fontWeight: 800,
+                                                    fontSize: 20, color: '#fff',
+                                                    border: theme.border, flexShrink: 0,
+                                                }}>
+                                                    {initial}
+                                                </div>
+                                            )}
+
+                                            {/* Name / Edit fields */}
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                {isEditing ? (
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                        <input
+                                                            type="text"
+                                                            value={editName}
+                                                            onChange={e => setEditName(e.target.value)}
+                                                            placeholder="Guest name"
+                                                            style={{ ...theme.input, fontSize: 13, padding: '6px 10px' }}
+                                                            autoFocus
+                                                            onKeyDown={e => { if (e.key === 'Enter') saveEditGuest(); if (e.key === 'Escape') setEditingGuestId(null) }}
+                                                        />
+                                                        <input
+                                                            type="text"
+                                                            value={editPicture}
+                                                            onChange={e => setEditPicture(e.target.value)}
+                                                            placeholder="Profile picture URL (optional)"
+                                                            style={{ ...theme.input, fontSize: 11, padding: '5px 10px' }}
+                                                            onKeyDown={e => { if (e.key === 'Enter') saveEditGuest(); if (e.key === 'Escape') setEditingGuestId(null) }}
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <div style={{
+                                                        fontFamily: theme.fontDisplay, fontWeight: 700,
+                                                        fontSize: 16, color: theme.black,
+                                                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                                    }}>
+                                                        {guest.name}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Actions */}
+                                        <div style={{ display: 'flex', gap: 8 }}>
+                                            {isEditing ? (
+                                                <>
+                                                    <button
+                                                        onClick={saveEditGuest}
+                                                        style={{
+                                                            flex: 1, padding: '7px 0', fontSize: 12, fontWeight: 700,
+                                                            fontFamily: theme.fontDisplay, cursor: 'pointer',
+                                                            border: theme.border, borderRadius: theme.radius,
+                                                            background: theme.softViolet, color: theme.black,
+                                                            boxShadow: theme.shadow,
+                                                        }}
+                                                    >
+                                                        Save
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setEditingGuestId(null)}
+                                                        style={{
+                                                            flex: 1, padding: '7px 0', fontSize: 12, fontWeight: 700,
+                                                            fontFamily: theme.fontDisplay, cursor: 'pointer',
+                                                            border: theme.border, borderRadius: theme.radius,
+                                                            background: theme.cream, color: theme.black,
+                                                        }}
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                </>
+                                            ) : isConfirmingRemove ? (
+                                                <>
+                                                    <button
+                                                        onClick={() => handleRemoveGuest(guest.id)}
+                                                        style={{
+                                                            flex: 1, padding: '7px 0', fontSize: 12, fontWeight: 700,
+                                                            fontFamily: theme.fontDisplay, cursor: 'pointer',
+                                                            border: `2px solid #e55`,
+                                                            borderRadius: theme.radius,
+                                                            background: '#fee', color: '#c33',
+                                                        }}
+                                                    >
+                                                        Confirm Remove
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setConfirmRemoveId(null)}
+                                                        style={{
+                                                            flex: 1, padding: '7px 0', fontSize: 12, fontWeight: 700,
+                                                            fontFamily: theme.fontDisplay, cursor: 'pointer',
+                                                            border: theme.border, borderRadius: theme.radius,
+                                                            background: theme.cream, color: theme.black,
+                                                        }}
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <button
+                                                        onClick={() => startEditGuest(guest)}
+                                                        style={{
+                                                            flex: 1, padding: '7px 0', fontSize: 12, fontWeight: 700,
+                                                            fontFamily: theme.fontDisplay, cursor: 'pointer',
+                                                            border: theme.border, borderRadius: theme.radius,
+                                                            background: theme.cream, color: theme.black,
+                                                        }}
+                                                        onMouseEnter={e => { e.currentTarget.style.background = theme.softViolet }}
+                                                        onMouseLeave={e => { e.currentTarget.style.background = theme.cream }}
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setConfirmRemoveId(guest.id)}
+                                                        style={{
+                                                            flex: 1, padding: '7px 0', fontSize: 12, fontWeight: 700,
+                                                            fontFamily: theme.fontDisplay, cursor: 'pointer',
+                                                            border: theme.border, borderRadius: theme.radius,
+                                                            background: theme.cream, color: theme.black,
+                                                        }}
+                                                        onMouseEnter={e => { e.currentTarget.style.background = '#fee'; e.currentTarget.style.color = '#c33' }}
+                                                        onMouseLeave={e => { e.currentTarget.style.background = theme.cream; e.currentTarget.style.color = theme.black }}
+                                                    >
+                                                        Remove
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+                                    </section>
+                                )
+                            })}
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     )
 }

@@ -28,6 +28,7 @@ export function useKaraokeSession() {
     const { state, dispatch } = useApp()
     const catalogRef = useRef<CatalogSong[]>([])
     const queueChannelRef = useRef<RealtimeChannel | null>(null)
+    const reactionChannelRef = useRef<RealtimeChannel | null>(null)
 
     // Load catalog for resolving remote additions
     useEffect(() => {
@@ -61,6 +62,30 @@ export function useKaraokeSession() {
             window.electronAPI?.closeKaraokeSession()
         }
     }, [])
+
+    // Retroactive sync: push pre-existing local queue items to Supabase
+    // when the session becomes available (fixes race where songs are added
+    // before createKaraokeSession resolves)
+    useEffect(() => {
+        if (window.electronAPI?.isStageWindow) return
+        if (!state.karaokeSessionId) return
+        if (state.queue.length === 0) return
+
+        for (const item of state.queue) {
+            if (item.remoteQueueId) continue
+            window.electronAPI?.pushLocalQueueItem({
+                trackId: item.track.id,
+                trackName: item.track.name,
+                trackArtist: item.track.artists.map(a => a.name).join(', '),
+                trackArtUrl: item.track.album.images[0]?.url || null,
+                trackDurationMs: item.track.duration_ms,
+                singerConfigs: item.singers.map(s => ({
+                    name: s.name, color: s.color, colorGlow: s.colorGlow, roleIndices: s.roleIndices
+                })),
+            }).catch(err => console.error('[Karaoke] Failed to retroactively sync queue item:', err))
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [state.karaokeSessionId])
 
     // Subscribe to Realtime queue changes directly from renderer (browser has WebSocket)
     useEffect(() => {
@@ -152,6 +177,32 @@ export function useKaraokeSession() {
             }
         }
     }, [state.karaokeSessionId, dispatch])
+
+    // Subscribe to broadcast reactions from companion site
+    useEffect(() => {
+        if (window.electronAPI?.isStageWindow) return
+        if (!state.karaokeSessionId) return
+
+        if (reactionChannelRef.current) {
+            supabase.removeChannel(reactionChannelRef.current)
+        }
+
+        const channel = supabase
+            .channel('renderer-reactions-' + state.karaokeSessionId)
+            .on('broadcast', { event: 'reaction' }, (payload) => {
+                window.electronAPI?.sendReaction(payload.payload)
+            })
+            .subscribe()
+
+        reactionChannelRef.current = channel
+
+        return () => {
+            if (reactionChannelRef.current) {
+                supabase.removeChannel(reactionChannelRef.current)
+                reactionChannelRef.current = null
+            }
+        }
+    }, [state.karaokeSessionId])
 
     // Sync now-playing changes to Supabase
     useEffect(() => {

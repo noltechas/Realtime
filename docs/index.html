@@ -464,6 +464,126 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
 }
 .error-sub { font-size: 14px; color: var(--white-muted); max-width: 300px; }
 .loading-center { display: flex; justify-content: center; padding: 80px 20px; }
+/* ---- Stage / Reactions Screen ---- */
+.stage-screen { padding: 20px; }
+.stage-title {
+  font-family: var(--font-display); font-weight: 700; font-size: 28px;
+  letter-spacing: -0.5px; margin-bottom: 20px;
+  background: var(--grad-text); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.reaction-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+}
+.reaction-cell {
+  aspect-ratio: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 8px; background: var(--surface-1);
+  border: 1.5px solid var(--white-ghost); border-radius: 16px; cursor: pointer;
+  transition: transform 0.15s, border-color 0.2s, background 0.2s;
+  position: relative; -webkit-user-select: none; user-select: none;
+  padding: 12px;
+}
+.reaction-cell:active { transform: scale(0.93); border-color: var(--violet); background: var(--surface-2); }
+.reaction-cell-emoji { font-size: 48px; line-height: 1; }
+.reaction-cell-label {
+  font-family: var(--font-display); font-weight: 600; font-size: 12px;
+  color: var(--white-muted); letter-spacing: 0.3px;
+}
+.reaction-cell-icon {
+  width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;
+  color: var(--white-muted);
+}
+.reaction-cell-edit {
+  position: absolute; top: 8px; right: 8px;
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--surface-2); border: 1px solid var(--white-ghost);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--white-faint); font-size: 12px;
+  transition: opacity 0.2s;
+}
+.reaction-cell-plus {
+  font-size: 36px; color: var(--white-faint); font-weight: 300; line-height: 1;
+}
+/* Emoji picker overlay */
+.emoji-picker-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  display: flex; align-items: flex-end; justify-content: center;
+  animation: overlayIn 0.2s ease;
+}
+@keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
+.emoji-picker-sheet {
+  width: 100%; max-width: 420px; max-height: 60vh; overflow-y: auto;
+  background: var(--surface-2); border-top: 1px solid var(--white-ghost);
+  border-radius: 20px 20px 0 0; padding: 20px; padding-bottom: calc(20px + env(safe-area-inset-bottom));
+}
+.emoji-picker-title {
+  font-family: var(--font-display); font-weight: 600; font-size: 16px;
+  margin-bottom: 14px; color: var(--white);
+}
+.emoji-picker-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+}
+.emoji-pick-btn {
+  font-size: 28px; padding: 8px 0; background: none; border: none;
+  cursor: pointer; border-radius: 8px; transition: background 0.15s;
+  line-height: 1;
+}
+.emoji-pick-btn:active { background: var(--surface-3); transform: scale(1.15); }
+/* Text input overlay */
+.text-input-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  display: flex; align-items: flex-end; justify-content: center;
+  animation: overlayIn 0.2s ease;
+}
+.text-input-sheet {
+  width: 100%; max-width: 420px;
+  background: var(--surface-2); border-top: 1px solid var(--white-ghost);
+  border-radius: 20px 20px 0 0; padding: 20px; padding-bottom: calc(20px + env(safe-area-inset-bottom));
+}
+.text-input-field {
+  width: 100%; padding: 14px 16px; font-size: 16px; font-family: var(--font-body);
+  background: var(--surface-1); border: 1.5px solid var(--white-ghost);
+  border-radius: 12px; color: var(--white); outline: none;
+  transition: border-color 0.2s; margin-bottom: 12px;
+}
+.text-input-field:focus { border-color: var(--violet); }
+.text-input-field::placeholder { color: var(--white-faint); }
+.text-input-send {
+  width: 100%; padding: 14px; font-family: var(--font-display); font-weight: 600;
+  font-size: 15px; color: white; background: linear-gradient(135deg, #a78bfa, #818cf8);
+  border: none; border-radius: 12px; cursor: pointer;
+  transition: transform 0.15s;
+}
+.text-input-send:active { transform: scale(0.97); }
+/* Meme picker overlay */
+.meme-picker-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  display: flex; align-items: flex-end; justify-content: center;
+  animation: overlayIn 0.2s ease;
+}
+.meme-picker-sheet {
+  width: 100%; max-width: 420px; max-height: 70vh; overflow-y: auto;
+  background: var(--surface-2); border-top: 1px solid var(--white-ghost);
+  border-radius: 20px 20px 0 0; padding: 20px; padding-bottom: calc(20px + env(safe-area-inset-bottom));
+}
+.meme-picker-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+}
+.meme-pick-btn {
+  background: var(--surface-1); border: 1.5px solid var(--white-ghost);
+  border-radius: 12px; padding: 12px; cursor: pointer;
+  text-align: center; transition: transform 0.15s, border-color 0.2s;
+  font-size: 48px; line-height: 1; aspect-ratio: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.meme-pick-btn:active { transform: scale(0.93); border-color: var(--violet); }
+.meme-pick-label {
+  font-family: var(--font-display); font-weight: 600; font-size: 11px;
+  color: var(--white-muted); margin-top: 6px;
+}
+.reaction-cooldown { opacity: 0.4; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -491,8 +611,50 @@ var NC=[
 {c:"#d946ef",g:"rgba(217,70,239,0.3)"},
 {c:"#e11d48",g:"rgba(225,29,72,0.3)"}
 ];
-var S={screen:"loading",sessionCode:null,sessionId:null,guestId:null,guestName:"",profilePicture:null,guests:[],catalog:[],searchQuery:"",selectedTrack:null,singerCount:1,singers:[{name:"",color:NC[0].c,colorGlow:NC[0].g,roleIndices:[],profilePicture:null}],queue:[],nowPlaying:null,errorMessage:"",theme_name:"neo-brutal",stage_theme:null};
-var qCh=null,sCh=null,gCh=null;
+var S={screen:"loading",sessionCode:null,sessionId:null,guestId:null,guestName:"",profilePicture:null,guests:[],catalog:[],searchQuery:"",selectedTrack:null,singerCount:1,singers:[{name:"",color:NC[0].c,colorGlow:NC[0].g,roleIndices:[],profilePicture:null}],queue:[],nowPlaying:null,errorMessage:"",theme_name:"neo-brutal",stage_theme:null,customEmoji:null,emojiPickerOpen:false,textInputOpen:false,memePickerOpen:false};
+var qCh=null,sCh=null,gCh=null,rCh=null;
+var MEMES=[
+  {emoji:"\uD83E\uDD2F",label:"Mind Blown"},
+  {emoji:"\uD83D\uDC4F",label:"Slow Clap"},
+  {emoji:"\uD83D\uDD25",label:"This is Fine"},
+  {emoji:"\uD83D\uDE02",label:"Crying Laughing"},
+  {emoji:"\uD83D\uDC80",label:"Dead"},
+  {emoji:"\uD83E\uDEE0",label:"Melting"},
+  {emoji:"\uD83E\uDD73",label:"Party"},
+  {emoji:"\uD83E\uDD29",label:"Star Eyes"},
+  {emoji:"\uD83D\uDE31",label:"Shocked"},
+  {emoji:"\uD83E\uDD21",label:"Clown"},
+  {emoji:"\uD83D\uDCAF",label:"100"},
+  {emoji:"\uD83C\uDF89",label:"Party Popper"}
+];
+var EMOJI_LIST=[
+  "\uD83D\uDE00","\uD83D\uDE02","\uD83D\uDE0D","\uD83E\uDD29","\uD83E\uDD73","\uD83E\uDD2F","\uD83D\uDE31","\uD83D\uDE2D",
+  "\uD83D\uDE0E","\uD83E\uDD23","\uD83D\uDE18","\uD83E\uDD70","\uD83D\uDE0F","\uD83D\uDE44","\uD83E\uDD14","\uD83D\uDE34",
+  "\uD83D\uDC4F","\uD83D\uDC4D","\uD83D\uDC4E","\u270C\uFE0F","\uD83E\uDD1F","\uD83E\uDD18","\uD83D\uDC4C","\uD83D\uDE4C",
+  "\u2764\uFE0F","\uD83D\uDD25","\u2728","\uD83C\uDF1F","\uD83D\uDCAF","\uD83C\uDF89","\uD83C\uDF8A","\uD83C\uDF88",
+  "\uD83C\uDFB5","\uD83C\uDFA4","\uD83C\uDFB6","\uD83C\uDFB8","\uD83E\uDD41","\uD83C\uDFB9","\uD83C\uDFA7","\uD83D\uDCE2",
+  "\uD83D\uDC80","\uD83E\uDEE0","\uD83E\uDD21","\uD83D\uDC7B","\uD83D\uDC7D","\uD83E\uDD16","\uD83D\uDC36","\uD83D\uDC31",
+  "\uD83C\uDF7B","\uD83C\uDF7A","\uD83C\uDF78","\uD83E\uDD42","\u2615","\uD83C\uDF55","\uD83C\uDF54","\uD83C\uDF6A",
+  "\uD83D\uDCAA","\uD83D\uDE80","\uD83C\uDFC6","\uD83E\uDD47"
+];
+var lastReactionTime=0;
+function sendReaction(type,content){
+  if(!rCh)return;
+  var now=Date.now();
+  if(now-lastReactionTime<300)return;
+  lastReactionTime=now;
+  rCh.send({
+    type:"broadcast",
+    event:"reaction",
+    payload:{
+      id:now+"-"+Math.random().toString(36).substr(2,6),
+      reactionType:type,
+      content:content,
+      senderName:S.guestName,
+      senderProfilePicture:S.profilePicture
+    }
+  });
+}
 function init(){
   var p=new URLSearchParams(window.location.search);
   S.sessionCode=p.get("session");
@@ -554,10 +716,19 @@ function subRT(){
   }).subscribe();
   if(gCh)sb.removeChannel(gCh);
   gCh=sb.channel("cg-"+S.sessionId).on("postgres_changes",{event:"*",schema:"public",table:"karaoke_guests",filter:"session_id=eq."+S.sessionId},function(){loadGuests().then(render);}).subscribe();
+  if(rCh)sb.removeChannel(rCh);
+  rCh=sb.channel("cr-"+S.sessionId);
+  rCh.subscribe();
 }
 async function addToQueue(){
   var t=S.selectedTrack;if(!t)return;
   var sc=S.singers.slice(0,S.singerCount).map(function(s){var o={name:s.name||"Singer",color:s.color,colorGlow:s.colorGlow,roleIndices:s.roleIndices||[]};if(s.profilePicture)o.profilePicture=s.profilePicture;return o;});
+  if(t.roles&&t.roles.length>0&&S.singerCount>0){
+    var ur=sc.filter(function(s){return !s.roleIndices||s.roleIndices.length===0;});
+    if(ur.length>0){
+      if(!confirm("One or more singers don't have roles assigned. Add to queue anyway?"))return;
+    }
+  }
   var mr=await sb.from("karaoke_queue").select("position").eq("session_id",S.sessionId).order("position",{ascending:false}).limit(1).single();
   var np=(mr.data?mr.data.position:-1)+1;
   var ins={session_id:S.sessionId,track_id:t.track_id,track_name:t.name,track_artist:t.artist,track_art_url:t.art_url,track_duration_ms:t.duration_ms,singer_configs:sc,added_by_guest_id:S.guestId,added_by_name:S.guestName,source:"remote",position:np,status:"queued"};
@@ -628,13 +799,25 @@ function applyTheme(){
     " .now-playing-card{background:#FFD60A !important;border:3px solid #1A1A1A !important;animation:none !important;}" +
     " .avatar-upload,.profile-avatar{border:3px solid #1A1A1A !important;}" +
     " .guest-picker-pill{border:2px solid #1A1A1A !important;background:#FFFFFF !important;color:#1A1A1A !important;}" +
-    " .guest-picker-pill.selected{background:#FFD60A !important;}";
+    " .guest-picker-pill.selected{background:#FFD60A !important;}" +
+    " .reaction-cell{border:3px solid #1A1A1A !important;box-shadow:4px 4px 0px #1A1A1A !important;border-radius:8px !important;background:#FFFFFF !important;}" +
+    " .reaction-cell:active{box-shadow:2px 2px 0px #1A1A1A !important;transform:translate(2px,2px) !important;}" +
+    " .emoji-picker-sheet,.text-input-sheet,.meme-picker-sheet{background:#FFF8EE !important;border:3px solid #1A1A1A !important;}" +
+    " .text-input-field{border:3px solid #1A1A1A !important;background:#FFFFFF !important;color:#1A1A1A !important;box-shadow:3px 3px 0px #1A1A1A !important;}" +
+    " .text-input-send{background:#FF3B30 !important;border:3px solid #1A1A1A !important;box-shadow:3px 3px 0px #1A1A1A !important;}" +
+    " .meme-pick-btn{border:3px solid #1A1A1A !important;box-shadow:3px 3px 0px #1A1A1A !important;background:#FFFFFF !important;}";
   }else if(S.theme_name==="cyberpunk"){
     css=":root{--black:#060610;--surface-1:rgba(0,255,136,0.04);--surface-2:rgba(0,255,136,0.07);--surface-3:rgba(0,255,136,0.1);--white:#d0ffe8;--white-muted:rgba(0,255,136,0.6);--white-faint:rgba(0,255,136,0.3);--white-ghost:rgba(0,255,136,0.18);--violet:#00e5ff;--pink:#ff00aa;--cyan:#00ff88;--emerald:#00ff88;--amber:#ffcc00;--red:#ff0055;--grad-hero:linear-gradient(135deg, #00ff88, #00e5ff);--grad-text:linear-gradient(135deg, #00ff88, #00e5ff);--font-display:'Share Tech Mono', 'Courier New', monospace;--font-body:'Share Tech Mono', 'Courier New', monospace;}" +
     " *{border-radius:0 !important;}" +
     " .mesh-bg{background:repeating-linear-gradient(0deg,transparent,transparent 27px,rgba(0,255,136,0.03) 27px,rgba(0,255,136,0.03) 28px),repeating-linear-gradient(90deg,transparent,transparent 27px,rgba(0,255,136,0.03) 27px,rgba(0,255,136,0.03) 28px) !important;animation:none !important;}" +
     " .avatar-upload,.profile-avatar,.nav-guest-avatar,.queue-singer-dot,.guest-picker-avatar{border-radius:0 !important;}" +
-    " .avatar-upload,.profile-avatar{border-color:rgba(0,255,136,0.4) !important;}";
+    " .avatar-upload,.profile-avatar{border-color:rgba(0,255,136,0.4) !important;}" +
+    " .reaction-cell{border:1px solid rgba(0,255,136,0.2) !important;background:rgba(0,255,136,0.04) !important;}" +
+    " .reaction-cell:active{border-color:#00ff88 !important;box-shadow:0 0 15px rgba(0,255,136,0.3) !important;}" +
+    " .emoji-picker-sheet,.text-input-sheet,.meme-picker-sheet{background:#0a0a1a !important;border:1px solid rgba(0,255,136,0.2) !important;}" +
+    " .text-input-field{border:1px solid rgba(0,255,136,0.2) !important;background:rgba(0,255,136,0.04) !important;color:#d0ffe8 !important;}" +
+    " .text-input-field:focus{box-shadow:0 0 10px rgba(0,255,136,0.3) !important;}" +
+    " .meme-pick-btn{border:1px solid rgba(0,255,136,0.15) !important;background:rgba(0,255,136,0.04) !important;}";
   }else if(S.theme_name==="sketch"){
     css=":root{--black:#fdfbf7;--surface-1:rgba(45,93,161,0.05);--surface-2:rgba(45,45,45,0.06);--surface-3:rgba(45,45,45,0.1);--white:#2d2d2d;--white-muted:rgba(45,45,45,0.65);--white-faint:rgba(45,45,45,0.4);--white-ghost:rgba(45,45,45,0.15);--violet:#2d5da1;--pink:#ff4d4d;--cyan:#2d5da1;--emerald:#4caf50;--amber:#fff9c4;--red:#ff4d4d;--grad-hero:linear-gradient(135deg, #ff4d4d, #2d5da1);--grad-text:linear-gradient(135deg, #ff4d4d, #2d5da1);--font-display:'Kalam', cursive;--font-body:'Patrick Hand', cursive;}" +
     " .mesh-bg{background:radial-gradient(#e5e0d8 1px, transparent 1px) !important;background-size:24px 24px !important;animation:none !important;}" +
@@ -653,6 +836,12 @@ function applyTheme(){
     " .avatar-upload,.profile-avatar{border:3px dashed #2d2d2d !important;}" +
     " .guest-picker-pill{border:2px dashed #2d2d2d !important;background:#ffffff !important;color:#2d2d2d !important;}" +
     " .guest-picker-pill.selected{background:#fff9c4 !important;border-style:solid !important;}" +
+    " .reaction-cell{border:3px solid #2d2d2d !important;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px !important;box-shadow:4px 4px 0px #2d2d2d !important;background:#ffffff !important;}" +
+    " .reaction-cell:active{box-shadow:2px 2px 0px #2d2d2d !important;transform:translate(2px,2px) rotate(1deg) !important;}" +
+    " .emoji-picker-sheet,.text-input-sheet,.meme-picker-sheet{background:#fdfbf7 !important;border:3px solid #2d2d2d !important;}" +
+    " .text-input-field{border:2px dashed rgba(45,45,45,0.3) !important;background:#ffffff !important;color:#2d2d2d !important;}" +
+    " .text-input-send{background:#ff4d4d !important;border:3px solid #2d2d2d !important;box-shadow:3px 3px 0px #2d2d2d !important;}" +
+    " .meme-pick-btn{border:3px solid #2d2d2d !important;box-shadow:3px 3px 0px #2d2d2d !important;background:#ffffff !important;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px !important;}" +
     " button:hover{transform:rotate(1deg) !important;}";
   }else if(S.theme_name==="urban"){
     css=":root{--black:#050505;--surface-1:rgba(212,255,0,0.04);--surface-2:rgba(212,255,0,0.06);--surface-3:rgba(212,255,0,0.1);--white:#f0f0f0;--white-muted:rgba(176,176,176,0.8);--white-faint:rgba(176,176,176,0.5);--white-ghost:rgba(212,255,0,0.1);--violet:#D4FF00;--pink:#FF1E1E;--cyan:#00F0FF;--emerald:#D4FF00;--amber:#FFA600;--red:#FF1E1E;--grad-hero:linear-gradient(135deg, #D4FF00, #FF1E1E);--grad-text:linear-gradient(135deg, #D4FF00, #FF1E1E);--font-display:'Permanent Marker', cursive;--font-body:'Oswald', sans-serif;}" +
@@ -673,7 +862,14 @@ function applyTheme(){
     " .songs-title,.queue-title,.join-title,.profile-title{font-family:'Permanent Marker',cursive !important;text-transform:uppercase !important;letter-spacing:3px !important;}" +
     " .avatar-upload,.profile-avatar{border-color:rgba(212,255,0,0.3) !important;}" +
     " .guest-picker-pill{border:1px solid rgba(212,255,0,0.15) !important;background:rgba(212,255,0,0.04) !important;color:#B0B0B0 !important;border-radius:0 !important;}" +
-    " .guest-picker-pill.selected{background:rgba(212,255,0,0.15) !important;color:#D4FF00 !important;border-color:#D4FF00 !important;}";
+    " .guest-picker-pill.selected{background:rgba(212,255,0,0.15) !important;color:#D4FF00 !important;border-color:#D4FF00 !important;}" +
+    " .reaction-cell{border:1px solid rgba(212,255,0,0.15) !important;border-radius:0 !important;clip-path:polygon(3% 0%, 100% 0%, 97% 100%, 0% 100%) !important;background:rgba(212,255,0,0.04) !important;}" +
+    " .reaction-cell:active{background:rgba(212,255,0,0.12) !important;box-shadow:0 0 15px rgba(212,255,0,0.2) !important;}" +
+    " .emoji-picker-sheet,.text-input-sheet,.meme-picker-sheet{background:#0a0a0a !important;border:1px solid rgba(212,255,0,0.2) !important;}" +
+    " .text-input-field{border:1px solid rgba(212,255,0,0.15) !important;background:rgba(212,255,0,0.04) !important;color:#f0f0f0 !important;border-radius:0 !important;}" +
+    " .text-input-field:focus{box-shadow:0 0 15px #D4FF00, 0 0 5px #D4FF00 inset !important;}" +
+    " .text-input-send{background:#D4FF00 !important;color:#050505 !important;border-radius:0 !important;clip-path:polygon(4% 0%, 100% 0%, 96% 100%, 0% 100%) !important;}" +
+    " .meme-pick-btn{border:1px solid rgba(212,255,0,0.15) !important;background:rgba(212,255,0,0.04) !important;border-radius:0 !important;}";
   }else{
     css="";
   }
@@ -687,6 +883,7 @@ function render(){
     case"songs":a.innerHTML=renderSongs()+renderBN("songs");break;
     case"config":a.innerHTML=renderConfig()+renderBN("songs");break;
     case"queue":a.innerHTML=renderQueue()+renderBN("queue");break;
+    case"stage":a.innerHTML=renderStage()+renderBN("stage")+renderEmojiPicker()+renderTextInput()+renderMemePicker();break;
     case"profile":a.innerHTML=renderProfile()+renderBN("profile");break;
     case"error":a.innerHTML=renderError();break;
   }
@@ -832,10 +1029,45 @@ function renderQueue(){
   return '<div class="queue-screen screen"><div class="queue-title">Queue</div>'+npH+
     '<div class="queue-section-label">Up Next \u00B7 '+S.queue.length+' song'+(S.queue.length!==1?"s":"")+'</div>'+ih+'</div>';
 }
+function renderStage(){
+  var customCell="";
+  if(S.customEmoji){
+    customCell='<div class="reaction-cell" id="react-custom"><span class="reaction-cell-emoji">'+S.customEmoji+'</span><span class="reaction-cell-label">Custom</span><div class="reaction-cell-edit" id="react-custom-edit">\u270F</div></div>';
+  }else{
+    customCell='<div class="reaction-cell" id="react-custom-pick"><span class="reaction-cell-plus">+</span><span class="reaction-cell-label">Custom Emoji</span></div>';
+  }
+  return '<div class="stage-screen screen">'+
+    '<div class="stage-title">React</div>'+
+    '<div class="reaction-grid">'+
+      '<div class="reaction-cell" id="react-clap"><span class="reaction-cell-emoji">\uD83D\uDC4F</span><span class="reaction-cell-label">Clap</span></div>'+
+      '<div class="reaction-cell" id="react-thumbsdown"><span class="reaction-cell-emoji">\uD83D\uDC4E</span><span class="reaction-cell-label">Boo</span></div>'+
+      customCell+
+      '<div class="reaction-cell" id="react-say"><div class="reaction-cell-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div><span class="reaction-cell-label">Say Something</span></div>'+
+      '<div class="reaction-cell" id="react-meme"><div class="reaction-cell-icon"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div><span class="reaction-cell-label">Memes</span></div>'+
+      '<div class="reaction-cell" id="react-camera"><div class="reaction-cell-icon"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div><span class="reaction-cell-label">Photo</span></div>'+
+    '</div>'+
+    '<input type="file" id="react-camera-input" accept="image/*" style="display:none">'+
+  '</div>';
+}
+function renderEmojiPicker(){
+  if(!S.emojiPickerOpen)return"";
+  var btns=EMOJI_LIST.map(function(e){return '<button class="emoji-pick-btn" data-emoji="'+e+'">'+e+'</button>';}).join("");
+  return '<div class="emoji-picker-overlay" id="emoji-overlay"><div class="emoji-picker-sheet"><div class="emoji-picker-title">Choose an Emoji</div><div class="emoji-picker-grid">'+btns+'</div></div></div>';
+}
+function renderTextInput(){
+  if(!S.textInputOpen)return"";
+  return '<div class="text-input-overlay" id="text-overlay"><div class="text-input-sheet"><input class="text-input-field" id="text-reaction-input" placeholder="What do you want to say?" maxlength="120" autocomplete="off"><button class="text-input-send" id="text-reaction-send">Send</button></div></div>';
+}
+function renderMemePicker(){
+  if(!S.memePickerOpen)return"";
+  var btns=MEMES.map(function(m){return '<button class="meme-pick-btn" data-meme-emoji="'+m.emoji+'">'+m.emoji+'<div class="meme-pick-label">'+esc(m.label)+'</div></button>';}).join("");
+  return '<div class="meme-picker-overlay" id="meme-overlay"><div class="meme-picker-sheet"><div class="emoji-picker-title">Pick a Meme</div><div class="meme-picker-grid">'+btns+'</div></div></div>';
+}
 function renderBN(act){
   var navAv=S.profilePicture?'<div class="nav-guest-avatar"><img src="'+S.profilePicture+'" alt=""></div>':'<div class="nav-guest-avatar">'+esc(S.guestName?S.guestName.charAt(0).toUpperCase():"?")+'</div>';
   return '<div class="bottom-nav">'+
     '<button class="nav-tab'+(act==="songs"?" active":"")+'" data-nav="songs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Songs</button>'+
+    '<button class="nav-tab'+(act==="stage"?" active":"")+'" data-nav="stage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>React</button>'+
     '<button class="nav-guest-pill" id="nav-profile">'+navAv+'<span>'+esc(S.guestName)+'</span></button>'+
     '<button class="nav-tab'+(act==="queue"?" active":"")+'" data-nav="queue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Queue</button>'+
   '</div>';
@@ -924,6 +1156,65 @@ function bindEvents(){
   });
   var ab=document.getElementById("add-queue-btn");
   if(ab)ab.addEventListener("click",addToQueue);
+  // Stage reaction buttons
+  var rc=document.getElementById("react-clap");
+  if(rc)rc.addEventListener("click",function(){sendReaction("emoji","\uD83D\uDC4F");});
+  var rtd=document.getElementById("react-thumbsdown");
+  if(rtd)rtd.addEventListener("click",function(){sendReaction("emoji","\uD83D\uDC4E");});
+  var rcu=document.getElementById("react-custom");
+  if(rcu)rcu.addEventListener("click",function(e){if(e.target.closest("#react-custom-edit")){S.emojiPickerOpen=true;render();return;}sendReaction("emoji",S.customEmoji);});
+  var rcup=document.getElementById("react-custom-pick");
+  if(rcup)rcup.addEventListener("click",function(){S.emojiPickerOpen=true;render();});
+  var rsay=document.getElementById("react-say");
+  if(rsay)rsay.addEventListener("click",function(){S.textInputOpen=true;render();setTimeout(function(){var ti=document.getElementById("text-reaction-input");if(ti)ti.focus();},100);});
+  var rmeme=document.getElementById("react-meme");
+  if(rmeme)rmeme.addEventListener("click",function(){S.memePickerOpen=true;render();});
+  var rcam=document.getElementById("react-camera");
+  var rcami=document.getElementById("react-camera-input");
+  if(rcam&&rcami){
+    rcam.addEventListener("click",function(){rcami.click();});
+    rcami.addEventListener("change",function(){
+      if(rcami.files&&rcami.files[0]){
+        resizeImage(rcami.files[0],200,0.7,function(url){sendReaction("photo",url);});
+        rcami.value="";
+      }
+    });
+  }
+  // Emoji picker overlay
+  var eov=document.getElementById("emoji-overlay");
+  if(eov){
+    eov.addEventListener("click",function(e){if(e.target===eov){S.emojiPickerOpen=false;render();}});
+    document.querySelectorAll(".emoji-pick-btn").forEach(function(btn){
+      btn.addEventListener("click",function(){
+        S.customEmoji=btn.dataset.emoji;
+        S.emojiPickerOpen=false;
+        render();
+      });
+    });
+  }
+  // Text input overlay
+  var tov=document.getElementById("text-overlay");
+  if(tov){
+    tov.addEventListener("click",function(e){if(e.target===tov){S.textInputOpen=false;render();}});
+    var tsend=document.getElementById("text-reaction-send");
+    var tinp=document.getElementById("text-reaction-input");
+    if(tsend&&tinp){
+      tsend.addEventListener("click",function(){var v=tinp.value.trim();if(v){sendReaction("text",v);S.textInputOpen=false;render();}});
+      tinp.addEventListener("keydown",function(e){if(e.key==="Enter"){var v=tinp.value.trim();if(v){sendReaction("text",v);S.textInputOpen=false;render();}}});
+    }
+  }
+  // Meme picker overlay
+  var mov=document.getElementById("meme-overlay");
+  if(mov){
+    mov.addEventListener("click",function(e){if(e.target===mov){S.memePickerOpen=false;render();}});
+    document.querySelectorAll(".meme-pick-btn").forEach(function(btn){
+      btn.addEventListener("click",function(){
+        sendReaction("emoji",btn.dataset.memeEmoji);
+        S.memePickerOpen=false;
+        render();
+      });
+    });
+  }
   document.querySelectorAll(".nav-tab").forEach(function(tab){
     tab.addEventListener("click",function(){
       S.screen=tab.dataset.nav;

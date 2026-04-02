@@ -9,6 +9,7 @@ import QRCode from 'qrcode'
 import {
     createSession, pushCatalog, updateNowPlaying,
     insertQueueItem, removeQueueItem, reorderQueue, closeSession,
+    listGuests, updateGuest, removeGuest,
     CatalogItem
 } from './supabase'
 
@@ -190,6 +191,13 @@ ipcMain.on('playback:time', (_event, timeMs) => {
 ipcMain.on('playback:seek', (_event, timeMs) => {
     if (stageWindow) {
         stageWindow.webContents.send('playback:seek', timeMs)
+    }
+})
+
+// Reaction relay to stage window
+ipcMain.on('reaction:send', (_event, reaction) => {
+    if (stageWindow) {
+        stageWindow.webContents.send('reaction:receive', reaction)
     }
 })
 
@@ -462,6 +470,21 @@ ipcMain.handle('karaoke:remove-queue-item', async (_event, queueRowId: string) =
 ipcMain.handle('karaoke:reorder-queue', async (_event, orderedIds: string[]) => {
     if (!activeSession) return
     await reorderQueue(activeSession.id, orderedIds)
+})
+
+// ----- Guest Management IPC Handlers -----
+
+ipcMain.handle('karaoke:list-guests', async () => {
+    if (!activeSession) return []
+    return listGuests(activeSession.id)
+})
+
+ipcMain.handle('karaoke:update-guest', async (_event, id: string, fields: { name?: string; profilePicture?: string | null }) => {
+    await updateGuest(id, fields)
+})
+
+ipcMain.handle('karaoke:remove-guest', async (_event, id: string) => {
+    await removeGuest(id)
 })
 
 // ----- System Volume IPC Handlers -----
