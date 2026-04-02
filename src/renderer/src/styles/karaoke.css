@@ -1,0 +1,337 @@
+/* ============================================
+   KARAOKE STAGE — Immersive Display v2
+   ============================================ */
+
+.karaoke-stage {
+    position: relative;
+    width: 100%;
+    height: calc(100vh - 42px);
+    /* account for titlebar */
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: var(--black);
+}
+
+/* ---- Background ---- */
+.k-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+}
+
+.k-bg__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: blur(50px) brightness(0.25) saturate(1.6);
+    transform: scale(1.3);
+}
+
+.k-bg__video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* YouTube wrapper: cover-fill viewport — always fills width or height, no black bars */
+.k-bg__yt-wrap {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 177.78vh);  /* wide enough to cover tall viewports */
+    height: max(100%, 56.25vw);  /* tall enough to cover wide viewports */
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+.k-bg__yt-wrap iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+/* Mask to hide YouTube title, logo, and other UI — video only */
+.k-bg__yt-mask {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        linear-gradient(to top, #050508 0%, #050508 15%, transparent 28%),
+        linear-gradient(to bottom, #050508 0%, transparent 6%),
+        linear-gradient(to right, #050508 0%, transparent 8%),
+        linear-gradient(to left, #050508 0%, transparent 8%);
+}
+
+.k-bg__scrim {
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(180deg, rgba(5, 5, 8, 0.7) 0%, transparent 30%, transparent 60%, rgba(5, 5, 8, 0.85) 100%),
+        radial-gradient(ellipse at center, transparent 30%, rgba(5, 5, 8, 0.6) 100%);
+}
+
+/* ---- Lyrics ---- */
+.k-lyrics {
+    position: relative;
+    z-index: 10;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 80px 48px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+    mask-image: linear-gradient(180deg, transparent 0%, black 12%, black 88%, transparent 100%);
+    -webkit-mask-image: linear-gradient(180deg, transparent 0%, black 12%, black 88%, transparent 100%);
+}
+
+/* Hide scrollbar but keep functionality */
+.k-lyrics::-webkit-scrollbar {
+    display: none;
+}
+
+.k-lyrics {
+    scrollbar-width: none;
+    /* Firefox */
+    -ms-overflow-style: none;
+    /* IE */
+}
+
+.k-line {
+    font-family: var(--font-display);
+    font-weight: 700;
+    text-align: center;
+    line-height: 1.35;
+    padding: 6px 16px;
+    border-radius: 8px;
+    transition: all 0.45s var(--ease);
+    will-change: transform, opacity, color;
+}
+
+.k-line--lg {
+    font-size: 44px;
+}
+
+.k-line--md {
+    font-size: 32px;
+}
+
+.k-line--future {
+    color: rgba(255, 255, 255, 0.12);
+    transform: scale(0.90) translateY(4px);
+}
+
+.k-line--past {
+    color: rgba(255, 255, 255, 0.18);
+    transform: scale(0.85);
+    opacity: 0.5;
+}
+
+.k-line--now {
+    color: white;
+    transform: scale(1);
+    text-shadow: 0 0 40px rgba(255, 255, 255, 0.2);
+}
+
+/* ---- Now Playing Dock ---- */
+.k-dock {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    background: rgba(12, 10, 15, 0.92);
+    backdrop-filter: blur(30px) saturate(1.5);
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    transition: all 0.4s var(--ease);
+}
+
+.k-dock--hidden {
+    transform: translateY(100%);
+    opacity: 0;
+}
+
+/* Top row: full-width clickable timeline */
+.k-dock__timeline {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 24px 0;
+}
+
+.k-dock__time {
+    font-size: 11px;
+    color: var(--white-faint);
+    font-variant-numeric: tabular-nums;
+    min-width: 36px;
+    font-family: var(--font-display);
+}
+
+.k-dock__track {
+    flex: 1;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 99px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: height 0.15s ease;
+}
+
+.k-dock__track:hover {
+    height: 12px;
+}
+
+.k-dock__track-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    background: var(--grad-hero);
+    border-radius: 99px;
+    transition: width 0.15s linear;
+}
+
+/* Bottom row: song info + controls */
+.k-dock__row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 24px 10px;
+}
+
+.k-dock__art {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    object-fit: cover;
+}
+
+.k-dock__info {
+    flex: 1;
+    min-width: 0;
+}
+
+.k-dock__title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.k-dock__artist {
+    font-size: 11px;
+    color: var(--white-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.k-dock__controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 4px 24px 10px;
+}
+
+.k-ctrl {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--white-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+}
+
+.k-ctrl:hover {
+    color: var(--white);
+    background: var(--white-ghost);
+}
+
+.k-ctrl--play {
+    width: 42px;
+    height: 42px;
+    background: white;
+    color: var(--black);
+}
+
+.k-ctrl--play:hover {
+    background: var(--white-soft);
+    transform: scale(1.05);
+}
+
+/* ---- Singer Badges ---- */
+.k-singers {
+    position: absolute;
+    top: 20px;
+    right: 28px;
+    z-index: 20;
+    display: flex;
+    gap: 8px;
+    transition: opacity 0.3s;
+}
+
+.k-singer-tag {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: rgba(12, 10, 15, 0.7);
+    backdrop-filter: blur(20px);
+    border-radius: 99px;
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 500;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.k-singer-tag__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+
+/* ---- Song Chip (top left) ---- */
+.k-song-chip {
+    position: absolute;
+    top: 20px;
+    left: 28px;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: opacity 0.3s;
+}
+
+.k-song-chip__art {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    object-fit: cover;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+.k-song-chip__text h3 {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.k-song-chip__text p {
+    font-size: 12px;
+    color: var(--white-muted);
+}
