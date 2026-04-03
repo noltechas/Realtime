@@ -238,7 +238,7 @@ const GLOBAL_CSS = `
 // ── Theme export ─────────────────────────────────────────────────────────────
 export const SPACE: Theme = {
   name: 'space',
-  nextThemeName: 'neo-brutal',
+  nextThemeName: 'steampunk',
   displayName: 'Space',
   globalCss: GLOBAL_CSS,
 

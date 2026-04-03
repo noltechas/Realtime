@@ -429,6 +429,40 @@
     100% { transform: translate(0, 0) rotate(360deg); }
 }
 
+/* ── Steampunk: gaslight glow pulse ──────────────────────────────────────── */
+@keyframes steam-glow-pulse {
+    0%, 100% { text-shadow: 0 0 8px currentColor, 0 0 20px rgba(200,151,62,0.1); }
+    50%      { text-shadow: 0 0 14px currentColor, 0 0 35px rgba(200,151,62,0.2); }
+}
+
+.k-line--steampunk {
+    animation: steam-glow-pulse 4s ease-in-out infinite;
+    border-radius: 4px;
+    padding: 6px 20px;
+    background: radial-gradient(ellipse at center, rgba(200,151,62,0.04) 0%, transparent 70%);
+}
+
+/* ── Steampunk: typewriter stamp per-word ─────────────────────────────────── */
+@keyframes steam-stamp {
+    0%   { opacity: 0.4; transform: scale(1.08) translateY(-2px); }
+    30%  { opacity: 1; transform: scale(0.98); }
+    50%  { transform: scale(1.01); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+.steam-stamp-word {
+    display: inline-block;
+    animation: steam-stamp 0.4s ease-out both;
+}
+
+/* ── Steampunk: idle screen keyframes ────────────────────────────────────── */
+@keyframes steamNeedle {
+    0%, 100% { transform: rotate(-40deg); }
+    30%      { transform: rotate(25deg); }
+    60%      { transform: rotate(-10deg); }
+    80%      { transform: rotate(15deg); }
+}
+
 /* ---- Now Playing Dock ---- */
 .k-dock {
     position: absolute;

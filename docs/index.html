@@ -9,7 +9,7 @@
 <title>Realtime Karaoke</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&family=Patrick+Hand&family=Kalam:wght@700&family=Oswald:wght@400;500;600;700&family=Share+Tech+Mono&family=Permanent+Marker&family=Quicksand:wght@400;500;600;700&family=Nunito:wght@400;500;600;700&family=Chicle&family=Spicy+Rice&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Orbitron:wght@400;500;600;700;800;900&family=Exo+2:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&family=Patrick+Hand&family=Kalam:wght@700&family=Oswald:wght@400;500;600;700&family=Share+Tech+Mono&family=Permanent+Marker&family=Quicksand:wght@400;500;600;700&family=Nunito:wght@400;500;600;700&family=Chicle&family=Spicy+Rice&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Orbitron:wght@400;500;600;700;800;900&family=Exo+2:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400;500;600;700&family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <style>
 :root {
   --black: #050508;
@@ -93,6 +93,20 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
 .join-session-code {
   margin-top: 32px; font-family: var(--font-display); font-weight: 700;
   font-size: 20px; letter-spacing: 6px; color: var(--white-faint);
+}
+.joining-avatar {
+  width: 80px; height: 80px; border-radius: 50%; overflow: hidden;
+  border: 2px solid var(--violet); margin-bottom: 16px;
+}
+.joining-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.joining-name {
+  font-family: var(--font-display); font-weight: 600; font-size: 22px;
+  color: var(--white); margin-bottom: 32px;
+}
+.joining-spinner { margin-bottom: 16px; }
+.joining-text {
+  font-family: var(--font-display); font-weight: 500; font-size: 16px;
+  color: var(--white-muted); letter-spacing: 1px;
 }
 .avatar-upload {
   width: 80px; height: 80px; border-radius: 50%; cursor: pointer;
@@ -647,7 +661,7 @@ var NC=[
 {c:"#d946ef",g:"rgba(217,70,239,0.3)"},
 {c:"#e11d48",g:"rgba(225,29,72,0.3)"}
 ];
-var S={screen:"loading",sessionCode:null,sessionId:null,guestId:null,guestName:"",profilePicture:null,guests:[],catalog:[],searchQuery:"",selectedTrack:null,singerCount:1,singers:[{name:"",color:NC[0].c,colorGlow:NC[0].g,roleIndices:[],profilePicture:null}],queue:[],nowPlaying:null,errorMessage:"",theme_name:"neo-brutal",stage_theme:null,customEmoji:null,emojiPickerOpen:false,textInputOpen:false,memePickerOpen:false,isPlaying:false,nowPlayingSingerConfigs:null,matchedSinger:null,nowPlayingStageTheme:null};
+var S={screen:"loading",sessionCode:null,sessionId:null,guestId:null,guestName:"",profilePicture:null,guests:[],catalog:[],searchQuery:"",selectedTrack:null,singerCount:1,singers:[{name:"",color:NC[0].c,colorGlow:NC[0].g,roleIndices:[],profilePicture:null}],queue:[],nowPlaying:null,errorMessage:"",theme_name:"neo-brutal",stage_theme:null,customEmoji:null,emojiPickerOpen:false,textInputOpen:false,memePickerOpen:false,isPlaying:false,nowPlayingSingerConfigs:null,matchedSinger:null,nowPlayingStageTheme:null,joining:false};
 var qCh=null,sCh=null,gCh=null,rCh=null;
 var MEMES=[
   {emoji:"\uD83E\uDD2F",label:"Mind Blown"},
@@ -725,13 +739,15 @@ function saveLocal(){
   localStorage.setItem("karaoke_guest_"+S.sessionCode,JSON.stringify({guestId:S.guestId,guestName:S.guestName,sessionId:S.sessionId,profilePicture:S.profilePicture}));
 }
 async function joinSession(name){
+  if(S.joining)return;
+  S.joining=true;S.guestName=name.trim();S.screen="joining";render();
   var ins={session_id:S.sessionId,name:name.trim()};
   if(S.profilePicture)ins.profile_picture=S.profilePicture;
   var r=await sb.from("karaoke_guests").insert(ins).select("id").single();
-  if(r.error){alert("Failed to join. Try again.");return;}
-  S.guestId=r.data.id;S.guestName=name.trim();
+  if(r.error){S.joining=false;S.screen="join";render();alert("Failed to join. Try again.");return;}
+  S.guestId=r.data.id;
   saveLocal();
-  await loadCatalog();await loadQueue();await loadGuests();subRT();S.screen="songs";render();
+  await loadCatalog();await loadQueue();await loadGuests();subRT();S.joining=false;S.screen="songs";render();
 }
 async function loadCatalog(){
   var r=await sb.from("karaoke_catalog").select("*").eq("session_id",S.sessionId);
@@ -1061,6 +1077,35 @@ function applyTheme(){
     " .youreup-screen{background:#08080F !important;}" +
     " .youreup-play-btn{border:1px solid #E040FB !important;box-shadow:0 0 30px rgba(224,64,251,0.4),0 0 60px rgba(64,224,208,0.2) !important;}" +
     " .youreup-art{border:1px solid rgba(224,64,251,0.2) !important;border-radius:8px !important;box-shadow:0 0 20px rgba(224,64,251,0.15) !important;}";
+  }else if(S.theme_name==="steampunk"){
+    css=":root{--black:#14110F;--surface-1:rgba(200,151,62,0.04);--surface-2:rgba(200,151,62,0.07);--surface-3:rgba(200,151,62,0.1);--white:#E8DCC8;--white-muted:rgba(168,152,120,0.8);--white-faint:rgba(168,152,120,0.45);--white-ghost:rgba(200,151,62,0.1);--violet:#C8973E;--pink:#E07040;--cyan:#5A9E8F;--emerald:#5A9E8F;--amber:#C8973E;--red:#B84030;--grad-hero:linear-gradient(135deg, #C8973E, #E07040);--grad-text:linear-gradient(135deg, #C8973E, #E07040);--font-display:'Cinzel Decorative', serif;--font-body:'Spectral', Georgia, serif;}" +
+    " .mesh-bg{background:radial-gradient(ellipse at 30% 40%, rgba(200,151,62,0.04) 0%, transparent 60%), radial-gradient(ellipse at 70% 60%, rgba(224,112,64,0.03) 0%, transparent 60%) !important;animation:none !important;}" +
+    " .song-card,.config-section,.queue-item,.singer-card{border:1px solid rgba(200,151,62,0.15) !important;background:rgba(37,32,24,0.8) !important;backdrop-filter:blur(8px) !important;-webkit-backdrop-filter:blur(8px) !important;border-radius:6px !important;box-shadow:0 0 8px rgba(200,151,62,0.08) !important;}" +
+    " .now-playing-card{border:1px solid rgba(224,112,64,0.3) !important;background:rgba(224,112,64,0.12) !important;border-radius:6px !important;box-shadow:0 0 14px rgba(224,112,64,0.15) !important;animation:none !important;}" +
+    " .join-btn,.add-queue-btn,.profile-save-btn{background:rgba(200,151,62,0.12) !important;color:#E8DCC8 !important;border:1px solid rgba(200,151,62,0.4) !important;border-radius:3px !important;box-shadow:0 0 10px rgba(200,151,62,0.25) !important;text-shadow:0 0 8px rgba(200,151,62,0.4) !important;}" +
+    " .join-btn:active,.add-queue-btn:active,.profile-save-btn:active{box-shadow:0 0 20px rgba(200,151,62,0.4) !important;}" +
+    " .singer-count-btn{border:1px solid rgba(200,151,62,0.15) !important;background:rgba(200,151,62,0.04) !important;color:#A89878 !important;border-radius:3px !important;}" +
+    " .singer-count-btn.active{background:rgba(200,151,62,0.15) !important;color:#C8973E !important;border-color:#C8973E !important;}" +
+    " .role-btn{border:1px solid rgba(200,151,62,0.12) !important;background:rgba(200,151,62,0.04) !important;color:#A89878 !important;border-radius:3px !important;}" +
+    " .role-btn.active{background:rgba(224,112,64,0.12) !important;color:#E07040 !important;border-color:rgba(224,112,64,0.4) !important;}" +
+    " .join-input,.search-input,.singer-name-input,.profile-name-input{border:1px solid rgba(200,151,62,0.15) !important;background:rgba(200,151,62,0.04) !important;color:#E8DCC8 !important;border-radius:3px !important;}" +
+    " .join-input:focus,.search-input:focus,.singer-name-input:focus,.profile-name-input:focus{box-shadow:0 0 0 2px rgba(200,151,62,0.4), 0 0 0 4px rgba(224,112,64,0.15), 0 0 16px rgba(200,151,62,0.15) !important;border-color:#C8973E !important;}" +
+    " .join-input::placeholder,.search-input::placeholder,.singer-name-input::placeholder,.profile-name-input::placeholder{color:rgba(168,152,120,0.4) !important;}" +
+    " .bottom-nav{background:rgba(20,17,15,0.95) !important;border-top:1px solid rgba(200,151,62,0.15) !important;}" +
+    " .songs-header{background:rgba(20,17,15,0.95) !important;}" +
+    " .avatar-upload,.profile-avatar{border-color:rgba(200,151,62,0.3) !important;}" +
+    " .guest-picker-pill{border:1px solid rgba(200,151,62,0.12) !important;background:rgba(200,151,62,0.04) !important;color:#A89878 !important;border-radius:3px !important;}" +
+    " .guest-picker-pill.selected{background:rgba(200,151,62,0.15) !important;color:#C8973E !important;border-color:#C8973E !important;}" +
+    " .reaction-cell{border:1px solid rgba(200,151,62,0.15) !important;background:rgba(37,32,24,0.8) !important;border-radius:6px !important;box-shadow:0 0 8px rgba(200,151,62,0.08) !important;}" +
+    " .reaction-cell:active{border-color:#C8973E !important;box-shadow:0 0 15px rgba(200,151,62,0.3) !important;}" +
+    " .emoji-picker-sheet,.text-input-sheet,.meme-picker-sheet{background:#1C1816 !important;border:1px solid rgba(200,151,62,0.15) !important;}" +
+    " .text-input-field{border:1px solid rgba(200,151,62,0.15) !important;background:rgba(200,151,62,0.04) !important;color:#E8DCC8 !important;border-radius:3px !important;}" +
+    " .text-input-field:focus{box-shadow:0 0 10px rgba(200,151,62,0.3) !important;}" +
+    " .text-input-send{background:rgba(200,151,62,0.12) !important;color:#E8DCC8 !important;border:1px solid rgba(200,151,62,0.4) !important;border-radius:3px !important;}" +
+    " .meme-pick-btn{border:1px solid rgba(200,151,62,0.12) !important;background:rgba(200,151,62,0.04) !important;border-radius:6px !important;}" +
+    " .youreup-screen{background:#14110F !important;}" +
+    " .youreup-play-btn{border:1px solid #C8973E !important;box-shadow:0 0 30px rgba(200,151,62,0.3),0 0 60px rgba(224,112,64,0.15) !important;}" +
+    " .youreup-art{border:1px solid rgba(200,151,62,0.2) !important;border-radius:6px !important;box-shadow:0 0 20px rgba(200,151,62,0.1) !important;}";
   }else{
     css="";
   }
@@ -1080,6 +1125,7 @@ function render(){
   switch(S.screen){
     case"loading":a.innerHTML='<div class="loading-center"><div class="spinner"></div></div>';break;
     case"join":a.innerHTML=renderJoin();break;
+    case"joining":a.innerHTML=renderJoining();break;
     case"songs":a.innerHTML=renderSongs()+renderBN("songs");break;
     case"config":a.innerHTML=renderConfig()+renderBN("songs");break;
     case"queue":a.innerHTML=renderQueue()+renderBN("queue");break;
@@ -1101,6 +1147,18 @@ function renderJoin(){
     '<div class="avatar-upload-hint">Tap to add a photo (optional)</div>'+
     '<input class="join-input" id="name-input" placeholder="Your name" maxlength="30" autocomplete="off">'+
     '<button class="join-btn" id="join-btn" disabled>Join Session</button>'+
+    '<div class="join-session-code">'+esc(S.sessionCode)+'</div>'+
+  '</div>';
+}
+function renderJoining(){
+  var avHtml=S.profilePicture?'<div class="joining-avatar"><img src="'+S.profilePicture+'" alt=""></div>':'';
+  return '<div class="join-screen screen">'+
+    '<div class="join-logo">Realtime</div>'+
+    '<div class="join-title">Karaoke</div>'+
+    avHtml+
+    '<div class="joining-name">'+esc(S.guestName)+'</div>'+
+    '<div class="joining-spinner"><div class="spinner"></div></div>'+
+    '<div class="joining-text">Joining session...</div>'+
     '<div class="join-session-code">'+esc(S.sessionCode)+'</div>'+
   '</div>';
 }
@@ -1201,6 +1259,7 @@ function renderConfig(){
         '<button class="theme-pick-btn'+(S.stage_theme==="psychedelic"?" selected":"")+'" data-stage-theme="psychedelic" style="background:#1a0a2e;color:#ff2d95;border:1px solid rgba(255,45,149,0.4);border-radius:16px;font-family:\'Chicle\',cursive;text-shadow:0 0 8px rgba(255,45,149,0.4);">Psychedelic</button>'+
         '<button class="theme-pick-btn'+(S.stage_theme==="zen"?" selected":"")+'" data-stage-theme="zen" style="background:#1a1814;color:#D4B85A;border:1px solid rgba(201,168,76,0.4);border-radius:6px;font-family:\'Cormorant Garamond\',serif;font-style:italic;text-shadow:0 0 8px rgba(201,168,76,0.3);">Zen</button>'+
         '<button class="theme-pick-btn'+(S.stage_theme==="space"?" selected":"")+'" data-stage-theme="space" style="background:#08080F;color:#E040FB;border:1px solid rgba(224,64,251,0.4);border-radius:4px;font-family:\'Orbitron\',sans-serif;text-shadow:0 0 8px rgba(224,64,251,0.4);letter-spacing:1px;font-size:11px;">Space</button>'+
+        '<button class="theme-pick-btn'+(S.stage_theme==="steampunk"?" selected":"")+'" data-stage-theme="steampunk" style="background:#14110F;color:#C8973E;border:1px solid rgba(200,151,62,0.4);border-radius:3px;font-family:\'Cinzel Decorative\',serif;text-shadow:0 0 8px rgba(200,151,62,0.3);font-size:11px;">Steampunk</button>'+
       '</div>'+
     '</div>'+
     '<button class="add-queue-btn" id="add-queue-btn">Add to Queue</button>'+

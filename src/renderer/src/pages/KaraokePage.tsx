@@ -1222,6 +1222,178 @@ export default function KaraokePage() {
             )
         }
 
+        // ---- Steampunk (Victorian Industrial) idle ----
+        if (theme.name === 'steampunk') {
+            return (
+                <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
+                    background: 'linear-gradient(180deg, #0e0b09 0%, #14110F 35%, #1a1510 65%, #100d0a 100%)',
+                    position: 'relative', overflow: 'hidden',
+                }}>
+                    {/* Warm vignette */}
+                    <div style={{
+                        position: 'absolute', inset: 0,
+                        background: 'radial-gradient(ellipse at center, rgba(200,151,62,0.03) 0%, transparent 50%, rgba(0,0,0,0.4) 100%)',
+                    }} />
+
+                    {/* Large gear — top right, spinning clockwise */}
+                    <svg style={{ position: 'absolute', top: -60, right: -40, width: 280, height: 280, opacity: 0.08, animation: 'steamGearSpin 30s linear infinite' }} viewBox="0 0 200 200">
+                        <circle cx="100" cy="100" r="60" fill="none" stroke="#C8973E" strokeWidth="3" />
+                        <circle cx="100" cy="100" r="25" fill="none" stroke="#C8973E" strokeWidth="2" />
+                        <circle cx="100" cy="100" r="8" fill="rgba(200,151,62,0.3)" />
+                        {Array.from({ length: 12 }).map((_, i) => {
+                            const angle = (i / 12) * Math.PI * 2
+                            const x1 = 100 + Math.cos(angle) * 60
+                            const y1 = 100 + Math.sin(angle) * 60
+                            const x2 = 100 + Math.cos(angle) * 78
+                            const y2 = 100 + Math.sin(angle) * 78
+                            return <line key={`gt-${i}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#C8973E" strokeWidth="10" strokeLinecap="round" />
+                        })}
+                    </svg>
+
+                    {/* Medium gear — bottom left, counter-clockwise (interlocking ratio) */}
+                    <svg style={{ position: 'absolute', bottom: -30, left: -20, width: 200, height: 200, opacity: 0.06, animation: 'steamGearSpinReverse 20s linear infinite' }} viewBox="0 0 200 200">
+                        <circle cx="100" cy="100" r="50" fill="none" stroke="#E07040" strokeWidth="2.5" />
+                        <circle cx="100" cy="100" r="20" fill="none" stroke="#E07040" strokeWidth="1.5" />
+                        <circle cx="100" cy="100" r="6" fill="rgba(224,112,64,0.3)" />
+                        {Array.from({ length: 8 }).map((_, i) => {
+                            const angle = (i / 8) * Math.PI * 2
+                            const x1 = 100 + Math.cos(angle) * 50
+                            const y1 = 100 + Math.sin(angle) * 50
+                            const x2 = 100 + Math.cos(angle) * 65
+                            const y2 = 100 + Math.sin(angle) * 65
+                            return <line key={`gb-${i}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#E07040" strokeWidth="8" strokeLinecap="round" />
+                        })}
+                    </svg>
+
+                    {/* Small gear — mid left, clockwise */}
+                    <svg style={{ position: 'absolute', top: '40%', left: 60, width: 100, height: 100, opacity: 0.05, animation: 'steamGearSpin 15s linear infinite' }} viewBox="0 0 200 200">
+                        <circle cx="100" cy="100" r="45" fill="none" stroke="#5A9E8F" strokeWidth="2" />
+                        <circle cx="100" cy="100" r="15" fill="none" stroke="#5A9E8F" strokeWidth="1.5" />
+                        {Array.from({ length: 6 }).map((_, i) => {
+                            const angle = (i / 6) * Math.PI * 2
+                            const x1 = 100 + Math.cos(angle) * 45
+                            const y1 = 100 + Math.sin(angle) * 45
+                            const x2 = 100 + Math.cos(angle) * 58
+                            const y2 = 100 + Math.sin(angle) * 58
+                            return <line key={`gs-${i}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#5A9E8F" strokeWidth="7" strokeLinecap="round" />
+                        })}
+                    </svg>
+
+                    {/* Steam pipe network — horizontal pipes with joints */}
+                    <svg style={{ position: 'absolute', bottom: '25%', left: 0, width: '100%', height: 4, opacity: 0.1 }} preserveAspectRatio="none">
+                        <line x1="0" y1="2" x2="100%" y2="2" stroke="#C8973E" strokeWidth="3" />
+                    </svg>
+                    {[80, 250, 450, 650, 850].map((x, i) => (
+                        <div key={`joint-${i}`} style={{
+                            position: 'absolute', bottom: 'calc(25% - 4px)', left: x, width: 10, height: 10,
+                            borderRadius: '50%', border: '1.5px solid rgba(200,151,62,0.15)',
+                            background: 'rgba(200,151,62,0.06)',
+                        }} />
+                    ))}
+
+                    {/* Vertical pipe */}
+                    <div style={{ position: 'absolute', top: 0, right: '22%', width: 3, height: '25%', background: 'rgba(200,151,62,0.08)' }} />
+                    <div style={{ position: 'absolute', top: 0, right: 'calc(22% - 3px)', width: 8, height: 8, borderRadius: '50%', border: '1.5px solid rgba(200,151,62,0.12)', background: 'rgba(200,151,62,0.04)', marginTop: 'calc(25% - 4px)' }} />
+
+                    {/* Pressure gauge — SVG */}
+                    <svg style={{ position: 'absolute', top: '15%', right: '10%', width: 80, height: 80, opacity: 0.12 }} viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="42" fill="none" stroke="#C8973E" strokeWidth="2" />
+                        <circle cx="50" cy="50" r="38" fill="none" stroke="rgba(200,151,62,0.3)" strokeWidth="0.5" />
+                        {/* Tick marks */}
+                        {Array.from({ length: 8 }).map((_, i) => {
+                            const angle = (i / 8) * Math.PI * 2 - Math.PI / 2
+                            const x1 = 50 + Math.cos(angle) * 35
+                            const y1 = 50 + Math.sin(angle) * 35
+                            const x2 = 50 + Math.cos(angle) * 40
+                            const y2 = 50 + Math.sin(angle) * 40
+                            return <line key={`tick-${i}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#C8973E" strokeWidth="1.5" />
+                        })}
+                        {/* Needle */}
+                        <line x1="50" y1="50" x2="50" y2="15" stroke="#E07040" strokeWidth="1.5" strokeLinecap="round" style={{ transformOrigin: '50px 50px', animation: 'steamNeedle 4s ease-in-out infinite' }} />
+                        <circle cx="50" cy="50" r="4" fill="#C8973E" />
+                    </svg>
+
+                    {/* Steam puffs rising from pipe joints */}
+                    {[
+                        { x: 83, delay: 0 }, { x: 253, delay: 3 }, { x: 453, delay: 7 }, { x: 853, delay: 5 },
+                    ].map((p, i) => (
+                        <div key={`puff-${i}`} style={{
+                            position: 'absolute', bottom: 'calc(25% + 8px)', left: p.x,
+                            width: 6, height: 6, borderRadius: '50%',
+                            background: 'rgba(212,206,192,0.15)',
+                            filter: 'blur(2px)',
+                            animation: `steamPuff 8s ease-out ${p.delay}s infinite`,
+                        }} />
+                    ))}
+
+                    {/* Victorian scrollwork corners */}
+                    <svg style={{ position: 'absolute', top: 20, left: 20, width: 80, height: 80, opacity: 0.1 }} viewBox="0 0 80 80">
+                        <path d="M5 5 Q5 25 15 18 Q28 8 22 22 Q16 36 28 28 Q40 20 34 34" fill="none" stroke="#C8973E" strokeWidth="1.2" strokeLinecap="round" />
+                        <circle cx="8" cy="8" r="2" fill="rgba(200,151,62,0.4)" />
+                    </svg>
+                    <svg style={{ position: 'absolute', bottom: 20, right: 20, width: 80, height: 80, opacity: 0.1, transform: 'rotate(180deg)' }} viewBox="0 0 80 80">
+                        <path d="M5 5 Q5 25 15 18 Q28 8 22 22 Q16 36 28 28 Q40 20 34 34" fill="none" stroke="#C8973E" strokeWidth="1.2" strokeLinecap="round" />
+                        <circle cx="8" cy="8" r="2" fill="rgba(200,151,62,0.4)" />
+                    </svg>
+
+                    {/* Gaslight lantern — top center */}
+                    <svg style={{ position: 'absolute', top: 30, left: '50%', transform: 'translateX(-50%)', width: 30, height: 50, opacity: 0.15 }} viewBox="0 0 30 50">
+                        {/* Hook */}
+                        <line x1="15" y1="0" x2="15" y2="10" stroke="#C8973E" strokeWidth="1.5" />
+                        {/* Lantern body */}
+                        <rect x="8" y="10" width="14" height="20" rx="2" fill="none" stroke="#C8973E" strokeWidth="1.5" />
+                        {/* Flame glow */}
+                        <ellipse cx="15" cy="22" rx="3" ry="5" fill="rgba(232,184,76,0.4)" style={{ animation: 'steamFlicker 3s ease-in-out infinite' }} />
+                        {/* Bottom cap */}
+                        <line x1="6" y1="30" x2="24" y2="30" stroke="#C8973E" strokeWidth="1.5" />
+                        <line x1="10" y1="30" x2="10" y2="34" stroke="#C8973E" strokeWidth="1" />
+                        <line x1="20" y1="30" x2="20" y2="34" stroke="#C8973E" strokeWidth="1" />
+                    </svg>
+
+                    {/* Content */}
+                    <div style={{ textAlign: 'center', zIndex: 2 }}>
+                        <h1 style={{
+                            fontFamily: "'Cinzel Decorative', serif", fontSize: 52, color: '#E8DCC8',
+                            fontWeight: 400, lineHeight: 1.2, marginBottom: 8,
+                            textShadow: '0 0 20px rgba(200,151,62,0.35), 0 0 50px rgba(200,151,62,0.12), 0 0 80px rgba(224,112,64,0.06)',
+                            letterSpacing: '0.06em',
+                        }}>
+                            Queue a Tune
+                        </h1>
+                        <p style={{
+                            fontFamily: "'Spectral', serif", fontSize: 16, color: '#A89878',
+                            letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: 48,
+                            fontStyle: 'italic',
+                        }}>
+                            Scan to power the engine
+                        </p>
+                        {qrUrl && (
+                            <div style={{
+                                display: 'inline-block', padding: 14,
+                                border: '2px solid rgba(200,151,62,0.3)',
+                                borderImage: 'repeating-linear-gradient(90deg, transparent 0px, transparent 14px, rgba(200,151,62,0.4) 14px, rgba(200,151,62,0.4) 18px, transparent 18px, transparent 32px) 1',
+                                background: 'rgba(20,17,15,0.8)',
+                                backdropFilter: 'blur(12px)',
+                                borderRadius: 4,
+                            }}>
+                                <img src={qrUrl} alt="QR" style={{ width: 210, height: 210, display: 'block', borderRadius: 2 }} />
+                            </div>
+                        )}
+                        {sessionCode && (
+                            <p style={{
+                                fontFamily: "'Cinzel', serif", fontSize: 26, fontWeight: 600,
+                                color: '#C8973E', letterSpacing: '0.35em', textTransform: 'uppercase', marginTop: 20,
+                                textShadow: '0 0 15px rgba(200,151,62,0.3)',
+                            }}>
+                                {sessionCode}
+                            </p>
+                        )}
+                    </div>
+                </div>
+            )
+        }
+
         // ---- Urban (Hip Hop) idle ----
         return (
             <div style={{
@@ -1306,13 +1478,18 @@ export default function KaraokePage() {
                     border: '1px solid rgba(64,224,208,0.25)',
                     boxShadow: '0 0 15px rgba(64,224,208,0.1), 0 0 30px rgba(224,64,251,0.05), inset 0 0 20px rgba(64,224,208,0.03)',
                     borderRadius: 6,
+                } : theme.name === 'steampunk' ? {
+                    background: 'rgba(20,17,15,0.88)',
+                    border: '1px solid rgba(200,151,62,0.3)',
+                    boxShadow: '0 0 12px rgba(200,151,62,0.1), inset 0 0 15px rgba(200,151,62,0.03)',
+                    borderRadius: 3,
                 } : {}),
             }}>
                 <img src={state.karaokeQrDataUrl} alt="QR" style={{
                     width: 80, height: 80,
                     borderRadius: theme.radiusSmall,
                     display: 'block',
-                    ...(theme.name === 'space' ? { boxShadow: '0 0 10px rgba(64,224,208,0.15)' } : {}),
+                    ...(theme.name === 'space' ? { boxShadow: '0 0 10px rgba(64,224,208,0.15)' } : theme.name === 'steampunk' ? { boxShadow: '0 0 8px rgba(200,151,62,0.15)' } : {}),
                 }} />
                 <span style={{
                     fontFamily: theme.fontDisplay,
@@ -1327,6 +1504,9 @@ export default function KaraokePage() {
                     ...(theme.name === 'space' ? {
                         color: '#40E0D0',
                         textShadow: '0 0 8px rgba(64,224,208,0.5)',
+                    } : theme.name === 'steampunk' ? {
+                        color: '#C8973E',
+                        textShadow: '0 0 8px rgba(200,151,62,0.4)',
                     } : {}),
                 }}>
                     Join
@@ -1377,14 +1557,21 @@ export default function KaraokePage() {
                     borderRadius: 8,
                     backdropFilter: 'blur(16px)',
                     color: '#E8E6F0',
+                } : theme.name === 'steampunk' ? {
+                    background: 'rgba(20,17,15,0.88)',
+                    border: '1px solid rgba(200,151,62,0.25)',
+                    boxShadow: '0 0 10px rgba(200,151,62,0.08), inset 0 0 12px rgba(200,151,62,0.03)',
+                    borderRadius: 3,
+                    backdropFilter: 'blur(16px)',
+                    color: '#E8DCC8',
                 } : {}),
             }}>
                 {art && <img className="k-song-chip__art" src={art} alt="" style={
-                    theme.name === 'space' ? { boxShadow: '0 0 15px rgba(224,64,251,0.2), 0 6px 20px rgba(0,0,0,0.5)', borderRadius: 8, border: '1px solid rgba(224,64,251,0.15)' } : {}
+                    theme.name === 'space' ? { boxShadow: '0 0 15px rgba(224,64,251,0.2), 0 6px 20px rgba(0,0,0,0.5)', borderRadius: 8, border: '1px solid rgba(224,64,251,0.15)' } : theme.name === 'steampunk' ? { boxShadow: '0 0 10px rgba(200,151,62,0.15), 0 6px 20px rgba(0,0,0,0.5)', borderRadius: 3, border: '1px solid rgba(200,151,62,0.2)' } : {}
                 } />}
                 <div className="k-song-chip__text">
-                    <h3 style={{ fontFamily: theme.fontDisplay, ...(theme.name === 'space' ? { color: '#E8E6F0', textShadow: '0 0 10px rgba(64,224,208,0.3)' } : {}) }}>{track.name}</h3>
-                    <p style={{ color: theme.muted, ...(theme.name === 'space' ? { color: '#9896A8' } : {}) }}>{track.artists.map((a: any) => a.name).join(', ')}</p>
+                    <h3 style={{ fontFamily: theme.fontDisplay, ...(theme.name === 'space' ? { color: '#E8E6F0', textShadow: '0 0 10px rgba(64,224,208,0.3)' } : theme.name === 'steampunk' ? { color: '#E8DCC8', textShadow: '0 0 10px rgba(200,151,62,0.25)' } : {}) }}>{track.name}</h3>
+                    <p style={{ color: theme.muted, ...(theme.name === 'space' ? { color: '#9896A8' } : theme.name === 'steampunk' ? { color: '#A89878' } : {}) }}>{track.artists.map((a: any) => a.name).join(', ')}</p>
                 </div>
             </div>
 
@@ -1399,6 +1586,13 @@ export default function KaraokePage() {
                             borderRadius: 6,
                             backdropFilter: 'blur(16px)',
                             color: '#E8E6F0',
+                        } as React.CSSProperties : theme.name === 'steampunk' ? {
+                            background: 'rgba(20,17,15,0.88)',
+                            border: '1px solid rgba(200,151,62,0.25)',
+                            boxShadow: '0 0 8px rgba(200,151,62,0.1)',
+                            borderRadius: 3,
+                            backdropFilter: 'blur(16px)',
+                            color: '#E8DCC8',
                         } as React.CSSProperties : {}
                         if (s.micDeviceId) {
                             // Enable mic + effects when ready (Up Next) or playing — singer can warm up before song starts
@@ -1651,6 +1845,21 @@ export default function KaraokePage() {
                                                 inlineStyle.color = singer.color
                                                 inlineStyle.textShadow = `0 0 6px ${singer.colorGlow}, 0 0 18px ${singer.colorGlow}, 0 0 50px ${singer.colorGlow}, 0 0 80px ${singer.colorGlow}`
                                             }
+                                        } else if (theme.name === 'steampunk') {
+                                            cls += ' k-line--steampunk'
+                                            if (line.singerIndices && line.singerIndices.length > 1) {
+                                                const colors = line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
+                                                if (colors.length > 1) {
+                                                    inlineStyle.backgroundImage = `linear-gradient(90deg, ${colors.join(', ')})`
+                                                    inlineStyle.WebkitBackgroundClip = 'text'
+                                                    inlineStyle.WebkitTextFillColor = 'transparent'
+                                                    inlineStyle.filter = `drop-shadow(0 0 10px ${colors[0]}) drop-shadow(0 0 10px ${colors[colors.length - 1]})`
+                                                }
+                                            } else if (line.singerIndex !== undefined && singers[line.singerIndex]) {
+                                                const singer = singers[line.singerIndex]
+                                                inlineStyle.color = singer.color
+                                                inlineStyle.textShadow = `0 0 8px ${singer.colorGlow}, 0 0 20px ${singer.colorGlow}, 0 0 40px rgba(200,151,62,0.15)`
+                                            }
                                         } else {
                                             if (line.singerIndices && line.singerIndices.length > 1) {
                                                 const colors = line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
@@ -1819,6 +2028,17 @@ export default function KaraokePage() {
                                             const delay = (hash - Math.floor(hash)) * 2.5
                                             const dur = 2 + (Math.sin(lineSeed + wi * 47) * 10000 % 1) * 1.5
                                             return <span key={wi} className="space-flare-word" style={{ animationDelay: `${delay.toFixed(2)}s`, animationDuration: `${dur.toFixed(2)}s` }}>{word}</span>
+                                        })
+                                    }
+
+                                    if (theme.name === 'steampunk' && isActiveGroup) {
+                                        const words = displayWords.split(/(\s+)/)
+                                        const lineSeed = (line.originalIndex || 0) * 19 + j * 13
+                                        content = words.map((word: string, wi: number) => {
+                                            if (/^\s+$/.test(word)) return word
+                                            const hash = Math.sin(lineSeed + wi * 71 + 0.5) * 10000
+                                            const delay = (hash - Math.floor(hash)) * 0.6
+                                            return <span key={wi} className="steam-stamp-word" style={{ animationDelay: `${delay.toFixed(2)}s` }}>{word}</span>
                                         })
                                     }
 
