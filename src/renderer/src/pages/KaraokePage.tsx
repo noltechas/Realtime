@@ -124,7 +124,8 @@ interface ReactionData {
     content: string
     senderName: string
     senderProfilePicture?: string | null
-    x: number // random horizontal position (%)
+    x: number // offset from the anchored edge (%)
+    side: 'left' | 'right'
 }
 
 function ReactionsOverlay() {
@@ -134,17 +135,20 @@ function ReactionsOverlay() {
         if (!window.electronAPI?.onReaction) return
 
         const handler = window.electronAPI.onReaction((reaction: any) => {
+            const side = Math.random() < 0.5 ? 'left' as const : 'right' as const
             const r: ReactionData = {
                 ...reaction,
-                x: 10 + Math.random() * 80 // 10% to 90% of viewport width
+                side,
+                x: 2 + Math.random() * 18 // 2%-20% offset from the anchored edge
             }
             setReactions(prev => {
                 const next = [...prev, r]
                 return next.length > 15 ? next.slice(-15) : next
             })
+            const duration = reaction.reactionType === 'text' ? 7000 : 4500
             setTimeout(() => {
                 setReactions(prev => prev.filter(item => item.id !== r.id))
-            }, 4500)
+            }, duration)
         })
 
         return () => {
@@ -154,29 +158,63 @@ function ReactionsOverlay() {
 
     if (reactions.length === 0) return null
 
+    const renderAvatar = (r: ReactionData) => (
+        r.senderProfilePicture ? (
+            <img className="reaction-bubble__avatar" src={r.senderProfilePicture} alt="" />
+        ) : (
+            <div className="reaction-bubble__avatar-initial">
+                {(r.senderName || '?').charAt(0).toUpperCase()}
+            </div>
+        )
+    )
+
     return (
         <div className="k-reactions-overlay">
-            {reactions.map(r => (
-                <div key={r.id} className="reaction-bubble" style={{ left: r.x + '%' }}>
-                    {r.reactionType === 'emoji' && (
-                        <span className="reaction-bubble__emoji">{r.content}</span>
-                    )}
-                    {r.reactionType === 'text' && (
-                        <div className="reaction-bubble__text">{r.content}</div>
-                    )}
-                    {(r.reactionType === 'meme' || r.reactionType === 'photo') && (
-                        <img className="reaction-bubble__image" src={r.content} alt="" />
-                    )}
-                    {r.senderProfilePicture ? (
-                        <img className="reaction-bubble__avatar" src={r.senderProfilePicture} alt="" />
-                    ) : (
-                        <div className="reaction-bubble__avatar-initial">
-                            {(r.senderName || '?').charAt(0).toUpperCase()}
+            {reactions.map(r => {
+                const pos = r.side === 'left'
+                    ? { left: r.x + '%' } as React.CSSProperties
+                    : { right: r.x + '%' } as React.CSSProperties
+
+                if (r.reactionType === 'text') {
+                    const isRight = r.side === 'right'
+                    return (
+                        <div key={r.id}
+                            className={'reaction-bubble reaction-bubble--text' + (isRight ? ' reaction-bubble--right' : '')}
+                            style={pos}
+                        >
+                            {isRight ? (
+                                <>
+                                    <div className="reaction-bubble__text-wrap reaction-bubble__text-wrap--right">
+                                        <div className="reaction-bubble__text">{r.content}</div>
+                                        <span className="reaction-bubble__text-name">{r.senderName}</span>
+                                    </div>
+                                    {renderAvatar(r)}
+                                </>
+                            ) : (
+                                <>
+                                    {renderAvatar(r)}
+                                    <div className="reaction-bubble__text-wrap">
+                                        <div className="reaction-bubble__text">{r.content}</div>
+                                        <span className="reaction-bubble__text-name">{r.senderName}</span>
+                                    </div>
+                                </>
+                            )}
                         </div>
-                    )}
-                    <span className="reaction-bubble__name">{r.senderName}</span>
-                </div>
-            ))}
+                    )
+                }
+                return (
+                    <div key={r.id} className="reaction-bubble" style={pos}>
+                        {r.reactionType === 'emoji' && (
+                            <span className="reaction-bubble__emoji">{r.content}</span>
+                        )}
+                        {(r.reactionType === 'meme' || r.reactionType === 'photo') && (
+                            <img className="reaction-bubble__image" src={r.content} alt="" />
+                        )}
+                        {renderAvatar(r)}
+                        <span className="reaction-bubble__name">{r.senderName}</span>
+                    </div>
+                )
+            })}
         </div>
     )
 }

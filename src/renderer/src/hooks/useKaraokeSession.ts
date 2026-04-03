@@ -29,6 +29,8 @@ export function useKaraokeSession() {
     const catalogRef = useRef<CatalogSong[]>([])
     const queueChannelRef = useRef<RealtimeChannel | null>(null)
     const reactionChannelRef = useRef<RealtimeChannel | null>(null)
+    const sessionChannelRef = useRef<RealtimeChannel | null>(null)
+    const isRemotePlayRef = useRef(false)
 
     // Load catalog for resolving remote additions
     useEffect(() => {
@@ -188,7 +190,7 @@ export function useKaraokeSession() {
         }
 
         const channel = supabase
-            .channel('renderer-reactions-' + state.karaokeSessionId)
+            .channel('cr-' + state.karaokeSessionId)
             .on('broadcast', { event: 'reaction' }, (payload) => {
                 window.electronAPI?.sendReaction(payload.payload)
             })
@@ -214,8 +216,21 @@ export function useKaraokeSession() {
                 trackId: state.nowPlaying.track.id,
                 name: state.nowPlaying.track.name,
                 artist: state.nowPlaying.track.artists.map(a => a.name).join(', '),
-                artUrl: state.nowPlaying.track.album.images[0]?.url || null
+                artUrl: state.nowPlaying.track.album.images[0]?.url || null,
+                singerConfigs: state.nowPlaying.singers.map(s => ({
+                    name: s.name, color: s.color, colorGlow: s.colorGlow,
+                    roleIndices: s.roleIndices, profilePicture: s.profilePicture
+                }))
             })
+            // Mark this track as played in Supabase so companion site removes it from queue
+            supabase.from('karaoke_queue')
+                .update({ status: 'played' })
+                .eq('session_id', state.karaokeSessionId)
+                .eq('track_id', state.nowPlaying.track.id)
+                .eq('status', 'queued')
+                .then(res => {
+                    if (res.error) console.error('[Karaoke] Failed to mark queue item as played:', res.error)
+                })
         } else {
             window.electronAPI?.syncNowPlaying(null)
         }
@@ -225,7 +240,7 @@ export function useKaraokeSession() {
     useEffect(() => {
         if (window.electronAPI?.isStageWindow) return
         if (!state.karaokeSessionId) return
-        
+
         supabase.from('karaoke_sessions')
             .update({ theme_name: state.themeName })
             .eq('id', state.karaokeSessionId)
@@ -233,4 +248,58 @@ export function useKaraokeSession() {
                 if (res.error) console.error('[Karaoke] Failed to sync theme:', res.error)
             })
     }, [state.themeName, state.karaokeSessionId])
+
+    // Subscribe to session changes (remote play/pause from companion)
+    useEffect(() => {
+        if (window.electronAPI?.isStageWindow) return
+        if (!state.karaokeSessionId) return
+
+        if (sessionChannelRef.current) {
+            supabase.removeChannel(sessionChannelRef.current)
+        }
+
+        const channel = supabase
+            .channel('renderer-session-' + state.karaokeSessionId)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'karaoke_sessions',
+                    filter: 'id=eq.' + state.karaokeSessionId
+                },
+                (payload) => {
+                    const d = payload.new as any
+                    if (d.is_playing !== undefined && !isRemotePlayRef.current) {
+                        dispatch({
+                            type: 'SET_REMOTE_PLAY_COMMAND',
+                            payload: d.is_playing ? 'play' : 'pause'
+                        })
+                    }
+                }
+            )
+            .subscribe((status) => {
+                console.log('[Karaoke] Session realtime status:', status)
+            })
+
+        sessionChannelRef.current = channel
+
+        return () => {
+            if (sessionChannelRef.current) {
+                supabase.removeChannel(sessionChannelRef.current)
+                sessionChannelRef.current = null
+            }
+        }
+    }, [state.karaokeSessionId, dispatch])
+
+    // Sync isPlaying to Supabase (with echo prevention)
+    useEffect(() => {
+        if (window.electronAPI?.isStageWindow) return
+        if (!state.karaokeSessionId) return
+
+        isRemotePlayRef.current = true
+        window.electronAPI?.syncIsPlaying(state.isPlaying)
+        const timer = setTimeout(() => { isRemotePlayRef.current = false }, 500)
+        return () => clearTimeout(timer)
+    }, [state.isPlaying, state.karaokeSessionId])
 }

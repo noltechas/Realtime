@@ -7,7 +7,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { exec } from 'child_process'
 import QRCode from 'qrcode'
 import {
-    createSession, pushCatalog, updateNowPlaying,
+    createSession, pushCatalog, updateNowPlaying, updateIsPlaying,
     insertQueueItem, removeQueueItem, reorderQueue, closeSession,
     listGuests, updateGuest, removeGuest,
     CatalogItem
@@ -449,6 +449,12 @@ ipcMain.handle('karaoke:close-session', async () => {
 ipcMain.handle('karaoke:sync-now-playing', async (_event, info) => {
     if (activeSession) {
         await updateNowPlaying(activeSession.id, info)
+    }
+})
+
+ipcMain.handle('karaoke:sync-is-playing', async (_event, isPlaying: boolean) => {
+    if (activeSession) {
+        await updateIsPlaying(activeSession.id, isPlaying)
     }
 })
 

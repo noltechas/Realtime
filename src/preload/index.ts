@@ -53,7 +53,8 @@ export type ElectronAPI = {
     // Karaoke Session
     createKaraokeSession: () => Promise<{ sessionId?: string; sessionCode?: string; companionUrl?: string; qrDataUrl?: string; error?: string }>
     closeKaraokeSession: () => Promise<void>
-    syncNowPlaying: (info: { trackId: string; name: string; artist: string; artUrl: string | null } | null) => Promise<void>
+    syncNowPlaying: (info: { trackId: string; name: string; artist: string; artUrl: string | null; singerConfigs?: any[] } | null) => Promise<void>
+    syncIsPlaying: (isPlaying: boolean) => Promise<void>
     pushLocalQueueItem: (item: any) => Promise<{ id?: string; error?: string }>
     removeQueueItem: (id: string) => Promise<void>
     reorderQueue: (ids: string[]) => Promise<void>
@@ -145,6 +146,7 @@ const api: ElectronAPI = {
     createKaraokeSession: () => ipcRenderer.invoke('karaoke:create-session'),
     closeKaraokeSession: () => ipcRenderer.invoke('karaoke:close-session'),
     syncNowPlaying: (info) => ipcRenderer.invoke('karaoke:sync-now-playing', info),
+    syncIsPlaying: (isPlaying) => ipcRenderer.invoke('karaoke:sync-is-playing', isPlaying),
     pushLocalQueueItem: (item) => ipcRenderer.invoke('karaoke:push-local-queue-item', item),
     removeQueueItem: (id) => ipcRenderer.invoke('karaoke:remove-queue-item', id),
     reorderQueue: (ids) => ipcRenderer.invoke('karaoke:reorder-queue', ids),

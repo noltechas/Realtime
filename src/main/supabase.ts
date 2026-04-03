@@ -104,7 +104,10 @@ export function subscribeToQueue(sessionId: string, callbacks: QueueCallbacks): 
         .subscribe()
 }
 
-export async function updateNowPlaying(sessionId: string, info: { trackId: string; name: string; artist: string; artUrl: string | null } | null): Promise<void> {
+export async function updateNowPlaying(sessionId: string, info: {
+    trackId: string; name: string; artist: string; artUrl: string | null;
+    singerConfigs?: any[];
+} | null): Promise<void> {
     const { error } = await supabase
         .from('karaoke_sessions')
         .update({
@@ -112,10 +115,20 @@ export async function updateNowPlaying(sessionId: string, info: { trackId: strin
             now_playing_name: info?.name || null,
             now_playing_artist: info?.artist || null,
             now_playing_art_url: info?.artUrl || null,
+            is_playing: false,
+            now_playing_singer_configs: info?.singerConfigs ?? null,
             updated_at: new Date().toISOString()
         })
         .eq('id', sessionId)
     if (error) console.error('Failed to update now playing:', error.message)
+}
+
+export async function updateIsPlaying(sessionId: string, isPlaying: boolean): Promise<void> {
+    const { error } = await supabase
+        .from('karaoke_sessions')
+        .update({ is_playing: isPlaying, updated_at: new Date().toISOString() })
+        .eq('id', sessionId)
+    if (error) console.error('Failed to update is_playing:', error.message)
 }
 
 export async function insertQueueItem(sessionId: string, item: {

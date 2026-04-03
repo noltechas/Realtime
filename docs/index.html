@@ -584,6 +584,42 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
   color: var(--white-muted); margin-top: 6px;
 }
 .reaction-cooldown { opacity: 0.4; pointer-events: none; }
+.youreup-screen {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; min-height: 100dvh; padding: 40px 24px;
+  text-align: center; position: relative; overflow: hidden;
+}
+.youreup-title {
+  font-family: var(--font-display); font-weight: 700; font-size: 42px;
+  line-height: 1.05; letter-spacing: -1.5px;
+  background: var(--grad-hero); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  margin-bottom: 12px;
+}
+.youreup-sub {
+  font-size: 15px; color: var(--white-muted); margin-bottom: 32px;
+}
+.youreup-art {
+  width: 200px; height: 200px; border-radius: 16px;
+  object-fit: cover; margin-bottom: 24px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.youreup-song {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: 22px; color: var(--white); margin-bottom: 4px;
+}
+.youreup-artist { font-size: 15px; color: var(--white-muted); margin-bottom: 40px; }
+.youreup-play-btn {
+  width: 120px; height: 120px; border-radius: 50%;
+  border: none; cursor: pointer; display: flex;
+  align-items: center; justify-content: center;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.youreup-play-btn:active { transform: scale(0.9); }
+.youreup-play-btn svg { width: 52px; height: 52px; fill: white; }
+.youreup-singer-label {
+  margin-top: 24px; font-size: 13px; color: var(--white-muted);
+  font-family: var(--font-body);
+}
 </style>
 </head>
 <body>
@@ -611,7 +647,7 @@ var NC=[
 {c:"#d946ef",g:"rgba(217,70,239,0.3)"},
 {c:"#e11d48",g:"rgba(225,29,72,0.3)"}
 ];
-var S={screen:"loading",sessionCode:null,sessionId:null,guestId:null,guestName:"",profilePicture:null,guests:[],catalog:[],searchQuery:"",selectedTrack:null,singerCount:1,singers:[{name:"",color:NC[0].c,colorGlow:NC[0].g,roleIndices:[],profilePicture:null}],queue:[],nowPlaying:null,errorMessage:"",theme_name:"neo-brutal",stage_theme:null,customEmoji:null,emojiPickerOpen:false,textInputOpen:false,memePickerOpen:false};
+var S={screen:"loading",sessionCode:null,sessionId:null,guestId:null,guestName:"",profilePicture:null,guests:[],catalog:[],searchQuery:"",selectedTrack:null,singerCount:1,singers:[{name:"",color:NC[0].c,colorGlow:NC[0].g,roleIndices:[],profilePicture:null}],queue:[],nowPlaying:null,errorMessage:"",theme_name:"neo-brutal",stage_theme:null,customEmoji:null,emojiPickerOpen:false,textInputOpen:false,memePickerOpen:false,isPlaying:false,nowPlayingSingerConfigs:null,matchedSinger:null};
 var qCh=null,sCh=null,gCh=null,rCh=null;
 var MEMES=[
   {emoji:"\uD83E\uDD2F",label:"Mind Blown"},
@@ -664,17 +700,21 @@ function init(){
   validateSession();
 }
 async function validateSession(){
-  var r=await sb.from("karaoke_sessions").select("id,is_active,now_playing_track_id,now_playing_name,now_playing_artist,now_playing_art_url,theme_name").eq("code",S.sessionCode).single();
+  var r=await sb.from("karaoke_sessions").select("id,is_active,now_playing_track_id,now_playing_name,now_playing_artist,now_playing_art_url,theme_name,is_playing,now_playing_singer_configs").eq("code",S.sessionCode).single();
   if(r.error||!r.data||!r.data.is_active){S.screen="error";S.errorMessage="This session has ended or does not exist.";render();return;}
   S.sessionId=r.data.id;
   S.theme_name=r.data.theme_name;
   applyTheme();
+  S.isPlaying=!!r.data.is_playing;
+  S.nowPlayingSingerConfigs=r.data.now_playing_singer_configs||null;
   if(r.data.now_playing_name){S.nowPlaying={name:r.data.now_playing_name,artist:r.data.now_playing_artist,artUrl:r.data.now_playing_art_url};}
   if(S.guestId){
     var gr=await sb.from("karaoke_guests").select("id,profile_picture").eq("id",S.guestId).eq("session_id",S.sessionId).single();
     if(gr.data){
       if(gr.data.profile_picture&&!S.profilePicture){S.profilePicture=gr.data.profile_picture;saveLocal();}
-      await loadCatalog();await loadQueue();await loadGuests();subRT();S.screen="songs";render();return;
+      await loadCatalog();await loadQueue();await loadGuests();subRT();
+      checkYoureUp();
+      render();return;
     }
     S.guestId=null;S.guestName="";S.profilePicture=null;localStorage.removeItem("karaoke_guest_"+S.sessionCode);
   }
@@ -704,6 +744,23 @@ async function loadGuests(){
   var r=await sb.from("karaoke_guests").select("id,name,profile_picture").eq("session_id",S.sessionId);
   S.guests=(r.data||[]).map(function(g){return{id:g.id,name:g.name,profilePicture:g.profile_picture};});
 }
+function checkYoureUp(){
+  if(S.nowPlayingSingerConfigs&&S.guestName&&S.nowPlaying){
+    var match=null;
+    for(var i=0;i<S.nowPlayingSingerConfigs.length;i++){
+      if(S.nowPlayingSingerConfigs[i].name===S.guestName){match=S.nowPlayingSingerConfigs[i];break;}
+    }
+    if(match&&S.screen!=="youreup"){
+      S.matchedSinger=match;
+      S.screen="youreup";
+      return;
+    }
+  }
+  if(!S.nowPlaying&&S.screen==="youreup"){
+    S.screen="queue";
+    S.matchedSinger=null;
+  }
+}
 function subRT(){
   if(qCh)sb.removeChannel(qCh);
   qCh=sb.channel("cq-"+S.sessionId).on("postgres_changes",{event:"*",schema:"public",table:"karaoke_queue",filter:"session_id=eq."+S.sessionId},function(){loadQueue().then(render);}).subscribe();
@@ -711,7 +768,10 @@ function subRT(){
   sCh=sb.channel("cs-"+S.sessionId).on("postgres_changes",{event:"UPDATE",schema:"public",table:"karaoke_sessions",filter:"id=eq."+S.sessionId},function(pl){
     var d=pl.new;if(!d.is_active){S.screen="error";S.errorMessage="This session has ended.";render();return;}
     if(d.now_playing_name){S.nowPlaying={name:d.now_playing_name,artist:d.now_playing_artist,artUrl:d.now_playing_art_url};}else{S.nowPlaying=null;}
+    S.isPlaying=!!d.is_playing;
+    S.nowPlayingSingerConfigs=d.now_playing_singer_configs||null;
     if(d.theme_name){S.theme_name=d.theme_name;applyTheme();}
+    checkYoureUp();
     render();
   }).subscribe();
   if(gCh)sb.removeChannel(gCh);
@@ -805,7 +865,11 @@ function applyTheme(){
     " .emoji-picker-sheet,.text-input-sheet,.meme-picker-sheet{background:#FFF8EE !important;border:3px solid #1A1A1A !important;}" +
     " .text-input-field{border:3px solid #1A1A1A !important;background:#FFFFFF !important;color:#1A1A1A !important;box-shadow:3px 3px 0px #1A1A1A !important;}" +
     " .text-input-send{background:#FF3B30 !important;border:3px solid #1A1A1A !important;box-shadow:3px 3px 0px #1A1A1A !important;}" +
-    " .meme-pick-btn{border:3px solid #1A1A1A !important;box-shadow:3px 3px 0px #1A1A1A !important;background:#FFFFFF !important;}";
+    " .meme-pick-btn{border:3px solid #1A1A1A !important;box-shadow:3px 3px 0px #1A1A1A !important;background:#FFFFFF !important;}" +
+    " .youreup-screen{background:#FFF8EE !important;}" +
+    " .youreup-play-btn{border:3px solid #1A1A1A !important;box-shadow:6px 6px 0px #1A1A1A !important;border-radius:50% !important;}" +
+    " .youreup-play-btn:active{box-shadow:2px 2px 0px #1A1A1A !important;transform:translate(4px,4px) !important;}" +
+    " .youreup-art{border:3px solid #1A1A1A !important;box-shadow:4px 4px 0px #1A1A1A !important;border-radius:8px !important;}";
   }else if(S.theme_name==="cyberpunk"){
     css=":root{--black:#060610;--surface-1:rgba(0,255,136,0.04);--surface-2:rgba(0,255,136,0.07);--surface-3:rgba(0,255,136,0.1);--white:#d0ffe8;--white-muted:rgba(0,255,136,0.6);--white-faint:rgba(0,255,136,0.3);--white-ghost:rgba(0,255,136,0.18);--violet:#00e5ff;--pink:#ff00aa;--cyan:#00ff88;--emerald:#00ff88;--amber:#ffcc00;--red:#ff0055;--grad-hero:linear-gradient(135deg, #00ff88, #00e5ff);--grad-text:linear-gradient(135deg, #00ff88, #00e5ff);--font-display:'Share Tech Mono', 'Courier New', monospace;--font-body:'Share Tech Mono', 'Courier New', monospace;}" +
     " *{border-radius:0 !important;}" +
@@ -817,7 +881,9 @@ function applyTheme(){
     " .emoji-picker-sheet,.text-input-sheet,.meme-picker-sheet{background:#0a0a1a !important;border:1px solid rgba(0,255,136,0.2) !important;}" +
     " .text-input-field{border:1px solid rgba(0,255,136,0.2) !important;background:rgba(0,255,136,0.04) !important;color:#d0ffe8 !important;}" +
     " .text-input-field:focus{box-shadow:0 0 10px rgba(0,255,136,0.3) !important;}" +
-    " .meme-pick-btn{border:1px solid rgba(0,255,136,0.15) !important;background:rgba(0,255,136,0.04) !important;}";
+    " .meme-pick-btn{border:1px solid rgba(0,255,136,0.15) !important;background:rgba(0,255,136,0.04) !important;}" +
+    " .youreup-play-btn{border-radius:0 !important;border:1px solid #00ff88 !important;box-shadow:0 0 30px rgba(0,255,136,0.4),0 0 60px rgba(0,255,136,0.2) !important;}" +
+    " .youreup-art{border-radius:0 !important;border:1px solid rgba(0,255,136,0.3) !important;box-shadow:0 0 20px rgba(0,255,136,0.2) !important;}";
   }else if(S.theme_name==="sketch"){
     css=":root{--black:#fdfbf7;--surface-1:rgba(45,93,161,0.05);--surface-2:rgba(45,45,45,0.06);--surface-3:rgba(45,45,45,0.1);--white:#2d2d2d;--white-muted:rgba(45,45,45,0.65);--white-faint:rgba(45,45,45,0.4);--white-ghost:rgba(45,45,45,0.15);--violet:#2d5da1;--pink:#ff4d4d;--cyan:#2d5da1;--emerald:#4caf50;--amber:#fff9c4;--red:#ff4d4d;--grad-hero:linear-gradient(135deg, #ff4d4d, #2d5da1);--grad-text:linear-gradient(135deg, #ff4d4d, #2d5da1);--font-display:'Kalam', cursive;--font-body:'Patrick Hand', cursive;}" +
     " .mesh-bg{background:radial-gradient(#e5e0d8 1px, transparent 1px) !important;background-size:24px 24px !important;animation:none !important;}" +
@@ -842,7 +908,11 @@ function applyTheme(){
     " .text-input-field{border:2px dashed rgba(45,45,45,0.3) !important;background:#ffffff !important;color:#2d2d2d !important;}" +
     " .text-input-send{background:#ff4d4d !important;border:3px solid #2d2d2d !important;box-shadow:3px 3px 0px #2d2d2d !important;}" +
     " .meme-pick-btn{border:3px solid #2d2d2d !important;box-shadow:3px 3px 0px #2d2d2d !important;background:#ffffff !important;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px !important;}" +
-    " button:hover{transform:rotate(1deg) !important;}";
+    " button:hover{transform:rotate(1deg) !important;}" +
+    " .youreup-screen{background:#fdfbf7 !important;}" +
+    " .youreup-play-btn{border:3px solid #2d2d2d !important;box-shadow:6px 6px 0px #2d2d2d !important;border-radius:50% !important;}" +
+    " .youreup-play-btn:active{box-shadow:2px 2px 0px #2d2d2d !important;transform:translate(4px,4px) rotate(1deg) !important;}" +
+    " .youreup-art{border:3px dashed #2d2d2d !important;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px !important;box-shadow:4px 4px 0px #2d2d2d !important;}";
   }else if(S.theme_name==="urban"){
     css=":root{--black:#050505;--surface-1:rgba(212,255,0,0.04);--surface-2:rgba(212,255,0,0.06);--surface-3:rgba(212,255,0,0.1);--white:#f0f0f0;--white-muted:rgba(176,176,176,0.8);--white-faint:rgba(176,176,176,0.5);--white-ghost:rgba(212,255,0,0.1);--violet:#D4FF00;--pink:#FF1E1E;--cyan:#00F0FF;--emerald:#D4FF00;--amber:#FFA600;--red:#FF1E1E;--grad-hero:linear-gradient(135deg, #D4FF00, #FF1E1E);--grad-text:linear-gradient(135deg, #D4FF00, #FF1E1E);--font-display:'Permanent Marker', cursive;--font-body:'Oswald', sans-serif;}" +
     " .mesh-bg{background:radial-gradient(circle at 50% 30%, #1c1c1c 0%, #030303 80%) !important;animation:none !important;}" +
@@ -869,7 +939,10 @@ function applyTheme(){
     " .text-input-field{border:1px solid rgba(212,255,0,0.15) !important;background:rgba(212,255,0,0.04) !important;color:#f0f0f0 !important;border-radius:0 !important;}" +
     " .text-input-field:focus{box-shadow:0 0 15px #D4FF00, 0 0 5px #D4FF00 inset !important;}" +
     " .text-input-send{background:#D4FF00 !important;color:#050505 !important;border-radius:0 !important;clip-path:polygon(4% 0%, 100% 0%, 96% 100%, 0% 100%) !important;}" +
-    " .meme-pick-btn{border:1px solid rgba(212,255,0,0.15) !important;background:rgba(212,255,0,0.04) !important;border-radius:0 !important;}";
+    " .meme-pick-btn{border:1px solid rgba(212,255,0,0.15) !important;background:rgba(212,255,0,0.04) !important;border-radius:0 !important;}" +
+    " .youreup-play-btn{border-radius:0 !important;border:none !important;clip-path:polygon(4% 0%, 100% 0%, 96% 100%, 0% 100%) !important;box-shadow:0 0 30px rgba(212,255,0,0.4),0 0 60px rgba(212,255,0,0.2) !important;}" +
+    " .youreup-art{border-radius:0 !important;clip-path:polygon(3% 0%, 100% 0%, 97% 100%, 0% 100%) !important;box-shadow:none !important;}" +
+    " .youreup-title{font-family:'Permanent Marker',cursive !important;text-transform:uppercase !important;letter-spacing:3px !important;}";
   }else{
     css="";
   }
@@ -885,6 +958,7 @@ function render(){
     case"queue":a.innerHTML=renderQueue()+renderBN("queue");break;
     case"stage":a.innerHTML=renderStage()+renderBN("stage")+renderEmojiPicker()+renderTextInput()+renderMemePicker();break;
     case"profile":a.innerHTML=renderProfile()+renderBN("profile");break;
+    case"youreup":a.innerHTML=renderYoureUp();break;
     case"error":a.innerHTML=renderError();break;
   }
   bindEvents();
@@ -1072,6 +1146,28 @@ function renderBN(act){
     '<button class="nav-tab'+(act==="queue"?" active":"")+'" data-nav="queue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Queue</button>'+
   '</div>';
 }
+function renderYoureUp(){
+  var np=S.nowPlaying;if(!np)return'';
+  var ms=S.matchedSinger;
+  var singerColor=ms?ms.color:"#a78bfa";
+  var singerGlow=ms?ms.colorGlow:"rgba(167,139,250,0.3)";
+  var artH=np.artUrl?'<img class="youreup-art" src="'+np.artUrl+'" alt="">':'';
+  var playIcon=S.isPlaying?
+    '<svg viewBox="0 0 24 24"><rect x="5" y="3" width="5" height="18" rx="1"/><rect x="14" y="3" width="5" height="18" rx="1"/></svg>':
+    '<svg viewBox="0 0 24 24"><polygon points="6,3 20,12 6,21"/></svg>';
+  var btnBg=S.isPlaying?
+    'background:rgba(255,255,255,0.15);box-shadow:0 0 40px '+singerGlow+',0 0 80px '+singerGlow:
+    'background:linear-gradient(135deg, '+singerColor+', '+singerColor+'cc);box-shadow:0 8px 40px '+singerGlow+',0 0 80px '+singerGlow;
+  return '<div class="youreup-screen screen">'+
+    '<div class="youreup-title">You\'re Up!</div>'+
+    '<div class="youreup-sub">Get ready to sing</div>'+
+    artH+
+    '<div class="youreup-song">'+esc(np.name)+'</div>'+
+    '<div class="youreup-artist">'+esc(np.artist||"")+'</div>'+
+    '<button class="youreup-play-btn" id="youreup-play-btn" style="'+btnBg+'">'+playIcon+'</button>'+
+    (ms?'<div class="youreup-singer-label" style="color:'+singerColor+'">Singing as '+esc(ms.name)+'</div>':'')+
+  '</div>';
+}
 function renderError(){
   return '<div class="error-screen screen"><div class="error-icon">&#128542;</div><div class="error-title">Session Unavailable</div><div class="error-sub">'+esc(S.errorMessage)+'</div></div>';
 }
@@ -1213,6 +1309,18 @@ function bindEvents(){
         S.memePickerOpen=false;
         render();
       });
+    });
+  }
+  var yupBtn=document.getElementById("youreup-play-btn");
+  if(yupBtn){
+    yupBtn.addEventListener("click",function(){
+      var newState=!S.isPlaying;
+      sb.from("karaoke_sessions")
+        .update({is_playing:newState,updated_at:new Date().toISOString()})
+        .eq("id",S.sessionId)
+        .then(function(res){
+          if(res.error)console.error("Failed to toggle play:",res.error);
+        });
     });
   }
   document.querySelectorAll(".nav-tab").forEach(function(tab){

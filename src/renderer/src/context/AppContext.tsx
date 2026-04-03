@@ -119,6 +119,7 @@ export interface AppState {
     karaokeSessionCode: string | null
     karaokeQrDataUrl: string | null
     themeName: string
+    remotePlayCommand: 'play' | 'pause' | null
 }
 
 export const NEON_COLORS = [
@@ -168,7 +169,8 @@ const initialState: AppState = {
     karaokeSessionId: null,
     karaokeSessionCode: null,
     karaokeQrDataUrl: null,
-    themeName: 'neo-brutal'
+    themeName: 'neo-brutal',
+    remotePlayCommand: null
 }
 
 // ---- Actions ----
@@ -211,6 +213,7 @@ type Action =
     | { type: 'SET_KARAOKE_SESSION'; payload: { sessionId: string; sessionCode: string; qrDataUrl: string } }
     | { type: 'CLEAR_KARAOKE_SESSION' }
     | { type: 'SET_THEME_NAME'; payload: string }
+    | { type: 'SET_REMOTE_PLAY_COMMAND'; payload: 'play' | 'pause' | null }
 
 // Helper: extract mic assignments from current nowPlaying into micSlots
 function saveMicSlots(state: AppState): MicSlotConfig[] {
@@ -495,6 +498,8 @@ function reducer(state: AppState, action: Action): AppState {
             return { ...state, karaokeSessionId: null, karaokeSessionCode: null, karaokeQrDataUrl: null }
         case 'SET_THEME_NAME':
             return { ...state, themeName: action.payload }
+        case 'SET_REMOTE_PLAY_COMMAND':
+            return { ...state, remotePlayCommand: action.payload }
         default:
             return state
     }

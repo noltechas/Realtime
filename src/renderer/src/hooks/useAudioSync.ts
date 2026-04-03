@@ -108,6 +108,25 @@ export function useAudioSync(): AudioSyncState {
         getEngine().setVocalOffset(state.vocalOffsetMs)
     }, [state.vocalOffsetMs, isStage])
 
+    // Handle remote play/pause commands from companion site
+    useEffect(() => {
+        if (isStage) return
+        if (!state.remotePlayCommand) return
+        const engine = getEngine()
+        if (state.remotePlayCommand === 'play' && loaded && !playing) {
+            engine.setVocalOffset(state.vocalOffsetMs)
+            engine.play()
+            setPlaying(true)
+            dispatch({ type: 'SET_PLAYING', payload: true })
+            dispatch({ type: 'SET_STAGE_MODE', payload: 'playing' })
+        } else if (state.remotePlayCommand === 'pause' && playing) {
+            engine.pause()
+            setPlaying(false)
+            dispatch({ type: 'SET_PLAYING', payload: false })
+        }
+        dispatch({ type: 'SET_REMOTE_PLAY_COMMAND', payload: null })
+    }, [state.remotePlayCommand, loaded, playing, state.vocalOffsetMs, dispatch, isStage])
+
     // Don't detach callbacks on unmount -- this hook is always mounted
     // The engine callbacks persist across the app lifecycle
 
