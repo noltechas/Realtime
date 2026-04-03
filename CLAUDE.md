@@ -114,6 +114,34 @@ npm run start    # Run production build
 3. Run `npm run dev` to test in development mode
 4. For companion site changes: edit `docs/index.html`, push to GitHub, and test by scanning QR code
 
+## Adding a New Theme
+
+Themes are defined in `src/renderer/src/styles/` and registered in `src/renderer/src/context/ThemeContext.tsx`. Themes should be VERY VERY original and should all have new features, animations, looks, colors, etc. There should be something new with each theme. Every new theme requires changes across multiple files:
+
+### Files to create/modify
+
+1. **Create `src/renderer/src/styles/{theme-name}.ts`** — Implement the full `Theme` interface from `theme.ts`. Use an existing theme (e.g., `cyberpunk.ts`) as a template.
+2. **Register in `ThemeContext.tsx`** — Import and add to the `THEMES` map.
+3. **Update the theme ring** — Set `nextThemeName` on the previous last theme to point to the new one, and set the new theme's `nextThemeName` to cycle back (currently `neo-brutal`).
+4. **Add idle screen in `KaraokePage.tsx`** — Each theme has a hardcoded idle/waiting screen (shown when no song is queued). Add a `if (theme.name === '...')` branch before the Urban fallback (`// ---- Urban (Hip Hop) idle ----`). **Idle screens must have lots of character** — add decorative SVG elements (icons, shapes, patterns), animated backgrounds, thematic flourishes, and atmospheric details that match the theme's personality. Look at existing themes for examples: neo-brutal has colored offset blocks, sketch has hand-drawn SVG doodles, cyberpunk has dot grids and scanlines, urban has spotlight vignettes and grunge noise, deep-sea has jellyfish SVGs and light rays, psychedelic has peace signs and spinning mandalas. A plain centered heading + QR code is not enough.
+5. **Add lyric highlighting in `KaraokePage.tsx`** — Each theme has custom active-line styling in the lyric renderer (~line 1078). Add a branch for the new theme with unique visual effects (glow, animation class, etc.). The default `else` branch is generic and boring.
+6. **Add CSS animation in `karaoke.css`** — Define a keyframe animation and a `.k-line--{theme-name}` class for the stage lyric effect.
+7. **Update QR overlay in `KaraokePage.tsx`** — If the theme has a dark background, ensure it gets `'rgba(0,0,0,0.8)'` for the QR backdrop (light themes are whitelisted: `neo-brutal`, `sketch`).
+
+### Contrast checklist
+
+- **`black`/`white` are semantic, not literal.** On dark themes, `black` = light text, `white` = dark background. On light themes, they're normal. All text using `theme.black` will be readable on `theme.cream`/`theme.appBg`.
+- **The NOW PLAYING banner** uses `theme.accentB` as background with hardcoded dark (`#1A1A1A`) text — `accentB` must always be a bright/vivid color.
+- **Singer count buttons** use `theme.accentA` for the selected state with dark text.
+- **Never use `theme.white` as text color on a `theme.card` background** — on light themes they're the same color. Use `theme.black` for text on card backgrounds.
+- **The theme dropdown** in `App.tsx` uses `theme.black` for text on the card-colored dropdown. Don't change this to `navLink`.
+- **Hardcoded colors** should only appear in theme-specific idle screens and lyric effects where the exact theme is known.
+- Test every page (Search, Queue, Stage, Admin) with the new theme to check contrast.
+
+### Google Fonts
+
+Themes load custom fonts via `@import url(...)` in their `globalCss`. Always include fallback fonts in the font family string.
+
 ## Common Pitfalls
 
 - When modifying `QueueItem` interface, also update the companion site's queue insert (they must match the DB schema).

@@ -31,7 +31,7 @@ function TitleBar() {
 
 function TopNav() {
     const location = useLocation()
-    const { navBg, navBorderBottom, navLink, navLinkActive, navLinkHoverBg, fontDisplay, name, setThemeName, themeList, border, card, radius } = useTheme()
+    const { navBg, navBorderBottom, navLink, navLinkActive, navLinkHoverBg, fontDisplay, name, setThemeName, themeList, border, card, radius, black } = useTheme()
     const [dropdownOpen, setDropdownOpen] = useState(false)
     const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -160,7 +160,7 @@ function TopNav() {
                                     padding: '8px 16px',
                                     border: 'none',
                                     background: 'transparent',
-                                    color: navLink,
+                                    color: black,
                                     cursor: 'pointer',
                                     transition: 'background 0.1s, color 0.1s',
                                 }}
@@ -170,7 +170,7 @@ function TopNav() {
                                 }}
                                 onMouseLeave={e => {
                                     e.currentTarget.style.background = 'transparent'
-                                    e.currentTarget.style.color = navLink
+                                    e.currentTarget.style.color = black
                                 }}
                             >
                                 {t.displayName}

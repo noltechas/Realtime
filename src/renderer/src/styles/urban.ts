@@ -140,7 +140,7 @@ const GLOBAL_CSS = `
 
 export const URBAN: Theme = {
   name: 'urban',
-  nextThemeName: 'neo-brutal',
+  nextThemeName: 'deep-sea',
   displayName: 'Hip Hop',
   globalCss: GLOBAL_CSS,
 

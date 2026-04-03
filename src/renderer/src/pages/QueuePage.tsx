@@ -221,11 +221,11 @@ function SetupPanel() {
                             style={{
                                 flex: 1, fontSize: 14, padding: '12px 0',
                                 fontFamily: theme.fontDisplay, fontWeight: 700,
-                                background: state.singerCount === n ? theme.vividYellow : theme.creamDark,
+                                background: state.singerCount === n ? theme.accentA : theme.creamDark,
                                 border: state.singerCount === n ? theme.border : theme.borderThin,
                                 borderRadius: 6, cursor: 'pointer',
                                 boxShadow: state.singerCount === n ? theme.shadowPressed : 'none',
-                                color: theme.black,
+                                color: state.singerCount === n ? '#1A1A1A' : theme.black,
                                 transition: 'all 0.1s',
                             }}
                         >
@@ -470,7 +470,7 @@ function NowPlayingBanner() {
     return (
         <div style={{
             position: 'relative',
-            background: theme.vividYellow,
+            background: theme.accentB,
             border: theme.border,
             boxShadow: theme.shadow,
             borderRadius: theme.radius,
@@ -483,7 +483,7 @@ function NowPlayingBanner() {
                 ...theme.stickerLabel,
                 top: -12, left: 20,
                 background: theme.hotRed,
-                color: theme.white,
+                color: '#FFFFFF',
                 transform: 'rotate(-2deg)',
             }}>
                 NOW PLAYING
@@ -507,21 +507,21 @@ function NowPlayingBanner() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{
                         fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 22,
-                        color: theme.white, lineHeight: 1.2,
+                        color: '#1A1A1A', lineHeight: 1.2,
                         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                     }}>
                         {track.name}
                     </div>
                     <div style={{
                         fontFamily: theme.fontBody, fontSize: 14,
-                        color: theme.white, opacity: 0.8, marginTop: 2,
+                        color: '#1A1A1A', opacity: 0.75, marginTop: 2,
                     }}>
                         {track.artists.map(a => a.name).join(', ')}
                     </div>
                     {np.addedBy && (
                         <div style={{
                             fontSize: 11, fontFamily: theme.fontDisplay, fontWeight: 600,
-                            color: theme.hotRed, marginTop: 4,
+                            color: '#1A1A1A', opacity: 0.6, marginTop: 4,
                         }}>
                             Added by {np.addedBy}
                         </div>
@@ -538,7 +538,7 @@ function NowPlayingBanner() {
                         </div>
                         <div style={{
                             fontSize: 10, fontFamily: theme.fontDisplay, fontWeight: 700,
-                            color: theme.white, opacity: 0.8, textTransform: 'uppercase',
+                            color: '#1A1A1A', opacity: 0.7, textTransform: 'uppercase',
                             letterSpacing: '0.5px',
                         }}>
                             {singers.map(s => {

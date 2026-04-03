@@ -107,6 +107,7 @@ export function subscribeToQueue(sessionId: string, callbacks: QueueCallbacks): 
 export async function updateNowPlaying(sessionId: string, info: {
     trackId: string; name: string; artist: string; artUrl: string | null;
     singerConfigs?: any[];
+    stageTheme?: string | null;
 } | null): Promise<void> {
     const { error } = await supabase
         .from('karaoke_sessions')
@@ -117,6 +118,7 @@ export async function updateNowPlaying(sessionId: string, info: {
             now_playing_art_url: info?.artUrl || null,
             is_playing: false,
             now_playing_singer_configs: info?.singerConfigs ?? null,
+            now_playing_stage_theme: info?.stageTheme ?? null,
             updated_at: new Date().toISOString()
         })
         .eq('id', sessionId)

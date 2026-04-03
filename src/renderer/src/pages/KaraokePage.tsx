@@ -670,6 +670,233 @@ export default function KaraokePage() {
             )
         }
 
+        // ---- Deep Sea idle ----
+        if (theme.name === 'deep-sea') {
+            return (
+                <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
+                    background: 'linear-gradient(180deg, #020612 0%, #040918 30%, #071840 70%, #0a1a3a 100%)',
+                    position: 'relative', overflow: 'hidden',
+                }}>
+                    {/* Caustic light refraction */}
+                    <div style={{
+                        position: 'absolute', inset: 0, opacity: 0.05,
+                        background: 'repeating-conic-gradient(from 0deg at 50% 50%, rgba(0,255,200,0.4) 0deg, transparent 30deg, rgba(180,77,255,0.3) 60deg, transparent 90deg)',
+                        backgroundSize: '180px 180px',
+                        filter: 'blur(30px)',
+                        animation: 'dsCausticDrift 25s linear infinite',
+                    }} />
+
+                    {/* Jellyfish SVG — top left, drifting */}
+                    <svg style={{ position: 'absolute', top: 80, left: 100, width: 90, height: 120, opacity: 0.2, animation: 'dsBubbleRise 22s ease-in-out infinite alternate' }} viewBox="0 0 60 80">
+                        <ellipse cx="30" cy="22" rx="22" ry="18" fill="none" stroke="rgba(180,77,255,0.7)" strokeWidth="1.5" />
+                        <ellipse cx="30" cy="22" rx="22" ry="18" fill="rgba(180,77,255,0.08)" />
+                        <path d="M12 34 Q14 50 10 70" fill="none" stroke="rgba(180,77,255,0.4)" strokeWidth="1.2" strokeLinecap="round" />
+                        <path d="M22 36 Q24 55 20 75" fill="none" stroke="rgba(180,77,255,0.35)" strokeWidth="1" strokeLinecap="round" />
+                        <path d="M30 38 Q30 58 28 78" fill="none" stroke="rgba(180,77,255,0.4)" strokeWidth="1.2" strokeLinecap="round" />
+                        <path d="M38 36 Q36 55 40 75" fill="none" stroke="rgba(180,77,255,0.35)" strokeWidth="1" strokeLinecap="round" />
+                        <path d="M48 34 Q46 50 50 70" fill="none" stroke="rgba(180,77,255,0.4)" strokeWidth="1.2" strokeLinecap="round" />
+                    </svg>
+
+                    {/* Jellyfish SVG — bottom right, different color */}
+                    <svg style={{ position: 'absolute', bottom: 100, right: 120, width: 70, height: 95, opacity: 0.15, animation: 'dsBubbleRise 28s ease-in-out infinite alternate-reverse' }} viewBox="0 0 60 80">
+                        <ellipse cx="30" cy="22" rx="20" ry="16" fill="none" stroke="rgba(0,255,200,0.6)" strokeWidth="1.5" />
+                        <ellipse cx="30" cy="22" rx="20" ry="16" fill="rgba(0,255,200,0.06)" />
+                        <path d="M14 32 Q16 48 12 68" fill="none" stroke="rgba(0,255,200,0.35)" strokeWidth="1" strokeLinecap="round" />
+                        <path d="M24 34 Q26 52 22 72" fill="none" stroke="rgba(0,255,200,0.3)" strokeWidth="1" strokeLinecap="round" />
+                        <path d="M36 34 Q34 52 38 72" fill="none" stroke="rgba(0,255,200,0.3)" strokeWidth="1" strokeLinecap="round" />
+                        <path d="M46 32 Q44 48 48 68" fill="none" stroke="rgba(0,255,200,0.35)" strokeWidth="1" strokeLinecap="round" />
+                    </svg>
+
+                    {/* Small jellyfish — top right */}
+                    <svg style={{ position: 'absolute', top: 200, right: 220, width: 45, height: 60, opacity: 0.12, animation: 'dsBubbleRise 18s ease-in-out infinite alternate' }} viewBox="0 0 60 80">
+                        <ellipse cx="30" cy="22" rx="18" ry="14" fill="none" stroke="rgba(255,107,138,0.5)" strokeWidth="1.5" />
+                        <ellipse cx="30" cy="22" rx="18" ry="14" fill="rgba(255,107,138,0.06)" />
+                        <path d="M16 30 Q18 45 14 62" fill="none" stroke="rgba(255,107,138,0.3)" strokeWidth="1" strokeLinecap="round" />
+                        <path d="M30 32 Q30 48 28 65" fill="none" stroke="rgba(255,107,138,0.3)" strokeWidth="1" strokeLinecap="round" />
+                        <path d="M44 30 Q42 45 46 62" fill="none" stroke="rgba(255,107,138,0.3)" strokeWidth="1" strokeLinecap="round" />
+                    </svg>
+
+                    {/* Bubble clusters */}
+                    <svg style={{ position: 'absolute', bottom: 60, left: 200, width: 40, height: 80, opacity: 0.15, animation: 'dsBubbleRise 15s linear infinite' }} viewBox="0 0 40 80">
+                        <circle cx="20" cy="60" r="8" fill="none" stroke="rgba(0,255,200,0.4)" strokeWidth="1" />
+                        <circle cx="12" cy="40" r="5" fill="none" stroke="rgba(0,255,200,0.3)" strokeWidth="0.8" />
+                        <circle cx="28" cy="25" r="3.5" fill="none" stroke="rgba(0,255,200,0.25)" strokeWidth="0.8" />
+                        <circle cx="18" cy="10" r="2" fill="none" stroke="rgba(0,255,200,0.2)" strokeWidth="0.6" />
+                    </svg>
+                    <svg style={{ position: 'absolute', bottom: 40, right: 300, width: 35, height: 70, opacity: 0.12, animation: 'dsBubbleRise 20s linear infinite' }} viewBox="0 0 40 80">
+                        <circle cx="22" cy="65" r="7" fill="none" stroke="rgba(180,77,255,0.35)" strokeWidth="1" />
+                        <circle cx="15" cy="45" r="4.5" fill="none" stroke="rgba(180,77,255,0.3)" strokeWidth="0.8" />
+                        <circle cx="25" cy="28" r="3" fill="none" stroke="rgba(180,77,255,0.25)" strokeWidth="0.8" />
+                    </svg>
+
+                    {/* Ambient light rays from above */}
+                    <div style={{
+                        position: 'absolute', top: 0, left: '20%', width: '15%', height: '60%',
+                        background: 'linear-gradient(180deg, rgba(0,255,200,0.04) 0%, transparent 100%)',
+                        transform: 'skewX(-8deg)', transformOrigin: 'top',
+                    }} />
+                    <div style={{
+                        position: 'absolute', top: 0, right: '25%', width: '10%', height: '50%',
+                        background: 'linear-gradient(180deg, rgba(180,77,255,0.03) 0%, transparent 100%)',
+                        transform: 'skewX(5deg)', transformOrigin: 'top',
+                    }} />
+
+                    <div style={{ textAlign: 'center', zIndex: 1 }}>
+                        <p style={{
+                            fontFamily: 'Nunito, sans-serif', fontSize: 14, color: '#00ffc8', opacity: 0.4,
+                            letterSpacing: '0.4em', textTransform: 'uppercase', marginBottom: 10,
+                        }}>
+                            ~ now surfacing ~
+                        </p>
+                        <h1 style={{
+                            fontFamily: 'Quicksand, sans-serif', fontSize: 68, fontWeight: 700, color: '#e0fff8',
+                            lineHeight: 1.1, marginBottom: 8,
+                            textShadow: '0 0 30px rgba(0,255,200,0.5), 0 0 60px rgba(0,255,200,0.25), 0 0 100px rgba(180,77,255,0.15)',
+                        }}>
+                            Add a Song
+                        </h1>
+                        <p style={{
+                            fontFamily: 'Nunito, sans-serif', fontSize: 20, color: '#8ecfc2',
+                            marginBottom: 44,
+                        }}>
+                            Scan to dive into the queue
+                        </p>
+                        {qrUrl && (
+                            <div style={{
+                                display: 'inline-block', padding: 16, position: 'relative',
+                                border: '1px solid rgba(0,255,200,0.25)',
+                                borderRadius: 16,
+                                boxShadow: '0 0 25px rgba(0,255,200,0.15), 0 0 50px rgba(180,77,255,0.08), inset 0 0 30px rgba(0,255,200,0.03)',
+                                background: 'rgba(4,9,24,0.7)',
+                                backdropFilter: 'blur(12px)',
+                            }}>
+                                <img src={qrUrl} alt="QR" style={{ width: 210, height: 210, display: 'block', borderRadius: 8 }} />
+                            </div>
+                        )}
+                        {sessionCode && (
+                            <p style={{
+                                fontFamily: 'Quicksand, sans-serif', fontSize: 26, fontWeight: 700, color: '#00ffc8',
+                                letterSpacing: '0.3em', textTransform: 'uppercase', marginTop: 24,
+                                textShadow: '0 0 15px rgba(0,255,200,0.5), 0 0 30px rgba(0,255,200,0.2)',
+                            }}>
+                                {sessionCode}
+                            </p>
+                        )}
+                    </div>
+                </div>
+            )
+        }
+
+        // ---- Psychedelic idle ----
+        if (theme.name === 'psychedelic') {
+            return (
+                <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
+                    background: 'radial-gradient(ellipse at 50% 50%, #2a1248 0%, #1a0a2e 50%, #0f0620 100%)',
+                    position: 'relative', overflow: 'hidden',
+                }}>
+                    {/* Lava lamp blobs */}
+                    <div style={{
+                        position: 'absolute', inset: '-20%', opacity: 0.5,
+                        background: 'radial-gradient(ellipse 300px 300px at 25% 35%, rgba(255,45,149,0.2) 0%, transparent 70%), radial-gradient(ellipse 250px 350px at 70% 55%, rgba(182,255,45,0.15) 0%, transparent 70%), radial-gradient(ellipse 350px 250px at 50% 75%, rgba(255,140,45,0.15) 0%, transparent 70%)',
+                        filter: 'blur(60px)',
+                        animation: 'psyBlobMorph 20s ease-in-out infinite alternate',
+                    }} />
+                    {/* Second blob layer */}
+                    <div style={{
+                        position: 'absolute', inset: '-10%', opacity: 0.4,
+                        background: 'radial-gradient(ellipse 280px 280px at 60% 25%, rgba(45,217,255,0.15) 0%, transparent 70%), radial-gradient(ellipse 320px 200px at 35% 70%, rgba(255,45,255,0.12) 0%, transparent 70%)',
+                        filter: 'blur(50px)',
+                        animation: 'psyBlobMorph2 28s ease-in-out infinite alternate',
+                    }} />
+
+                    {/* Spinning mandala ring — top left */}
+                    <svg style={{ position: 'absolute', top: 60, left: 80, width: 140, height: 140, opacity: 0.12, animation: 'psyHueShift 12s linear infinite' }} viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,45,149,0.6)" strokeWidth="1" strokeDasharray="8 6" style={{ transformOrigin: '50px 50px', animation: 'dsCausticDrift 30s linear infinite' }} />
+                        <circle cx="50" cy="50" r="32" fill="none" stroke="rgba(182,255,45,0.5)" strokeWidth="1" strokeDasharray="5 8" style={{ transformOrigin: '50px 50px', animation: 'dsCausticDrift 22s linear infinite reverse' }} />
+                        <circle cx="50" cy="50" r="22" fill="none" stroke="rgba(255,140,45,0.5)" strokeWidth="1" strokeDasharray="4 5" style={{ transformOrigin: '50px 50px', animation: 'dsCausticDrift 18s linear infinite' }} />
+                        <circle cx="50" cy="50" r="12" fill="none" stroke="rgba(45,217,255,0.5)" strokeWidth="1.5" />
+                    </svg>
+
+                    {/* Peace sign — bottom right */}
+                    <svg style={{ position: 'absolute', bottom: 80, right: 100, width: 100, height: 100, opacity: 0.12, animation: 'psyWobble 8s ease-in-out infinite' }} viewBox="0 0 60 60">
+                        <circle cx="30" cy="30" r="26" fill="none" stroke="rgba(182,255,45,0.6)" strokeWidth="2" />
+                        <line x1="30" y1="4" x2="30" y2="56" stroke="rgba(182,255,45,0.6)" strokeWidth="2" />
+                        <line x1="30" y1="30" x2="12" y2="50" stroke="rgba(182,255,45,0.6)" strokeWidth="2" strokeLinecap="round" />
+                        <line x1="30" y1="30" x2="48" y2="50" stroke="rgba(182,255,45,0.6)" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+
+                    {/* Smaller peace sign — top right */}
+                    <svg style={{ position: 'absolute', top: 180, right: 200, width: 55, height: 55, opacity: 0.08, animation: 'psyWobble 6s ease-in-out infinite reverse' }} viewBox="0 0 60 60">
+                        <circle cx="30" cy="30" r="26" fill="none" stroke="rgba(255,45,149,0.6)" strokeWidth="2" />
+                        <line x1="30" y1="4" x2="30" y2="56" stroke="rgba(255,45,149,0.6)" strokeWidth="2" />
+                        <line x1="30" y1="30" x2="12" y2="50" stroke="rgba(255,45,149,0.6)" strokeWidth="2" strokeLinecap="round" />
+                        <line x1="30" y1="30" x2="48" y2="50" stroke="rgba(255,45,149,0.6)" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+
+                    {/* Spinning mandala ring — bottom left */}
+                    <svg style={{ position: 'absolute', bottom: 120, left: 160, width: 90, height: 90, opacity: 0.1, animation: 'psyHueShift 16s linear infinite' }} viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(255,140,45,0.5)" strokeWidth="1" strokeDasharray="6 4" style={{ transformOrigin: '50px 50px', animation: 'dsCausticDrift 20s linear infinite reverse' }} />
+                        <circle cx="50" cy="50" r="28" fill="none" stroke="rgba(255,45,255,0.4)" strokeWidth="1" strokeDasharray="3 6" style={{ transformOrigin: '50px 50px', animation: 'dsCausticDrift 15s linear infinite' }} />
+                        <circle cx="50" cy="50" r="16" fill="none" stroke="rgba(182,255,45,0.4)" strokeWidth="1.5" />
+                    </svg>
+
+                    {/* Decorative flower — center right */}
+                    <svg style={{ position: 'absolute', top: '40%', right: 60, width: 70, height: 70, opacity: 0.1, animation: 'dsCausticDrift 24s linear infinite' }} viewBox="0 0 60 60">
+                        {[0, 60, 120, 180, 240, 300].map(angle => (
+                            <ellipse key={angle} cx="30" cy="14" rx="8" ry="14" fill="none" stroke="rgba(255,45,149,0.5)" strokeWidth="1" transform={`rotate(${angle} 30 30)`} />
+                        ))}
+                        <circle cx="30" cy="30" r="6" fill="rgba(255,140,45,0.15)" stroke="rgba(255,140,45,0.4)" strokeWidth="1" />
+                    </svg>
+
+                    <div style={{ textAlign: 'center', zIndex: 1 }}>
+                        <p style={{
+                            fontFamily: 'Spicy Rice, cursive', fontSize: 16, color: '#ff2d95', opacity: 0.5,
+                            letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: 8,
+                        }}>
+                            ~ far out ~
+                        </p>
+                        <h1 style={{
+                            fontFamily: 'Chicle, cursive', fontSize: 72, color: '#f5ecff',
+                            lineHeight: 1.1, marginBottom: 8,
+                            textShadow: '0 0 30px rgba(255,45,149,0.5), 0 0 60px rgba(182,255,45,0.25), 0 0 100px rgba(255,140,45,0.15)',
+                            animation: 'psyWobble 6s ease-in-out infinite',
+                        }}>
+                            Add a Song
+                        </h1>
+                        <p style={{
+                            fontFamily: 'Spicy Rice, cursive', fontSize: 22, color: '#c8a8e8',
+                            marginBottom: 44,
+                        }}>
+                            Scan to join the groove
+                        </p>
+                        {qrUrl && (
+                            <div style={{
+                                display: 'inline-block', padding: 16, position: 'relative',
+                                border: '2px solid rgba(255,45,149,0.3)',
+                                borderRadius: 20,
+                                boxShadow: '0 0 25px rgba(255,45,149,0.18), 0 0 50px rgba(182,255,45,0.1), inset 0 0 30px rgba(255,45,149,0.04)',
+                                background: 'rgba(26,10,46,0.65)',
+                                backdropFilter: 'blur(12px)',
+                            }}>
+                                <img src={qrUrl} alt="QR" style={{ width: 210, height: 210, display: 'block', borderRadius: 10 }} />
+                            </div>
+                        )}
+                        {sessionCode && (
+                            <p style={{
+                                fontFamily: 'Chicle, cursive', fontSize: 28, color: '#ff2d95',
+                                letterSpacing: '0.2em', textTransform: 'uppercase', marginTop: 24,
+                                textShadow: '0 0 15px rgba(255,45,149,0.5), 0 0 30px rgba(182,255,45,0.2)',
+                            }}>
+                                {sessionCode}
+                            </p>
+                        )}
+                    </div>
+                </div>
+            )
+        }
+
         // ---- Urban (Hip Hop) idle ----
         return (
             <div style={{
@@ -742,7 +969,7 @@ export default function KaraokePage() {
         }}>
             <div style={{
                 ...theme.stickerLabel,
-                background: theme.name === 'cyberpunk' || theme.name === 'urban' ? 'rgba(0,0,0,0.8)' : theme.appBg,
+                background: theme.name === 'neo-brutal' || theme.name === 'sketch' ? theme.appBg : 'rgba(0,0,0,0.8)',
                 padding: 10,
                 display: 'flex',
                 flexDirection: 'column',
@@ -761,7 +988,7 @@ export default function KaraokePage() {
                     fontWeight: 700,
                     letterSpacing: '0.12em',
                     textTransform: 'uppercase',
-                    color: theme.name === 'cyberpunk' ? '#00ff88' : theme.name === 'urban' ? '#D4FF00' : theme.muted,
+                    color: theme.accentA,
                     textAlign: 'center',
                     display: 'block',
                     width: '100%',
@@ -1008,6 +1235,36 @@ export default function KaraokePage() {
                                                 inlineStyle.opacity = 0.4
                                                 inlineStyle.padding = '0.1em 0.3em'
                                             }
+                                        } else if (theme.name === 'deep-sea') {
+                                            cls += ' k-line--deep-sea'
+                                            if (line.singerIndices && line.singerIndices.length > 1) {
+                                                const colors = line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
+                                                if (colors.length > 1) {
+                                                    inlineStyle.backgroundImage = `linear-gradient(90deg, ${colors.join(', ')})`
+                                                    inlineStyle.WebkitBackgroundClip = 'text'
+                                                    inlineStyle.WebkitTextFillColor = 'transparent'
+                                                    inlineStyle.filter = `drop-shadow(0 0 20px ${colors[0]}) drop-shadow(0 0 20px ${colors[colors.length - 1]})`
+                                                }
+                                            } else if (line.singerIndex !== undefined && singers[line.singerIndex]) {
+                                                const singer = singers[line.singerIndex]
+                                                inlineStyle.color = singer.color
+                                                inlineStyle.textShadow = `0 0 12px ${singer.colorGlow}, 0 0 30px ${singer.colorGlow}, 0 0 60px ${singer.colorGlow}, 0 0 100px ${singer.colorGlow}`
+                                            }
+                                        } else if (theme.name === 'psychedelic') {
+                                            cls += ' k-line--psychedelic'
+                                            if (line.singerIndices && line.singerIndices.length > 1) {
+                                                const colors = line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
+                                                if (colors.length > 1) {
+                                                    inlineStyle.backgroundImage = `linear-gradient(90deg, ${colors.join(', ')})`
+                                                    inlineStyle.WebkitBackgroundClip = 'text'
+                                                    inlineStyle.WebkitTextFillColor = 'transparent'
+                                                    inlineStyle.filter = `drop-shadow(0 0 20px ${colors[0]}) drop-shadow(0 0 20px ${colors[colors.length - 1]})`
+                                                }
+                                            } else if (line.singerIndex !== undefined && singers[line.singerIndex]) {
+                                                const singer = singers[line.singerIndex]
+                                                inlineStyle.color = singer.color
+                                                inlineStyle.textShadow = `0 0 10px ${singer.colorGlow}, 0 0 30px ${singer.colorGlow}, 0 0 60px ${singer.colorGlow}`
+                                            }
                                         } else {
                                             if (line.singerIndices && line.singerIndices.length > 1) {
                                                 const colors = line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
@@ -1102,6 +1359,18 @@ export default function KaraokePage() {
                                                 </svg>
                                             </>
                                         )
+                                    }
+
+                                    if (theme.name === 'psychedelic' && isActiveGroup) {
+                                        const words = displayWords.split(/(\s+)/)
+                                        const lineSeed = (line.originalIndex || 0) * 13 + j * 7
+                                        content = words.map((word: string, wi: number) => {
+                                            if (/^\s+$/.test(word)) return word
+                                            const hash = Math.sin(lineSeed + wi * 97 + 0.5) * 10000
+                                            const delay = (hash - Math.floor(hash)) * 3
+                                            const dur = 2.5 + (Math.sin(lineSeed + wi * 53) * 10000 % 1) * 1.5
+                                            return <span key={wi} className="psy-word" style={{ animationDelay: `${delay.toFixed(2)}s`, animationDuration: `${dur.toFixed(2)}s` }}>{word}</span>
+                                        })
                                     }
 
                                     return <div key={j} className={cls} style={inlineStyle}>{content}</div>

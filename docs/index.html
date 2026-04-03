@@ -647,7 +647,7 @@ var NC=[
 {c:"#d946ef",g:"rgba(217,70,239,0.3)"},
 {c:"#e11d48",g:"rgba(225,29,72,0.3)"}
 ];
-var S={screen:"loading",sessionCode:null,sessionId:null,guestId:null,guestName:"",profilePicture:null,guests:[],catalog:[],searchQuery:"",selectedTrack:null,singerCount:1,singers:[{name:"",color:NC[0].c,colorGlow:NC[0].g,roleIndices:[],profilePicture:null}],queue:[],nowPlaying:null,errorMessage:"",theme_name:"neo-brutal",stage_theme:null,customEmoji:null,emojiPickerOpen:false,textInputOpen:false,memePickerOpen:false,isPlaying:false,nowPlayingSingerConfigs:null,matchedSinger:null};
+var S={screen:"loading",sessionCode:null,sessionId:null,guestId:null,guestName:"",profilePicture:null,guests:[],catalog:[],searchQuery:"",selectedTrack:null,singerCount:1,singers:[{name:"",color:NC[0].c,colorGlow:NC[0].g,roleIndices:[],profilePicture:null}],queue:[],nowPlaying:null,errorMessage:"",theme_name:"neo-brutal",stage_theme:null,customEmoji:null,emojiPickerOpen:false,textInputOpen:false,memePickerOpen:false,isPlaying:false,nowPlayingSingerConfigs:null,matchedSinger:null,nowPlayingStageTheme:null};
 var qCh=null,sCh=null,gCh=null,rCh=null;
 var MEMES=[
   {emoji:"\uD83E\uDD2F",label:"Mind Blown"},
@@ -700,13 +700,14 @@ function init(){
   validateSession();
 }
 async function validateSession(){
-  var r=await sb.from("karaoke_sessions").select("id,is_active,now_playing_track_id,now_playing_name,now_playing_artist,now_playing_art_url,theme_name,is_playing,now_playing_singer_configs").eq("code",S.sessionCode).single();
+  var r=await sb.from("karaoke_sessions").select("id,is_active,now_playing_track_id,now_playing_name,now_playing_artist,now_playing_art_url,theme_name,is_playing,now_playing_singer_configs,now_playing_stage_theme").eq("code",S.sessionCode).single();
   if(r.error||!r.data||!r.data.is_active){S.screen="error";S.errorMessage="This session has ended or does not exist.";render();return;}
   S.sessionId=r.data.id;
   S.theme_name=r.data.theme_name;
   applyTheme();
   S.isPlaying=!!r.data.is_playing;
   S.nowPlayingSingerConfigs=r.data.now_playing_singer_configs||null;
+  S.nowPlayingStageTheme=r.data.now_playing_stage_theme||null;
   if(r.data.now_playing_name){S.nowPlaying={name:r.data.now_playing_name,artist:r.data.now_playing_artist,artUrl:r.data.now_playing_art_url};}
   if(S.guestId){
     var gr=await sb.from("karaoke_guests").select("id,profile_picture").eq("id",S.guestId).eq("session_id",S.sessionId).single();
@@ -770,6 +771,7 @@ function subRT(){
     if(d.now_playing_name){S.nowPlaying={name:d.now_playing_name,artist:d.now_playing_artist,artUrl:d.now_playing_art_url};}else{S.nowPlaying=null;}
     S.isPlaying=!!d.is_playing;
     S.nowPlayingSingerConfigs=d.now_playing_singer_configs||null;
+    S.nowPlayingStageTheme=d.now_playing_stage_theme||null;
     if(d.theme_name){S.theme_name=d.theme_name;applyTheme();}
     checkYoureUp();
     render();
@@ -950,6 +952,15 @@ function applyTheme(){
 }
 function render(){
   var a=document.getElementById("app");
+  // Apply song's stage theme on You're Up screen, restore global theme otherwise
+  if(S.screen==="youreup"&&S.nowPlayingStageTheme){
+    var saved=S.theme_name;
+    S.theme_name=S.nowPlayingStageTheme;
+    applyTheme();
+    S.theme_name=saved;
+  }else{
+    applyTheme();
+  }
   switch(S.screen){
     case"loading":a.innerHTML='<div class="loading-center"><div class="spinner"></div></div>';break;
     case"join":a.innerHTML=renderJoin();break;

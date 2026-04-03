@@ -220,7 +220,8 @@ export function useKaraokeSession() {
                 singerConfigs: state.nowPlaying.singers.map(s => ({
                     name: s.name, color: s.color, colorGlow: s.colorGlow,
                     roleIndices: s.roleIndices, profilePicture: s.profilePicture
-                }))
+                })),
+                stageTheme: state.nowPlaying.stageTheme || null
             })
             // Mark this track as played in Supabase so companion site removes it from queue
             supabase.from('karaoke_queue')

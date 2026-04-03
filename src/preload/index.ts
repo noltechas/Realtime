@@ -53,7 +53,7 @@ export type ElectronAPI = {
     // Karaoke Session
     createKaraokeSession: () => Promise<{ sessionId?: string; sessionCode?: string; companionUrl?: string; qrDataUrl?: string; error?: string }>
     closeKaraokeSession: () => Promise<void>
-    syncNowPlaying: (info: { trackId: string; name: string; artist: string; artUrl: string | null; singerConfigs?: any[] } | null) => Promise<void>
+    syncNowPlaying: (info: { trackId: string; name: string; artist: string; artUrl: string | null; singerConfigs?: any[]; stageTheme?: string | null } | null) => Promise<void>
     syncIsPlaying: (isPlaying: boolean) => Promise<void>
     pushLocalQueueItem: (item: any) => Promise<{ id?: string; error?: string }>
     removeQueueItem: (id: string) => Promise<void>
