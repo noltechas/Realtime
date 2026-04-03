@@ -2031,17 +2031,6 @@ export default function KaraokePage() {
                                         })
                                     }
 
-                                    if (theme.name === 'steampunk' && isActiveGroup) {
-                                        const words = displayWords.split(/(\s+)/)
-                                        const lineSeed = (line.originalIndex || 0) * 19 + j * 13
-                                        content = words.map((word: string, wi: number) => {
-                                            if (/^\s+$/.test(word)) return word
-                                            const hash = Math.sin(lineSeed + wi * 71 + 0.5) * 10000
-                                            const delay = (hash - Math.floor(hash)) * 0.6
-                                            return <span key={wi} className="steam-stamp-word" style={{ animationDelay: `${delay.toFixed(2)}s` }}>{word}</span>
-                                        })
-                                    }
-
                                     return <div key={j} className={cls} style={inlineStyle}>{content}</div>
                                 })}
                             </div>
