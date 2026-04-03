@@ -18,21 +18,80 @@ function generateCode(length = 6): string {
 export interface SessionInfo {
     sessionId: string
     sessionCode: string
+    sessionName: string | null
 }
 
-export async function createSession(): Promise<SessionInfo> {
+export async function createSession(name: string, themeName: string): Promise<SessionInfo> {
     const code = generateCode()
     const { data, error } = await supabase
         .from('karaoke_sessions')
-        .insert({ code, is_active: true })
-        .select('id, code')
+        .insert({ code, is_active: true, name: name || null, theme_name: themeName || 'neo-brutal' })
+        .select('id, code, name')
         .single()
 
     if (error) throw new Error(`Failed to create session: ${error.message}`)
 
     return {
         sessionId: data.id,
-        sessionCode: data.code
+        sessionCode: data.code,
+        sessionName: data.name
+    }
+}
+
+export interface RecentSession {
+    id: string
+    code: string
+    name: string | null
+    themeName: string | null
+    createdAt: string
+    guestCount: number
+}
+
+export async function listRecentSessions(): Promise<RecentSession[]> {
+    const { data, error } = await supabase
+        .from('karaoke_sessions')
+        .select('id, code, name, theme_name, created_at')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(20)
+
+    if (error) {
+        console.error('Failed to list sessions:', error.message)
+        return []
+    }
+
+    const sessions = await Promise.all((data || []).map(async (s: any) => {
+        const { count } = await supabase
+            .from('karaoke_guests')
+            .select('*', { count: 'exact', head: true })
+            .eq('session_id', s.id)
+        return {
+            id: s.id,
+            code: s.code,
+            name: s.name,
+            themeName: s.theme_name,
+            createdAt: s.created_at,
+            guestCount: count || 0,
+        }
+    }))
+    return sessions
+}
+
+export async function getSession(sessionId: string): Promise<SessionInfo & { themeName: string | null }> {
+    const { data, error } = await supabase
+        .from('karaoke_sessions')
+        .select('id, code, name, theme_name, is_active')
+        .eq('id', sessionId)
+        .single()
+
+    if (error || !data) throw new Error('Session not found')
+    if (!data.is_active) throw new Error('Session is no longer active')
+
+    return {
+        sessionId: data.id,
+        sessionCode: data.code,
+        sessionName: data.name,
+        themeName: data.theme_name
     }
 }
 

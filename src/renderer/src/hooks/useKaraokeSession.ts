@@ -40,30 +40,8 @@ export function useKaraokeSession() {
         })
     }, [])
 
-    // Create session on mount (main window only)
-    useEffect(() => {
-        if (window.electronAPI?.isStageWindow) return
-        if (!window.electronAPI?.createKaraokeSession) return
-
-        window.electronAPI.createKaraokeSession().then((result) => {
-            if (result.error || !result.sessionId) {
-                console.error('Failed to create karaoke session:', result.error)
-                return
-            }
-            dispatch({
-                type: 'SET_KARAOKE_SESSION',
-                payload: {
-                    sessionId: result.sessionId!,
-                    sessionCode: result.sessionCode!,
-                    qrDataUrl: result.qrDataUrl!
-                }
-            })
-        })
-
-        return () => {
-            window.electronAPI?.closeKaraokeSession()
-        }
-    }, [])
+    // Session creation is now handled explicitly by SessionPage.
+    // No auto-create on mount — this fixes the React StrictMode double-session bug.
 
     // Retroactive sync: push pre-existing local queue items to Supabase
     // when the session becomes available (fixes race where songs are added

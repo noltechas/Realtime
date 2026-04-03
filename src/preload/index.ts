@@ -51,8 +51,10 @@ export type ElectronAPI = {
     setSystemVolume: (vol: number) => void
     getSystemVolume: () => Promise<number>
     // Karaoke Session
-    createKaraokeSession: () => Promise<{ sessionId?: string; sessionCode?: string; companionUrl?: string; qrDataUrl?: string; error?: string }>
+    createKaraokeSession: (name: string, themeName: string) => Promise<{ sessionId?: string; sessionCode?: string; sessionName?: string; companionUrl?: string; qrDataUrl?: string; error?: string }>
     closeKaraokeSession: () => Promise<void>
+    listRecentSessions: () => Promise<{ id: string; code: string; name: string | null; themeName: string | null; createdAt: string; guestCount: number }[]>
+    resumeKaraokeSession: (sessionId: string) => Promise<{ sessionId?: string; sessionCode?: string; sessionName?: string; themeName?: string; companionUrl?: string; qrDataUrl?: string; error?: string }>
     syncNowPlaying: (info: { trackId: string; name: string; artist: string; artUrl: string | null; singerConfigs?: any[]; stageTheme?: string | null } | null) => Promise<void>
     syncIsPlaying: (isPlaying: boolean) => Promise<void>
     pushLocalQueueItem: (item: any) => Promise<{ id?: string; error?: string }>
@@ -143,8 +145,10 @@ const api: ElectronAPI = {
     setSystemVolume: (vol) => ipcRenderer.send('audio:set-system-volume', vol),
     getSystemVolume: () => ipcRenderer.invoke('audio:get-system-volume'),
     // Karaoke Session
-    createKaraokeSession: () => ipcRenderer.invoke('karaoke:create-session'),
+    createKaraokeSession: (name, themeName) => ipcRenderer.invoke('karaoke:create-session', name, themeName),
     closeKaraokeSession: () => ipcRenderer.invoke('karaoke:close-session'),
+    listRecentSessions: () => ipcRenderer.invoke('karaoke:list-recent-sessions'),
+    resumeKaraokeSession: (sessionId) => ipcRenderer.invoke('karaoke:resume-session', sessionId),
     syncNowPlaying: (info) => ipcRenderer.invoke('karaoke:sync-now-playing', info),
     syncIsPlaying: (isPlaying) => ipcRenderer.invoke('karaoke:sync-is-playing', isPlaying),
     pushLocalQueueItem: (item) => ipcRenderer.invoke('karaoke:push-local-queue-item', item),

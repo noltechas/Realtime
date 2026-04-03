@@ -9,22 +9,22 @@ import KaraokePage from './pages/KaraokePage'
 import QueuePage from './pages/QueuePage'
 import AdminPage from './pages/AdminPage'
 import ControlsPage from './pages/ControlsPage'
+import SessionPage from './pages/SessionPage'
 import './styles/globals.css'
 import './styles/karaoke.css'
 
 function TitleBar() {
     const isStage = window.electronAPI?.isStageWindow ?? false
+    const { state } = useApp()
     const { titlebarBg, titlebarText, fontDisplay } = useTheme()
 
     if (isStage) return null
 
     return (
         <div className="titlebar" style={{ background: titlebarBg }}>
-            {!isStage && (
-                <span className="titlebar__brand" style={{ color: titlebarText, fontFamily: fontDisplay }}>
-                    Realtime Karaoke
-                </span>
-            )}
+            <span className="titlebar__brand" style={{ color: titlebarText, fontFamily: fontDisplay }}>
+                {state.karaokeSessionName || 'Realtime Karaoke'}
+            </span>
         </div>
     )
 }
@@ -196,9 +196,19 @@ function StageKaraokePage() {
 function AppContent() {
     const location = useLocation()
     const isKaraoke = location.pathname === '/karaoke'
+    const { state } = useApp()
     const { appBg } = useTheme()
 
     useKaraokeSession()
+
+    // Show session landing page when no active session (main window only)
+    if (!state.karaokeSessionId && !window.electronAPI?.isStageWindow) {
+        return (
+            <div className="main" style={{ background: appBg }}>
+                <SessionPage />
+            </div>
+        )
+    }
 
     return (
         <AudioSyncProvider>

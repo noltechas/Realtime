@@ -117,6 +117,7 @@ export interface AppState {
     // Karaoke session
     karaokeSessionId: string | null
     karaokeSessionCode: string | null
+    karaokeSessionName: string | null
     karaokeQrDataUrl: string | null
     themeName: string
     remotePlayCommand: 'play' | 'pause' | null
@@ -168,6 +169,7 @@ const initialState: AppState = {
     editingQueueIndex: null,
     karaokeSessionId: null,
     karaokeSessionCode: null,
+    karaokeSessionName: null,
     karaokeQrDataUrl: null,
     themeName: 'neo-brutal',
     remotePlayCommand: null
@@ -210,7 +212,7 @@ type Action =
     | { type: 'ENSURE_MIC_SLOTS'; payload: number }
     | { type: 'INIT_STATE'; payload: AppState }
     | { type: 'RESET' }
-    | { type: 'SET_KARAOKE_SESSION'; payload: { sessionId: string; sessionCode: string; qrDataUrl: string } }
+    | { type: 'SET_KARAOKE_SESSION'; payload: { sessionId: string; sessionCode: string; qrDataUrl: string; sessionName: string | null } }
     | { type: 'CLEAR_KARAOKE_SESSION' }
     | { type: 'SET_THEME_NAME'; payload: string }
     | { type: 'SET_REMOTE_PLAY_COMMAND'; payload: 'play' | 'pause' | null }
@@ -492,10 +494,11 @@ function reducer(state: AppState, action: Action): AppState {
                 ...state,
                 karaokeSessionId: action.payload.sessionId,
                 karaokeSessionCode: action.payload.sessionCode,
+                karaokeSessionName: action.payload.sessionName,
                 karaokeQrDataUrl: action.payload.qrDataUrl
             }
         case 'CLEAR_KARAOKE_SESSION':
-            return { ...state, karaokeSessionId: null, karaokeSessionCode: null, karaokeQrDataUrl: null }
+            return { ...state, karaokeSessionId: null, karaokeSessionCode: null, karaokeSessionName: null, karaokeQrDataUrl: null }
         case 'SET_THEME_NAME':
             return { ...state, themeName: action.payload }
         case 'SET_REMOTE_PLAY_COMMAND':

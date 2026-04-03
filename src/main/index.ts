@@ -10,6 +10,7 @@ import {
     createSession, pushCatalog, updateNowPlaying, updateIsPlaying,
     insertQueueItem, removeQueueItem, reorderQueue, closeSession,
     listGuests, updateGuest, removeGuest,
+    listRecentSessions, getSession,
     CatalogItem
 } from './supabase'
 
@@ -358,83 +359,123 @@ import { registerAudioHandlers } from './audio/manager'
 // ----- Karaoke Session State -----
 let activeSession: { id: string; code: string } | null = null
 
+// ----- Helper: push local catalog to Supabase -----
+async function pushLocalCatalog(sessionId: string): Promise<void> {
+    const SONGS_DIR = path.join(os.homedir(), '.realtime-karaoke', 'songs')
+    const AUDIO_EXTS = ['.mp3', '.m4a', '.wav', '.ogg', '.opus', '.flac', '.aac', '.wma', '.webm']
+
+    function findStem(dir: string, prefix: string): string | null {
+        if (!fs.existsSync(dir)) return null
+        for (const file of fs.readdirSync(dir)) {
+            const ext = path.extname(file).toLowerCase()
+            if (path.basename(file, ext).toLowerCase() === prefix && AUDIO_EXTS.includes(ext)) {
+                return path.join(dir, file)
+            }
+        }
+        return null
+    }
+
+    if (!fs.existsSync(SONGS_DIR)) return
+
+    const dirs = fs.readdirSync(SONGS_DIR, { withFileTypes: true }).filter(d => d.isDirectory())
+    const catalogItems: CatalogItem[] = []
+    for (const dir of dirs) {
+        const songDir = path.join(SONGS_DIR, dir.name)
+        const metaPath = path.join(songDir, 'meta.json')
+        const instrumental = findStem(songDir, 'instrumental')
+        const vocals = findStem(songDir, 'vocals')
+        if (fs.existsSync(metaPath) && instrumental) {
+            try {
+                const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'))
+                catalogItems.push({
+                    trackId: meta.trackId,
+                    name: meta.name,
+                    artist: meta.artist,
+                    artUrl: meta.artUrl,
+                    albumName: meta.albumName,
+                    durationMs: meta.durationMs,
+                    roles: meta.roles || [],
+                    hasVocals: !!vocals,
+                    spotifyData: meta.spotifyData || null
+                })
+            } catch { /* skip corrupted */ }
+        }
+    }
+    if (catalogItems.length > 0) {
+        await pushCatalog(sessionId, catalogItems)
+    }
+}
+
+// ----- Helper: generate QR code for a session code -----
+async function generateSessionQR(sessionCode: string): Promise<{ companionUrl: string; qrDataUrl: string }> {
+    const companionUrl = `${COMPANION_BASE_URL}/?session=${sessionCode}`
+    const qrDataUrl = await QRCode.toDataURL(companionUrl, {
+        width: 256,
+        margin: 2,
+        color: { dark: '#1A1A1A', light: '#FFFFFF' }
+    })
+    return { companionUrl, qrDataUrl }
+}
+
 // ----- Karaoke Session IPC Handlers -----
-ipcMain.handle('karaoke:create-session', async () => {
+ipcMain.handle('karaoke:create-session', async (_event, name: string, themeName: string) => {
     try {
-        // Create session in Supabase
-        const session = await createSession()
+        const session = await createSession(name, themeName)
         activeSession = { id: session.sessionId, code: session.sessionCode }
 
-        // Build companion URL using GitHub Pages
-        const companionUrl = `${COMPANION_BASE_URL}/?session=${session.sessionCode}`
+        const { companionUrl, qrDataUrl } = await generateSessionQR(session.sessionCode)
 
-        // Generate QR code
-        const qrDataUrl = await QRCode.toDataURL(companionUrl, {
-            width: 256,
-            margin: 2,
-            color: { dark: '#1A1A1A', light: '#FFFFFF' }
-        })
-
-        // Push catalog to Supabase
         try {
-            const SONGS_DIR = path.join(os.homedir(), '.realtime-karaoke', 'songs')
-            const AUDIO_EXTS = ['.mp3', '.m4a', '.wav', '.ogg', '.opus', '.flac', '.aac', '.wma', '.webm']
-
-            function findStem(dir: string, prefix: string): string | null {
-                if (!fs.existsSync(dir)) return null
-                for (const file of fs.readdirSync(dir)) {
-                    const ext = path.extname(file).toLowerCase()
-                    if (path.basename(file, ext).toLowerCase() === prefix && AUDIO_EXTS.includes(ext)) {
-                        return path.join(dir, file)
-                    }
-                }
-                return null
-            }
-
-            if (fs.existsSync(SONGS_DIR)) {
-                const dirs = fs.readdirSync(SONGS_DIR, { withFileTypes: true }).filter(d => d.isDirectory())
-                const catalogItems: CatalogItem[] = []
-                for (const dir of dirs) {
-                    const songDir = path.join(SONGS_DIR, dir.name)
-                    const metaPath = path.join(songDir, 'meta.json')
-                    const instrumental = findStem(songDir, 'instrumental')
-                    const vocals = findStem(songDir, 'vocals')
-                    if (fs.existsSync(metaPath) && instrumental) {
-                        try {
-                            const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'))
-                            catalogItems.push({
-                                trackId: meta.trackId,
-                                name: meta.name,
-                                artist: meta.artist,
-                                artUrl: meta.artUrl,
-                                albumName: meta.albumName,
-                                durationMs: meta.durationMs,
-                                roles: meta.roles || [],
-                                hasVocals: !!vocals,
-                                spotifyData: meta.spotifyData || null
-                            })
-                        } catch { /* skip corrupted */ }
-                    }
-                }
-                if (catalogItems.length > 0) {
-                    await pushCatalog(session.sessionId, catalogItems)
-                }
-            }
+            await pushLocalCatalog(session.sessionId)
         } catch (e) {
             console.error('Failed to push catalog:', e)
         }
 
-        // Realtime subscription is handled in the renderer process (useKaraokeSession hook)
-        // since the browser environment has native WebSocket support
-
         return {
             sessionId: session.sessionId,
             sessionCode: session.sessionCode,
+            sessionName: session.sessionName,
             companionUrl,
             qrDataUrl
         }
     } catch (error: any) {
         console.error('Failed to create karaoke session:', error)
+        return { error: error.message }
+    }
+})
+
+ipcMain.handle('karaoke:list-recent-sessions', async () => {
+    try {
+        return await listRecentSessions()
+    } catch (error: any) {
+        console.error('Failed to list sessions:', error)
+        return []
+    }
+})
+
+ipcMain.handle('karaoke:resume-session', async (_event, sessionId: string) => {
+    try {
+        const session = await getSession(sessionId)
+        activeSession = { id: session.sessionId, code: session.sessionCode }
+
+        const { companionUrl, qrDataUrl } = await generateSessionQR(session.sessionCode)
+
+        try {
+            await pushLocalCatalog(session.sessionId)
+        } catch (e) {
+            console.error('Failed to push catalog on resume:', e)
+        }
+
+        return {
+            sessionId: session.sessionId,
+            sessionCode: session.sessionCode,
+            sessionName: session.sessionName,
+            themeName: session.themeName,
+            companionUrl,
+            qrDataUrl
+        }
+    } catch (error: any) {
+        console.error('Failed to resume session:', error)
         return { error: error.message }
     }
 })
@@ -532,12 +573,8 @@ app.whenReady().then(() => {
     })
 })
 
-app.on('before-quit', async () => {
-    if (activeSession) {
-        try { await closeSession(activeSession.id) } catch { /* best effort */ }
-        activeSession = null
-    }
-})
+// Sessions persist across app restarts for resume support.
+// activeSession is only cleared in-memory; the DB row stays is_active=true.
 
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
