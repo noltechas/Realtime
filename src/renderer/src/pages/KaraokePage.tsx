@@ -1078,6 +1078,150 @@ export default function KaraokePage() {
             )
         }
 
+        // ---- Space (Cosmic) idle ----
+        if (theme.name === 'space') {
+            return (
+                <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
+                    background: 'linear-gradient(180deg, #04040A 0%, #08080F 40%, #0A0A18 100%)',
+                    position: 'relative', overflow: 'hidden',
+                }}>
+                    {/* Nebula cloud overlay */}
+                    <div style={{
+                        position: 'absolute', inset: '-20%', opacity: 0.05,
+                        background: 'radial-gradient(ellipse 55% 45% at 20% 35%, rgba(224,64,251,0.6) 0%, transparent 70%), radial-gradient(ellipse 45% 55% at 75% 55%, rgba(64,224,208,0.5) 0%, transparent 70%)',
+                        filter: 'blur(50px)', animation: 'spaceNebulaDrift 35s ease-in-out infinite',
+                    }} />
+
+                    {/* Starfield — scattered dots */}
+                    {[
+                        { x: '5%', y: '8%', s: 2, o: 0.7 }, { x: '12%', y: '22%', s: 1.5, o: 0.4 },
+                        { x: '20%', y: '5%', s: 1, o: 0.6 }, { x: '28%', y: '35%', s: 2, o: 0.3 },
+                        { x: '35%', y: '12%', s: 1.5, o: 0.5 }, { x: '42%', y: '28%', s: 1, o: 0.7 },
+                        { x: '55%', y: '8%', s: 2, o: 0.4 }, { x: '62%', y: '18%', s: 1.5, o: 0.6 },
+                        { x: '70%', y: '32%', s: 1, o: 0.5 }, { x: '78%', y: '6%', s: 2, o: 0.3 },
+                        { x: '85%', y: '25%', s: 1.5, o: 0.7 }, { x: '92%', y: '15%', s: 1, o: 0.4 },
+                        { x: '8%', y: '70%', s: 1.5, o: 0.5 }, { x: '18%', y: '85%', s: 2, o: 0.3 },
+                        { x: '75%', y: '75%', s: 1, o: 0.6 }, { x: '88%', y: '65%', s: 1.5, o: 0.4 },
+                        { x: '50%', y: '90%', s: 2, o: 0.35 }, { x: '30%', y: '60%', s: 1, o: 0.5 },
+                    ].map((star, i) => (
+                        <div key={`star-${i}`} style={{
+                            position: 'absolute', left: star.x, top: star.y,
+                            width: star.s, height: star.s, borderRadius: '50%',
+                            background: i % 5 === 0 ? 'rgba(224,64,251,0.8)' : i % 7 === 0 ? 'rgba(64,224,208,0.7)' : 'rgba(232,230,240,0.8)',
+                            opacity: star.o,
+                            animation: `spaceTwinkle${i % 2 === 0 ? '' : '2'} ${3 + (i % 4)}s ease-in-out ${(i * 0.7) % 4}s infinite`,
+                        }} />
+                    ))}
+
+                    {/* Warp star trails — radial lines from center */}
+                    <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.06 }} viewBox="0 0 1200 800">
+                        {Array.from({ length: 16 }).map((_, i) => {
+                            const angle = (i / 16) * Math.PI * 2
+                            const cx = 600, cy = 400
+                            const innerR = 80, outerR = 600
+                            const x1 = cx + Math.cos(angle) * innerR
+                            const y1 = cy + Math.sin(angle) * innerR
+                            const x2 = cx + Math.cos(angle) * outerR
+                            const y2 = cy + Math.sin(angle) * outerR
+                            return <line key={`warp-${i}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(232,230,240,0.5)" strokeWidth={0.8 + (i % 3) * 0.4} />
+                        })}
+                    </svg>
+
+                    {/* Planet (Saturn-like) silhouette — lower right */}
+                    <svg style={{ position: 'absolute', bottom: '10%', right: '15%', width: 220, height: 180, opacity: 0.15 }} viewBox="0 0 220 180">
+                        {/* Planet body */}
+                        <circle cx="110" cy="95" r="55" fill="#0A0A18" stroke="rgba(224,64,251,0.3)" strokeWidth="1.5" />
+                        {/* Edge glow */}
+                        <circle cx="110" cy="95" r="55" fill="none" stroke="rgba(64,224,208,0.15)" strokeWidth="3" />
+                        {/* Ring — elliptical arc */}
+                        <ellipse cx="110" cy="95" rx="95" ry="20" fill="none" stroke="rgba(255,183,64,0.25)" strokeWidth="2" strokeDasharray="4 3" />
+                        <ellipse cx="110" cy="95" rx="85" ry="16" fill="none" stroke="rgba(224,64,251,0.15)" strokeWidth="1" />
+                    </svg>
+
+                    {/* Orbiting particles around planet */}
+                    {[0, 1, 2].map(i => (
+                        <div key={`orbit-${i}`} style={{
+                            position: 'absolute', bottom: `calc(10% + 85px)`, right: `calc(15% + 100px)`,
+                            width: 4, height: 4, borderRadius: '50%',
+                            background: i === 0 ? '#E040FB' : i === 1 ? '#40E0D0' : '#FFB740',
+                            opacity: 0.6,
+                            animation: `spaceOrbit ${4 + i * 1.5}s linear ${i * 1.2}s infinite`,
+                        }} />
+                    ))}
+
+                    {/* Distant galaxy — top left */}
+                    <svg style={{ position: 'absolute', top: '12%', left: '10%', width: 60, height: 60, opacity: 0.06 }} viewBox="0 0 60 60">
+                        <ellipse cx="30" cy="30" rx="25" ry="8" fill="none" stroke="rgba(224,64,251,0.5)" strokeWidth="0.8" transform="rotate(-30 30 30)" />
+                        <ellipse cx="30" cy="30" rx="18" ry="6" fill="none" stroke="rgba(64,224,208,0.4)" strokeWidth="0.6" transform="rotate(-30 30 30)" />
+                        <circle cx="30" cy="30" r="3" fill="rgba(232,230,240,0.3)" />
+                    </svg>
+
+                    {/* Distant galaxy — bottom left */}
+                    <svg style={{ position: 'absolute', bottom: '20%', left: '20%', width: 45, height: 45, opacity: 0.04 }} viewBox="0 0 60 60">
+                        <ellipse cx="30" cy="30" rx="22" ry="7" fill="none" stroke="rgba(255,183,64,0.5)" strokeWidth="0.7" transform="rotate(20 30 30)" />
+                        <ellipse cx="30" cy="30" rx="15" ry="5" fill="none" stroke="rgba(224,64,251,0.3)" strokeWidth="0.5" transform="rotate(20 30 30)" />
+                        <circle cx="30" cy="30" r="2.5" fill="rgba(232,230,240,0.25)" />
+                    </svg>
+
+                    {/* Shooting star */}
+                    <div style={{
+                        position: 'absolute', top: '15%', left: '25%', width: 80, height: 1,
+                        background: 'linear-gradient(90deg, transparent 0%, rgba(232,230,240,0.6) 40%, rgba(64,224,208,0.4) 100%)',
+                        transform: 'rotate(-25deg)',
+                        animation: 'spaceShootingStar 12s linear infinite',
+                        borderRadius: 1,
+                    }} />
+                    <div style={{
+                        position: 'absolute', top: '40%', right: '20%', width: 60, height: 1,
+                        background: 'linear-gradient(90deg, transparent 0%, rgba(232,230,240,0.5) 40%, rgba(224,64,251,0.3) 100%)',
+                        transform: 'rotate(-30deg)',
+                        animation: 'spaceShootingStar 18s linear 6s infinite',
+                        borderRadius: 1,
+                    }} />
+
+                    {/* Content */}
+                    <div style={{ textAlign: 'center', zIndex: 2 }}>
+                        <h1 style={{
+                            fontFamily: "'Orbitron', sans-serif", fontSize: 64, color: '#E8E6F0',
+                            fontWeight: 700, lineHeight: 1.1, marginBottom: 8,
+                            textShadow: '0 0 30px rgba(224,64,251,0.35), 0 0 60px rgba(64,224,208,0.15), 0 0 100px rgba(224,64,251,0.1)',
+                            letterSpacing: '0.08em', textTransform: 'uppercase',
+                        }}>
+                            Launch a Song
+                        </h1>
+                        <p style={{
+                            fontFamily: "'Exo 2', sans-serif", fontSize: 16, color: '#9896A8',
+                            letterSpacing: '0.4em', textTransform: 'uppercase', marginBottom: 48,
+                        }}>
+                            Scan to queue from orbit
+                        </p>
+                        {qrUrl && (
+                            <div style={{
+                                display: 'inline-block', padding: 14,
+                                border: '1px solid rgba(64,224,208,0.3)',
+                                boxShadow: '0 0 20px rgba(64,224,208,0.1), 0 0 40px rgba(224,64,251,0.05), inset 0 0 20px rgba(64,224,208,0.03)',
+                                background: 'rgba(8,8,15,0.75)',
+                                backdropFilter: 'blur(12px)',
+                                borderRadius: 6,
+                            }}>
+                                <img src={qrUrl} alt="QR" style={{ width: 210, height: 210, display: 'block', borderRadius: 3 }} />
+                            </div>
+                        )}
+                        {sessionCode && (
+                            <p style={{
+                                fontFamily: "'Orbitron', sans-serif", fontSize: 24, fontWeight: 600,
+                                color: '#E040FB', letterSpacing: '0.35em', textTransform: 'uppercase', marginTop: 20,
+                                textShadow: '0 0 15px rgba(224,64,251,0.4), 0 0 30px rgba(224,64,251,0.15)',
+                            }}>
+                                {sessionCode}
+                            </p>
+                        )}
+                    </div>
+                </div>
+            )
+        }
+
         // ---- Urban (Hip Hop) idle ----
         return (
             <div style={{
@@ -1157,11 +1301,18 @@ export default function KaraokePage() {
                 alignItems: 'center',
                 gap: 6,
                 backdropFilter: 'blur(16px)',
+                ...(theme.name === 'space' ? {
+                    background: 'rgba(8,8,15,0.85)',
+                    border: '1px solid rgba(64,224,208,0.25)',
+                    boxShadow: '0 0 15px rgba(64,224,208,0.1), 0 0 30px rgba(224,64,251,0.05), inset 0 0 20px rgba(64,224,208,0.03)',
+                    borderRadius: 6,
+                } : {}),
             }}>
                 <img src={state.karaokeQrDataUrl} alt="QR" style={{
                     width: 80, height: 80,
                     borderRadius: theme.radiusSmall,
                     display: 'block',
+                    ...(theme.name === 'space' ? { boxShadow: '0 0 10px rgba(64,224,208,0.15)' } : {}),
                 }} />
                 <span style={{
                     fontFamily: theme.fontDisplay,
@@ -1173,6 +1324,10 @@ export default function KaraokePage() {
                     textAlign: 'center',
                     display: 'block',
                     width: '100%',
+                    ...(theme.name === 'space' ? {
+                        color: '#40E0D0',
+                        textShadow: '0 0 8px rgba(64,224,208,0.5)',
+                    } : {}),
                 }}>
                     Join
                 </span>
@@ -1213,11 +1368,23 @@ export default function KaraokePage() {
             </svg>
 
             {/* Song chip (top-left) */}
-            <div className="k-song-chip" style={{ background: theme.appBg, ...theme.stickerLabel, position: 'absolute', opacity: 1 }}>
-                {art && <img className="k-song-chip__art" src={art} alt="" />}
+            <div className="k-song-chip" style={{
+                background: theme.appBg, ...theme.stickerLabel, position: 'absolute', opacity: 1,
+                ...(theme.name === 'space' ? {
+                    background: 'rgba(8,8,15,0.85)',
+                    border: '1px solid rgba(64,224,208,0.2)',
+                    boxShadow: '0 0 12px rgba(64,224,208,0.08), 0 0 25px rgba(224,64,251,0.04)',
+                    borderRadius: 8,
+                    backdropFilter: 'blur(16px)',
+                    color: '#E8E6F0',
+                } : {}),
+            }}>
+                {art && <img className="k-song-chip__art" src={art} alt="" style={
+                    theme.name === 'space' ? { boxShadow: '0 0 15px rgba(224,64,251,0.2), 0 6px 20px rgba(0,0,0,0.5)', borderRadius: 8, border: '1px solid rgba(224,64,251,0.15)' } : {}
+                } />}
                 <div className="k-song-chip__text">
-                    <h3 style={{ fontFamily: theme.fontDisplay }}>{track.name}</h3>
-                    <p style={{ color: theme.muted }}>{track.artists.map((a: any) => a.name).join(', ')}</p>
+                    <h3 style={{ fontFamily: theme.fontDisplay, ...(theme.name === 'space' ? { color: '#E8E6F0', textShadow: '0 0 10px rgba(64,224,208,0.3)' } : {}) }}>{track.name}</h3>
+                    <p style={{ color: theme.muted, ...(theme.name === 'space' ? { color: '#9896A8' } : {}) }}>{track.artists.map((a: any) => a.name).join(', ')}</p>
                 </div>
             </div>
 
@@ -1225,6 +1392,14 @@ export default function KaraokePage() {
             {singers.length > 0 && (
                 <div className="k-singers" style={{ opacity: 1, flexDirection: 'column', alignItems: 'flex-end' }}>
                     {singers.map((s: any) => {
+                        const spaceSingerStyle = theme.name === 'space' ? {
+                            background: 'rgba(8,8,15,0.85)',
+                            border: '1px solid ' + (s.color ? s.color.replace(')', ',0.3)').replace('rgb(', 'rgba(') : 'rgba(64,224,208,0.2)'),
+                            boxShadow: '0 0 10px ' + (s.color ? s.color.replace(')', ',0.1)').replace('rgb(', 'rgba(') : 'rgba(64,224,208,0.08)'),
+                            borderRadius: 6,
+                            backdropFilter: 'blur(16px)',
+                            color: '#E8E6F0',
+                        } as React.CSSProperties : {}
                         if (s.micDeviceId) {
                             // Enable mic + effects when ready (Up Next) or playing — singer can warm up before song starts
                             const micActive = state.stageMode === 'playing' || state.stageMode === 'ready'
@@ -1234,15 +1409,15 @@ export default function KaraokePage() {
                                 singerEffects = singerEffects[index] || singerEffects[0]
                             }
                             return (
-                                <div key={s.id} className="k-singer-tag" style={{ background: theme.appBg, ...theme.stickerLabel, position: 'relative', padding: '4px 12px' }}>
+                                <div key={s.id} className="k-singer-tag" style={{ background: theme.appBg, ...theme.stickerLabel, position: 'relative', padding: '4px 12px', ...spaceSingerStyle }}>
                                     <MicMeter singer={s} active={micActive} effects={singerEffects} mainOutputId={state.mainOutputId} theme={theme} />
                                 </div>
                             )
                         } else {
                             return (
-                                <div key={s.id} className="k-singer-tag" style={{ background: theme.appBg, ...theme.stickerLabel, position: 'relative', padding: '4px 12px' }}>
+                                <div key={s.id} className="k-singer-tag" style={{ background: theme.appBg, ...theme.stickerLabel, position: 'relative', padding: '4px 12px', ...spaceSingerStyle }}>
                                     <span style={{ color: 'inherit', fontFamily: theme.fontDisplay }}>{s.name}</span>
-                                    <div className="k-singer-tag__dot" style={{ background: s.color }} />
+                                    <div className="k-singer-tag__dot" style={{ background: s.color, ...(theme.name === 'space' ? { boxShadow: '0 0 6px ' + s.color } : {}) }} />
                                 </div>
                             )
                         }
@@ -1461,6 +1636,21 @@ export default function KaraokePage() {
                                                 inlineStyle.color = singer.color
                                                 inlineStyle.textShadow = `0 0 8px ${singer.colorGlow}, 0 0 20px ${singer.colorGlow}, 0 0 45px ${singer.colorGlow}`
                                             }
+                                        } else if (theme.name === 'space') {
+                                            cls += ' k-line--space'
+                                            if (line.singerIndices && line.singerIndices.length > 1) {
+                                                const colors = line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
+                                                if (colors.length > 1) {
+                                                    inlineStyle.backgroundImage = `linear-gradient(90deg, ${colors.join(', ')})`
+                                                    inlineStyle.WebkitBackgroundClip = 'text'
+                                                    inlineStyle.WebkitTextFillColor = 'transparent'
+                                                    inlineStyle.filter = `drop-shadow(0 0 15px ${colors[0]}) drop-shadow(0 0 15px ${colors[colors.length - 1]})`
+                                                }
+                                            } else if (line.singerIndex !== undefined && singers[line.singerIndex]) {
+                                                const singer = singers[line.singerIndex]
+                                                inlineStyle.color = singer.color
+                                                inlineStyle.textShadow = `0 0 6px ${singer.colorGlow}, 0 0 18px ${singer.colorGlow}, 0 0 50px ${singer.colorGlow}, 0 0 80px ${singer.colorGlow}`
+                                            }
                                         } else {
                                             if (line.singerIndices && line.singerIndices.length > 1) {
                                                 const colors = line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
@@ -1618,6 +1808,18 @@ export default function KaraokePage() {
                                                 </svg>
                                             </>
                                         )
+                                    }
+
+                                    if (theme.name === 'space' && isActiveGroup) {
+                                        const words = displayWords.split(/(\s+)/)
+                                        const lineSeed = (line.originalIndex || 0) * 17 + j * 11
+                                        content = words.map((word: string, wi: number) => {
+                                            if (/^\s+$/.test(word)) return word
+                                            const hash = Math.sin(lineSeed + wi * 83 + 0.5) * 10000
+                                            const delay = (hash - Math.floor(hash)) * 2.5
+                                            const dur = 2 + (Math.sin(lineSeed + wi * 47) * 10000 % 1) * 1.5
+                                            return <span key={wi} className="space-flare-word" style={{ animationDelay: `${delay.toFixed(2)}s`, animationDuration: `${dur.toFixed(2)}s` }}>{word}</span>
+                                        })
                                     }
 
                                     return <div key={j} className={cls} style={inlineStyle}>{content}</div>

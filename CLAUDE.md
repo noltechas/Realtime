@@ -127,6 +127,10 @@ Themes are defined in `src/renderer/src/styles/` and registered in `src/renderer
 5. **Add lyric highlighting in `KaraokePage.tsx`** — Each theme has custom active-line styling in the lyric renderer (~line 1078). Add a branch for the new theme with unique visual effects (glow, animation class, etc.). The default `else` branch is generic and boring.
 6. **Add CSS animation in `karaoke.css`** — Define a keyframe animation and a `.k-line--{theme-name}` class for the stage lyric effect.
 7. **Update QR overlay in `KaraokePage.tsx`** — If the theme has a dark background, ensure it gets `'rgba(0,0,0,0.8)'` for the QR backdrop (light themes are whitelisted: `neo-brutal`, `sketch`).
+8. **Update companion website in `docs/index.html`** — ALWAYS add the new theme to the companion website. This requires three changes:
+   - Add any new Google Fonts to the `<link>` tag (line ~12).
+   - Add a new `else if(S.theme_name==="theme-name")` block in `applyTheme()` with CSS variables and component overrides matching the Electron theme.
+   - Add a new `<button class="theme-pick-btn">` in `renderConfig()` with inline preview styles matching the theme's aesthetic.
 
 ### Contrast checklist
 

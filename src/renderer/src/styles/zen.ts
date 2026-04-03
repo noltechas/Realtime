@@ -188,6 +188,8 @@ const GLOBAL_CSS = `
 }
 
 [data-theme="zen"] .topnav {
+  position: relative;
+  z-index: 10;
   box-shadow: 0 1px 0 rgba(201,168,76,0.15), 0 2px 12px rgba(201,168,76,0.04);
   animation: zenBreathe 8s ease-in-out infinite;
 }
@@ -222,7 +224,7 @@ const GLOBAL_CSS = `
 // ── Theme export ─────────────────────────────────────────────────────────────
 export const ZEN: Theme = {
   name: 'zen',
-  nextThemeName: 'neo-brutal',
+  nextThemeName: 'space',
   displayName: 'Zen',
   globalCss: GLOBAL_CSS,
 
