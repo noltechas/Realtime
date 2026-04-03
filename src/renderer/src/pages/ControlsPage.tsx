@@ -12,7 +12,7 @@ function formatTime(ms: number): string {
 
 // ---- Now Playing Controls ----
 function NowPlaying() {
-    const { state, dispatch } = useApp()
+    const { state } = useApp()
     const theme = useTheme()
     const audio = useAudioSyncContext()
     const [hoveredBtn, setHoveredBtn] = useState<string | null>(null)
@@ -263,113 +263,6 @@ function NowPlaying() {
                     </svg>
                 </button>
             </div>
-
-            {/* Vocal Effects & Autotune Toggles */}
-            {track && state.voiceEffects && (() => {
-                const fx = Array.isArray(state.voiceEffects) ? state.voiceEffects[0] : state.voiceEffects
-                if (!fx) return null
-
-                const effectsOn = fx.compressor.enabled || fx.eq.enabled || fx.reverb.enabled ||
-                    fx.chorus.enabled || fx.delay.enabled || fx.distortion.enabled || fx.noiseGate.enabled
-                const autotuneOn = fx.pitchCorrection.enabled
-
-                const toggleAllEffects = () => {
-                    const newEnabled = !effectsOn
-                    const update = (e: VoiceEffects): VoiceEffects => ({
-                        ...e,
-                        compressor: { ...e.compressor, enabled: newEnabled },
-                        eq: { ...e.eq, enabled: newEnabled },
-                        reverb: { ...e.reverb, enabled: newEnabled },
-                        chorus: { ...e.chorus, enabled: newEnabled },
-                        delay: { ...e.delay, enabled: newEnabled },
-                        distortion: { ...e.distortion, enabled: newEnabled },
-                        noiseGate: { ...e.noiseGate, enabled: newEnabled },
-                    })
-                    const current = state.voiceEffects!
-                    dispatch({
-                        type: 'SET_VOICE_EFFECTS',
-                        payload: Array.isArray(current) ? current.map(update) : update(current),
-                    })
-                }
-
-                const toggleAutotune = () => {
-                    const newEnabled = !autotuneOn
-                    const update = (e: VoiceEffects): VoiceEffects => ({
-                        ...e,
-                        pitchCorrection: { ...e.pitchCorrection, enabled: newEnabled },
-                    })
-                    const current = state.voiceEffects!
-                    dispatch({
-                        type: 'SET_VOICE_EFFECTS',
-                        payload: Array.isArray(current) ? current.map(update) : update(current),
-                    })
-                }
-
-                const checkboxStyle = (checked: boolean): React.CSSProperties => ({
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 12,
-                    padding: '12px 16px',
-                    borderRadius: 12,
-                    border: theme.border,
-                    background: checked ? `${theme.accentA}22` : 'transparent',
-                    cursor: 'pointer',
-                    transition: 'background 0.15s, box-shadow 0.15s',
-                    flex: 1,
-                })
-
-                const boxStyle = (checked: boolean): React.CSSProperties => ({
-                    width: 28,
-                    height: 28,
-                    borderRadius: 6,
-                    border: `2.5px solid ${checked ? theme.accentA : theme.muted}`,
-                    background: checked ? theme.accentA : 'transparent',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                    transition: 'background 0.15s, border-color 0.15s',
-                })
-
-                return (
-                    <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-                        <div style={checkboxStyle(effectsOn)} onClick={toggleAllEffects}>
-                            <div style={boxStyle(effectsOn)}>
-                                {effectsOn && (
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                        <polyline points="20 6 9 17 4 12" />
-                                    </svg>
-                                )}
-                            </div>
-                            <span style={{
-                                fontSize: 14,
-                                fontWeight: 700,
-                                fontFamily: theme.fontDisplay,
-                                color: effectsOn ? theme.black : theme.muted,
-                            }}>
-                                Vocal FX
-                            </span>
-                        </div>
-                        <div style={checkboxStyle(autotuneOn)} onClick={toggleAutotune}>
-                            <div style={boxStyle(autotuneOn)}>
-                                {autotuneOn && (
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                        <polyline points="20 6 9 17 4 12" />
-                                    </svg>
-                                )}
-                            </div>
-                            <span style={{
-                                fontSize: 14,
-                                fontWeight: 700,
-                                fontFamily: theme.fontDisplay,
-                                color: autotuneOn ? theme.black : theme.muted,
-                            }}>
-                                Autotune
-                            </span>
-                        </div>
-                    </div>
-                )
-            })()}
 
             {/* Loading indicator */}
             {!audio.loaded && np?.stemsPath?.instrumental && (

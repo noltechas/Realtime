@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { createClient, RealtimeChannel } from '@supabase/supabase-js'
 import { useApp, QueueItem, NEON_COLORS } from '../context/AppContext'
-import { DEFAULT_VOICE_EFFECTS } from '../audio/VoiceEffectsTypes'
+import { DEFAULT_VOICE_EFFECTS, VoiceEffects } from '../audio/VoiceEffectsTypes'
 
 const SUPABASE_URL = 'https://hnnbxwitjkeijvoldfuv.supabase.co'
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhubmJ4d2l0amtlaWp2b2xkZnV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MjcwMTQsImV4cCI6MjA5MDUwMzAxNH0.ENzZ2VLxszHr9StjFds06In7CyGkiyPvu6Jh1LUMMvA'
@@ -286,6 +286,39 @@ export function useKaraokeSession() {
                             type: 'SET_REMOTE_PLAY_COMMAND',
                             payload: d.is_playing ? 'play' : 'pause'
                         })
+                    }
+                    // Handle remote vocal FX / autotune toggles
+                    if (d.vocal_fx_enabled !== undefined || d.autotune_enabled !== undefined) {
+                        const current = state.voiceEffects
+                        if (current) {
+                            const updateFx = (e: VoiceEffects): VoiceEffects => {
+                                let updated = e
+                                if (d.vocal_fx_enabled !== undefined) {
+                                    const on = d.vocal_fx_enabled !== false
+                                    updated = {
+                                        ...updated,
+                                        compressor: { ...updated.compressor, enabled: on },
+                                        eq: { ...updated.eq, enabled: on },
+                                        reverb: { ...updated.reverb, enabled: on },
+                                        chorus: { ...updated.chorus, enabled: on },
+                                        delay: { ...updated.delay, enabled: on },
+                                        distortion: { ...updated.distortion, enabled: on },
+                                        noiseGate: { ...updated.noiseGate, enabled: on },
+                                    }
+                                }
+                                if (d.autotune_enabled !== undefined) {
+                                    updated = {
+                                        ...updated,
+                                        pitchCorrection: { ...updated.pitchCorrection, enabled: d.autotune_enabled !== false },
+                                    }
+                                }
+                                return updated
+                            }
+                            dispatch({
+                                type: 'SET_VOICE_EFFECTS',
+                                payload: Array.isArray(current) ? current.map(updateFx) : updateFx(current),
+                            })
+                        }
                     }
                 }
             )

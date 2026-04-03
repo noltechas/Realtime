@@ -661,7 +661,7 @@ var NC=[
 {c:"#d946ef",g:"rgba(217,70,239,0.3)"},
 {c:"#e11d48",g:"rgba(225,29,72,0.3)"}
 ];
-var S={screen:"loading",sessionCode:null,sessionId:null,sessionName:null,guestId:null,guestName:"",profilePicture:null,guests:[],catalog:[],searchQuery:"",selectedTrack:null,singerCount:1,singers:[{name:"",color:NC[0].c,colorGlow:NC[0].g,roleIndices:[],profilePicture:null,whitePersonCheck:false}],queue:[],nowPlaying:null,errorMessage:"",theme_name:"neo-brutal",stage_theme:null,customEmoji:null,emojiPickerOpen:false,textInputOpen:false,memePickerOpen:false,isPlaying:false,nowPlayingSingerConfigs:null,matchedSinger:null,nowPlayingStageTheme:null,joining:false,addingToQueue:false};
+var S={screen:"loading",sessionCode:null,sessionId:null,sessionName:null,guestId:null,guestName:"",profilePicture:null,guests:[],catalog:[],searchQuery:"",selectedTrack:null,singerCount:1,singers:[{name:"",color:NC[0].c,colorGlow:NC[0].g,roleIndices:[],profilePicture:null,whitePersonCheck:false}],queue:[],nowPlaying:null,errorMessage:"",theme_name:"neo-brutal",stage_theme:null,customEmoji:null,emojiPickerOpen:false,textInputOpen:false,memePickerOpen:false,isPlaying:false,nowPlayingSingerConfigs:null,matchedSinger:null,nowPlayingStageTheme:null,joining:false,addingToQueue:false,vocalFxEnabled:true,autotuneEnabled:true};
 var qCh=null,sCh=null,gCh=null,rCh=null;
 var MEMES=[
   {emoji:"\uD83E\uDD2F",label:"Mind Blown"},
@@ -714,13 +714,15 @@ function init(){
   validateSession();
 }
 async function validateSession(){
-  var r=await sb.from("karaoke_sessions").select("id,is_active,name,now_playing_track_id,now_playing_name,now_playing_artist,now_playing_art_url,theme_name,is_playing,now_playing_singer_configs,now_playing_stage_theme").eq("code",S.sessionCode).single();
+  var r=await sb.from("karaoke_sessions").select("id,is_active,name,now_playing_track_id,now_playing_name,now_playing_artist,now_playing_art_url,theme_name,is_playing,now_playing_singer_configs,now_playing_stage_theme,vocal_fx_enabled,autotune_enabled").eq("code",S.sessionCode).single();
   if(r.error||!r.data||!r.data.is_active){S.screen="error";S.errorMessage="This session has ended or does not exist.";render();return;}
   S.sessionId=r.data.id;
   S.sessionName=r.data.name||null;
   S.theme_name=r.data.theme_name;
   applyTheme();
   S.isPlaying=!!r.data.is_playing;
+  S.vocalFxEnabled=r.data.vocal_fx_enabled!==false;
+  S.autotuneEnabled=r.data.autotune_enabled!==false;
   S.nowPlayingSingerConfigs=r.data.now_playing_singer_configs||null;
   S.nowPlayingStageTheme=r.data.now_playing_stage_theme||null;
   if(r.data.now_playing_name){S.nowPlaying={name:r.data.now_playing_name,artist:r.data.now_playing_artist,artUrl:r.data.now_playing_art_url};}
@@ -788,6 +790,8 @@ function subRT(){
     var d=pl.new;if(!d.is_active){S.screen="error";S.errorMessage="This session has ended.";render();return;}
     if(d.now_playing_name){S.nowPlaying={name:d.now_playing_name,artist:d.now_playing_artist,artUrl:d.now_playing_art_url};}else{S.nowPlaying=null;}
     S.isPlaying=!!d.is_playing;
+    if(d.vocal_fx_enabled!==undefined)S.vocalFxEnabled=d.vocal_fx_enabled!==false;
+    if(d.autotune_enabled!==undefined)S.autotuneEnabled=d.autotune_enabled!==false;
     S.nowPlayingSingerConfigs=d.now_playing_singer_configs||null;
     var prevStageTheme=S.nowPlayingStageTheme;
     S.nowPlayingStageTheme=d.now_playing_stage_theme||null;
@@ -1241,8 +1245,8 @@ function renderConfig(){
     if(s.roleIndices&&s.roleIndices.length>0){
       wpc='<label class="wpc-label" data-singer="'+i+'" style="display:flex;align-items:center;gap:10px;margin-top:14px;padding:10px 12px;border-radius:8px;background:var(--surface-1,rgba(128,128,128,0.08));cursor:pointer">'+
         '<input type="checkbox" class="wpc-check" data-singer="'+i+'"'+(s.whitePersonCheck?" checked":"")+' style="width:18px;height:18px;cursor:pointer;accent-color:'+s.color+'">'+
-        '<div><div style="font-size:12px;font-weight:700;color:var(--black)">White Singer</div>'+
-        '<div style="font-size:10px;opacity:0.5;color:var(--black)">Sanitizes certain words from lyrics on stage</div></div>'+
+        '<div><div style="font-size:12px;font-weight:700;color:var(--white)">White Singer</div>'+
+        '<div style="font-size:10px;opacity:0.7;color:var(--white-muted)">Sanitizes certain words from lyrics on stage</div></div>'+
       '</label>';
     }
     sh+='<div class="singer-card" style="border:1px solid '+s.color+'">'+
@@ -1366,6 +1370,28 @@ function renderYoureUp(){
   var btnBg=S.isPlaying?
     'background:rgba(255,255,255,0.15);box-shadow:0 0 40px '+singerGlow+',0 0 80px '+singerGlow:
     'background:linear-gradient(135deg, '+singerColor+', '+singerColor+'cc);box-shadow:0 8px 40px '+singerGlow+',0 0 80px '+singerGlow;
+  var vfxOn=S.vocalFxEnabled!==false;
+  var atOn=S.autotuneEnabled!==false;
+  var checkSvg='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+  var toggles='<div style="display:flex;gap:12px;margin-top:24px;width:100%;max-width:320px">'+
+    '<button id="youreup-vfx-btn" style="flex:1;display:flex;align-items:center;gap:10px;padding:14px 16px;border-radius:12px;border:2px solid '+(vfxOn?singerColor:'var(--white-faint)')+';background:'+(vfxOn?singerColor+'22':'transparent')+';cursor:pointer">'+
+      '<div style="width:30px;height:30px;border-radius:6px;border:2.5px solid '+(vfxOn?singerColor:'var(--white-faint)')+';background:'+(vfxOn?singerColor:'transparent')+';display:flex;align-items:center;justify-content:center;flex-shrink:0">'+(vfxOn?checkSvg:'')+'</div>'+
+      '<span style="font-size:14px;font-weight:700;font-family:var(--font-display);color:'+(vfxOn?'var(--white)':'var(--white-faint)')+'">Vocal FX</span>'+
+    '</button>'+
+    '<button id="youreup-at-btn" style="flex:1;display:flex;align-items:center;gap:10px;padding:14px 16px;border-radius:12px;border:2px solid '+(atOn?singerColor:'var(--white-faint)')+';background:'+(atOn?singerColor+'22':'transparent')+';cursor:pointer">'+
+      '<div style="width:30px;height:30px;border-radius:6px;border:2.5px solid '+(atOn?singerColor:'var(--white-faint)')+';background:'+(atOn?singerColor:'transparent')+';display:flex;align-items:center;justify-content:center;flex-shrink:0">'+(atOn?checkSvg:'')+'</div>'+
+      '<span style="font-size:14px;font-weight:700;font-family:var(--font-display);color:'+(atOn?'var(--white)':'var(--white-faint)')+'">Autotune</span>'+
+    '</button>'+
+  '</div>';
+  if(S.isPlaying){
+    return '<div class="youreup-screen screen">'+
+      '<div class="youreup-song" style="margin-top:0">'+esc(np.name)+'</div>'+
+      '<div class="youreup-artist">'+esc(np.artist||"")+'</div>'+
+      '<button class="youreup-play-btn" id="youreup-play-btn" style="'+btnBg+'">'+playIcon+'</button>'+
+      (ms?'<div class="youreup-singer-label" style="color:'+singerColor+'">Singing as '+esc(ms.name)+'</div>':'')+
+      toggles+
+    '</div>';
+  }
   return '<div class="youreup-screen screen">'+
     '<div class="youreup-title">You\'re Up!</div>'+
     '<div class="youreup-sub">Get ready to sing</div>'+
@@ -1374,6 +1400,7 @@ function renderYoureUp(){
     '<div class="youreup-artist">'+esc(np.artist||"")+'</div>'+
     '<button class="youreup-play-btn" id="youreup-play-btn" style="'+btnBg+'">'+playIcon+'</button>'+
     (ms?'<div class="youreup-singer-label" style="color:'+singerColor+'">Singing as '+esc(ms.name)+'</div>':'')+
+    toggles+
   '</div>';
 }
 function renderError(){
@@ -1408,7 +1435,34 @@ function bindEvents(){
   var np2=document.getElementById("nav-profile");
   if(np2){np2.addEventListener("click",function(){S.screen="profile";render();});}
   var si=document.getElementById("search-input");
-  if(si){si.addEventListener("input",function(){S.searchQuery=si.value;render();});}
+  if(si){si.addEventListener("input",function(){
+    S.searchQuery=si.value;
+    var q=S.searchQuery.toLowerCase();
+    var fl=q?S.catalog.filter(function(s){return s.name.toLowerCase().indexOf(q)>=0||s.artist.toLowerCase().indexOf(q)>=0;}):S.catalog;
+    var cards="";
+    if(fl.length===0&&q){cards='<div class="song-empty">No songs found</div>';}
+    else if(fl.length===0){cards='<div class="song-empty">No songs in the catalog yet</div>';}
+    else{cards=fl.map(function(s){
+      return '<div class="song-card" data-track="'+s.track_id+'">'+
+        (s.art_url?'<img src="'+s.art_url+'" alt="" loading="lazy">':'<div class="song-card-placeholder">&#127925;</div>')+
+        '<div class="song-card-info">'+
+          '<div class="song-card-title">'+esc(s.name)+'</div>'+
+          '<div class="song-card-artist">'+esc(s.artist)+'</div>'+
+          '<div class="song-card-dur">'+fmtD(s.duration_ms)+'</div>'+
+        '</div></div>';
+    }).join("");}
+    var grid=document.getElementById("song-grid");
+    if(grid){
+      grid.innerHTML=cards;
+      grid.querySelectorAll(".song-card").forEach(function(card){
+        card.addEventListener("click",function(){
+          var tid=card.dataset.track;
+          S.selectedTrack=S.catalog.find(function(s2){return s2.track_id===tid;});
+          if(S.selectedTrack){S.singerCount=1;S.singers=[{name:S.guestName,color:NC[0].c,colorGlow:NC[0].g,roleIndices:[],profilePicture:S.profilePicture,whitePersonCheck:false}];S.screen="config";render();}
+        });
+      });
+    }
+  });}
   document.querySelectorAll(".song-card").forEach(function(card){
     card.addEventListener("click",function(){
       var tid=card.dataset.track;
@@ -1535,6 +1589,26 @@ function bindEvents(){
         .then(function(res){
           if(res.error)console.error("Failed to toggle play:",res.error);
         });
+    });
+  }
+  var vfxBtn=document.getElementById("youreup-vfx-btn");
+  if(vfxBtn){
+    vfxBtn.addEventListener("click",function(){
+      S.vocalFxEnabled=!S.vocalFxEnabled;
+      sb.from("karaoke_sessions").update({vocal_fx_enabled:S.vocalFxEnabled,updated_at:new Date().toISOString()}).eq("id",S.sessionId).then(function(res){
+        if(res.error)console.error("Failed to toggle vocal fx:",res.error);
+      });
+      render();
+    });
+  }
+  var atBtn=document.getElementById("youreup-at-btn");
+  if(atBtn){
+    atBtn.addEventListener("click",function(){
+      S.autotuneEnabled=!S.autotuneEnabled;
+      sb.from("karaoke_sessions").update({autotune_enabled:S.autotuneEnabled,updated_at:new Date().toISOString()}).eq("id",S.sessionId).then(function(res){
+        if(res.error)console.error("Failed to toggle autotune:",res.error);
+      });
+      render();
     });
   }
   document.querySelectorAll(".nav-tab").forEach(function(tab){
