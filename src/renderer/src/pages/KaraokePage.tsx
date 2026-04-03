@@ -897,6 +897,187 @@ export default function KaraokePage() {
             )
         }
 
+        // ---- Zen (Japanese Garden) idle ----
+        if (theme.name === 'zen') {
+            return (
+                <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
+                    background: 'linear-gradient(180deg, #0e0c09 0%, #1a1814 30%, #1f1b15 60%, #15120e 100%)',
+                    position: 'relative', overflow: 'hidden',
+                }}>
+                    {/* Ink wash background overlay */}
+                    <div style={{
+                        position: 'absolute', inset: '-20%', opacity: 0.05,
+                        background: 'radial-gradient(ellipse 60% 50% at 25% 30%, rgba(201,168,76,0.5) 0%, transparent 70%), radial-gradient(ellipse 50% 60% at 70% 60%, rgba(139,107,74,0.4) 0%, transparent 70%)',
+                        filter: 'blur(40px)', animation: 'zenInkDrift 30s ease-in-out infinite',
+                    }} />
+
+                    {/* Mountain silhouettes — back layer */}
+                    <svg style={{ position: 'absolute', bottom: '18%', left: 0, width: '100%', height: '45%', opacity: 0.08 }} viewBox="0 0 1200 400" preserveAspectRatio="none">
+                        <path d="M0 400 L0 280 Q150 120 300 220 Q450 100 600 180 Q750 60 900 200 Q1050 130 1200 250 L1200 400 Z" fill="#B8A898" />
+                    </svg>
+                    {/* Mountain silhouettes — mid layer */}
+                    <svg style={{ position: 'absolute', bottom: '15%', left: 0, width: '100%', height: '40%', opacity: 0.05 }} viewBox="0 0 1200 400" preserveAspectRatio="none">
+                        <path d="M0 400 L0 320 Q200 180 400 280 Q550 150 700 240 Q850 170 1000 260 Q1100 200 1200 300 L1200 400 Z" fill="#8B7B6B" />
+                    </svg>
+
+                    {/* Drifting mist — layer 1 (slow) */}
+                    <div style={{
+                        position: 'absolute', top: '35%', left: '-100%', width: '300%', height: 80,
+                        background: 'linear-gradient(90deg, transparent 0%, rgba(240,230,211,0.03) 20%, rgba(240,230,211,0.05) 50%, rgba(240,230,211,0.03) 80%, transparent 100%)',
+                        animation: 'zenMistDrift 35s linear infinite', filter: 'blur(8px)',
+                    }} />
+                    {/* Drifting mist — layer 2 (faster) */}
+                    <div style={{
+                        position: 'absolute', top: '50%', left: '-100%', width: '300%', height: 60,
+                        background: 'linear-gradient(90deg, transparent 0%, rgba(240,230,211,0.02) 30%, rgba(240,230,211,0.04) 50%, rgba(240,230,211,0.02) 70%, transparent 100%)',
+                        animation: 'zenMistDrift 25s linear infinite reverse', filter: 'blur(12px)',
+                    }} />
+                    {/* Drifting mist — layer 3 (subtle) */}
+                    <div style={{
+                        position: 'absolute', top: '65%', left: '-100%', width: '300%', height: 50,
+                        background: 'linear-gradient(90deg, transparent 0%, rgba(201,168,76,0.02) 25%, rgba(201,168,76,0.03) 50%, rgba(201,168,76,0.02) 75%, transparent 100%)',
+                        animation: 'zenMistDrift 45s linear infinite', filter: 'blur(15px)',
+                    }} />
+
+                    {/* Bamboo stalks — left */}
+                    <svg style={{ position: 'absolute', left: 40, top: 0, height: '100%', width: 60, opacity: 0.12 }} viewBox="0 0 60 800">
+                        {/* Main stalk */}
+                        <line x1="20" y1="0" x2="20" y2="800" stroke="#7BA05B" strokeWidth="3" />
+                        <line x1="20" y1="150" x2="20" y2="155" stroke="#5A7A3E" strokeWidth="5" />
+                        <line x1="20" y1="350" x2="20" y2="355" stroke="#5A7A3E" strokeWidth="5" />
+                        <line x1="20" y1="550" x2="20" y2="555" stroke="#5A7A3E" strokeWidth="5" />
+                        {/* Leaves */}
+                        <ellipse cx="35" cy="140" rx="18" ry="4" fill="#7BA05B" opacity="0.7" style={{ transformOrigin: '20px 140px', animation: 'zenBambooSway 6s ease-in-out infinite' }} />
+                        <ellipse cx="5" cy="340" rx="16" ry="3.5" fill="#7BA05B" opacity="0.6" style={{ transformOrigin: '20px 340px', animation: 'zenBambooSway 7s ease-in-out infinite reverse' }} />
+                        <ellipse cx="38" cy="540" rx="15" ry="3" fill="#7BA05B" opacity="0.5" style={{ transformOrigin: '20px 540px', animation: 'zenBambooSway 8s ease-in-out infinite' }} />
+                        {/* Second stalk */}
+                        <line x1="45" y1="100" x2="45" y2="800" stroke="#7BA05B" strokeWidth="2" opacity="0.6" />
+                        <ellipse cx="55" cy="280" rx="12" ry="3" fill="#7BA05B" opacity="0.4" style={{ transformOrigin: '45px 280px', animation: 'zenBambooSway 9s ease-in-out infinite' }} />
+                    </svg>
+
+                    {/* Bamboo stalks — right */}
+                    <svg style={{ position: 'absolute', right: 40, top: 0, height: '100%', width: 60, opacity: 0.12 }} viewBox="0 0 60 800">
+                        <line x1="40" y1="50" x2="40" y2="800" stroke="#7BA05B" strokeWidth="3" />
+                        <line x1="40" y1="200" x2="40" y2="205" stroke="#5A7A3E" strokeWidth="5" />
+                        <line x1="40" y1="450" x2="40" y2="455" stroke="#5A7A3E" strokeWidth="5" />
+                        <line x1="40" y1="650" x2="40" y2="655" stroke="#5A7A3E" strokeWidth="5" />
+                        <ellipse cx="25" cy="190" rx="17" ry="3.5" fill="#7BA05B" opacity="0.7" style={{ transformOrigin: '40px 190px', animation: 'zenBambooSway 7s ease-in-out infinite' }} />
+                        <ellipse cx="52" cy="440" rx="14" ry="3" fill="#7BA05B" opacity="0.5" style={{ transformOrigin: '40px 440px', animation: 'zenBambooSway 8s ease-in-out infinite reverse' }} />
+                        <line x1="15" y1="0" x2="15" y2="800" stroke="#7BA05B" strokeWidth="2" opacity="0.5" />
+                        <ellipse cx="5" cy="350" rx="12" ry="2.5" fill="#7BA05B" opacity="0.35" style={{ transformOrigin: '15px 350px', animation: 'zenBambooSway 10s ease-in-out infinite' }} />
+                    </svg>
+
+                    {/* Torii Gate — SVG */}
+                    <svg style={{ position: 'absolute', bottom: '22%', left: '50%', transform: 'translateX(-50%)', width: 320, height: 260, opacity: 0.25 }} viewBox="0 0 320 260">
+                        {/* Top beam (kasagi) — curved */}
+                        <path d="M20 30 Q160 5 300 30" stroke="#D4442A" strokeWidth="10" fill="none" strokeLinecap="round" />
+                        {/* Second beam (nuki) */}
+                        <line x1="45" y1="55" x2="275" y2="55" stroke="#D4442A" strokeWidth="6" />
+                        {/* Left pillar */}
+                        <line x1="60" y1="30" x2="60" y2="260" stroke="#D4442A" strokeWidth="8" />
+                        {/* Right pillar */}
+                        <line x1="260" y1="30" x2="260" y2="260" stroke="#D4442A" strokeWidth="8" />
+                        {/* Pillar caps */}
+                        <circle cx="60" cy="25" r="6" fill="#D4442A" />
+                        <circle cx="260" cy="25" r="6" fill="#D4442A" />
+                    </svg>
+
+                    {/* Reflection pool — mirrored torii below */}
+                    <div style={{
+                        position: 'absolute', bottom: 0, left: 0, width: '100%', height: '18%',
+                        background: 'linear-gradient(180deg, transparent 0%, rgba(201,168,76,0.02) 100%)',
+                        overflow: 'hidden',
+                    }}>
+                        <svg style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%) scaleY(-1)', width: 320, height: 260, opacity: 0.06, filter: 'blur(4px)' }} viewBox="0 0 320 260">
+                            <path d="M20 30 Q160 5 300 30" stroke="#D4442A" strokeWidth="10" fill="none" strokeLinecap="round" />
+                            <line x1="45" y1="55" x2="275" y2="55" stroke="#D4442A" strokeWidth="6" />
+                            <line x1="60" y1="30" x2="60" y2="260" stroke="#D4442A" strokeWidth="8" />
+                            <line x1="260" y1="30" x2="260" y2="260" stroke="#D4442A" strokeWidth="8" />
+                        </svg>
+                    </div>
+
+                    {/* Enso circle — brush stroke drawing itself */}
+                    <svg style={{ position: 'absolute', top: '8%', right: '12%', width: 120, height: 120, opacity: 0.1 }} viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="38" fill="none" stroke="#C9A84C" strokeWidth="4" strokeLinecap="round"
+                            strokeDasharray="240" strokeDashoffset="240"
+                            style={{ animation: 'zenEnsoDraw 6s ease-in-out infinite alternate' }}
+                        />
+                        {/* Brush drip at end of stroke */}
+                        <circle cx="88" cy="50" r="2" fill="#C9A84C" opacity="0.5" />
+                    </svg>
+
+                    {/* Cherry blossom petals — scattered SVGs */}
+                    {[
+                        { x: '15%', y: '12%', size: 14, delay: 0, dur: 18, opacity: 0.15 },
+                        { x: '75%', y: '20%', size: 10, delay: 4, dur: 22, opacity: 0.12 },
+                        { x: '30%', y: '8%', size: 12, delay: 8, dur: 20, opacity: 0.1 },
+                        { x: '60%', y: '15%', size: 8, delay: 12, dur: 24, opacity: 0.13 },
+                        { x: '85%', y: '5%', size: 11, delay: 2, dur: 19, opacity: 0.11 },
+                        { x: '45%', y: '25%', size: 9, delay: 6, dur: 21, opacity: 0.14 },
+                    ].map((p, i) => (
+                        <svg key={`petal-${i}`} style={{
+                            position: 'absolute', left: p.x, top: p.y, width: p.size, height: p.size, opacity: p.opacity,
+                            animation: `zenPetalFall ${p.dur}s linear ${p.delay}s infinite`,
+                        }} viewBox="0 0 10 10">
+                            <ellipse cx="5" cy="5" rx="4" ry="2.5" fill="#E8A0BF" transform="rotate(30 5 5)" />
+                        </svg>
+                    ))}
+
+                    {/* Incense smoke wisps */}
+                    <div style={{
+                        position: 'absolute', bottom: '25%', left: '48%', width: 2, height: 200,
+                        background: 'linear-gradient(180deg, transparent 0%, rgba(240,230,211,0.06) 30%, rgba(240,230,211,0.03) 70%, transparent 100%)',
+                        animation: 'zenSmoke 12s ease-in-out infinite', filter: 'blur(3px)',
+                    }} />
+                    <div style={{
+                        position: 'absolute', bottom: '25%', left: '52%', width: 1.5, height: 150,
+                        background: 'linear-gradient(180deg, transparent 0%, rgba(201,168,76,0.04) 40%, rgba(201,168,76,0.02) 70%, transparent 100%)',
+                        animation: 'zenSmoke 15s ease-in-out 3s infinite', filter: 'blur(4px)',
+                    }} />
+
+                    {/* Content */}
+                    <div style={{ textAlign: 'center', zIndex: 2 }}>
+                        <h1 style={{
+                            fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 72, color: '#F0E6D3',
+                            fontWeight: 500, fontStyle: 'italic', lineHeight: 1.1, marginBottom: 8,
+                            textShadow: '0 0 30px rgba(201,168,76,0.25), 0 0 60px rgba(201,168,76,0.1)',
+                            letterSpacing: '0.05em',
+                        }}>
+                            Find Your Song
+                        </h1>
+                        <p style={{
+                            fontFamily: "'Zen Kaku Gothic New', sans-serif", fontSize: 16, color: '#B8A898',
+                            letterSpacing: '0.35em', textTransform: 'uppercase', marginBottom: 48,
+                        }}>
+                            Scan to begin
+                        </p>
+                        {qrUrl && (
+                            <div style={{
+                                display: 'inline-block', padding: 14,
+                                border: '1px solid rgba(201,168,76,0.3)',
+                                borderImage: 'linear-gradient(135deg, transparent 0%, rgba(201,168,76,0.5) 15%, transparent 25%, transparent 50%, rgba(201,168,76,0.4) 60%, transparent 70%, transparent 85%, rgba(201,168,76,0.5) 95%, transparent 100%) 1',
+                                background: 'rgba(26,24,20,0.7)',
+                                backdropFilter: 'blur(12px)',
+                                borderRadius: 8,
+                            }}>
+                                <img src={qrUrl} alt="QR" style={{ width: 210, height: 210, display: 'block', borderRadius: 4 }} />
+                            </div>
+                        )}
+                        {sessionCode && (
+                            <p style={{
+                                fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 28, fontWeight: 600,
+                                color: '#C9A84C', letterSpacing: '0.3em', textTransform: 'uppercase', marginTop: 20,
+                                textShadow: '0 0 15px rgba(201,168,76,0.3)',
+                            }}>
+                                {sessionCode}
+                            </p>
+                        )}
+                    </div>
+                </div>
+            )
+        }
+
         // ---- Urban (Hip Hop) idle ----
         return (
             <div style={{
@@ -1265,6 +1446,21 @@ export default function KaraokePage() {
                                                 inlineStyle.color = singer.color
                                                 inlineStyle.textShadow = `0 0 10px ${singer.colorGlow}, 0 0 30px ${singer.colorGlow}, 0 0 60px ${singer.colorGlow}`
                                             }
+                                        } else if (theme.name === 'zen') {
+                                            cls += ' k-line--zen'
+                                            if (line.singerIndices && line.singerIndices.length > 1) {
+                                                const colors = line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
+                                                if (colors.length > 1) {
+                                                    inlineStyle.backgroundImage = `linear-gradient(90deg, ${colors.join(', ')})`
+                                                    inlineStyle.WebkitBackgroundClip = 'text'
+                                                    inlineStyle.WebkitTextFillColor = 'transparent'
+                                                    inlineStyle.filter = `drop-shadow(0 0 12px ${colors[0]}) drop-shadow(0 0 12px ${colors[colors.length - 1]})`
+                                                }
+                                            } else if (line.singerIndex !== undefined && singers[line.singerIndex]) {
+                                                const singer = singers[line.singerIndex]
+                                                inlineStyle.color = singer.color
+                                                inlineStyle.textShadow = `0 0 8px ${singer.colorGlow}, 0 0 20px ${singer.colorGlow}, 0 0 45px ${singer.colorGlow}`
+                                            }
                                         } else {
                                             if (line.singerIndices && line.singerIndices.length > 1) {
                                                 const colors = line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
@@ -1371,6 +1567,57 @@ export default function KaraokePage() {
                                             const dur = 2.5 + (Math.sin(lineSeed + wi * 53) * 10000 % 1) * 1.5
                                             return <span key={wi} className="psy-word" style={{ animationDelay: `${delay.toFixed(2)}s`, animationDuration: `${dur.toFixed(2)}s` }}>{word}</span>
                                         })
+                                    }
+
+                                    if (theme.name === 'zen' && isActiveGroup) {
+                                        const seed = (line.originalIndex || 0) * 11 + (j * 7) + 1
+                                        const r = (offset: number) => {
+                                            const x = Math.sin(seed + offset) * 10000;
+                                            return x - Math.floor(x);
+                                        }
+                                        // Brush-stroke path — more fluid/calligraphic than sketch's squiggle
+                                        const y1 = 4 + r(2) * 3
+                                        const y2 = 3 + r(3) * 2
+                                        const y3 = 5 + r(4) * 2
+                                        const path = `M2,${y1} C${20 + r(5) * 15},${y2} ${60 + r(6) * 20},${y3} 98,${4 + r(7) * 3}`
+                                        const strokeW = 1.5 + r(8) * 1.5
+                                        const multiColors = line.singerIndices && line.singerIndices.length > 1
+                                            ? line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
+                                            : []
+                                        const brushColor = line.singerIndex !== undefined && singers[line.singerIndex] ? singers[line.singerIndex].color : '#C9A84C'
+                                        const gradientId = multiColors.length > 1 ? `zen-grad-${line.originalIndex}-${j}` : null
+
+                                        content = (
+                                            <>
+                                                <span style={{ position: 'relative', zIndex: 1 }}>{displayWords}</span>
+                                                <svg
+                                                    style={{ position: 'absolute', bottom: 4, left: '5%', width: '90%', height: '10px', pointerEvents: 'none', zIndex: 0, overflow: 'visible' }}
+                                                    viewBox="0 0 100 10"
+                                                    preserveAspectRatio="none"
+                                                >
+                                                    {gradientId && (
+                                                        <defs>
+                                                            <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+                                                                {multiColors.map((c: string, ci: number) => (
+                                                                    <stop key={ci} offset={`${(ci / (multiColors.length - 1)) * 100}%`} stopColor={c} />
+                                                                ))}
+                                                            </linearGradient>
+                                                        </defs>
+                                                    )}
+                                                    <path
+                                                        d={path}
+                                                        stroke={gradientId ? `url(#${gradientId})` : brushColor}
+                                                        strokeWidth={strokeW}
+                                                        fill="none"
+                                                        strokeLinecap="round"
+                                                        strokeDasharray="100"
+                                                        strokeDashoffset="100"
+                                                        className="zen-brush-stroke"
+                                                        opacity="0.6"
+                                                    />
+                                                </svg>
+                                            </>
+                                        )
                                     }
 
                                     return <div key={j} className={cls} style={inlineStyle}>{content}</div>

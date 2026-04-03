@@ -166,7 +166,7 @@ const GLOBAL_CSS = `
 // ── Theme export ─────────────────────────────────────────────────────────────
 export const PSYCHEDELIC: Theme = {
   name: 'psychedelic',
-  nextThemeName: 'neo-brutal',
+  nextThemeName: 'zen',
   displayName: 'Psychedelic',
   globalCss: GLOBAL_CSS,
 

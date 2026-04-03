@@ -131,7 +131,7 @@ Themes are defined in `src/renderer/src/styles/` and registered in `src/renderer
 ### Contrast checklist
 
 - **`black`/`white` are semantic, not literal.** On dark themes, `black` = light text, `white` = dark background. On light themes, they're normal. All text using `theme.black` will be readable on `theme.cream`/`theme.appBg`.
-- **The NOW PLAYING banner** uses `theme.accentB` as background with hardcoded dark (`#1A1A1A`) text — `accentB` must always be a bright/vivid color.
+- **The NOW PLAYING banner** (`NowPlayingBanner` in `QueuePage.tsx`) uses `theme.accentB` as background with hardcoded dark (`#1A1A1A`) text — `accentB` must always be a bright/vivid color that provides good contrast with dark text. Always preview the Queue page with a song playing to verify the NOW PLAYING card looks good with the theme's accentB.
 - **Singer count buttons** use `theme.accentA` for the selected state with dark text.
 - **Never use `theme.white` as text color on a `theme.card` background** — on light themes they're the same color. Use `theme.black` for text on card backgrounds.
 - **The theme dropdown** in `App.tsx` uses `theme.black` for text on the card-colored dropdown. Don't change this to `navLink`.
