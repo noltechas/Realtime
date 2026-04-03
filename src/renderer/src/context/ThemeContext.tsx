@@ -11,7 +11,7 @@ import { SPACE } from '../styles/space'
 import { STEAMPUNK } from '../styles/steampunk'
 import { useApp } from './AppContext'
 
-const THEMES: Record<string, Theme> = {
+export const THEMES: Record<string, Theme> = {
   'neo-brutal': NEO,
   'cyberpunk': CYBERPUNK,
   'sketch': SKETCH,

@@ -28,7 +28,7 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
         this._mode = 1;
 
         // === Input ring buffer ===
-        this._bufSize = 8192;
+        this._bufSize = 32768;
         this._buf = new Float32Array(this._bufSize);
         this._wPos = 0;
 
@@ -41,6 +41,11 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
         this._detectedFreq = 0;
         this._detectedPeriod = 0;
 
+        // Chunked YIN: spread the O(N²) difference function across multiple
+        // process() calls to prevent audio thread overruns.
+        this._yinPhase = 0;        // 0=idle, 1-8=diff chunks, 9=finalize
+        this._yinChunkSize = 128;  // tau values per chunk (1024/8 = 128)
+
         // === Pitch shift state ===
         this._ratio = 1.0;
         this._smoothedRatio = 1.0;
@@ -50,8 +55,8 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
         this._hanning = new Float32Array(512);
         this._computeHanning(512);
 
-        // Latency: how far behind wPos the heads should nominally sit (2x grain)
-        this._latency = 1024;
+        // Latency: how far behind wPos the heads should nominally sit (4x grain)
+        this._latency = 2048;
 
         // Head A (fractional position for interpolated reads)
         this._hAPos = 0;
@@ -65,6 +70,14 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
         // === Pitch detection smoothing (median of 3) ===
         this._freqHistory = [0, 0, 0];
         this._freqHistIdx = 0;
+
+        // === Voiced confidence (holdover during breaths/consonants) ===
+        this._voicedConfidence = 0;
+
+        // === Note-change hysteresis ===
+        this._currentTargetMidi = -1;
+        this._pendingTargetMidi = -1;
+        this._pendingTargetCount = 0;
 
         // === Scale lookup ===
         this._major = [0, 2, 4, 5, 7, 9, 11];
@@ -99,24 +112,41 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
 
     _syncHeads() {
         const bLen = this._bufSize;
+        const half = this._grainSize >> 1;
         const target = (this._wPos - this._latency + bLen) % bLen;
-        this._hAPos = target;
+        // Head B at target with prog=half (Hanning peak=1): its first output
+        // is buf[target], matching the direct bypass read position exactly.
+        // Head A at target-half with prog=0 (Hanning=0): doesn't contribute
+        // initially, then fades in smoothly. This eliminates clicks when
+        // transitioning between bypass and OLA.
+        this._hAPos = (target - half + bLen) % bLen;
         this._hAProg = 0;
-        this._hBPos = (target + (this._grainSize >> 1)) % bLen;
-        this._hBProg = this._grainSize >> 1;
+        this._hBPos = target;
+        this._hBProg = half;
     }
 
-    // Only prevent write-head collision. Do NOT nudge toward unshifted position
-    // — that was fighting the pitch correction.
+    // Two-tier drift correction: soft nudge in warning zone, hard reset only
+    // if critically close. Do NOT nudge toward unshifted position — that
+    // fights the pitch correction.
     _safePos(headPos) {
         const bLen = this._bufSize;
-        let dist = (this._wPos - headPos + bLen) % bLen;
+        const dist = (this._wPos - headPos + bLen) % bLen;
+        const nominal = (this._wPos - this._latency + bLen) % bLen;
 
-        // Only intervene if dangerously close to write head or wrapped around
+        // Critical zone: hard reset (about to collide with write head)
         if (dist < 256 || dist > bLen - 256) {
-            return (this._wPos - this._latency + bLen) % bLen;
+            return nominal;
         }
-        // Otherwise leave the head where it is
+
+        // Warning zone: soft nudge 30% toward nominal (click-free at grain boundary)
+        if (dist < 768 || dist > bLen - 768) {
+            const toNominal = (nominal - headPos + bLen) % bLen;
+            const nudge = toNominal < bLen / 2
+                ? toNominal * 0.3
+                : -(bLen - toNominal) * 0.3;
+            return ((headPos + nudge) % bLen + bLen) % bLen;
+        }
+
         return headPos;
     }
 
@@ -140,12 +170,41 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
             this._initialized = true;
         }
 
-        // Run pitch detection periodically (~every 512 samples = ~12ms)
-        this._analysisCount += len;
-        if (this._analysisCount >= 512) {
-            this._analysisCount = 0;
-            this._detectPitch();
+        // Chunked pitch detection: the YIN difference function is O(N²) with
+        // N=1024, far too heavy for a single process() call. We spread it
+        // across 8 calls (~128 tau values each = ~131K ops instead of ~1M).
+        if (this._yinPhase >= 1 && this._yinPhase <= 8) {
+            const chunkIdx = this._yinPhase - 1;
+            const tauStart = chunkIdx * this._yinChunkSize;
+            const tauEnd = Math.min(tauStart + this._yinChunkSize, this._yinHalf);
+            const buf = this._analysisBuf;
+            const yin = this._yinBuf;
+            const half = this._yinHalf;
+            for (let tau = tauStart; tau < tauEnd; tau++) {
+                let sum = 0;
+                for (let i = 0; i < half; i++) {
+                    const d = buf[i] - buf[i + tau];
+                    sum += d * d;
+                }
+                yin[tau] = sum;
+            }
+            this._yinPhase++;
+        } else if (this._yinPhase === 9) {
+            this._finishDetection();
             this._updateRatio();
+            this._yinPhase = 0;
+        } else {
+            // Phase 0: idle — count samples until next detection cycle
+            this._analysisCount += len;
+            if (this._analysisCount >= 1024) {
+                this._analysisCount = 0;
+                // Extract analysis window from ring buffer (snapshot for chunked processing)
+                const start = (this._wPos - this._yinSize + this._bufSize) % this._bufSize;
+                for (let i = 0; i < this._yinSize; i++) {
+                    this._analysisBuf[i] = this._buf[(start + i) % this._bufSize];
+                }
+                this._yinPhase = 1;
+            }
         }
 
         // Bypass if no correction needed
@@ -155,18 +214,42 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
             return true;
         }
 
-        // Generate pitch-shifted output via dual-head OLA crossfade
-        // Heads read at 1.0 speed within grains. Pitch shift comes from
-        // the jump at grain boundaries: jump = (ratio - 1) * grainSize.
-        // Drift management snaps heads back to safe zone at boundaries
-        // (where Hanning weight = 0, so snapping is click-free).
-        const gs = this._grainSize;
-
-        // Block-rate ratio smoothing (once per render quantum, ~2.7ms)
-        // High strength = instant snap (robotic), low = ~10-15ms retune
-        const snapSpeed = this._strength >= 80 ? 1.0 : 0.15 + (this._strength / 100) * 0.6;
-        this._smoothedRatio += (this._ratio - this._smoothedRatio) * snapSpeed;
+        // Block-rate ratio smoothing with musically meaningful retune speed.
+        // Maps strength to retune time matching professional autotune behavior:
+        //   strength 0→200ms (gentle), 40→50ms (natural), 80→5ms (heavy), 95+→instant
+        const str = this._strength;
+        let retuneMs;
+        if (str >= 95) {
+            retuneMs = 0;
+        } else if (str >= 80) {
+            retuneMs = 5 * (95 - str) / 15;
+        } else {
+            retuneMs = 5 + (80 - str) * 2.4375;
+        }
+        const tau = retuneMs > 0 ? retuneMs * 0.001 * sampleRate : 0;
+        const alpha = tau > 0 ? 1.0 - Math.exp(-len / tau) : 1.0;
+        this._smoothedRatio += (this._ratio - this._smoothedRatio) * alpha;
         const sr = this._smoothedRatio;
+
+        // When no pitch correction is active (sr ≈ 1.0), bypass the dual-head
+        // OLA entirely and read directly from the ring buffer. The OLA blends
+        // audio from two time positions 256 samples apart, which creates a
+        // comb-filter / phasing artifact even at ratio 1.0. Direct read is
+        // artifact-free.
+        if (Math.abs(sr - 1.0) < 0.001) {
+            const readStart = (this._wPos - this._latency - len + bLen) % bLen;
+            for (let i = 0; i < len; i++) {
+                out[i] = this._buf[(readStart + i) % bLen];
+            }
+            this._syncHeads();
+            return true;
+        }
+
+        // Generate pitch-shifted output via dual-head OLA crossfade.
+        // Heads read at 1.0 speed within grains (preserving original signal),
+        // with pitch-shift jumps at grain boundaries. Drift management prevents
+        // read heads from colliding with the write head.
+        const gs = this._grainSize;
 
         for (let i = 0; i < len; i++) {
 
@@ -186,20 +269,21 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
                 out[i] = sA * 0.5 + sB * 0.5;
             }
 
-            // Advance heads at 1.0 speed within grains
+            // Advance heads at 1.0 speed within grains (preserves original
+            // signal perfectly — no resampling artifacts)
             this._hAPos = (this._hAPos + 1) % bLen;
             this._hBPos = (this._hBPos + 1) % bLen;
             this._hAProg++;
             this._hBProg++;
 
-            // Head A grain boundary: apply pitch-shift jump + drift management
+            // Head A grain boundary: apply pitch-shift jump + drift management.
+            // Jump creates pitch shift: positive = skip forward (pitch up),
+            // negative = skip backward (pitch down). Click-free because
+            // Hanning weight = 0 at grain boundaries.
             if (this._hAProg >= gs) {
                 this._hAProg = 0;
-                // Jump creates pitch shift: positive = skip forward (pitch up),
-                // negative = skip backward (pitch down)
                 const jump = (sr - 1.0) * gs;
                 this._hAPos = (this._hAPos + jump + bLen) % bLen;
-                // Snap back if drifted into unsafe zone (click-free: Hanning = 0 here)
                 this._hAPos = this._safePos(this._hAPos);
             }
 
@@ -215,26 +299,11 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
         return true;
     }
 
-    _detectPitch() {
-        // Extract analysis window from ring buffer
-        const start = (this._wPos - this._yinSize + this._bufSize) % this._bufSize;
-        for (let i = 0; i < this._yinSize; i++) {
-            this._analysisBuf[i] = this._buf[(start + i) % this._bufSize];
-        }
-
-        const buf = this._analysisBuf;
+    // Finalize YIN detection after all difference-function chunks are computed.
+    // Steps 2-4 of YIN are all O(N) and run in a single process() call.
+    _finishDetection() {
         const yin = this._yinBuf;
         const half = this._yinHalf;
-
-        // Step 1: Difference function
-        for (let tau = 0; tau < half; tau++) {
-            let sum = 0;
-            for (let i = 0; i < half; i++) {
-                const d = buf[i] - buf[i + tau];
-                sum += d * d;
-            }
-            yin[tau] = sum;
-        }
 
         // Step 2: Cumulative mean normalized difference
         yin[0] = 1;
@@ -305,20 +374,70 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
     }
 
     _updateRatio() {
-        if (this._detectedFreq < 60 || this._detectedFreq > 2000 || this._strength === 0) {
+        // --- Voiced confidence: hold last correction during breaths/consonants ---
+        if (this._detectedFreq < 60 || this._detectedFreq > 2000) {
+            this._voicedConfidence = Math.max(0, this._voicedConfidence - 1);
+            if (this._voicedConfidence <= 0) {
+                // Sustained silence: release correction
+                this._ratio = 1.0;
+                this._currentTargetMidi = -1;
+            }
+            // Otherwise keep last ratio (holdover during brief gaps)
+            return;
+        }
+        if (this._strength === 0) {
             this._ratio = 1.0;
             return;
         }
+        // Build up voiced confidence (max 4 = ~48ms of stable pitch)
+        this._voicedConfidence = Math.min(4, this._voicedConfidence + 1);
 
-        const target = this._findTarget(this._detectedFreq);
-        const full = target / this._detectedFreq;
+        // --- Find target with note-change hysteresis ---
+        const result = this._findTarget(this._detectedFreq);
+        const targetFreq = result.freq;
+        const targetMidi = result.midi;
+
+        // Hysteresis: require 2 consecutive frames agreeing on a NEW note
+        // before switching target. Prevents jitter during transitions.
+        if (this._currentTargetMidi === -1) {
+            // First detection: accept immediately
+            this._currentTargetMidi = targetMidi;
+        } else if (targetMidi !== this._currentTargetMidi) {
+            if (targetMidi === this._pendingTargetMidi) {
+                this._pendingTargetCount++;
+                if (this._pendingTargetCount >= 2) {
+                    // Stable new note: switch target
+                    this._currentTargetMidi = targetMidi;
+                    this._pendingTargetMidi = -1;
+                    this._pendingTargetCount = 0;
+                }
+            } else {
+                // Different pending note: restart count
+                this._pendingTargetMidi = targetMidi;
+                this._pendingTargetCount = 1;
+            }
+        } else {
+            // Same as current target: clear any pending
+            this._pendingTargetMidi = -1;
+            this._pendingTargetCount = 0;
+        }
+
+        // Use the committed target (not the raw detection)
+        const committedFreq = 440 * Math.pow(2, (this._currentTargetMidi - 69) / 12);
+        const full = committedFreq / this._detectedFreq;
 
         // Clamp to ±6 semitones (~0.707 to ~1.414)
         const clamped = Math.max(0.707, Math.min(1.414, full));
 
-        // Strength controls retune speed (smoothing), not ratio magnitude.
-        // Target should always be the fully corrected pitch.
-        this._ratio = clamped;
+        // --- Dead zone: if correction < 15 cents, don't process ---
+        // Preserves natural vocal character when already near the target.
+        // 15 cents ≈ ratio of 1.0087
+        const deadZone = 1.00867;
+        if (clamped > 1.0 / deadZone && clamped < deadZone) {
+            this._ratio = 1.0;
+        } else {
+            this._ratio = clamped;
+        }
     }
 
     _findTarget(freq) {
@@ -327,7 +446,7 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
         // Chromatic mode: snap to nearest semitone
         if (this._key < 0) {
             const rounded = Math.round(midi);
-            return 440 * Math.pow(2, (rounded - 69) / 12);
+            return { freq: 440 * Math.pow(2, (rounded - 69) / 12), midi: rounded };
         }
 
         // Scale mode: snap to nearest note in key
@@ -350,7 +469,7 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
             }
         }
 
-        return 440 * Math.pow(2, (bestMidi - 69) / 12);
+        return { freq: 440 * Math.pow(2, (bestMidi - 69) / 12), midi: bestMidi };
     }
 }
 

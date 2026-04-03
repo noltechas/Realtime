@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { createClient, RealtimeChannel } from '@supabase/supabase-js'
-import { useApp } from '../context/AppContext'
+import { useApp, NEON_COLORS } from '../context/AppContext'
 import { useTheme } from '../context/ThemeContext'
 import { VoiceEffects, DEFAULT_VOICE_EFFECTS, normalizeMicLevel } from '../audio/VoiceEffectsTypes'
 import { VoiceEffectsEngine } from '../audio/VoiceEffectsEngine'
@@ -126,6 +126,7 @@ export default function AdminPage() {
 
     useEffect(() => {
         loadCatalog()
+        dispatch({ type: 'ENSURE_MIC_SLOTS', payload: 4 })
         navigator.mediaDevices.enumerateDevices().then(devices => {
             const audioIns = devices.filter(d => d.kind === 'audioinput')
             const audioOuts = devices.filter(d => d.kind === 'audiooutput')
@@ -191,16 +192,18 @@ export default function AdminPage() {
 
     const saveEditGuest = async () => {
         if (!editingGuestId) return
-        await window.electronAPI.updateGuest(editingGuestId, {
-            name: editName,
-            profilePicture: editPicture || null
-        })
+        const updatedFields = { name: editName, profilePicture: editPicture || null }
+        // Optimistic local update
+        setGuests(prev => prev.map(g => g.id === editingGuestId ? { ...g, ...updatedFields } : g))
         setEditingGuestId(null)
+        await window.electronAPI.updateGuest(editingGuestId, updatedFields)
     }
 
     const handleRemoveGuest = async (id: string) => {
-        await window.electronAPI.removeGuest(id)
+        // Optimistic local removal
+        setGuests(prev => prev.filter(g => g.id !== id))
         setConfirmRemoveId(null)
+        await window.electronAPI.removeGuest(id)
     }
 
     const loadCatalog = async () => {
@@ -450,6 +453,10 @@ export default function AdminPage() {
             if (!prev) return prev
             const next = { ...prev, configs: JSON.parse(JSON.stringify(prev.configs)) }
             const draft = next.configs[next.activeRoleTab]
+            // Preserve musical context (key/mode/tempo from Spotify data)
+            const savedKey = draft.key
+            const savedMode = draft.mode
+            const savedTempo = draft.tempo
             draft.pitchCorrection = { ...preset.effects.pitchCorrection }
             draft.compressor = { ...preset.effects.compressor }
             draft.eq = { ...preset.effects.eq }
@@ -459,6 +466,9 @@ export default function AdminPage() {
             draft.distortion = { ...preset.effects.distortion }
             draft.noiseGate = { ...preset.effects.noiseGate }
             draft.micLevel = 1.0
+            draft.key = savedKey
+            draft.mode = savedMode
+            draft.tempo = savedTempo
             return next
         })
         setActivePresetIds(prev => {
@@ -733,6 +743,47 @@ export default function AdminPage() {
                 <p style={{ color: theme.muted, fontSize: 14, fontFamily: theme.fontBody }}>
                     {adminTab === 'songs' ? 'Add songs, sculpt effects rack, and manage the catalog' : 'View and manage guests in the current session'}
                 </p>
+            </div>
+
+            {/* Default Microphones */}
+            <div style={{
+                ...theme.card, border: theme.border, padding: '16px 20px', marginBottom: 24,
+                display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
+            }}>
+                <div style={{
+                    fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 12,
+                    color: theme.muted, letterSpacing: '1px', textTransform: 'uppercase',
+                    flexShrink: 0,
+                }}>
+                    Default Mics
+                </div>
+                {[0, 1, 2, 3].map(i => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 160 }}>
+                        <div style={{
+                            width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
+                            background: NEON_COLORS[i].color,
+                            boxShadow: `0 0 6px ${NEON_COLORS[i].colorGlow}`,
+                        }} />
+                        <select
+                            value={state.micSlots[i]?.micDeviceId || ''}
+                            onChange={(e) => dispatch({
+                                type: 'SET_MIC_SLOT',
+                                payload: { index: i, config: { micDeviceId: e.target.value } }
+                            })}
+                            style={{
+                                ...theme.select, flex: 1, minWidth: 0,
+                                padding: '6px 8px', fontSize: 11,
+                            }}
+                        >
+                            <option value="">Singer {i + 1} — None</option>
+                            {mics.map(m => (
+                                <option key={m.deviceId} value={m.deviceId}>
+                                    {m.label || 'Mic ' + m.deviceId.slice(0, 6)}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                ))}
             </div>
 
             {/* Tab pills */}

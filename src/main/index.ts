@@ -10,7 +10,7 @@ import {
     createSession, pushCatalog, updateNowPlaying, updateIsPlaying,
     insertQueueItem, removeQueueItem, reorderQueue, closeSession,
     listGuests, updateGuest, removeGuest,
-    listRecentSessions, getSession,
+    listRecentSessions, getSession, deleteSession,
     CatalogItem
 } from './supabase'
 
@@ -477,6 +477,14 @@ ipcMain.handle('karaoke:resume-session', async (_event, sessionId: string) => {
     } catch (error: any) {
         console.error('Failed to resume session:', error)
         return { error: error.message }
+    }
+})
+
+ipcMain.handle('karaoke:delete-session', async (_event, sessionId: string) => {
+    try {
+        await deleteSession(sessionId)
+    } catch (error: any) {
+        console.error('Failed to delete session:', error)
     }
 })
 

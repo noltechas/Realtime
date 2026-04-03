@@ -67,7 +67,57 @@ export function useKaraokeSession() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [state.karaokeSessionId])
 
-    // Subscribe to Realtime queue changes directly from renderer (browser has WebSocket)
+    // Helper: resolve a remote queue row into a local QueueItem
+    function resolveRemoteRow(row: any): QueueItem | null {
+        const catalogEntry = catalogRef.current.find(s => s.trackId === row.track_id)
+        if (!catalogEntry) {
+            console.warn('[Karaoke] Remote queue item for unknown track:', row.track_id)
+            return null
+        }
+
+        const singerConfigs: any[] = row.singer_configs || []
+        const singers = singerConfigs.map((sc: any, i: number) => ({
+            id: i,
+            name: sc.name || `Singer ${i + 1}`,
+            color: sc.color || NEON_COLORS[i % NEON_COLORS.length].color,
+            colorGlow: sc.colorGlow || NEON_COLORS[i % NEON_COLORS.length].colorGlow,
+            micDeviceId: '',
+            vocalTrack: i === 0 ? 'lead' as const : 'backing' as const,
+            roleIndices: sc.roleIndices,
+            whitePersonCheck: sc.whitePersonCheck || false,
+            profilePicture: sc.profilePicture || undefined
+        }))
+
+        return {
+            id: `${row.track_id}-${row.id}`,
+            stageTheme: row.stage_theme || null,
+            track: {
+                id: catalogEntry.trackId,
+                name: catalogEntry.name,
+                artists: [{ name: catalogEntry.artist }],
+                album: {
+                    name: catalogEntry.albumName,
+                    images: catalogEntry.artUrl ? [{ url: catalogEntry.artUrl, width: 300, height: 300 }] : []
+                },
+                duration_ms: catalogEntry.durationMs,
+                uri: ''
+            },
+            lyrics: catalogEntry.lyrics || [],
+            roles: catalogEntry.roles || [],
+            singers,
+            voiceEffects: catalogEntry.voiceEffects || DEFAULT_VOICE_EFFECTS,
+            stemsPath: {
+                instrumental: catalogEntry.instrumentalPath,
+                vocals: catalogEntry.vocalsPath
+            },
+            songPath: null,
+            backgroundVideoPath: catalogEntry.youtubeUrl || null,
+            addedBy: row.added_by_name || null,
+            remoteQueueId: row.id
+        }
+    }
+
+    // Subscribe to Realtime queue changes + fetch existing queued items
     useEffect(() => {
         if (window.electronAPI?.isStageWindow) return
         if (!state.karaokeSessionId) return
@@ -76,6 +126,33 @@ export function useKaraokeSession() {
         if (queueChannelRef.current) {
             supabase.removeChannel(queueChannelRef.current)
         }
+
+        // Fetch existing remote queue items that were added before we subscribed
+        supabase
+            .from('karaoke_queue')
+            .select('*')
+            .eq('session_id', state.karaokeSessionId)
+            .eq('status', 'queued')
+            .eq('source', 'remote')
+            .order('position')
+            .then(({ data, error }) => {
+                if (error) {
+                    console.error('[Karaoke] Failed to fetch existing queue:', error)
+                    return
+                }
+                if (!data || data.length === 0) return
+
+                for (const row of data) {
+                    // Skip if already in local queue
+                    if (state.queue.some(q => q.remoteQueueId === row.id)) continue
+
+                    const item = resolveRemoteRow(row)
+                    if (item) {
+                        console.log('[Karaoke] Loaded existing remote queue item:', item.track.name)
+                        dispatch({ type: 'ENQUEUE_SONG', payload: item })
+                    }
+                }
+            })
 
         const channel = supabase
             .channel('renderer-queue-' + state.karaokeSessionId)
@@ -92,56 +169,11 @@ export function useKaraokeSession() {
                     // Only process remote additions (ignore our own local inserts)
                     if (row.source !== 'remote') return
 
-                    // Resolve local catalog entry for this track
-                    const catalogEntry = catalogRef.current.find(s => s.trackId === row.track_id)
-                    if (!catalogEntry) {
-                        console.warn('[Karaoke] Remote queue addition for unknown track:', row.track_id)
-                        return
+                    const item = resolveRemoteRow(row)
+                    if (item) {
+                        console.log('[Karaoke] Remote song added by', row.added_by_name, ':', item.track.name)
+                        dispatch({ type: 'ENQUEUE_SONG', payload: item })
                     }
-
-                    // Build singers from remote singer_configs
-                    const singerConfigs: any[] = row.singer_configs || []
-                    const singers = singerConfigs.map((sc: any, i: number) => ({
-                        id: i,
-                        name: sc.name || `Singer ${i + 1}`,
-                        color: sc.color || NEON_COLORS[i % NEON_COLORS.length].color,
-                        colorGlow: sc.colorGlow || NEON_COLORS[i % NEON_COLORS.length].colorGlow,
-                        micDeviceId: '',
-                        vocalTrack: i === 0 ? 'lead' as const : 'backing' as const,
-                        roleIndices: sc.roleIndices,
-                        profilePicture: sc.profilePicture || undefined
-                    }))
-
-                    const item: QueueItem = {
-                        id: `${row.track_id}-${Date.now()}`,
-                        stageTheme: row.stage_theme || null,
-                        track: {
-                            id: catalogEntry.trackId,
-                            name: catalogEntry.name,
-                            artists: [{ name: catalogEntry.artist }],
-                            album: {
-                                name: catalogEntry.albumName,
-                                images: catalogEntry.artUrl ? [{ url: catalogEntry.artUrl, width: 300, height: 300 }] : []
-                            },
-                            duration_ms: catalogEntry.durationMs,
-                            uri: ''
-                        },
-                        lyrics: catalogEntry.lyrics || [],
-                        roles: catalogEntry.roles || [],
-                        singers,
-                        voiceEffects: catalogEntry.voiceEffects || DEFAULT_VOICE_EFFECTS,
-                        stemsPath: {
-                            instrumental: catalogEntry.instrumentalPath,
-                            vocals: catalogEntry.vocalsPath
-                        },
-                        songPath: null,
-                        backgroundVideoPath: catalogEntry.youtubeUrl || null,
-                        addedBy: row.added_by_name || null,
-                        remoteQueueId: row.id
-                    }
-
-                    console.log('[Karaoke] Remote song added by', row.added_by_name, ':', catalogEntry.name)
-                    dispatch({ type: 'ENQUEUE_SONG', payload: item })
                 }
             )
             .subscribe((status) => {

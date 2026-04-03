@@ -312,3 +312,12 @@ export async function closeSession(sessionId: string): Promise<void> {
         .update({ is_active: false, updated_at: new Date().toISOString() })
         .eq('id', sessionId)
 }
+
+export async function deleteSession(sessionId: string): Promise<void> {
+    // Delete dependents first (queue, guests, catalog), then session
+    await supabase.from('karaoke_queue').delete().eq('session_id', sessionId)
+    await supabase.from('karaoke_guests').delete().eq('session_id', sessionId)
+    await supabase.from('karaoke_catalog').delete().eq('session_id', sessionId)
+    const { error } = await supabase.from('karaoke_sessions').delete().eq('id', sessionId)
+    if (error) console.error('Failed to delete session:', error.message)
+}

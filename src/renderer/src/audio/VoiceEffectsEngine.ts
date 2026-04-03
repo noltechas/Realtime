@@ -56,6 +56,7 @@ export class VoiceEffectsEngine {
     public analyser: AnalyserNode
 
     private currentReverbConfig = { decay: -1, preDelay: -1 }
+    private lastAppliedFx: VoiceEffects | null = null
 
     // Recording & Playback
     private recorder: MediaRecorder | null = null
@@ -147,6 +148,9 @@ export class VoiceEffectsEngine {
 
         // 9. Output & Metering
         this.masterGain = this.ctx.createGain()
+        this.masterGain.channelCount = 2
+        this.masterGain.channelCountMode = 'explicit'
+        this.masterGain.channelInterpretation = 'speakers'
         this.analyser = this.ctx.createAnalyser()
         this.analyser.fftSize = 256
 
@@ -215,6 +219,16 @@ export class VoiceEffectsEngine {
 
             this.pitchCorrectionReady = true
             console.log('Pitch correction worklet loaded')
+
+            // Re-send params that were applied before the worklet was ready
+            if (this.lastAppliedFx) {
+                this.pitchCorrectionNode.port.postMessage({
+                    type: 'params',
+                    strength: this.lastAppliedFx.pitchCorrection?.enabled ? this.lastAppliedFx.pitchCorrection.strength : 0,
+                    key: this.lastAppliedFx.key ?? -1,
+                    mode: this.lastAppliedFx.mode ?? 1,
+                })
+            }
         } catch (err) {
             console.warn('Pitch correction worklet failed to load, using bypass:', err)
             // Bypass remains connected, pitch correction just won't work
@@ -251,6 +265,7 @@ export class VoiceEffectsEngine {
 
     public apply(fx: VoiceEffects) {
         const t = this.ctx.currentTime
+        this.lastAppliedFx = fx
 
         // Pitch Correction (via AudioWorklet message port)
         if (this.pitchCorrectionReady && this.pitchCorrectionNode) {
@@ -396,6 +411,10 @@ export class VoiceEffectsEngine {
                     console.warn('Failed to set audio string:', e)
                 }
             }
+            // Force stereo output — mic streams are mono and some devices
+            // report mono channel count after setSinkId, causing audio to
+            // play only in the left ear.
+            this.ctx.destination.channelCount = 2
             this.stream = await navigator.mediaDevices.getUserMedia({
                 audio: {
                     deviceId: { exact: deviceId },
