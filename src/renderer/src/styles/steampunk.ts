@@ -244,7 +244,7 @@ const GLOBAL_CSS = `
 // ── Theme export ─────────────────────────────────────────────────────────────
 export const STEAMPUNK: Theme = {
   name: 'steampunk',
-  nextThemeName: 'neo-brutal',
+  nextThemeName: 'retrowave',
   displayName: 'Steampunk',
   globalCss: GLOBAL_CSS,
 

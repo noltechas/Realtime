@@ -337,6 +337,13 @@ export default function KaraokePage() {
                             ytPlayerRef.current?.playVideo()
                         }
                     },
+                    onStateChange: (e: any) => {
+                        // When video ends but song is still playing, loop the video
+                        if (e.data === 0) {
+                            ytPlayerRef.current?.seekTo(0, true)
+                            ytPlayerRef.current?.playVideo()
+                        }
+                    },
                 }
             })
         }
@@ -1394,6 +1401,190 @@ export default function KaraokePage() {
             )
         }
 
+        // ---- Retrowave (80s Synthwave) idle ----
+        if (theme.name === 'retrowave') {
+            return (
+                <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
+                    background: 'linear-gradient(180deg, #0a0614 0%, #0d0820 25%, #150a2e 45%, #1a0828 55%, #2a1040 63%, #8B2060 72%, #FF6B2B 85%, #FFD700 100%)',
+                    position: 'relative', overflow: 'hidden',
+                }}>
+                    {/* Starfield — upper portion */}
+                    {[
+                        { x: 8, y: 5, s: 1.5, d: 3.2, c: 'rgba(255,255,255,0.7)' },
+                        { x: 15, y: 12, s: 1, d: 4.5, c: 'rgba(255,45,149,0.5)' },
+                        { x: 25, y: 3, s: 1.2, d: 3.8, c: 'rgba(255,255,255,0.6)' },
+                        { x: 35, y: 18, s: 1, d: 5.1, c: 'rgba(0,191,255,0.5)' },
+                        { x: 45, y: 7, s: 1.5, d: 3.5, c: 'rgba(255,255,255,0.8)' },
+                        { x: 55, y: 14, s: 1, d: 4.2, c: 'rgba(255,255,255,0.5)' },
+                        { x: 62, y: 4, s: 1.3, d: 3.9, c: 'rgba(255,45,149,0.4)' },
+                        { x: 72, y: 20, s: 1, d: 5.5, c: 'rgba(255,255,255,0.6)' },
+                        { x: 78, y: 9, s: 1.5, d: 3.3, c: 'rgba(0,191,255,0.4)' },
+                        { x: 88, y: 16, s: 1, d: 4.8, c: 'rgba(255,255,255,0.7)' },
+                        { x: 92, y: 2, s: 1.2, d: 3.6, c: 'rgba(255,255,255,0.5)' },
+                        { x: 20, y: 25, s: 1, d: 5.2, c: 'rgba(255,255,255,0.4)' },
+                        { x: 40, y: 22, s: 1.3, d: 4.0, c: 'rgba(255,107,43,0.4)' },
+                        { x: 60, y: 28, s: 1, d: 4.7, c: 'rgba(255,255,255,0.5)' },
+                        { x: 80, y: 24, s: 1.2, d: 3.4, c: 'rgba(255,45,149,0.3)' },
+                        { x: 5, y: 30, s: 1, d: 5.0, c: 'rgba(255,255,255,0.4)' },
+                        { x: 50, y: 32, s: 1.5, d: 3.7, c: 'rgba(0,191,255,0.3)' },
+                        { x: 95, y: 28, s: 1, d: 4.3, c: 'rgba(255,255,255,0.6)' },
+                    ].map((star, i) => (
+                        <div key={`rw-star-${i}`} style={{
+                            position: 'absolute', left: `${star.x}%`, top: `${star.y}%`,
+                            width: star.s, height: star.s, borderRadius: '50%',
+                            background: star.c,
+                            animation: `${i % 2 === 0 ? 'rwTwinkle' : 'rwTwinkle2'} ${star.d}s ease-in-out infinite`,
+                            animationDelay: `${i * 0.3}s`,
+                        }} />
+                    ))}
+
+                    {/* Ambient sun glow — pulsing warm haze behind the sun */}
+                    <div style={{
+                        position: 'absolute', left: '50%', top: '58%', transform: 'translateX(-50%)',
+                        width: 500, height: 250, borderRadius: '50%',
+                        background: 'radial-gradient(ellipse, rgba(255,107,43,0.25) 0%, rgba(255,45,149,0.08) 40%, transparent 70%)',
+                        filter: 'blur(30px)',
+                        animation: 'rwSunPulse 5s ease-in-out infinite',
+                        zIndex: 0,
+                    }} />
+
+                    {/* Banded Sun — semicircle with horizontal dark stripes */}
+                    <svg style={{ position: 'absolute', left: '50%', top: '52%', transform: 'translateX(-50%)', width: 320, height: 160, zIndex: 1 }} viewBox="0 0 320 160">
+                        <defs>
+                            <linearGradient id="rw-sun-grad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#FFD700" />
+                                <stop offset="25%" stopColor="#FFAA00" />
+                                <stop offset="50%" stopColor="#FF6B2B" />
+                                <stop offset="75%" stopColor="#FF2D95" />
+                                <stop offset="100%" stopColor="#B44AFF" />
+                            </linearGradient>
+                            <clipPath id="rw-sun-clip">
+                                <circle cx="160" cy="160" r="150" />
+                            </clipPath>
+                        </defs>
+                        {/* Sun body */}
+                        <rect x="10" y="0" width="300" height="160" fill="url(#rw-sun-grad)" clipPath="url(#rw-sun-clip)" />
+                        {/* Horizontal dark bands — increasing thickness toward bottom */}
+                        <rect x="0" y="55" width="320" height="3" fill="#0a0614" opacity="0.6" clipPath="url(#rw-sun-clip)" />
+                        <rect x="0" y="68" width="320" height="4" fill="#0a0614" opacity="0.65" clipPath="url(#rw-sun-clip)" />
+                        <rect x="0" y="82" width="320" height="5" fill="#0a0614" opacity="0.7" clipPath="url(#rw-sun-clip)" />
+                        <rect x="0" y="97" width="320" height="7" fill="#0a0614" opacity="0.75" clipPath="url(#rw-sun-clip)" />
+                        <rect x="0" y="114" width="320" height="9" fill="#0a0614" opacity="0.8" clipPath="url(#rw-sun-clip)" />
+                        <rect x="0" y="133" width="320" height="12" fill="#0a0614" opacity="0.85" clipPath="url(#rw-sun-clip)" />
+                    </svg>
+
+                    {/* Horizon haze — warm glow at the horizon line */}
+                    <div style={{
+                        position: 'absolute', left: 0, right: 0, top: '62%', height: '8%', zIndex: 1,
+                        background: 'linear-gradient(180deg, transparent 0%, rgba(255,107,43,0.12) 30%, rgba(255,45,149,0.08) 70%, transparent 100%)',
+                        filter: 'blur(8px)',
+                    }} />
+
+                    {/* Perspective Grid Floor */}
+                    <svg style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '38%', zIndex: 2 }} viewBox="0 0 1000 380" preserveAspectRatio="none">
+                        {/* Horizontal lines — closer spacing near top (horizon) */}
+                        {[0, 8, 20, 38, 62, 95, 138, 195, 265, 350].map((y, i) => (
+                            <line key={`rw-hline-${i}`} x1="0" y1={y} x2="1000" y2={y}
+                                stroke="rgba(255,45,149,0.35)" strokeWidth={i < 3 ? 0.5 : 1} />
+                        ))}
+                        {/* Vertical lines fanning from center vanishing point */}
+                        {Array.from({ length: 17 }, (_, i) => {
+                            const topX = 500
+                            const bottomX = (i / 16) * 1000
+                            return <line key={`rw-vline-${i}`} x1={topX} y1="0" x2={bottomX} y2="380"
+                                stroke="rgba(0,191,255,0.3)" strokeWidth={0.8} />
+                        })}
+                    </svg>
+
+                    {/* Palm tree silhouette — left (thicker, more detailed) */}
+                    <svg style={{ position: 'absolute', left: '2%', bottom: '15%', width: 160, height: 300, zIndex: 3 }} viewBox="0 0 160 300">
+                        {/* Thick curved trunk */}
+                        <path d="M72 300 Q68 240 74 180 Q78 140 80 110 Q82 90 76 65" stroke="#0a0614" strokeWidth="10" fill="none" strokeLinecap="round" />
+                        {/* Dense frond canopy — overlapping leaves */}
+                        <path d="M76 65 Q10 20 -5 50 Q20 35 76 65" fill="#0a0614" />
+                        <path d="M76 65 Q15 -5 0 -10 Q25 10 76 65" fill="#0a0614" />
+                        <path d="M76 65 Q50 -15 55 -20 Q62 5 76 65" fill="#0a0614" />
+                        <path d="M76 65 Q95 -10 110 0 Q95 15 76 65" fill="#0a0614" />
+                        <path d="M76 65 Q110 15 135 25 Q108 30 76 65" fill="#0a0614" />
+                        <path d="M76 65 Q115 40 145 55 Q110 48 76 65" fill="#0a0614" />
+                        {/* Drooping frond tips */}
+                        <path d="M76 65 Q5 45 -10 65" stroke="#0a0614" strokeWidth="2.5" fill="none" />
+                        <path d="M76 65 Q120 50 150 68" stroke="#0a0614" strokeWidth="2.5" fill="none" />
+                    </svg>
+
+                    {/* Palm tree silhouette — right (mirrored, slightly smaller) */}
+                    <svg style={{ position: 'absolute', right: '3%', bottom: '17%', width: 140, height: 260, zIndex: 3, transform: 'scaleX(-1)' }} viewBox="0 0 160 300">
+                        <path d="M72 300 Q68 240 74 180 Q78 140 80 110 Q82 90 76 65" stroke="#0a0614" strokeWidth="10" fill="none" strokeLinecap="round" />
+                        <path d="M76 65 Q10 20 -5 50 Q20 35 76 65" fill="#0a0614" />
+                        <path d="M76 65 Q15 -5 0 -10 Q25 10 76 65" fill="#0a0614" />
+                        <path d="M76 65 Q50 -15 55 -20 Q62 5 76 65" fill="#0a0614" />
+                        <path d="M76 65 Q95 -10 110 0 Q95 15 76 65" fill="#0a0614" />
+                        <path d="M76 65 Q110 15 135 25 Q108 30 76 65" fill="#0a0614" />
+                        <path d="M76 65 Q115 40 145 55 Q110 48 76 65" fill="#0a0614" />
+                        <path d="M76 65 Q5 45 -10 65" stroke="#0a0614" strokeWidth="2.5" fill="none" />
+                        <path d="M76 65 Q120 50 150 68" stroke="#0a0614" strokeWidth="2.5" fill="none" />
+                    </svg>
+
+                    {/* VHS Tracking Line */}
+                    <div style={{
+                        position: 'absolute', left: 0, right: 0, height: 3, zIndex: 10,
+                        background: 'linear-gradient(90deg, transparent 0%, rgba(255,45,149,0.15) 15%, rgba(255,255,255,0.3) 45%, rgba(0,191,255,0.2) 65%, rgba(255,45,149,0.15) 85%, transparent 100%)',
+                        boxShadow: '0 0 8px rgba(255,45,149,0.2), 0 0 20px rgba(0,191,255,0.1)',
+                        animation: 'rwVhsTrack 8s linear infinite',
+                    }} />
+
+                    {/* Content — positioned above the sun */}
+                    <div style={{
+                        position: 'relative', zIndex: 5, display: 'flex', flexDirection: 'column',
+                        alignItems: 'center', gap: 16, textAlign: 'center', marginTop: -160,
+                    }}>
+                        <h1 style={{
+                            fontFamily: "'Audiowide', sans-serif", fontSize: 80, fontWeight: 400,
+                            background: 'linear-gradient(180deg, #FFD700 0%, #FF6B2B 40%, #FF2D95 100%)',
+                            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                            filter: 'drop-shadow(0 0 25px rgba(255,45,149,0.5)) drop-shadow(0 0 8px rgba(255,107,43,0.4))',
+                            margin: 0, letterSpacing: 6,
+                        }}>
+                            HIT PLAY
+                        </h1>
+                        <p style={{
+                            fontFamily: "'Rajdhani', sans-serif", fontSize: 16, color: 'rgba(155,140,191,0.7)',
+                            letterSpacing: 8, textTransform: 'uppercase', margin: 0,
+                        }}>
+                            Scan to ride the wave
+                        </p>
+
+                        {state.karaokeQrDataUrl && (
+                            <div style={{
+                                background: 'rgba(10,6,20,0.9)', padding: 18, borderRadius: 4,
+                                border: '1px solid rgba(255,45,149,0.35)',
+                                boxShadow: '0 0 25px rgba(255,45,149,0.15), 0 0 50px rgba(0,191,255,0.06), inset 0 0 20px rgba(0,0,0,0.3)',
+                                backdropFilter: 'blur(16px)',
+                            }}>
+                                <img src={state.karaokeQrDataUrl} alt="QR" style={{ width: 130, height: 130, borderRadius: 2, display: 'block' }} />
+                            </div>
+                        )}
+                        {sessionCode && (
+                            <div style={{
+                                background: 'rgba(10,6,20,0.85)', padding: '6px 20px', borderRadius: 4,
+                                border: '1px solid rgba(255,45,149,0.25)',
+                                boxShadow: '0 0 12px rgba(255,45,149,0.1)',
+                            }}>
+                                <p style={{
+                                    fontFamily: "'Audiowide', sans-serif", fontSize: 24, color: '#FF2D95',
+                                    letterSpacing: 10, margin: 0,
+                                    textShadow: '0 0 12px rgba(255,45,149,0.6), 0 0 30px rgba(255,45,149,0.25)',
+                                }}>
+                                    {sessionCode}
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )
+        }
+
         // ---- Urban (Hip Hop) idle ----
         return (
             <div style={{
@@ -1483,13 +1674,18 @@ export default function KaraokePage() {
                     border: '1px solid rgba(200,151,62,0.3)',
                     boxShadow: '0 0 12px rgba(200,151,62,0.1), inset 0 0 15px rgba(200,151,62,0.03)',
                     borderRadius: 3,
+                } : theme.name === 'retrowave' ? {
+                    background: 'rgba(10,6,20,0.88)',
+                    border: '1px solid rgba(255,45,149,0.3)',
+                    boxShadow: '0 0 12px rgba(255,45,149,0.1), 0 0 25px rgba(0,191,255,0.05)',
+                    borderRadius: 4,
                 } : {}),
             }}>
                 <img src={state.karaokeQrDataUrl} alt="QR" style={{
                     width: 80, height: 80,
                     borderRadius: theme.radiusSmall,
                     display: 'block',
-                    ...(theme.name === 'space' ? { boxShadow: '0 0 10px rgba(64,224,208,0.15)' } : theme.name === 'steampunk' ? { boxShadow: '0 0 8px rgba(200,151,62,0.15)' } : {}),
+                    ...(theme.name === 'space' ? { boxShadow: '0 0 10px rgba(64,224,208,0.15)' } : theme.name === 'steampunk' ? { boxShadow: '0 0 8px rgba(200,151,62,0.15)' } : theme.name === 'retrowave' ? { boxShadow: '0 0 8px rgba(255,45,149,0.15)' } : {}),
                 }} />
                 <span style={{
                     fontFamily: theme.fontDisplay,
@@ -1507,6 +1703,9 @@ export default function KaraokePage() {
                     } : theme.name === 'steampunk' ? {
                         color: '#C8973E',
                         textShadow: '0 0 8px rgba(200,151,62,0.4)',
+                    } : theme.name === 'retrowave' ? {
+                        color: '#FF2D95',
+                        textShadow: '0 0 8px rgba(255,45,149,0.5)',
                     } : {}),
                 }}>
                     Join
@@ -1564,14 +1763,21 @@ export default function KaraokePage() {
                     borderRadius: 3,
                     backdropFilter: 'blur(16px)',
                     color: '#E8DCC8',
+                } : theme.name === 'retrowave' ? {
+                    background: 'rgba(10,6,20,0.88)',
+                    border: '1px solid rgba(255,45,149,0.25)',
+                    boxShadow: '0 0 10px rgba(255,45,149,0.08), 0 0 20px rgba(0,191,255,0.04)',
+                    borderRadius: 4,
+                    backdropFilter: 'blur(16px)',
+                    color: '#F0E6FF',
                 } : {}),
             }}>
                 {art && <img className="k-song-chip__art" src={art} alt="" style={
-                    theme.name === 'space' ? { boxShadow: '0 0 15px rgba(224,64,251,0.2), 0 6px 20px rgba(0,0,0,0.5)', borderRadius: 8, border: '1px solid rgba(224,64,251,0.15)' } : theme.name === 'steampunk' ? { boxShadow: '0 0 10px rgba(200,151,62,0.15), 0 6px 20px rgba(0,0,0,0.5)', borderRadius: 3, border: '1px solid rgba(200,151,62,0.2)' } : {}
+                    theme.name === 'space' ? { boxShadow: '0 0 15px rgba(224,64,251,0.2), 0 6px 20px rgba(0,0,0,0.5)', borderRadius: 8, border: '1px solid rgba(224,64,251,0.15)' } : theme.name === 'steampunk' ? { boxShadow: '0 0 10px rgba(200,151,62,0.15), 0 6px 20px rgba(0,0,0,0.5)', borderRadius: 3, border: '1px solid rgba(200,151,62,0.2)' } : theme.name === 'retrowave' ? { boxShadow: '0 0 10px rgba(255,45,149,0.15), 0 6px 20px rgba(0,0,0,0.5)', borderRadius: 4, border: '1px solid rgba(255,45,149,0.15)' } : {}
                 } />}
                 <div className="k-song-chip__text">
-                    <h3 style={{ fontFamily: theme.fontDisplay, ...(theme.name === 'space' ? { color: '#E8E6F0', textShadow: '0 0 10px rgba(64,224,208,0.3)' } : theme.name === 'steampunk' ? { color: '#E8DCC8', textShadow: '0 0 10px rgba(200,151,62,0.25)' } : {}) }}>{track.name}</h3>
-                    <p style={{ color: theme.muted, ...(theme.name === 'space' ? { color: '#9896A8' } : theme.name === 'steampunk' ? { color: '#A89878' } : {}) }}>{track.artists.map((a: any) => a.name).join(', ')}</p>
+                    <h3 style={{ fontFamily: theme.fontDisplay, ...(theme.name === 'space' ? { color: '#E8E6F0', textShadow: '0 0 10px rgba(64,224,208,0.3)' } : theme.name === 'steampunk' ? { color: '#E8DCC8', textShadow: '0 0 10px rgba(200,151,62,0.25)' } : theme.name === 'retrowave' ? { color: '#F0E6FF', textShadow: '0 0 10px rgba(255,45,149,0.25)' } : {}) }}>{track.name}</h3>
+                    <p style={{ color: theme.muted, ...(theme.name === 'space' ? { color: '#9896A8' } : theme.name === 'steampunk' ? { color: '#A89878' } : theme.name === 'retrowave' ? { color: '#9B8CBF' } : {}) }}>{track.artists.map((a: any) => a.name).join(', ')}</p>
                 </div>
             </div>
 
@@ -1593,6 +1799,13 @@ export default function KaraokePage() {
                             borderRadius: 3,
                             backdropFilter: 'blur(16px)',
                             color: '#E8DCC8',
+                        } as React.CSSProperties : theme.name === 'retrowave' ? {
+                            background: 'rgba(10,6,20,0.88)',
+                            border: '1px solid rgba(255,45,149,0.25)',
+                            boxShadow: '0 0 8px rgba(255,45,149,0.1)',
+                            borderRadius: 4,
+                            backdropFilter: 'blur(16px)',
+                            color: '#F0E6FF',
                         } as React.CSSProperties : {}
                         if (s.micDeviceId) {
                             // Enable mic + effects when ready (Up Next) or playing — singer can warm up before song starts
@@ -1860,6 +2073,21 @@ export default function KaraokePage() {
                                                 inlineStyle.color = singer.color
                                                 inlineStyle.textShadow = `0 0 8px ${singer.colorGlow}, 0 0 20px ${singer.colorGlow}, 0 0 40px rgba(200,151,62,0.15)`
                                             }
+                                        } else if (theme.name === 'retrowave') {
+                                            cls += ' k-line--retrowave'
+                                            if (line.singerIndices && line.singerIndices.length > 1) {
+                                                const colors = line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
+                                                if (colors.length > 1) {
+                                                    inlineStyle.backgroundImage = `linear-gradient(90deg, ${colors.join(', ')})`
+                                                    inlineStyle.WebkitBackgroundClip = 'text'
+                                                    inlineStyle.WebkitTextFillColor = 'transparent'
+                                                    inlineStyle.filter = `drop-shadow(0 0 12px ${colors[0]}) drop-shadow(0 0 12px ${colors[colors.length - 1]})`
+                                                }
+                                            } else if (line.singerIndex !== undefined && singers[line.singerIndex]) {
+                                                const singer = singers[line.singerIndex]
+                                                inlineStyle.color = singer.color
+                                                inlineStyle.textShadow = `0 0 8px ${singer.colorGlow}, 0 0 20px ${singer.colorGlow}, 0 0 50px rgba(255,45,149,0.12)`
+                                            }
                                         } else {
                                             if (line.singerIndices && line.singerIndices.length > 1) {
                                                 const colors = line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
@@ -2028,6 +2256,14 @@ export default function KaraokePage() {
                                             const delay = (hash - Math.floor(hash)) * 2.5
                                             const dur = 2 + (Math.sin(lineSeed + wi * 47) * 10000 % 1) * 1.5
                                             return <span key={wi} className="space-flare-word" style={{ animationDelay: `${delay.toFixed(2)}s`, animationDuration: `${dur.toFixed(2)}s` }}>{word}</span>
+                                        })
+                                    }
+
+                                    if (theme.name === 'retrowave' && isActiveGroup && !(line.singerIndices && line.singerIndices.length > 1)) {
+                                        const words = displayWords.split(/(\s+)/)
+                                        content = words.map((word: string, wi: number) => {
+                                            if (/^\s+$/.test(word)) return word
+                                            return <span key={wi} className="rw-scan-word">{word}</span>
                                         })
                                     }
 

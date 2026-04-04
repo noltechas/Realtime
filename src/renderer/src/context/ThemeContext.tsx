@@ -9,6 +9,7 @@ import { PSYCHEDELIC } from '../styles/psychedelic'
 import { ZEN } from '../styles/zen'
 import { SPACE } from '../styles/space'
 import { STEAMPUNK } from '../styles/steampunk'
+import { RETROWAVE } from '../styles/retrowave'
 import { useApp } from './AppContext'
 
 export const THEMES: Record<string, Theme> = {
@@ -21,6 +22,7 @@ export const THEMES: Record<string, Theme> = {
   'zen': ZEN,
   'space': SPACE,
   'steampunk': STEAMPUNK,
+  'retrowave': RETROWAVE,
 }
 
 export const THEME_LIST = Object.entries(THEMES).map(([key, t]) => ({

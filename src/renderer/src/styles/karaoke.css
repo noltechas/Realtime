@@ -446,6 +446,56 @@
     80%      { transform: rotate(15deg); }
 }
 
+/* ── Retrowave: scan lines masked INTO the text ─────────────────────────── */
+@keyframes rwScanDown {
+    0%   { background-position: 0 0; }
+    100% { background-position: 0 10px; }
+}
+
+.k-line--retrowave {
+    padding: 6px 20px;
+}
+
+/* Ensure all retrowave lyrics use Audiowide */
+[data-theme="retrowave"] .k-line,
+[data-theme="retrowave"] .k-line * {
+    font-family: 'Audiowide', 'Orbitron', sans-serif !important;
+}
+
+/* Per-word: scan-line texture clipped into each word's text fill */
+.rw-scan-word {
+    display: inline-block;
+    font: inherit !important;
+    background: repeating-linear-gradient(
+        180deg,
+        currentColor 0px,
+        currentColor 2.5px,
+        transparent 2.5px,
+        transparent 3px
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: rwScanDown 4s linear infinite;
+}
+
+/* ── Retrowave: idle screen keyframes ───────────────────────────────────── */
+@keyframes rwTwinkle {
+    0%, 100% { opacity: 0.3; }
+    50%      { opacity: 1; }
+}
+
+@keyframes rwTwinkle2 {
+    0%, 100% { opacity: 0.5; }
+    30%      { opacity: 0.15; }
+    70%      { opacity: 1; }
+}
+
+@keyframes rwSunPulse {
+    0%, 100% { opacity: 0.15; transform: translateX(-50%) scale(1); }
+    50%      { opacity: 0.25; transform: translateX(-50%) scale(1.05); }
+}
+
 /* ---- Now Playing Dock ---- */
 .k-dock {
     position: absolute;

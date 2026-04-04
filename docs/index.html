@@ -9,7 +9,7 @@
 <title>Realtime Karaoke</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&family=Patrick+Hand&family=Kalam:wght@700&family=Oswald:wght@400;500;600;700&family=Share+Tech+Mono&family=Permanent+Marker&family=Quicksand:wght@400;500;600;700&family=Nunito:wght@400;500;600;700&family=Chicle&family=Spicy+Rice&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Orbitron:wght@400;500;600;700;800;900&family=Exo+2:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400;500;600;700&family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&family=Patrick+Hand&family=Kalam:wght@700&family=Oswald:wght@400;500;600;700&family=Share+Tech+Mono&family=Permanent+Marker&family=Quicksand:wght@400;500;600;700&family=Nunito:wght@400;500;600;700&family=Chicle&family=Spicy+Rice&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Orbitron:wght@400;500;600;700;800;900&family=Exo+2:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400;500;600;700&family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Audiowide&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
   --black: #050508;
@@ -953,6 +953,7 @@ function applyTheme(){
     " button:hover{transform:rotate(1deg) !important;}" +
     " .youreup-screen{background:#fdfbf7 !important;}" +
     " .youreup-play-btn{border:3px solid #2d2d2d !important;box-shadow:6px 6px 0px #2d2d2d !important;border-radius:50% !important;}" +
+    " .youreup-play-btn svg{fill:#2d5da1 !important;}" +
     " .youreup-play-btn:active{box-shadow:2px 2px 0px #2d2d2d !important;transform:translate(4px,4px) rotate(1deg) !important;}" +
     " .youreup-art{border:3px dashed #2d2d2d !important;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px !important;box-shadow:4px 4px 0px #2d2d2d !important;}";
   }else if(activeTheme==="urban"){
@@ -1130,6 +1131,35 @@ function applyTheme(){
     " .youreup-screen{background:#14110F !important;}" +
     " .youreup-play-btn{border:1px solid #C8973E !important;box-shadow:0 0 30px rgba(200,151,62,0.3),0 0 60px rgba(224,112,64,0.15) !important;}" +
     " .youreup-art{border:1px solid rgba(200,151,62,0.2) !important;border-radius:6px !important;box-shadow:0 0 20px rgba(200,151,62,0.1) !important;}";
+  }else if(activeTheme==="retrowave"){
+    css=":root{--black:#0a0614;--surface-1:rgba(255,45,149,0.04);--surface-2:rgba(255,45,149,0.07);--surface-3:rgba(255,45,149,0.1);--white:#F0E6FF;--white-muted:rgba(155,140,191,0.8);--white-faint:rgba(155,140,191,0.45);--white-ghost:rgba(255,45,149,0.1);--violet:#B44AFF;--pink:#FF2D95;--cyan:#00BFFF;--emerald:#00BFFF;--amber:#FFD700;--red:#FF1A6B;--grad-hero:linear-gradient(135deg, #FF2D95, #FF6B2B, #FFD700);--grad-text:linear-gradient(135deg, #FFD700, #FF6B2B, #FF2D95);--font-display:'Audiowide', sans-serif;--font-body:'Rajdhani', 'Exo 2', sans-serif;}" +
+    " .mesh-bg{background:radial-gradient(ellipse at 30% 40%, rgba(255,45,149,0.04) 0%, transparent 60%), radial-gradient(ellipse at 70% 60%, rgba(0,191,255,0.03) 0%, transparent 60%) !important;animation:none !important;}" +
+    " .song-card,.config-section,.queue-item,.singer-card{border:1px solid rgba(255,45,149,0.12) !important;background:rgba(24,16,42,0.75) !important;backdrop-filter:blur(8px) !important;-webkit-backdrop-filter:blur(8px) !important;border-radius:4px !important;box-shadow:0 0 8px rgba(255,45,149,0.06) !important;}" +
+    " .now-playing-card{border:1px solid rgba(255,215,0,0.3) !important;background:rgba(255,215,0,0.12) !important;border-radius:4px !important;box-shadow:0 0 14px rgba(255,215,0,0.15) !important;animation:none !important;}" +
+    " .join-btn,.add-queue-btn,.profile-save-btn{background:rgba(255,45,149,0.1) !important;color:#F0E6FF !important;border:1px solid rgba(255,45,149,0.4) !important;border-radius:4px !important;box-shadow:0 0 10px rgba(255,45,149,0.25) !important;text-shadow:0 0 8px rgba(255,45,149,0.4) !important;}" +
+    " .join-btn:active,.add-queue-btn:active,.profile-save-btn:active{box-shadow:0 0 20px rgba(255,45,149,0.4) !important;}" +
+    " .singer-count-btn{border:1px solid rgba(255,45,149,0.15) !important;background:rgba(255,45,149,0.04) !important;color:#9B8CBF !important;border-radius:4px !important;}" +
+    " .singer-count-btn.active{background:rgba(255,45,149,0.15) !important;color:#FF2D95 !important;border-color:#FF2D95 !important;}" +
+    " .role-btn{border:1px solid rgba(255,45,149,0.12) !important;background:rgba(255,45,149,0.04) !important;color:#9B8CBF !important;border-radius:4px !important;}" +
+    " .role-btn.active{background:rgba(0,191,255,0.12) !important;color:#00BFFF !important;border-color:rgba(0,191,255,0.4) !important;}" +
+    " .join-input,.search-input,.singer-name-input,.profile-name-input{border:1px solid rgba(255,45,149,0.15) !important;background:rgba(255,45,149,0.04) !important;color:#F0E6FF !important;border-radius:4px !important;}" +
+    " .join-input:focus,.search-input:focus,.singer-name-input:focus,.profile-name-input:focus{box-shadow:0 0 0 2px rgba(255,45,149,0.35), 0 0 0 4px rgba(0,191,255,0.15), 0 0 16px rgba(255,45,149,0.15) !important;border-color:#FF2D95 !important;}" +
+    " .join-input::placeholder,.search-input::placeholder,.singer-name-input::placeholder,.profile-name-input::placeholder{color:rgba(155,140,191,0.4) !important;}" +
+    " .bottom-nav{background:rgba(10,6,20,0.95) !important;border-top:1px solid rgba(255,45,149,0.15) !important;}" +
+    " .songs-header{background:rgba(10,6,20,0.95) !important;}" +
+    " .avatar-upload,.profile-avatar{border-color:rgba(255,45,149,0.3) !important;}" +
+    " .guest-picker-pill{border:1px solid rgba(255,45,149,0.12) !important;background:rgba(255,45,149,0.04) !important;color:#9B8CBF !important;border-radius:4px !important;}" +
+    " .guest-picker-pill.selected{background:rgba(255,45,149,0.15) !important;color:#FF2D95 !important;border-color:#FF2D95 !important;}" +
+    " .reaction-cell{border:1px solid rgba(255,45,149,0.15) !important;background:rgba(24,16,42,0.75) !important;border-radius:4px !important;box-shadow:0 0 8px rgba(255,45,149,0.06) !important;}" +
+    " .reaction-cell:active{border-color:#FF2D95 !important;box-shadow:0 0 15px rgba(255,45,149,0.3) !important;}" +
+    " .emoji-picker-sheet,.text-input-sheet,.meme-picker-sheet{background:#110a1e !important;border:1px solid rgba(255,45,149,0.15) !important;}" +
+    " .text-input-field{border:1px solid rgba(255,45,149,0.15) !important;background:rgba(255,45,149,0.04) !important;color:#F0E6FF !important;border-radius:4px !important;}" +
+    " .text-input-field:focus{box-shadow:0 0 10px rgba(255,45,149,0.3) !important;}" +
+    " .text-input-send{background:rgba(255,45,149,0.12) !important;color:#F0E6FF !important;border:1px solid rgba(255,45,149,0.4) !important;border-radius:4px !important;}" +
+    " .meme-pick-btn{border:1px solid rgba(255,45,149,0.12) !important;background:rgba(255,45,149,0.04) !important;border-radius:4px !important;}" +
+    " .youreup-screen{background:#0a0614 !important;}" +
+    " .youreup-play-btn{border:1px solid #FF2D95 !important;box-shadow:0 0 30px rgba(255,45,149,0.3),0 0 60px rgba(0,191,255,0.15) !important;}" +
+    " .youreup-art{border:1px solid rgba(255,45,149,0.2) !important;border-radius:4px !important;box-shadow:0 0 20px rgba(255,45,149,0.1) !important;}";
   }else{
     css="";
   }
@@ -1294,6 +1324,7 @@ function renderConfig(){
         '<button class="theme-pick-btn'+(S.stage_theme==="zen"?" selected":"")+'" data-stage-theme="zen" style="background:#1a1814;color:#D4B85A;border:1px solid rgba(201,168,76,0.4);border-radius:6px;font-family:\'Cormorant Garamond\',serif;font-style:italic;text-shadow:0 0 8px rgba(201,168,76,0.3);">Zen</button>'+
         '<button class="theme-pick-btn'+(S.stage_theme==="space"?" selected":"")+'" data-stage-theme="space" style="background:#08080F;color:#E040FB;border:1px solid rgba(224,64,251,0.4);border-radius:4px;font-family:\'Orbitron\',sans-serif;text-shadow:0 0 8px rgba(224,64,251,0.4);letter-spacing:1px;font-size:11px;">Space</button>'+
         '<button class="theme-pick-btn'+(S.stage_theme==="steampunk"?" selected":"")+'" data-stage-theme="steampunk" style="background:#14110F;color:#C8973E;border:1px solid rgba(200,151,62,0.4);border-radius:3px;font-family:\'Cinzel Decorative\',serif;text-shadow:0 0 8px rgba(200,151,62,0.3);font-size:11px;">Steampunk</button>'+
+        '<button class="theme-pick-btn'+(S.stage_theme==="retrowave"?" selected":"")+'" data-stage-theme="retrowave" style="background:#0a0614;color:#FF2D95;border:1px solid rgba(255,45,149,0.4);border-radius:4px;font-family:\'Audiowide\',sans-serif;text-shadow:0 0 8px rgba(255,45,149,0.4);font-size:11px;">Retrowave</button>'+
       '</div>'+
     '</div>'+
     '<button class="add-queue-btn" id="add-queue-btn">Add to Queue</button>'+
