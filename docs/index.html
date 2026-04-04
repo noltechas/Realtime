@@ -673,6 +673,7 @@ var NC=[
 ];
 var S={screen:"loading",sessionCode:null,sessionId:null,sessionName:null,guestId:null,guestName:"",profilePicture:null,guests:[],catalog:[],searchQuery:"",selectedTrack:null,singerCount:1,singers:[{name:"",color:NC[0].c,colorGlow:NC[0].g,roleIndices:[],profilePicture:null,whitePersonCheck:false}],queue:[],nowPlaying:null,errorMessage:"",theme_name:"neo-brutal",stage_theme:null,customEmoji:null,emojiPickerOpen:false,textInputOpen:false,memePickerOpen:false,memeSearchQuery:"",memeGifs:[],memeLoading:false,isPlaying:false,nowPlayingSingerConfigs:null,matchedSinger:null,nowPlayingStageTheme:null,joining:false,addingToQueue:false,vocalFxEnabled:true,autotuneEnabled:true};
 var qCh=null,sCh=null,gCh=null,rCh=null;
+var playedTrackIds={};
 var allGifs=[];
 var gifSearchTimer=null;
 function filterGifs(query){
@@ -723,7 +724,7 @@ function init(){
 async function validateSession(){
   var r=await sb.from("karaoke_sessions").select("id,is_active,name,now_playing_track_id,now_playing_name,now_playing_artist,now_playing_art_url,theme_name,is_playing,now_playing_singer_configs,now_playing_stage_theme,vocal_fx_enabled,autotune_enabled,trending_gifs").eq("code",S.sessionCode).single();
   if(r.error||!r.data||!r.data.is_active){S.screen="error";S.errorMessage="This session has ended or does not exist.";render();return;}
-  S.sessionId=r.data.id;
+  S.sessionId=r.data.id;playedTrackIds={};
   if(r.data.trending_gifs&&Array.isArray(r.data.trending_gifs)){allGifs=r.data.trending_gifs;}
   S.sessionName=r.data.name||null;
   S.theme_name=r.data.theme_name;
@@ -733,7 +734,7 @@ async function validateSession(){
   S.autotuneEnabled=r.data.autotune_enabled!==false;
   S.nowPlayingSingerConfigs=r.data.now_playing_singer_configs||null;
   S.nowPlayingStageTheme=r.data.now_playing_stage_theme||null;
-  if(r.data.now_playing_name){S.nowPlaying={trackId:r.data.now_playing_track_id,name:r.data.now_playing_name,artist:r.data.now_playing_artist,artUrl:r.data.now_playing_art_url};}
+  if(r.data.now_playing_name){S.nowPlaying={trackId:r.data.now_playing_track_id,name:r.data.now_playing_name,artist:r.data.now_playing_artist,artUrl:r.data.now_playing_art_url};if(r.data.now_playing_track_id)playedTrackIds[r.data.now_playing_track_id]=true;}
   if(S.guestId){
     var gr=await sb.from("karaoke_guests").select("id,profile_picture").eq("id",S.guestId).eq("session_id",S.sessionId).single();
     if(gr.data){
@@ -785,8 +786,9 @@ function checkYoureUp(){
       return;
     }
     if(match){S.matchedSinger=match;}
+    if(!match&&(S.screen==="youreup"||S.screen==="stage")){S.screen="stage";S.matchedSinger=null;}
   }
-  if(!S.nowPlaying&&S.screen==="youreup"){
+  if(!S.nowPlaying&&(S.screen==="youreup"||S.screen==="stage")){
     S.screen="queue";
     S.matchedSinger=null;
   }
@@ -797,7 +799,8 @@ function subRT(){
   if(sCh)sb.removeChannel(sCh);
   sCh=sb.channel("cs-"+S.sessionId).on("postgres_changes",{event:"UPDATE",schema:"public",table:"karaoke_sessions",filter:"id=eq."+S.sessionId},function(pl){
     var d=pl.new;if(!d.is_active){S.screen="error";S.errorMessage="This session has ended.";render();return;}
-    if(d.now_playing_name){S.nowPlaying={trackId:d.now_playing_track_id,name:d.now_playing_name,artist:d.now_playing_artist,artUrl:d.now_playing_art_url};}else{S.nowPlaying=null;}
+    if(S.nowPlaying&&S.nowPlaying.trackId)playedTrackIds[S.nowPlaying.trackId]=true;
+    if(d.now_playing_name){S.nowPlaying={trackId:d.now_playing_track_id,name:d.now_playing_name,artist:d.now_playing_artist,artUrl:d.now_playing_art_url};if(d.now_playing_track_id)playedTrackIds[d.now_playing_track_id]=true;}else{S.nowPlaying=null;}
     S.isPlaying=!!d.is_playing;
     if(d.vocal_fx_enabled!==undefined)S.vocalFxEnabled=d.vocal_fx_enabled!==false;
     if(d.autotune_enabled!==undefined)S.autotuneEnabled=d.autotune_enabled!==false;
@@ -1299,7 +1302,7 @@ function renderConfig(){
 function renderQueue(){
   var npH="";
   if(S.nowPlaying){var np=S.nowPlaying;npH='<div class="now-playing-card">'+(np.artUrl?'<img src="'+np.artUrl+'" alt="">':"")+'<div style="flex:1;min-width:0"><div class="now-playing-badge">Now Playing</div><div class="now-playing-title">'+esc(np.name)+'</div><div class="now-playing-artist">'+esc(np.artist||"")+'</div></div></div>';}
-  var upNext=S.queue.filter(function(q){return !S.nowPlaying||!S.nowPlaying.trackId||q.track_id!==S.nowPlaying.trackId;});
+  var upNext=S.queue.filter(function(q){return !playedTrackIds[q.track_id];});
   var ih="";
   if(upNext.length===0){ih='<div class="queue-empty">Queue is empty. Add some songs!</div>';}
   else{ih=upNext.map(function(q,i){

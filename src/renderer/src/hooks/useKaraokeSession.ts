@@ -217,11 +217,27 @@ export function useKaraokeSession() {
     }, [state.karaokeSessionId])
 
     // Sync now-playing changes to Supabase
+    const prevNowPlayingTrackIdRef = useRef<string | null>(null)
+
     useEffect(() => {
         if (window.electronAPI?.isStageWindow) return
         if (!state.karaokeSessionId) return
 
+        // Mark the PREVIOUS now-playing track as played when advancing
+        const prevTrackId = prevNowPlayingTrackIdRef.current
+        if (prevTrackId && prevTrackId !== state.nowPlaying?.track?.id) {
+            supabase.from('karaoke_queue')
+                .update({ status: 'played' })
+                .eq('session_id', state.karaokeSessionId)
+                .eq('track_id', prevTrackId)
+                .eq('status', 'queued')
+                .then(res => {
+                    if (res.error) console.error('[Karaoke] Failed to mark previous track as played:', res.error)
+                })
+        }
+
         if (state.nowPlaying) {
+            prevNowPlayingTrackIdRef.current = state.nowPlaying.track.id
             window.electronAPI?.syncNowPlaying({
                 trackId: state.nowPlaying.track.id,
                 name: state.nowPlaying.track.name,
@@ -243,6 +259,7 @@ export function useKaraokeSession() {
                     if (res.error) console.error('[Karaoke] Failed to mark queue item as played:', res.error)
                 })
         } else {
+            prevNowPlayingTrackIdRef.current = null
             window.electronAPI?.syncNowPlaying(null)
         }
     }, [state.nowPlaying?.track?.id, state.karaokeSessionId])
