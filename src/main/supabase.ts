@@ -38,7 +38,7 @@ export async function createSession(name: string, themeName: string): Promise<Se
     }
 }
 
-const GIPHY_API_KEY = 'REPLACE_WITH_YOUR_GIPHY_API_KEY'
+const GIPHY_API_KEY = import.meta.env.MAIN_VITE_GIPHY_API_KEY || ''
 
 interface TrendingGif {
     id: string

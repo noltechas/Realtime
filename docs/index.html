@@ -733,7 +733,7 @@ async function validateSession(){
   S.autotuneEnabled=r.data.autotune_enabled!==false;
   S.nowPlayingSingerConfigs=r.data.now_playing_singer_configs||null;
   S.nowPlayingStageTheme=r.data.now_playing_stage_theme||null;
-  if(r.data.now_playing_name){S.nowPlaying={name:r.data.now_playing_name,artist:r.data.now_playing_artist,artUrl:r.data.now_playing_art_url};}
+  if(r.data.now_playing_name){S.nowPlaying={trackId:r.data.now_playing_track_id,name:r.data.now_playing_name,artist:r.data.now_playing_artist,artUrl:r.data.now_playing_art_url};}
   if(S.guestId){
     var gr=await sb.from("karaoke_guests").select("id,profile_picture").eq("id",S.guestId).eq("session_id",S.sessionId).single();
     if(gr.data){
@@ -797,7 +797,7 @@ function subRT(){
   if(sCh)sb.removeChannel(sCh);
   sCh=sb.channel("cs-"+S.sessionId).on("postgres_changes",{event:"UPDATE",schema:"public",table:"karaoke_sessions",filter:"id=eq."+S.sessionId},function(pl){
     var d=pl.new;if(!d.is_active){S.screen="error";S.errorMessage="This session has ended.";render();return;}
-    if(d.now_playing_name){S.nowPlaying={name:d.now_playing_name,artist:d.now_playing_artist,artUrl:d.now_playing_art_url};}else{S.nowPlaying=null;}
+    if(d.now_playing_name){S.nowPlaying={trackId:d.now_playing_track_id,name:d.now_playing_name,artist:d.now_playing_artist,artUrl:d.now_playing_art_url};}else{S.nowPlaying=null;}
     S.isPlaying=!!d.is_playing;
     if(d.vocal_fx_enabled!==undefined)S.vocalFxEnabled=d.vocal_fx_enabled!==false;
     if(d.autotune_enabled!==undefined)S.autotuneEnabled=d.autotune_enabled!==false;
@@ -1299,9 +1299,10 @@ function renderConfig(){
 function renderQueue(){
   var npH="";
   if(S.nowPlaying){var np=S.nowPlaying;npH='<div class="now-playing-card">'+(np.artUrl?'<img src="'+np.artUrl+'" alt="">':"")+'<div style="flex:1;min-width:0"><div class="now-playing-badge">Now Playing</div><div class="now-playing-title">'+esc(np.name)+'</div><div class="now-playing-artist">'+esc(np.artist||"")+'</div></div></div>';}
+  var upNext=S.queue.filter(function(q){return !S.nowPlaying||!S.nowPlaying.trackId||q.track_id!==S.nowPlaying.trackId;});
   var ih="";
-  if(S.queue.length===0){ih='<div class="queue-empty">Queue is empty. Add some songs!</div>';}
-  else{ih=S.queue.map(function(q,i){
+  if(upNext.length===0){ih='<div class="queue-empty">Queue is empty. Add some songs!</div>';}
+  else{ih=upNext.map(function(q,i){
     var cs=q.singer_configs||[];
     var cat=S.catalog.find(function(c){return c.track_id===q.track_id;});
     var roles=cat&&cat.roles?cat.roles:[];
@@ -1322,7 +1323,7 @@ function renderQueue(){
     '</div></div>';
   }).join("");}
   return '<div class="queue-screen screen"><div class="queue-title">Queue</div>'+npH+
-    '<div class="queue-section-label">Up Next \u00B7 '+S.queue.length+' song'+(S.queue.length!==1?"s":"")+'</div>'+ih+'</div>';
+    '<div class="queue-section-label">Up Next \u00B7 '+upNext.length+' song'+(upNext.length!==1?"s":"")+'</div>'+ih+'</div>';
 }
 function renderStage(){
   var customCell="";
