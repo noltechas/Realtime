@@ -771,11 +771,12 @@ function checkYoureUp(){
     for(var i=0;i<S.nowPlayingSingerConfigs.length;i++){
       if(S.nowPlayingSingerConfigs[i].name===S.guestName){match=S.nowPlayingSingerConfigs[i];break;}
     }
-    if(match&&S.screen!=="youreup"){
+    if(match&&S.screen!=="youreup"&&S.screen!=="stage"){
       S.matchedSinger=match;
       S.screen="youreup";
       return;
     }
+    if(match){S.matchedSinger=match;}
   }
   if(!S.nowPlaying&&S.screen==="youreup"){
     S.screen="queue";
@@ -1143,7 +1144,7 @@ function render(){
     case"queue":a.innerHTML=renderQueue()+renderBN("queue");break;
     case"stage":a.innerHTML=renderStage()+renderBN("stage")+renderEmojiPicker()+renderTextInput()+renderMemePicker();break;
     case"profile":a.innerHTML=renderProfile()+renderBN("profile");break;
-    case"youreup":a.innerHTML=renderYoureUp();break;
+    case"youreup":a.innerHTML=renderYoureUp()+renderBN("stage");break;
     case"error":a.innerHTML=renderError();break;
   }
   bindEvents();
