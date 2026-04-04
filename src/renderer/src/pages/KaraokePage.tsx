@@ -145,7 +145,7 @@ function ReactionsOverlay() {
                 const next = [...prev, r]
                 return next.length > 15 ? next.slice(-15) : next
             })
-            const duration = (reaction.reactionType === 'text' || reaction.reactionType === 'photo') ? 7000 : 4500
+            const duration = (reaction.reactionType === 'text' || reaction.reactionType === 'photo' || reaction.reactionType === 'meme') ? 7000 : 4500
             setTimeout(() => {
                 setReactions(prev => prev.filter(item => item.id !== r.id))
             }, duration)

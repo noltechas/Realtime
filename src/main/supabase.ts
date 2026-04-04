@@ -38,6 +38,41 @@ export async function createSession(name: string, themeName: string): Promise<Se
     }
 }
 
+const GIPHY_API_KEY = 'REPLACE_WITH_YOUR_GIPHY_API_KEY'
+
+interface TrendingGif {
+    id: string
+    title: string
+    preview: string
+    url: string
+}
+
+export async function fetchAndStoreTrendingGifs(sessionId: string): Promise<void> {
+    try {
+        const response = await fetch(
+            `https://api.giphy.com/v1/gifs/trending?api_key=${GIPHY_API_KEY}&limit=100&rating=pg`
+        )
+        if (!response.ok) throw new Error(`Giphy API error: ${response.status}`)
+        const data = await response.json()
+
+        const gifs: TrendingGif[] = (data.data || [])
+            .map((g: any) => ({
+                id: g.id,
+                title: g.title || '',
+                preview: g.images?.fixed_width_small?.url || '',
+                url: g.images?.fixed_width?.url || ''
+            }))
+            .filter((g: TrendingGif) => g.preview && g.url)
+
+        await supabase
+            .from('karaoke_sessions')
+            .update({ trending_gifs: gifs })
+            .eq('id', sessionId)
+    } catch (e) {
+        console.error('Failed to fetch trending GIFs:', e)
+    }
+}
+
 export interface RecentSession {
     id: string
     code: string

@@ -11,6 +11,7 @@ import {
     insertQueueItem, removeQueueItem, reorderQueue, closeSession,
     listGuests, updateGuest, removeGuest,
     listRecentSessions, getSession, deleteSession,
+    fetchAndStoreTrendingGifs,
     CatalogItem
 } from './supabase'
 
@@ -431,6 +432,11 @@ ipcMain.handle('karaoke:create-session', async (_event, name: string, themeName:
             console.error('Failed to push catalog:', e)
         }
 
+        // Fetch trending GIFs in background (don't block session creation)
+        fetchAndStoreTrendingGifs(session.sessionId).catch(e =>
+            console.error('Failed to fetch trending GIFs:', e)
+        )
+
         return {
             sessionId: session.sessionId,
             sessionCode: session.sessionCode,
@@ -465,6 +471,11 @@ ipcMain.handle('karaoke:resume-session', async (_event, sessionId: string) => {
         } catch (e) {
             console.error('Failed to push catalog on resume:', e)
         }
+
+        // Refresh trending GIFs in background on resume
+        fetchAndStoreTrendingGifs(session.sessionId).catch(e =>
+            console.error('Failed to fetch trending GIFs on resume:', e)
+        )
 
         return {
             sessionId: session.sessionId,
