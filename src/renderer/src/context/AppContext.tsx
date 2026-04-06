@@ -204,6 +204,7 @@ type Action =
     | { type: 'CLEAR_QUEUE' }
     | { type: 'REMOVE_FROM_QUEUE'; payload: number }
     | { type: 'REPLACE_QUEUE_ITEM'; payload: { index: number; item: QueueItem } }
+    | { type: 'SET_QUEUE_ITEM_REMOTE_ID'; payload: { itemId: string; remoteQueueId: string } }
     | { type: 'REORDER_QUEUE'; payload: QueueItem[] }
     | { type: 'SET_EDITING_QUEUE_INDEX'; payload: number | null }
     | { type: 'UPDATE_NOW_PLAYING_EFFECTS'; payload: { singerIndex: number; effects: VoiceEffects } }
@@ -361,6 +362,13 @@ function reducer(state: AppState, action: Action): AppState {
                 queue: newQueue,
                 currentTrack: null,
                 editingQueueIndex: null
+            }
+        }
+        case 'SET_QUEUE_ITEM_REMOTE_ID': {
+            const { itemId, remoteQueueId } = action.payload
+            return {
+                ...state,
+                queue: state.queue.map(q => q.id === itemId ? { ...q, remoteQueueId } : q)
             }
         }
         case 'SET_EDITING_QUEUE_INDEX':

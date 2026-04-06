@@ -644,10 +644,46 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
   margin-top: 24px; font-size: 13px; color: var(--white-muted);
   font-family: var(--font-body);
 }
+#notif-container {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+  display: flex; flex-direction: column; align-items: center;
+  pointer-events: none; padding: 12px 16px 0; gap: 8px;
+}
+.notif-toast {
+  pointer-events: auto; display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; border-radius: 14px; max-width: 420px; width: 100%;
+  background: var(--comp-card-bg, rgba(255,255,255,0.08));
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--comp-border, rgba(255,255,255,0.1));
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+  animation: notif-in 0.4s cubic-bezier(0.16,1,0.3,1) forwards;
+  font-family: var(--font-body, 'DM Sans', sans-serif);
+}
+.notif-toast.notif-out { animation: notif-out 0.35s cubic-bezier(0.55,0,1,0.45) forwards; }
+.notif-art { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
+.notif-body { flex: 1; min-width: 0; }
+.notif-title {
+  font-size: 13px; font-weight: 600; line-height: 1.3;
+  color: var(--comp-text, #f4f0fb);
+}
+.notif-sub {
+  font-size: 11px; margin-top: 2px; line-height: 1.3;
+  color: var(--comp-text-muted, rgba(244,240,251,0.55));
+}
+.notif-avatar { flex-shrink: 0; }
+@keyframes notif-in {
+  from { opacity: 0; transform: translateY(-100%); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes notif-out {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-100%); }
+}
 </style>
 </head>
 <body>
 <div class="mesh-bg"></div>
+<div id="notif-container"></div>
 <div class="app" id="app"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
@@ -795,7 +831,7 @@ function checkYoureUp(){
 }
 function subRT(){
   if(qCh)sb.removeChannel(qCh);
-  qCh=sb.channel("cq-"+S.sessionId).on("postgres_changes",{event:"*",schema:"public",table:"karaoke_queue",filter:"session_id=eq."+S.sessionId},function(){loadQueue().then(render);}).subscribe();
+  qCh=sb.channel("cq-"+S.sessionId).on("postgres_changes",{event:"*",schema:"public",table:"karaoke_queue",filter:"session_id=eq."+S.sessionId},function(pl){if(pl.eventType==="INSERT")showQueueNotification(pl);loadQueue().then(render);}).subscribe();
   if(sCh)sb.removeChannel(sCh);
   sCh=sb.channel("cs-"+S.sessionId).on("postgres_changes",{event:"UPDATE",schema:"public",table:"karaoke_sessions",filter:"id=eq."+S.sessionId},function(pl){
     var d=pl.new;if(!d.is_active){S.screen="error";S.errorMessage="This session has ended.";render();return;}
@@ -876,6 +912,40 @@ function avatarHTML(pic,name,size,bg){
   var letter=name?esc(name.charAt(0).toUpperCase()):"?";
   var bgc=bg||"linear-gradient(135deg,#a78bfa,#818cf8)";
   return '<div style="width:'+size+'px;height:'+size+'px;border-radius:50%;background:'+bgc+';display:flex;align-items:center;justify-content:center;font-size:'+Math.round(size*0.42)+'px;font-weight:700;color:#fff;flex-shrink:0">'+letter+'</div>';
+}
+function showQueueNotification(pl){
+  if(!pl||!pl.new)return;
+  var d=pl.new;
+  if(d.added_by_guest_id&&d.added_by_guest_id===S.guestId)return;
+  var name=d.added_by_name||(d.source==="local"?"The Host":"Someone");
+  var song=d.track_name||"a song";
+  var artist=d.track_artist||"";
+  var artUrl=d.track_art_url||"";
+  var singers=d.singer_configs||[];
+  var adderPic=null;
+  if(d.added_by_guest_id&&S.guests){
+    for(var i=0;i<S.guests.length;i++){
+      if(S.guests[i].id===d.added_by_guest_id){adderPic=S.guests[i].profile_picture||null;break;}
+    }
+  }
+  var withText="";
+  if(singers.length>1){
+    var others=[];
+    for(var j=0;j<singers.length;j++){
+      if(singers[j].name&&singers[j].name!==name)others.push(esc(singers[j].name));
+    }
+    if(others.length>0)withText=" with "+others.join(", ");
+  }
+  var container=document.getElementById("notif-container");
+  if(!container)return;
+  var el=document.createElement("div");
+  el.className="notif-toast";
+  el.innerHTML=(artUrl?'<img class="notif-art" src="'+esc(artUrl)+'" alt="">':"")+
+    '<div class="notif-body"><div class="notif-title">'+esc(name)+" signed up to sing "+esc(song)+"</div>"+
+    '<div class="notif-sub">by '+esc(artist)+withText+"</div></div>"+
+    '<div class="notif-avatar">'+avatarHTML(adderPic,name,36)+"</div>";
+  container.appendChild(el);
+  setTimeout(function(){el.className="notif-toast notif-out";setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);},400);},4000);
 }
 function applyTheme(){
   var tg=document.getElementById("theme-global");

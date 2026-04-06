@@ -137,6 +137,10 @@ function SetupPanel() {
                 singerConfigs: state.singers.map(s => ({
                     name: s.name, color: s.color, colorGlow: s.colorGlow, roleIndices: s.roleIndices
                 })),
+            }).then(result => {
+                if (result && result.id) {
+                    dispatch({ type: 'SET_QUEUE_ITEM_REMOTE_ID', payload: { itemId: item.id, remoteQueueId: result.id } })
+                }
             }).catch(err => console.error('Failed to sync queue item to Supabase:', err))
         }
     }
@@ -589,6 +593,11 @@ export default function QueuePage() {
     }
 
     const removeSong = (index: number) => {
+        const item = state.queue[index]
+        if (item?.remoteQueueId && window.electronAPI?.removeQueueItem) {
+            window.electronAPI.removeQueueItem(item.remoteQueueId)
+                .catch(err => console.error('Failed to remove queue item from Supabase:', err))
+        }
         dispatch({ type: 'REMOVE_FROM_QUEUE', payload: index })
     }
 
