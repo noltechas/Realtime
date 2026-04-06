@@ -134,9 +134,11 @@ function SetupPanel() {
                 trackArtist: track.artists.map((a: { name: string }) => a.name).join(', '),
                 trackArtUrl: track.album.images[0]?.url || null,
                 trackDurationMs: track.duration_ms,
-                singerConfigs: state.singers.map(s => ({
-                    name: s.name, color: s.color, colorGlow: s.colorGlow, roleIndices: s.roleIndices
-                })),
+                singerConfigs: state.singers.map(s => {
+                    var cfg: any = { name: s.name, color: s.color, colorGlow: s.colorGlow, roleIndices: s.roleIndices };
+                    if (s.profilePicture) cfg.profilePicture = s.profilePicture;
+                    return cfg;
+                }),
             }).then(result => {
                 if (result && result.id) {
                     dispatch({ type: 'SET_QUEUE_ITEM_REMOTE_ID', payload: { itemId: item.id, remoteQueueId: result.id } })
