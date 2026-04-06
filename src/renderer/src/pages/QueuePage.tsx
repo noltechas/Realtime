@@ -587,6 +587,14 @@ export default function QueuePage() {
         dispatch({ type: 'REORDER_QUEUE', payload: newQueue })
         setDraggedIndex(null)
         setDragOverIndex(null)
+
+        if (state.karaokeSessionId && window.electronAPI?.reorderQueue) {
+            const ids = newQueue.map(q => q.remoteQueueId).filter(Boolean) as string[]
+            if (ids.length > 0) {
+                window.electronAPI.reorderQueue(ids)
+                    .catch(err => console.error('Failed to sync queue order to Supabase:', err))
+            }
+        }
     }
 
     const handleDragEnd = () => {
