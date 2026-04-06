@@ -925,11 +925,21 @@ function showQueueNotification(pl){
   for(var i=0;i<singers.length;i++){if(singers[i].name)singerNames.push(singers[i].name);}
   if(singerNames.length===0)singerNames.push(d.added_by_name||"Someone");
   var displayName=singerNames.length<=2?singerNames.join(" & "):singerNames.slice(0,-1).join(", ")+" & "+singerNames[singerNames.length-1];
-  var adderPic=singers.length>0&&singers[0].profilePicture?singers[0].profilePicture:null;
-  if(!adderPic&&d.added_by_guest_id&&S.guests){
-    for(var g=0;g<S.guests.length;g++){
-      if(S.guests[g].id===d.added_by_guest_id){adderPic=S.guests[g].profile_picture||null;break;}
+  var pics=[];
+  for(var p=0;p<singers.length;p++){
+    var pic=singers[p].profilePicture||null;
+    if(!pic&&S.guests){
+      for(var g=0;g<S.guests.length;g++){
+        if(S.guests[g].name===singers[p].name&&S.guests[g].profile_picture){pic=S.guests[g].profile_picture;break;}
+      }
     }
+    if(pic)pics.push(pic);
+  }
+  var avatarHtml="";
+  if(pics.length>0){
+    avatarHtml='<div class="notif-avatars" style="display:flex;gap:4px;flex-shrink:0">';
+    for(var a=0;a<pics.length;a++){avatarHtml+='<img src="'+pics[a]+'" alt="" style="width:36px;height:36px;border-radius:50%;object-fit:cover">';}
+    avatarHtml+="</div>";
   }
   var container=document.getElementById("notif-container");
   if(!container)return;
@@ -938,7 +948,7 @@ function showQueueNotification(pl){
   el.innerHTML=(artUrl?'<img class="notif-art" src="'+esc(artUrl)+'" alt="">':"")+
     '<div class="notif-body"><div class="notif-title">'+esc(displayName)+" signed up to sing "+esc(song)+"</div>"+
     '<div class="notif-sub">by '+esc(artist)+"</div></div>"+
-    '<div class="notif-avatar">'+avatarHTML(adderPic,name,36)+"</div>";
+    avatarHtml;
   container.appendChild(el);
   setTimeout(function(){el.className="notif-toast notif-out";setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);},400);},4000);
 }
