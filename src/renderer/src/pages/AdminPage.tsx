@@ -51,6 +51,7 @@ export default function AdminPage() {
     const [query, setQuery] = useState('')
     const [results, setResults] = useState<any[]>([])
     const [catalog, setCatalog] = useState<CatalogSong[]>([])
+    const [catalogFilter, setCatalogFilter] = useState('')
     const [uploading, setUploading] = useState(false)
     const [loading, setLoading] = useState(false)
     const [pending, setPending] = useState<PendingSong | null>(null)
@@ -902,13 +903,24 @@ export default function AdminPage() {
                                 </div>
                             </div>
 
+                            <input
+                                placeholder="Filter songs..."
+                                value={catalogFilter}
+                                onChange={(e) => setCatalogFilter(e.target.value)}
+                                style={{ ...theme.input, width: '100%', padding: '10px 14px', fontSize: 14, marginBottom: catalog.length ? 16 : 0 }}
+                            />
+
                             {catalog.length === 0 ? (
                                 <div style={{ textAlign: 'center', padding: '24px 0', color: theme.faint, fontSize: 13, fontFamily: theme.fontBody }}>
                                     No songs yet.
                                 </div>
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 300, overflowY: 'auto' }}>
-                                    {catalog.map(song => (
+                                    {catalog.filter(song => {
+                                        if (!catalogFilter) return true
+                                        const q = catalogFilter.toLowerCase()
+                                        return song.name.toLowerCase().includes(q) || song.artist.toLowerCase().includes(q)
+                                    }).map(song => (
                                         <div key={song.trackId} style={{
                                             display: 'flex', alignItems: 'center', gap: 12,
                                             padding: '10px 14px',
