@@ -707,7 +707,7 @@ var NC=[
 {c:"#d946ef",g:"rgba(217,70,239,0.3)"},
 {c:"#e11d48",g:"rgba(225,29,72,0.3)"}
 ];
-var S={screen:"loading",sessionCode:null,sessionId:null,sessionName:null,guestId:null,guestName:"",profilePicture:null,guests:[],catalog:[],searchQuery:"",selectedTrack:null,singerCount:1,singers:[{name:"",color:NC[0].c,colorGlow:NC[0].g,roleIndices:[],profilePicture:null,whitePersonCheck:false}],queue:[],nowPlaying:null,errorMessage:"",theme_name:"neo-brutal",stage_theme:null,customEmoji:null,emojiPickerOpen:false,textInputOpen:false,memePickerOpen:false,memeSearchQuery:"",memeGifs:[],memeLoading:false,isPlaying:false,nowPlayingSingerConfigs:null,matchedSinger:null,nowPlayingStageTheme:null,joining:false,addingToQueue:false,vocalFxEnabled:true,autotuneEnabled:true};
+var S={screen:"loading",sessionCode:null,sessionId:null,sessionName:null,guestId:null,guestName:"",profilePicture:null,guests:[],catalog:[],searchQuery:"",selectedTrack:null,singerCount:1,singers:[{name:"",color:NC[0].c,colorGlow:NC[0].g,roleIndices:[],profilePicture:null,whitePersonCheck:false}],queue:[],nowPlaying:null,errorMessage:"",theme_name:"neo-brutal",stage_theme:null,customEmoji:null,emojiPickerOpen:false,textInputOpen:false,memePickerOpen:false,memeSearchQuery:"",memeGifs:[],memeLoading:false,isPlaying:false,nowPlayingSingerConfigs:null,matchedSinger:null,nowPlayingStageTheme:null,joining:false,joinName:"",addingToQueue:false,vocalFxEnabled:true,autotuneEnabled:true};
 var qCh=null,sCh=null,gCh=null,rCh=null;
 var playedTrackIds={};
 var allGifs=[];
@@ -789,7 +789,7 @@ function saveLocal(){
 }
 async function joinSession(name){
   if(S.joining)return;
-  S.joining=true;S.guestName=name.trim();S.screen="joining";render();
+  S.joining=true;S.guestName=name.trim();S.joinName="";S.screen="joining";render();
   var ins={session_id:S.sessionId,name:name.trim()};
   if(S.profilePicture)ins.profile_picture=S.profilePicture;
   var r=await sb.from("karaoke_guests").insert(ins).select("id").single();
@@ -917,32 +917,27 @@ function showQueueNotification(pl){
   if(!pl||!pl.new)return;
   var d=pl.new;
   if(d.added_by_guest_id&&d.added_by_guest_id===S.guestId)return;
-  var name=d.added_by_name||(d.source==="local"?"The Host":"Someone");
   var song=d.track_name||"a song";
   var artist=d.track_artist||"";
   var artUrl=d.track_art_url||"";
   var singers=d.singer_configs||[];
-  var adderPic=null;
-  if(d.added_by_guest_id&&S.guests){
-    for(var i=0;i<S.guests.length;i++){
-      if(S.guests[i].id===d.added_by_guest_id){adderPic=S.guests[i].profile_picture||null;break;}
+  var singerNames=[];
+  for(var i=0;i<singers.length;i++){if(singers[i].name)singerNames.push(singers[i].name);}
+  if(singerNames.length===0)singerNames.push(d.added_by_name||"Someone");
+  var displayName=singerNames.length<=2?singerNames.join(" & "):singerNames.slice(0,-1).join(", ")+" & "+singerNames[singerNames.length-1];
+  var adderPic=singers.length>0&&singers[0].profilePicture?singers[0].profilePicture:null;
+  if(!adderPic&&d.added_by_guest_id&&S.guests){
+    for(var g=0;g<S.guests.length;g++){
+      if(S.guests[g].id===d.added_by_guest_id){adderPic=S.guests[g].profile_picture||null;break;}
     }
-  }
-  var withText="";
-  if(singers.length>1){
-    var others=[];
-    for(var j=0;j<singers.length;j++){
-      if(singers[j].name&&singers[j].name!==name)others.push(esc(singers[j].name));
-    }
-    if(others.length>0)withText=" with "+others.join(", ");
   }
   var container=document.getElementById("notif-container");
   if(!container)return;
   var el=document.createElement("div");
   el.className="notif-toast";
   el.innerHTML=(artUrl?'<img class="notif-art" src="'+esc(artUrl)+'" alt="">':"")+
-    '<div class="notif-body"><div class="notif-title">'+esc(name)+" signed up to sing "+esc(song)+"</div>"+
-    '<div class="notif-sub">by '+esc(artist)+withText+"</div></div>"+
+    '<div class="notif-body"><div class="notif-title">'+esc(displayName)+" signed up to sing "+esc(song)+"</div>"+
+    '<div class="notif-sub">by '+esc(artist)+"</div></div>"+
     '<div class="notif-avatar">'+avatarHTML(adderPic,name,36)+"</div>";
   container.appendChild(el);
   setTimeout(function(){el.className="notif-toast notif-out";setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);},400);},4000);
@@ -1269,7 +1264,7 @@ function renderJoin(){
     '<div class="avatar-upload'+(S.profilePicture?" has-image":"")+'" id="avatar-upload">'+avInner+'</div>'+
     '<input type="file" id="avatar-input" accept="image/*" style="display:none">'+
     '<div class="avatar-upload-hint">Tap to add a photo (optional)</div>'+
-    '<input class="join-input" id="name-input" placeholder="Your name" maxlength="30" autocomplete="off">'+
+    '<input class="join-input" id="name-input" placeholder="Your name" maxlength="30" autocomplete="off" value="'+esc(S.joinName||"")+'">'+
     '<button class="join-btn" id="join-btn" disabled>Join Session</button>'+
     '<div class="join-session-code">'+esc(S.sessionCode)+'</div>'+
   '</div>';
@@ -1535,7 +1530,8 @@ function renderError(){
 function bindEvents(){
   var ni=document.getElementById("name-input"),jb=document.getElementById("join-btn");
   if(ni&&jb){
-    ni.addEventListener("input",function(){jb.disabled=!ni.value.trim();});
+    jb.disabled=!ni.value.trim();
+    ni.addEventListener("input",function(){S.joinName=ni.value;jb.disabled=!ni.value.trim();});
     jb.addEventListener("click",function(){joinSession(ni.value);});
     ni.addEventListener("keydown",function(e){if(e.key==="Enter"&&ni.value.trim())joinSession(ni.value);});
     ni.focus();
@@ -1544,7 +1540,7 @@ function bindEvents(){
   if(au&&ai){
     au.addEventListener("click",function(){ai.click();});
     ai.addEventListener("change",function(){
-      if(ai.files&&ai.files[0]){resizeImage(ai.files[0],128,0.8,function(url){S.profilePicture=url;render();});}
+      if(ai.files&&ai.files[0]){var ni2=document.getElementById("name-input");if(ni2)S.joinName=ni2.value;resizeImage(ai.files[0],128,0.8,function(url){S.profilePicture=url;render();});}
     });
   }
   var pa=document.getElementById("profile-avatar"),pai=document.getElementById("profile-avatar-input");
