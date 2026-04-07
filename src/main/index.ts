@@ -388,6 +388,14 @@ async function pushLocalCatalog(sessionId: string): Promise<void> {
         if (fs.existsSync(metaPath) && instrumental) {
             try {
                 const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'))
+                const offensiveRoleIndices: number[] = []
+                if (meta.lyrics && meta.roles && meta.roles.length > 0) {
+                    for (let ri = 0; ri < meta.roles.length; ri++) {
+                        if (meta.lyrics.some((l: any) => l.roleIndex === ri && /nigg(?:a|er)s?/i.test(l.words))) {
+                            offensiveRoleIndices.push(ri)
+                        }
+                    }
+                }
                 catalogItems.push({
                     trackId: meta.trackId,
                     name: meta.name,
@@ -397,7 +405,8 @@ async function pushLocalCatalog(sessionId: string): Promise<void> {
                     durationMs: meta.durationMs,
                     roles: meta.roles || [],
                     hasVocals: !!vocals,
-                    spotifyData: meta.spotifyData || null
+                    spotifyData: meta.spotifyData || null,
+                    offensiveRoleIndices
                 })
             } catch { /* skip corrupted */ }
         }

@@ -1359,7 +1359,8 @@ function renderConfig(){
       }).join("")+'</div>';
     }
     var wpc="";
-    if(s.roleIndices&&s.roleIndices.length>0){
+    var ori=t.offensive_role_indices||[];
+    if(s.roleIndices&&s.roleIndices.length>0&&s.roleIndices.some(function(ri){return ori.indexOf(ri)>=0;})){
       wpc='<label class="wpc-label" data-singer="'+i+'" style="display:flex;align-items:center;gap:10px;margin-top:14px;padding:10px 12px;border-radius:8px;background:var(--surface-1,rgba(128,128,128,0.08));cursor:pointer">'+
         '<input type="checkbox" class="wpc-check" data-singer="'+i+'"'+(s.whitePersonCheck?" checked":"")+' style="width:18px;height:18px;cursor:pointer;accent-color:'+s.color+'">'+
         '<div><div style="font-size:12px;font-weight:700;color:var(--white)">White Singer</div>'+
