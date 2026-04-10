@@ -1,19 +1,32 @@
 /**
- * Pitch Correction AudioWorklet Processor
+ * Pitch Correction AudioWorklet Processor — V2
  *
  * Real-time autotune using:
- * 1. YIN algorithm for pitch detection (~12ms analysis windows)
- * 2. Dual-head OLA pitch shifter with drift management
+ * 1. YIN algorithm for pitch detection (chunked across process calls)
+ * 2. Phase vocoder with peak tracking + timeCursor phase correction
+ *    (Laroche/Dolson 1999, same approach as phaze by olvb)
  * 3. Scale-aware note snapping with configurable strength
  *
+ * This V2 fixes several issues from V1:
+ * - Uses phaze's exact timeCursor-based phase correction (no per-peak
+ *   phase state, no "new peak" reset glitches during rapid peak movement)
+ * - FFT size 2048 (was 1024) for better low-voice frequency resolution
+ * - Ratio clamped to ±3 semitones (was ±6) — conservative autotune,
+ *   not drastic pitch shifting
+ * - Fixed retune time formula (strength 40 was erroneously 102ms, now 50ms)
+ * - Simpler hysteresis with large-jump rejection (prevents YIN octave
+ *   errors from flinging the voice)
+ * - FFT correctness self-test at construction time
+ *
  * Parameters (via MessagePort):
- * - strength: 0-100 (correction aggressiveness, 0=bypass, 100=hard snap like T-Pain)
+ * - strength: 0-100 (correction aggressiveness, 0=bypass, 100=hard snap)
  * - key: 0-11 (C=0..B=11, -1=chromatic)
  * - mode: 0=minor, 1=major
+ * - debugRatio: number | null (dev test harness — forces exact pitch ratio,
+ *   bypasses clamp and smoothing)
+ *
+ * Latency: FFT_SIZE - HOP = 1536 samples ≈ 32ms @ 48kHz
  */
-
-// This code runs as an AudioWorkletProcessor string blob.
-// It's exported as a string constant to be loaded via Blob URL.
 
 export const PITCH_CORRECTION_PROCESSOR_CODE = `
 'use strict';
@@ -26,8 +39,9 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
         this._strength = 0;
         this._key = 0;
         this._mode = 1;
+        this._debugRatioOverride = null;
 
-        // === Input ring buffer ===
+        // === Input ring buffer (shared by YIN and phase vocoder) ===
         this._bufSize = 32768;
         this._buf = new Float32Array(this._bufSize);
         this._wPos = 0;
@@ -39,49 +53,74 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
         this._analysisBuf = new Float32Array(this._yinSize);
         this._analysisCount = 0;
         this._detectedFreq = 0;
-        this._detectedPeriod = 0;
 
-        // Chunked YIN: spread the O(N²) difference function across multiple
-        // process() calls to prevent audio thread overruns.
-        this._yinPhase = 0;        // 0=idle, 1-8=diff chunks, 9=finalize
-        this._yinChunkSize = 128;  // tau values per chunk (1024/8 = 128)
+        // Chunked YIN: spread O(N²) difference function across process calls
+        this._yinPhase = 0;
+        this._yinChunkSize = 128;
 
-        // === Pitch shift state ===
+        // === Ratio smoothing ===
         this._ratio = 1.0;
         this._smoothedRatio = 1.0;
-
-        // Dual-head crossfade OLA (fixed grain size for stable COLA)
-        this._grainSize = 512;
-        this._hanning = new Float32Array(512);
-        this._computeHanning(512);
-
-        // Latency: how far behind wPos the heads should nominally sit (4x grain)
-        this._latency = 2048;
-
-        // Head A (fractional position for interpolated reads)
-        this._hAPos = 0;
-        this._hAProg = 0;
-        // Head B (offset by half grain)
-        this._hBPos = 0;
-        this._hBProg = 0;
-
         this._initialized = false;
 
-        // === Pitch detection smoothing (median of 3) ===
-        this._freqHistory = [0, 0, 0];
+        // === Pitch detection smoothing (median of 5) ===
+        this._freqHistory = [0, 0, 0, 0, 0];
         this._freqHistIdx = 0;
 
-        // === Voiced confidence (holdover during breaths/consonants) ===
+        // === Voiced confidence ===
         this._voicedConfidence = 0;
 
-        // === Note-change hysteresis ===
+        // === Target tracking ===
         this._currentTargetMidi = -1;
-        this._pendingTargetMidi = -1;
-        this._pendingTargetCount = 0;
 
         // === Scale lookup ===
         this._major = [0, 2, 4, 5, 7, 9, 11];
         this._minor = [0, 2, 3, 5, 7, 8, 10];
+
+        // ─────────────────────────────────────────────────────────────
+        // Phase Vocoder State (phaze-style, Laroche/Dolson 1999)
+        // ─────────────────────────────────────────────────────────────
+        this._FFT_SIZE = 2048;
+        this._HOP = 512;                // 75% overlap (COLA-safe Hann)
+        this._LOG2_FFT = 11;
+        this._N2 = this._FFT_SIZE / 2;
+
+        // Analysis/synthesis
+        this._window = new Float32Array(this._FFT_SIZE);
+        this._frameBuf = new Float32Array(this._FFT_SIZE);
+        this._re = new Float32Array(this._FFT_SIZE);
+        this._im = new Float32Array(this._FFT_SIZE);
+        this._outRe = new Float32Array(this._FFT_SIZE);
+        this._outIm = new Float32Array(this._FFT_SIZE);
+        this._mag = new Float32Array(this._N2 + 1);
+
+        // Peak list
+        this._peakBins = new Int32Array(128);
+        this._peakCount = 0;
+
+        // Phaze-style time cursor (wraps mod FFT_SIZE for numerical stability)
+        this._timeCursor = 0;
+
+        // FFT tables
+        this._cosTbl = new Float32Array(this._FFT_SIZE / 2);
+        this._sinTbl = new Float32Array(this._FFT_SIZE / 2);
+        this._bitRev = new Uint16Array(this._FFT_SIZE);
+        this._initFFT();
+        this._computeWindow();
+
+        // OLA output buffer — must hold FFT_SIZE + HOP safely; 2x is plenty
+        this._outBufLen = this._FFT_SIZE * 2;
+        this._outBuf = new Float32Array(this._outBufLen);
+        this._outRead = 0;
+        this._outWrite = 0;
+        this._hopCounter = this._HOP;
+
+        // Diagnostic
+        this._logCounter = 0;
+        this._logInterval = Math.floor(sampleRate); // ~1 Hz
+
+        // === Self-test: verify FFT round-trip ===
+        this._selfTest();
 
         // === MessagePort ===
         this.port.onmessage = (e) => {
@@ -90,66 +129,254 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
                 if (d.strength !== undefined) this._strength = d.strength;
                 if (d.key !== undefined) this._key = d.key;
                 if (d.mode !== undefined) this._mode = d.mode;
+            } else if (d.type === 'debugRatio') {
+                this._debugRatioOverride = (typeof d.ratio === 'number') ? d.ratio : null;
             }
         };
     }
 
-    _computeHanning(size) {
+    // ───────────────────────────────────────────────────────────────
+    // FFT — radix-2 Cooley-Tukey, in-place, precomputed twiddles
+    // ───────────────────────────────────────────────────────────────
+    _initFFT() {
+        const N = this._FFT_SIZE;
+        for (let k = 0; k < N / 2; k++) {
+            const angle = 2 * Math.PI * k / N;
+            this._cosTbl[k] = Math.cos(angle);
+            this._sinTbl[k] = -Math.sin(angle); // forward FFT
+        }
+        const logN = this._LOG2_FFT;
+        for (let i = 0; i < N; i++) {
+            let x = i;
+            let r = 0;
+            for (let b = 0; b < logN; b++) {
+                r = (r << 1) | (x & 1);
+                x >>= 1;
+            }
+            this._bitRev[i] = r;
+        }
+    }
+
+    _fft(re, im) {
+        const N = this._FFT_SIZE;
+        // Bit-reversal permutation
+        for (let i = 0; i < N; i++) {
+            const j = this._bitRev[i];
+            if (j > i) {
+                let t = re[i]; re[i] = re[j]; re[j] = t;
+                t = im[i]; im[i] = im[j]; im[j] = t;
+            }
+        }
+        // Butterflies
+        let size = 2;
+        while (size <= N) {
+            const halfSize = size >> 1;
+            const tableStep = N / size;
+            for (let i = 0; i < N; i += size) {
+                let k = 0;
+                for (let j = i; j < i + halfSize; j++) {
+                    const cos = this._cosTbl[k];
+                    const sin = this._sinTbl[k];
+                    const reJH = re[j + halfSize];
+                    const imJH = im[j + halfSize];
+                    const tre = reJH * cos - imJH * sin;
+                    const tim = reJH * sin + imJH * cos;
+                    re[j + halfSize] = re[j] - tre;
+                    im[j + halfSize] = im[j] - tim;
+                    re[j] += tre;
+                    im[j] += tim;
+                    k += tableStep;
+                }
+            }
+            size <<= 1;
+        }
+    }
+
+    /**
+     * In-place inverse FFT via the swap trick. Calling _fft with args in
+     * swapped order and then dividing by N is mathematically identical to
+     * swap→FFT→swap→/N. Verified via self-test at construction.
+     */
+    _ifft(re, im) {
+        this._fft(im, re);
+        const N = this._FFT_SIZE;
+        const invN = 1.0 / N;
+        for (let i = 0; i < N; i++) {
+            re[i] *= invN;
+            im[i] *= invN;
+        }
+    }
+
+    _computeWindow() {
+        // Hann, scaled for unity-gain double-windowed COLA at 75% overlap.
+        // At 75% overlap, sum_m(Hann[n - m*HOP]^2) = 1.5. We apply the
+        // window twice (analysis + synthesis), so effective gain per sample
+        // is sum(w^2). Scaling w by sqrt(1/1.5) makes sum(w^2) = 1.
+        const N = this._FFT_SIZE;
         const twoPi = 2 * Math.PI;
-        for (let i = 0; i < size; i++) {
-            this._hanning[i] = 0.5 * (1 - Math.cos(twoPi * i / size));
+        const scale = Math.sqrt(1.0 / 1.5);
+        for (let i = 0; i < N; i++) {
+            this._window[i] = scale * 0.5 * (1 - Math.cos(twoPi * i / N));
         }
     }
 
-    _readBufLerp(pos) {
-        const bLen = this._bufSize;
-        const wrapped = ((pos % bLen) + bLen) % bLen;
-        const i0 = Math.floor(wrapped);
-        const i1 = (i0 + 1) % bLen;
-        const frac = wrapped - i0;
-        return this._buf[i0] * (1 - frac) + this._buf[i1] * frac;
-    }
+    _selfTest() {
+        // Verify FFT correctness: round-trip a sine wave and check error.
+        const N = this._FFT_SIZE;
+        const orig = new Float32Array(N);
+        for (let i = 0; i < N; i++) {
+            orig[i] = Math.sin(2 * Math.PI * 10 * i / N); // 10 cycles in window
+        }
+        const testRe = new Float32Array(N);
+        const testIm = new Float32Array(N);
+        testRe.set(orig);
+        this._fft(testRe, testIm);
 
-    _syncHeads() {
-        const bLen = this._bufSize;
-        const half = this._grainSize >> 1;
-        const target = (this._wPos - this._latency + bLen) % bLen;
-        // Head B at target with prog=half (Hanning peak=1): its first output
-        // is buf[target], matching the direct bypass read position exactly.
-        // Head A at target-half with prog=0 (Hanning=0): doesn't contribute
-        // initially, then fades in smoothly. This eliminates clicks when
-        // transitioning between bypass and OLA.
-        this._hAPos = (target - half + bLen) % bLen;
-        this._hAProg = 0;
-        this._hBPos = target;
-        this._hBProg = half;
-    }
-
-    // Two-tier drift correction: soft nudge in warning zone, hard reset only
-    // if critically close. Do NOT nudge toward unshifted position — that
-    // fights the pitch correction.
-    _safePos(headPos) {
-        const bLen = this._bufSize;
-        const dist = (this._wPos - headPos + bLen) % bLen;
-        const nominal = (this._wPos - this._latency + bLen) % bLen;
-
-        // Critical zone: hard reset (about to collide with write head)
-        if (dist < 256 || dist > bLen - 256) {
-            return nominal;
+        // Find dominant bin
+        let maxMag = 0, maxBin = -1;
+        for (let k = 1; k <= this._N2; k++) {
+            const m = testRe[k] * testRe[k] + testIm[k] * testIm[k];
+            if (m > maxMag) { maxMag = m; maxBin = k; }
         }
 
-        // Warning zone: soft nudge 30% toward nominal (click-free at grain boundary)
-        if (dist < 768 || dist > bLen - 768) {
-            const toNominal = (nominal - headPos + bLen) % bLen;
-            const nudge = toNominal < bLen / 2
-                ? toNominal * 0.3
-                : -(bLen - toNominal) * 0.3;
-            return ((headPos + nudge) % bLen + bLen) % bLen;
+        // Round-trip
+        this._ifft(testRe, testIm);
+        let maxErr = 0;
+        for (let i = 0; i < N; i++) {
+            const err = Math.abs(testRe[i] - orig[i]);
+            if (err > maxErr) maxErr = err;
         }
-
-        return headPos;
+        console.log('[pitch-correction] FFT self-test: peak at bin ' + maxBin +
+            ' (expected 10), round-trip max error ' + maxErr.toExponential(3));
     }
 
+    // ───────────────────────────────────────────────────────────────
+    // Phase Vocoder Frame Processing — phaze-style
+    // ───────────────────────────────────────────────────────────────
+    _processFrame(pitchFactor) {
+        const N = this._FFT_SIZE;
+        const N2 = this._N2;
+        const bLen = this._bufSize;
+
+        // 1. Snapshot FFT_SIZE chronological samples ending at wPos
+        const start = (this._wPos - N + bLen) % bLen;
+        for (let i = 0; i < N; i++) {
+            this._frameBuf[i] = this._buf[(start + i) % bLen];
+        }
+
+        // 2. Apply analysis window to real FFT input (im = 0)
+        for (let i = 0; i < N; i++) {
+            this._re[i] = this._frameBuf[i] * this._window[i];
+            this._im[i] = 0;
+        }
+
+        // 3. Forward FFT
+        this._fft(this._re, this._im);
+
+        // 4. Magnitudes (first half only for real input)
+        let maxMag = 0;
+        for (let k = 0; k <= N2; k++) {
+            const re = this._re[k];
+            const im = this._im[k];
+            const m = Math.sqrt(re * re + im * im);
+            this._mag[k] = m;
+            if (m > maxMag) maxMag = m;
+        }
+
+        // 5. Find spectral peaks (local max over 5-bin window, gated)
+        this._peakCount = 0;
+        const peakFloor = maxMag * 0.005;
+        for (let k = 2; k <= N2 - 2; k++) {
+            const m = this._mag[k];
+            if (m > peakFloor &&
+                m > this._mag[k - 1] && m > this._mag[k - 2] &&
+                m > this._mag[k + 1] && m > this._mag[k + 2]) {
+                if (this._peakCount < 128) {
+                    this._peakBins[this._peakCount++] = k;
+                }
+            }
+        }
+
+        // 6. Zero the synthesis spectrum
+        for (let k = 0; k < N; k++) {
+            this._outRe[k] = 0;
+            this._outIm[k] = 0;
+        }
+
+        // 7. Shift each peak + its region of influence rigidly by binShift.
+        //    Phase correction is timeCursor-based (phaze-style): the shifted
+        //    bin needs a phase rotation of 2π * (newBin - oldBin) * timeCursor / N
+        //    to keep the shifted sinusoid phase-coherent with a "real"
+        //    sinusoid at the new frequency. This correction applies
+        //    uniformly to all bins in the region (rigid rotation).
+        for (let p = 0; p < this._peakCount; p++) {
+            const peakIndex = this._peakBins[p];
+            const peakIndexShifted = Math.round(peakIndex * pitchFactor);
+            if (peakIndexShifted < 1 || peakIndexShifted > N2) continue;
+
+            // Region of influence: halfway to neighboring peaks
+            let startIndex = 0;
+            let endIndex = N2;
+            if (p > 0) {
+                const peakIndexBefore = this._peakBins[p - 1];
+                startIndex = peakIndex - Math.floor((peakIndex - peakIndexBefore) / 2);
+            }
+            if (p < this._peakCount - 1) {
+                const peakIndexAfter = this._peakBins[p + 1];
+                endIndex = peakIndex + Math.ceil((peakIndexAfter - peakIndex) / 2);
+            }
+
+            const binShift = peakIndexShifted - peakIndex;
+
+            // Rigid phase rotation for the whole region (only depends on
+            // binShift and timeCursor, same for all bins in the region)
+            const omegaDelta = 2 * Math.PI * binShift / N;
+            const phaseCorrection = omegaDelta * this._timeCursor;
+            const cosP = Math.cos(phaseCorrection);
+            const sinP = Math.sin(phaseCorrection);
+
+            for (let k = startIndex; k < endIndex; k++) {
+                if (k < 0 || k > N2) continue;
+                const newK = k + binShift;
+                if (newK < 1 || newK > N2) continue;
+
+                const re = this._re[k];
+                const im = this._im[k];
+                this._outRe[newK] += re * cosP - im * sinP;
+                this._outIm[newK] += re * sinP + im * cosP;
+            }
+        }
+
+        // 8. Zero DC and Nyquist (must be real for inverse FFT)
+        this._outRe[0] = 0;
+        this._outIm[0] = 0;
+        this._outRe[N2] = 0;
+        this._outIm[N2] = 0;
+
+        // 9. Mirror to negative frequencies (conjugate symmetry for real output)
+        for (let k = 1; k < N2; k++) {
+            this._outRe[N - k] = this._outRe[k];
+            this._outIm[N - k] = -this._outIm[k];
+        }
+
+        // 10. Inverse FFT
+        this._ifft(this._outRe, this._outIm);
+
+        // 11. Apply synthesis window and overlap-add into output ring
+        const obLen = this._outBufLen;
+        for (let i = 0; i < N; i++) {
+            this._outBuf[(this._outWrite + i) % obLen] += this._outRe[i] * this._window[i];
+        }
+        this._outWrite = (this._outWrite + this._HOP) % obLen;
+
+        // 12. Advance timeCursor (wrap mod N to keep cos/sin argument small;
+        //     the phase wraps naturally because N*omegaDelta is a multiple of 2π).
+        this._timeCursor = (this._timeCursor + this._HOP) % N;
+    }
+
+    // ───────────────────────────────────────────────────────────────
+    // Main process() — runs every 128 samples
+    // ───────────────────────────────────────────────────────────────
     process(inputs, outputs) {
         const inp = inputs[0] && inputs[0][0];
         const out = outputs[0] && outputs[0][0];
@@ -158,21 +385,18 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
         const bLen = this._bufSize;
         const len = inp.length;
 
-        // Write input to ring buffer
+        // 1. Write input to ring
         for (let i = 0; i < len; i++) {
             this._buf[(this._wPos + i) % bLen] = inp[i];
         }
         this._wPos = (this._wPos + len) % bLen;
 
-        // Initialize heads once we have enough data
-        if (!this._initialized && this._wPos > this._yinSize) {
-            this._syncHeads();
+        // 2. Init once we have enough data for a full FFT frame + YIN window
+        if (!this._initialized && this._wPos > Math.max(this._yinSize, this._FFT_SIZE)) {
             this._initialized = true;
         }
 
-        // Chunked pitch detection: the YIN difference function is O(N²) with
-        // N=1024, far too heavy for a single process() call. We spread it
-        // across 8 calls (~128 tau values each = ~131K ops instead of ~1M).
+        // 3. YIN chunked state machine
         if (this._yinPhase >= 1 && this._yinPhase <= 8) {
             const chunkIdx = this._yinPhase - 1;
             const tauStart = chunkIdx * this._yinChunkSize;
@@ -194,113 +418,90 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
             this._updateRatio();
             this._yinPhase = 0;
         } else {
-            // Phase 0: idle — count samples until next detection cycle
             this._analysisCount += len;
             if (this._analysisCount >= 1024) {
                 this._analysisCount = 0;
-                // Extract analysis window from ring buffer (snapshot for chunked processing)
-                const start = (this._wPos - this._yinSize + this._bufSize) % this._bufSize;
+                const start = (this._wPos - this._yinSize + bLen) % bLen;
                 for (let i = 0; i < this._yinSize; i++) {
-                    this._analysisBuf[i] = this._buf[(start + i) % this._bufSize];
+                    this._analysisBuf[i] = this._buf[(start + i) % bLen];
                 }
                 this._yinPhase = 1;
             }
         }
 
-        // Bypass if no correction needed
-        if (this._strength === 0 || !this._initialized) {
-            out.set(inp);
-            this._syncHeads();
-            return true;
-        }
-
-        // Block-rate ratio smoothing with musically meaningful retune speed.
-        // Maps strength to retune time matching professional autotune behavior:
-        //   strength 0→200ms (gentle), 40→50ms (natural), 80→5ms (heavy), 95+→instant
+        // 4. Ratio smoothing with fixed retune-time mapping:
+        //    0 → 200ms, 40 → 50ms, 80 → 5ms, 95+ → 0 (instant)
         const str = this._strength;
         let retuneMs;
         if (str >= 95) {
             retuneMs = 0;
         } else if (str >= 80) {
-            retuneMs = 5 * (95 - str) / 15;
+            // 80 → 5, 95 → 0
+            retuneMs = 5 - 5 * (str - 80) / 15;
+        } else if (str >= 40) {
+            // 40 → 50, 80 → 5
+            retuneMs = 50 - 45 * (str - 40) / 40;
         } else {
-            retuneMs = 5 + (80 - str) * 2.4375;
+            // 0 → 200, 40 → 50
+            retuneMs = 200 - 150 * str / 40;
         }
         const tau = retuneMs > 0 ? retuneMs * 0.001 * sampleRate : 0;
         const alpha = tau > 0 ? 1.0 - Math.exp(-len / tau) : 1.0;
         this._smoothedRatio += (this._ratio - this._smoothedRatio) * alpha;
-        const sr = this._smoothedRatio;
 
-        // When no pitch correction is active (sr ≈ 1.0), bypass the dual-head
-        // OLA entirely and read directly from the ring buffer. The OLA blends
-        // audio from two time positions 256 samples apart, which creates a
-        // comb-filter / phasing artifact even at ratio 1.0. Direct read is
-        // artifact-free.
-        if (Math.abs(sr - 1.0) < 0.001) {
-            const readStart = (this._wPos - this._latency - len + bLen) % bLen;
-            for (let i = 0; i < len; i++) {
-                out[i] = this._buf[(readStart + i) % bLen];
-            }
-            this._syncHeads();
+        // 5. Choose pitchFactor
+        let pitchFactor;
+        if (this._debugRatioOverride !== null) {
+            pitchFactor = this._debugRatioOverride;
+        } else if (this._strength === 0) {
+            pitchFactor = 1.0;
+        } else {
+            pitchFactor = this._smoothedRatio;
+        }
+
+        // 6. Pre-init passthrough
+        if (!this._initialized) {
+            out.set(inp);
             return true;
         }
 
-        // Generate pitch-shifted output via dual-head OLA crossfade.
-        // Heads read at 1.0 speed within grains (preserving original signal),
-        // with pitch-shift jumps at grain boundaries. Drift management prevents
-        // read heads from colliding with the write head.
-        const gs = this._grainSize;
+        // 7. Hop counter: fire a frame every HOP samples of input
+        this._hopCounter -= len;
+        if (this._hopCounter <= 0) {
+            this._hopCounter += this._HOP;
+            this._processFrame(pitchFactor);
+        }
 
+        // 8. Drain len samples from the output ring, zero as we read
+        const obLen = this._outBufLen;
         for (let i = 0; i < len; i++) {
+            const idx = (this._outRead + i) % obLen;
+            out[i] = this._outBuf[idx];
+            this._outBuf[idx] = 0;
+        }
+        this._outRead = (this._outRead + len) % obLen;
 
-            // Read from both heads with linear interpolation
-            const sA = this._readBufLerp(this._hAPos);
-            const sB = this._readBufLerp(this._hBPos);
-
-            // Hanning windows
-            const wA = this._hAProg < gs ? this._hanning[this._hAProg] : 0;
-            const wB = this._hBProg < gs ? this._hanning[this._hBProg] : 0;
-
-            // Normalized crossfade
-            const wSum = wA + wB;
-            if (wSum > 0.001) {
-                out[i] = (sA * wA + sB * wB) / wSum;
-            } else {
-                out[i] = sA * 0.5 + sB * 0.5;
-            }
-
-            // Advance heads at 1.0 speed within grains (preserves original
-            // signal perfectly — no resampling artifacts)
-            this._hAPos = (this._hAPos + 1) % bLen;
-            this._hBPos = (this._hBPos + 1) % bLen;
-            this._hAProg++;
-            this._hBProg++;
-
-            // Head A grain boundary: apply pitch-shift jump + drift management.
-            // Jump creates pitch shift: positive = skip forward (pitch up),
-            // negative = skip backward (pitch down). Click-free because
-            // Hanning weight = 0 at grain boundaries.
-            if (this._hAProg >= gs) {
-                this._hAProg = 0;
-                const jump = (sr - 1.0) * gs;
-                this._hAPos = (this._hAPos + jump + bLen) % bLen;
-                this._hAPos = this._safePos(this._hAPos);
-            }
-
-            // Head B grain boundary
-            if (this._hBProg >= gs) {
-                this._hBProg = 0;
-                const jump = (sr - 1.0) * gs;
-                this._hBPos = (this._hBPos + jump + bLen) % bLen;
-                this._hBPos = this._safePos(this._hBPos);
+        // 9. Rate-limited diagnostic logging (1 Hz, only when correcting)
+        this._logCounter += len;
+        if (this._logCounter >= this._logInterval) {
+            this._logCounter = 0;
+            if (this._strength > 0 || this._debugRatioOverride !== null) {
+                console.log('[pitch-correction] strength=' + this._strength +
+                    ' detected=' + this._detectedFreq.toFixed(1) + 'Hz' +
+                    ' targetMidi=' + this._currentTargetMidi +
+                    ' ratio=' + this._ratio.toFixed(4) +
+                    ' smooth=' + this._smoothedRatio.toFixed(4) +
+                    ' pitchFactor=' + pitchFactor.toFixed(4) +
+                    ' peaks=' + this._peakCount);
             }
         }
 
         return true;
     }
 
-    // Finalize YIN detection after all difference-function chunks are computed.
-    // Steps 2-4 of YIN are all O(N) and run in a single process() call.
+    // ═══════════════════════════════════════════════════════════════
+    // YIN pitch detection backend
+    // ═══════════════════════════════════════════════════════════════
     _finishDetection() {
         const yin = this._yinBuf;
         const half = this._yinHalf;
@@ -314,21 +515,23 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
         }
 
         // Step 3: Absolute threshold search
-        const minPeriod = Math.max(2, Math.floor(sampleRate / 2000));
-        const maxPeriod = Math.min(half - 1, Math.floor(sampleRate / 60));
+        // Use 80 Hz floor (keeps low male voices) but 1000 Hz ceiling
+        // (most vocal fundamentals are below 1 kHz; higher peaks are
+        // usually formants or octave errors).
+        const minPeriod = Math.max(2, Math.floor(sampleRate / 1000));
+        const maxPeriod = Math.min(half - 1, Math.floor(sampleRate / 70));
         const threshold = 0.15;
         let tauEst = -1;
 
         for (let tau = minPeriod; tau < maxPeriod; tau++) {
             if (yin[tau] < threshold) {
-                // Find local minimum
                 while (tau + 1 < half && yin[tau + 1] < yin[tau]) tau++;
                 tauEst = tau;
                 break;
             }
         }
 
-        // Global minimum fallback: if threshold search failed, use best tau if good enough
+        // Global minimum fallback if threshold search failed
         if (tauEst === -1) {
             let bestTau = -1;
             let bestVal = 1.0;
@@ -338,100 +541,84 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
                     bestTau = tau;
                 }
             }
-            if (bestVal < 0.5) {
-                tauEst = bestTau;
-            }
+            if (bestVal < 0.4) tauEst = bestTau;
         }
 
         if (tauEst === -1) {
-            // Truly unvoiced / silence / noise
             this._detectedFreq = 0;
             return;
         }
 
-        // Step 4: Parabolic interpolation for sub-sample accuracy
+        // Step 4: Parabolic interpolation
         const s0 = tauEst > 0 ? yin[tauEst - 1] : yin[tauEst];
         const s1 = yin[tauEst];
         const s2 = tauEst + 1 < half ? yin[tauEst + 1] : yin[tauEst];
         const denom = 2 * (s0 - 2 * s1 + s2);
         const betterTau = denom !== 0 ? tauEst + (s0 - s2) / denom : tauEst;
 
-        this._detectedPeriod = betterTau;
         const rawFreq = sampleRate / betterTau;
 
-        // Median filter: smooth over last 3 detections to reject single-frame errors
+        // Median of 5 smoothing — stronger than median-of-3 at
+        // rejecting single/double-frame outliers
         this._freqHistory[this._freqHistIdx] = rawFreq;
-        this._freqHistIdx = (this._freqHistIdx + 1) % 3;
+        this._freqHistIdx = (this._freqHistIdx + 1) % 5;
 
-        const a = this._freqHistory[0], b = this._freqHistory[1], c = this._freqHistory[2];
-        // If any history slot is 0 (onset), use raw value directly
-        if (a === 0 || b === 0 || c === 0) {
+        // Median of 5
+        const sorted = [
+            this._freqHistory[0], this._freqHistory[1], this._freqHistory[2],
+            this._freqHistory[3], this._freqHistory[4]
+        ];
+        sorted.sort((a, b) => a - b);
+        // If any slot is still 0 (startup), use raw
+        if (sorted[0] === 0) {
             this._detectedFreq = rawFreq;
         } else {
-            // Median of 3
-            this._detectedFreq = a + b + c - Math.max(a, b, c) - Math.min(a, b, c);
+            this._detectedFreq = sorted[2]; // middle
         }
     }
 
     _updateRatio() {
-        // --- Voiced confidence: hold last correction during breaths/consonants ---
-        if (this._detectedFreq < 60 || this._detectedFreq > 2000) {
+        // Unvoiced / out-of-range: release correction after short holdover
+        if (this._detectedFreq < 70 || this._detectedFreq > 1500) {
             this._voicedConfidence = Math.max(0, this._voicedConfidence - 1);
             if (this._voicedConfidence <= 0) {
-                // Sustained silence: release correction
                 this._ratio = 1.0;
                 this._currentTargetMidi = -1;
             }
-            // Otherwise keep last ratio (holdover during brief gaps)
             return;
         }
         if (this._strength === 0) {
             this._ratio = 1.0;
             return;
         }
-        // Build up voiced confidence (max 4 = ~48ms of stable pitch)
         this._voicedConfidence = Math.min(4, this._voicedConfidence + 1);
 
-        // --- Find target with note-change hysteresis ---
+        // Find scale-snap target
         const result = this._findTarget(this._detectedFreq);
-        const targetFreq = result.freq;
         const targetMidi = result.midi;
 
-        // Hysteresis: require 2 consecutive frames agreeing on a NEW note
-        // before switching target. Prevents jitter during transitions.
+        // Reject suspicious jumps: if the new target is more than 7 semitones
+        // from the current committed target, it's probably a YIN octave error.
+        // Keep the current target and hope the next detection is stable.
         if (this._currentTargetMidi === -1) {
-            // First detection: accept immediately
             this._currentTargetMidi = targetMidi;
-        } else if (targetMidi !== this._currentTargetMidi) {
-            if (targetMidi === this._pendingTargetMidi) {
-                this._pendingTargetCount++;
-                if (this._pendingTargetCount >= 2) {
-                    // Stable new note: switch target
-                    this._currentTargetMidi = targetMidi;
-                    this._pendingTargetMidi = -1;
-                    this._pendingTargetCount = 0;
-                }
-            } else {
-                // Different pending note: restart count
-                this._pendingTargetMidi = targetMidi;
-                this._pendingTargetCount = 1;
-            }
-        } else {
-            // Same as current target: clear any pending
-            this._pendingTargetMidi = -1;
-            this._pendingTargetCount = 0;
+        } else if (Math.abs(targetMidi - this._currentTargetMidi) <= 7) {
+            this._currentTargetMidi = targetMidi;
         }
+        // else: keep current target (reject the detection)
 
-        // Use the committed target (not the raw detection)
         const committedFreq = 440 * Math.pow(2, (this._currentTargetMidi - 69) / 12);
         const full = committedFreq / this._detectedFreq;
 
-        // Clamp to ±6 semitones (~0.707 to ~1.414)
-        const clamped = Math.max(0.707, Math.min(1.414, full));
+        // Clamp to ±3 semitones (0.841..1.189). Beyond this, the singer
+        // is so off-key that "correcting" them makes things sound worse.
+        const MAX_SEMI = 3;
+        const maxRatio = Math.pow(2, MAX_SEMI / 12);  // 1.1892
+        const minRatio = 1 / maxRatio;                 // 0.8409
+        const clamped = Math.max(minRatio, Math.min(maxRatio, full));
 
-        // --- Dead zone: if correction < 15 cents, don't process ---
-        // Preserves natural vocal character when already near the target.
-        // 15 cents ≈ ratio of 1.0087
+        // Dead zone: if correction is under 15 cents, snap to unity to
+        // preserve natural vocal character
         const deadZone = 1.00867;
         if (clamped > 1.0 / deadZone && clamped < deadZone) {
             this._ratio = 1.0;
@@ -449,7 +636,7 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
             return { freq: 440 * Math.pow(2, (rounded - 69) / 12), midi: rounded };
         }
 
-        // Scale mode: snap to nearest note in key
+        // Scale mode: snap to nearest scale note
         const scale = this._mode === 1 ? this._major : this._minor;
         const rounded = Math.round(midi);
         let bestMidi = rounded;
@@ -459,7 +646,6 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
             const candidate = rounded + off;
             const noteInOctave = ((candidate % 12) + 12) % 12;
             const relToKey = ((noteInOctave - this._key) + 12) % 12;
-
             if (scale.indexOf(relToKey) !== -1) {
                 const dist = Math.abs(midi - candidate);
                 if (dist < bestDist) {
@@ -468,7 +654,6 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
                 }
             }
         }
-
         return { freq: 440 * Math.pow(2, (bestMidi - 69) / 12), midi: bestMidi };
     }
 }

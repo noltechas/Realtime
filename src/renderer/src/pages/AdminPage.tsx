@@ -12,6 +12,69 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 const KEY_NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B']
 
+// ── Vocal sample registry for the debug harness ──
+// All samples are CC-BY 3.0 solo vocal stems from ccMixter (real human
+// singers, dry/no effects). Each sample loops a 10-15 second melodic
+// segment of the full track. See assets/vocal-samples/README.md for full
+// attribution. Resolved at build time via Vite.
+const VOCAL_SAMPLE_URLS = import.meta.glob('../assets/vocal-samples/*.mp3', {
+    eager: true,
+    query: '?url',
+    import: 'default',
+}) as Record<string, string>
+
+interface VocalSampleMeta {
+    id: string
+    label: string
+    description: string
+    /** Loop window start in seconds (where the melodic phrase begins) */
+    loopStart: number
+    /** Loop window end in seconds */
+    loopEnd: number
+}
+const VOCAL_SAMPLES: VocalSampleMeta[] = [
+    {
+        id: 'iestankov_chant.mp3',
+        label: '🎤 Male chant — iestankov',
+        description: 'Sustained "Lord Have Mercy" Orthodox chant — easy autotune target',
+        loopStart: 5,
+        loopEnd: 18,
+    },
+    {
+        id: 'admiralbob_blues.mp3',
+        label: '🎤 Male blues — admiralbob77',
+        description: 'Expressive blues melody, "The Remixin\' Blues"',
+        loopStart: 10,
+        loopEnd: 25,
+    },
+    {
+        id: 'snowflake_justice.mp3',
+        label: '🎤 Female pop — snowflake',
+        description: 'Melodic singing with words, "Justice Come Quickly"',
+        loopStart: 20,
+        loopEnd: 35,
+    },
+    {
+        id: 'musetta_ophelias_song.mp3',
+        label: '🎤 Female ballad — musetta',
+        description: 'Melodic vocal stem, "Ophelia\'s Song"',
+        loopStart: 15,
+        loopEnd: 30,
+    },
+]
+
+function getVocalSampleUrl(id: string): string | undefined {
+    // import.meta.glob keys are paths like '../assets/vocal-samples/iestankov_chant.mp3'
+    for (const [path, url] of Object.entries(VOCAL_SAMPLE_URLS)) {
+        if (path.endsWith('/' + id)) return url
+    }
+    return undefined
+}
+
+function getVocalSampleMeta(id: string): VocalSampleMeta | undefined {
+    return VOCAL_SAMPLES.find(s => s.id === id)
+}
+
 interface AdminGuest {
     id: string
     name: string
@@ -97,6 +160,20 @@ export default function AdminPage() {
     const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null)
     const guestChannelRef = useRef<RealtimeChannel | null>(null)
 
+    // ── Voice Effects Debug harness ──
+    const [debugOpen, setDebugOpen] = useState(false)
+    const [debugSignal, setDebugSignal] = useState<'sine' | 'sweep' | 'vowel' | 'sample'>('sample')
+    const [debugSampleId, setDebugSampleId] = useState<string>('iestankov_chant.mp3')
+    const [debugSemitones, setDebugSemitones] = useState(0) // -12 to +12
+    const [debugStrength, setDebugStrength] = useState<0 | 40 | 80 | 95>(0)
+    const [debugKey, setDebugKey] = useState<number>(-1)   // -1 = chromatic, 0..11 = C..B
+    const [debugMode, setDebugMode] = useState<number>(1)  // 0 = minor, 1 = major
+    const [debugTesting, setDebugTesting] = useState(false)
+    const debugCanvasRef = useRef<HTMLCanvasElement | null>(null)
+    const debugAnimRef = useRef<number>(0)
+    const debugRmsRef = useRef<HTMLSpanElement | null>(null)
+    const debugSpectrumDataRef = useRef<Uint8Array | null>(null)
+
     const debounceRef = useRef<NodeJS.Timeout | null>(null)
 
     useEffect(() => {
@@ -142,6 +219,186 @@ export default function AdminPage() {
     useEffect(() => {
         engineRef.current = new VoiceEffectsEngine()
         return () => { engineRef.current?.destroy(); engineRef.current = null }
+    }, [])
+
+    // ── Voice Effects Debug harness ──
+
+    // Build a VoiceEffects config for the debug panel. Starts from DEFAULT_VOICE_EFFECTS
+    // and overrides strength/key/mode + disables downstream effects that would color the
+    // output (so the user can clearly hear the pitch shifter in isolation).
+    const buildDebugEffects = (strength: number, key: number, mode: number): VoiceEffects => {
+        const fx: VoiceEffects = JSON.parse(JSON.stringify(DEFAULT_VOICE_EFFECTS))
+        fx.pitchCorrection = { enabled: strength > 0, strength: strength }
+        fx.key = key
+        fx.mode = mode
+        fx.compressor = { enabled: false, threshold: -24, ratio: 4, attack: 0.01, release: 0.1 }
+        fx.eq = { enabled: false, lowGain: 0, midGain: 0, highGain: 0 }
+        fx.chorus = { enabled: false, rate: 1.5, depth: 0.2, mix: 30 }
+        fx.delay = { enabled: false, time: 250, feedback: 25, mix: 20 }
+        fx.reverb = { enabled: false, decay: 2.5, preDelay: 20, mix: 35 }
+        fx.distortion = { enabled: false, drive: 0, mix: 0 }
+        fx.noiseGate = { enabled: false, threshold: -50 }
+        fx.micLevel = 0.8
+        return fx
+    }
+
+    const debugRatioValue = () => Math.pow(2, debugSemitones / 12)
+
+    const toggleDebugTesting = async () => {
+        if (!engineRef.current) return
+        if (debugTesting) {
+            engineRef.current.stopTestPreview()
+            engineRef.current.setDebugRatioOverride(null)
+            setDebugTesting(false)
+            if (debugAnimRef.current) cancelAnimationFrame(debugAnimRef.current)
+            debugAnimRef.current = 0
+            return
+        }
+        // Starting
+        if (isTesting) {
+            // Stop live mic preview first so they don't both play
+            engineRef.current.stopLivePreview()
+            setIsTesting(false)
+            if (animRef.current) clearInterval(animRef.current)
+        }
+        engineRef.current.apply(buildDebugEffects(debugStrength, debugKey, debugMode))
+        const sampleMeta = debugSignal === 'sample' ? getVocalSampleMeta(debugSampleId) : undefined
+        const sampleUrl = debugSignal === 'sample' ? getVocalSampleUrl(debugSampleId) : undefined
+        // Sanity check: if 'sample' is selected but the URL is missing from the
+        // import.meta.glob map, bail out with a visible console error rather
+        // than letting the engine chase a bad URL.
+        if (debugSignal === 'sample' && (!sampleUrl || !sampleMeta)) {
+            console.error('[Debug] Vocal sample URL/meta missing for:', debugSampleId, {
+                sampleUrl, sampleMeta, availableIds: VOCAL_SAMPLES.map(s => s.id),
+            })
+            return
+        }
+        let ok = false
+        try {
+            ok = await engineRef.current.startTestPreview(debugSignal, {
+                sampleUrl,
+                outputId: selectedSpeaker,
+                loopStart: sampleMeta?.loopStart,
+                loopEnd: sampleMeta?.loopEnd,
+            })
+        } catch (err) {
+            console.error('[Debug] startTestPreview threw:', err)
+            return
+        }
+        if (!ok) {
+            console.warn('[Debug] startTestPreview returned false — check console for engine error')
+            return
+        }
+        // Apply ratio override (0 semitones = null = normal path)
+        engineRef.current.setDebugRatioOverride(debugSemitones === 0 ? null : debugRatioValue())
+        setDebugTesting(true)
+        // Start spectrum + RMS animation loop
+        const analyser = engineRef.current.analyser
+        const buf = new Uint8Array(analyser.frequencyBinCount)
+        debugSpectrumDataRef.current = buf
+        const tick = () => {
+            if (!engineRef.current || !debugSpectrumDataRef.current) return
+            analyser.getByteFrequencyData(debugSpectrumDataRef.current)
+            // Compute RMS from time-domain data (use getByteTimeDomainData on a separate buf)
+            // For simplicity we estimate RMS from frequency magnitudes
+            let sum = 0
+            for (let i = 0; i < debugSpectrumDataRef.current.length; i++) {
+                const v = debugSpectrumDataRef.current[i]
+                sum += v * v
+            }
+            const rms = Math.sqrt(sum / debugSpectrumDataRef.current.length) / 255
+            if (debugRmsRef.current) {
+                debugRmsRef.current.textContent = rms.toFixed(3)
+            }
+            // Draw spectrum
+            const canvas = debugCanvasRef.current
+            if (canvas) {
+                const ctx2d = canvas.getContext('2d')
+                if (ctx2d) {
+                    const W = canvas.width
+                    const H = canvas.height
+                    ctx2d.fillStyle = '#0a0a14'
+                    ctx2d.fillRect(0, 0, W, H)
+                    // Grid lines
+                    ctx2d.strokeStyle = 'rgba(255,255,255,0.08)'
+                    ctx2d.lineWidth = 1
+                    for (let g = 1; g < 4; g++) {
+                        const y = (g / 4) * H
+                        ctx2d.beginPath()
+                        ctx2d.moveTo(0, y)
+                        ctx2d.lineTo(W, y)
+                        ctx2d.stroke()
+                    }
+                    // Spectrum bars (log-scale X)
+                    const N = debugSpectrumDataRef.current.length
+                    const sr = engineRef.current.getAudioContext().sampleRate
+                    const nyquist = sr / 2
+                    const fMin = 80
+                    const fMax = nyquist
+                    const logMin = Math.log(fMin)
+                    const logMax = Math.log(fMax)
+                    ctx2d.fillStyle = '#4ade80'
+                    for (let i = 0; i < N; i++) {
+                        const f = (i / N) * nyquist
+                        if (f < fMin) continue
+                        const x = ((Math.log(f) - logMin) / (logMax - logMin)) * W
+                        const v = debugSpectrumDataRef.current[i] / 255
+                        const h = v * H
+                        ctx2d.fillRect(x, H - h, Math.max(1, W / N), h)
+                    }
+                    // F-axis labels
+                    ctx2d.fillStyle = 'rgba(255,255,255,0.5)'
+                    ctx2d.font = '10px monospace'
+                    const labelFreqs = [100, 250, 500, 1000, 2500, 5000, 10000]
+                    for (const f of labelFreqs) {
+                        if (f < fMin || f > fMax) continue
+                        const x = ((Math.log(f) - logMin) / (logMax - logMin)) * W
+                        const lbl = f >= 1000 ? (f / 1000) + 'k' : String(f)
+                        ctx2d.fillText(lbl, x + 2, H - 2)
+                    }
+                }
+            }
+            debugAnimRef.current = requestAnimationFrame(tick)
+        }
+        debugAnimRef.current = requestAnimationFrame(tick)
+    }
+
+    // React to parameter changes while testing
+    useEffect(() => {
+        if (!debugTesting || !engineRef.current) return
+        // Changing signal type or sample: restart the test source
+        engineRef.current.stopTestPreview()
+        const sampleMeta = debugSignal === 'sample' ? getVocalSampleMeta(debugSampleId) : undefined
+        const sampleUrl = debugSignal === 'sample' ? getVocalSampleUrl(debugSampleId) : undefined
+        if (debugSignal === 'sample' && (!sampleUrl || !sampleMeta)) {
+            console.error('[Debug] Signal change: vocal sample URL/meta missing for:', debugSampleId)
+            return
+        }
+        engineRef.current.startTestPreview(debugSignal, {
+            sampleUrl,
+            outputId: selectedSpeaker,
+            loopStart: sampleMeta?.loopStart,
+            loopEnd: sampleMeta?.loopEnd,
+        }).catch(err => {
+            console.error('[Debug] Signal change: startTestPreview failed:', err)
+        })
+    }, [debugSignal, debugSampleId])
+
+    useEffect(() => {
+        if (!debugTesting || !engineRef.current) return
+        engineRef.current.setDebugRatioOverride(debugSemitones === 0 ? null : debugRatioValue())
+    }, [debugSemitones])
+
+    useEffect(() => {
+        if (!debugTesting || !engineRef.current) return
+        engineRef.current.apply(buildDebugEffects(debugStrength, debugKey, debugMode))
+    }, [debugStrength, debugKey, debugMode])
+
+    // Cleanup debug test on unmount
+    useEffect(() => {
+        return () => {
+            if (debugAnimRef.current) cancelAnimationFrame(debugAnimRef.current)
+        }
     }, [])
 
     // Guest realtime subscription
@@ -1760,6 +2017,221 @@ export default function AdminPage() {
                     )}
                 </div>
             )}
+
+            {/* ── Voice Effects Debug harness (permanent dev tool) ── */}
+            <div style={{ marginTop: 32, ...theme.card, border: theme.border, padding: '16px 20px' }}>
+                <button
+                    onClick={() => setDebugOpen(o => !o)}
+                    style={{
+                        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
+                        fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 13,
+                        color: theme.black, letterSpacing: '0.5px', textTransform: 'uppercase',
+                    }}
+                >
+                    <span>🔬 Voice Effects Debug</span>
+                    <span style={{ fontSize: 18, opacity: 0.6 }}>{debugOpen ? '▾' : '▸'}</span>
+                </button>
+
+                {debugOpen && (
+                    <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                        <div style={{ fontSize: 11, color: theme.muted, lineHeight: 1.5, fontFamily: theme.fontBody }}>
+                            Play a synthesized test signal through the pitch-correction worklet to verify
+                            quality without a microphone. All downstream effects (compressor, EQ, reverb,
+                            etc.) are disabled so you hear the pitch shifter in isolation.
+                        </div>
+
+                        {/* Signal selector */}
+                        <div>
+                            <div style={{ fontSize: 10, fontFamily: theme.fontDisplay, fontWeight: 700, color: theme.muted, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 6 }}>
+                                Test signal
+                            </div>
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                {([
+                                    { id: 'sample' as const, label: 'Real Vocal' },
+                                    { id: 'sine' as const, label: '440 Hz Sine' },
+                                    { id: 'sweep' as const, label: 'Sweep 220→880 Hz' },
+                                    { id: 'vowel' as const, label: 'Synth Vowel "ah"' },
+                                ]).map(opt => (
+                                    <button
+                                        key={opt.id}
+                                        onClick={() => setDebugSignal(opt.id)}
+                                        style={{
+                                            flex: 1, minWidth: 100, padding: '8px 10px', fontSize: 11, fontWeight: 700,
+                                            fontFamily: theme.fontDisplay, cursor: 'pointer',
+                                            border: debugSignal === opt.id ? `2px solid ${theme.mintGreen}` : theme.border,
+                                            borderRadius: theme.radiusSmall,
+                                            background: debugSignal === opt.id ? `${theme.mintGreen}22` : theme.cream,
+                                            color: theme.black,
+                                        }}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Real vocal sample picker (only when 'Real Vocal' selected) */}
+                        {debugSignal === 'sample' && (
+                            <div>
+                                <div style={{ fontSize: 10, fontFamily: theme.fontDisplay, fontWeight: 700, color: theme.muted, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 6 }}>
+                                    Vocal sample (singer: Martin, MIT-licensed from vocobox/human-voice-dataset)
+                                </div>
+                                <select
+                                    value={debugSampleId}
+                                    onChange={e => setDebugSampleId(e.target.value)}
+                                    style={{ ...theme.select, width: '100%', padding: '8px', fontSize: 12 }}
+                                >
+                                    {VOCAL_SAMPLES.map(s => (
+                                        <option key={s.id} value={s.id}>
+                                            {s.label} — {s.description}
+                                        </option>
+                                    ))}
+                                </select>
+                                <div style={{ fontSize: 10, color: theme.muted, marginTop: 4, fontFamily: theme.fontBody }}>
+                                    Tip: try the <strong>A4 OFF-PITCH</strong> sample with strength 40 to hear the autotune lock the wobble onto A4.
+                                    Or try a <strong>BEND</strong> sample to see how the algorithm tracks a sliding pitch.
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Ratio override slider */}
+                        <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                                <span style={{ fontSize: 10, fontFamily: theme.fontDisplay, fontWeight: 700, color: theme.muted, textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                    Forced pitch shift {debugSemitones === 0 && '(disabled — normal autotune active)'}
+                                </span>
+                                <span style={{ fontSize: 11, fontFamily: 'monospace', color: theme.black }}>
+                                    {debugSemitones > 0 ? '+' : ''}{debugSemitones} semitones
+                                    {' • '}
+                                    ratio {debugRatioValue().toFixed(4)}
+                                    {' • '}
+                                    {(debugSemitones * 100).toFixed(0)} cents
+                                </span>
+                            </div>
+                            <input
+                                type="range" min={-12} max={12} step={1}
+                                value={debugSemitones}
+                                onChange={e => setDebugSemitones(parseInt(e.target.value))}
+                                style={{ width: '100%' }}
+                            />
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: theme.muted, fontFamily: 'monospace', marginTop: 2 }}>
+                                <span>-12 (oct down)</span>
+                                <span>-6</span>
+                                <span>0 (unity)</span>
+                                <span>+6</span>
+                                <span>+12 (oct up)</span>
+                            </div>
+                        </div>
+
+                        {/* Strength override buttons */}
+                        <div>
+                            <div style={{ fontSize: 10, fontFamily: theme.fontDisplay, fontWeight: 700, color: theme.muted, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 6 }}>
+                                Autotune strength (applies when forced shift = 0)
+                            </div>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                                {([
+                                    { val: 0 as const, label: 'Off (bypass)' },
+                                    { val: 40 as const, label: '40 (natural)' },
+                                    { val: 80 as const, label: '80 (heavy)' },
+                                    { val: 95 as const, label: '95 (T-Pain)' },
+                                ]).map(opt => (
+                                    <button
+                                        key={opt.val}
+                                        onClick={() => setDebugStrength(opt.val)}
+                                        style={{
+                                            flex: 1, padding: '8px 10px', fontSize: 11, fontWeight: 700,
+                                            fontFamily: theme.fontDisplay, cursor: 'pointer',
+                                            border: debugStrength === opt.val ? `2px solid ${theme.mintGreen}` : theme.border,
+                                            borderRadius: theme.radiusSmall,
+                                            background: debugStrength === opt.val ? `${theme.mintGreen}22` : theme.cream,
+                                            color: theme.black,
+                                        }}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Key + Mode pickers (scale snap target) */}
+                        <div>
+                            <div style={{ fontSize: 10, fontFamily: theme.fontDisplay, fontWeight: 700, color: theme.muted, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 6 }}>
+                                Test key (autotune snaps to this scale when forced shift = 0 and strength &gt; 0)
+                            </div>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <select
+                                    value={debugKey}
+                                    onChange={e => setDebugKey(parseInt(e.target.value))}
+                                    style={{ ...theme.select, flex: 1, padding: '8px', fontSize: 12 }}
+                                >
+                                    <option value={-1}>Chromatic (any semitone)</option>
+                                    {KEY_NAMES.map((k, i) => (
+                                        <option key={i} value={i}>{k}</option>
+                                    ))}
+                                </select>
+                                <select
+                                    value={debugMode}
+                                    onChange={e => setDebugMode(parseInt(e.target.value))}
+                                    disabled={debugKey < 0}
+                                    style={{
+                                        ...theme.select,
+                                        flex: 1,
+                                        padding: '8px',
+                                        fontSize: 12,
+                                        opacity: debugKey < 0 ? 0.4 : 1,
+                                        cursor: debugKey < 0 ? 'not-allowed' : 'pointer',
+                                    }}
+                                >
+                                    <option value={1}>Major</option>
+                                    <option value={0}>Minor</option>
+                                </select>
+                            </div>
+                            <div style={{ fontSize: 10, color: theme.muted, marginTop: 4, fontFamily: theme.fontBody }}>
+                                Chromatic snaps to the nearest semitone regardless of scale.
+                                Picking a key + mode constrains snapping to that scale's notes only.
+                            </div>
+                        </div>
+
+                        {/* Start/Stop + RMS meter */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <button
+                                onClick={toggleDebugTesting}
+                                style={{
+                                    padding: '10px 24px', fontSize: 13, fontWeight: 800,
+                                    fontFamily: theme.fontDisplay, cursor: 'pointer',
+                                    border: `2px solid ${debugTesting ? '#e55' : theme.mintGreen}`,
+                                    borderRadius: theme.radius,
+                                    background: debugTesting ? '#fee' : `${theme.mintGreen}22`,
+                                    color: debugTesting ? '#c33' : theme.black,
+                                }}
+                            >
+                                {debugTesting ? '■ Stop test' : '▶ Start test'}
+                            </button>
+                            <div style={{ fontSize: 11, fontFamily: 'monospace', color: theme.muted }}>
+                                Output RMS: <span ref={debugRmsRef} style={{ color: theme.black }}>0.000</span>
+                            </div>
+                        </div>
+
+                        {/* Live spectrum canvas */}
+                        <div>
+                            <div style={{ fontSize: 10, fontFamily: theme.fontDisplay, fontWeight: 700, color: theme.muted, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 6 }}>
+                                Output spectrum (log frequency)
+                            </div>
+                            <canvas
+                                ref={debugCanvasRef}
+                                width={760}
+                                height={180}
+                                style={{
+                                    width: '100%', maxWidth: 760, height: 180,
+                                    borderRadius: theme.radiusSmall, border: theme.border,
+                                    background: '#0a0a14', display: 'block',
+                                }}
+                            />
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     )
 }

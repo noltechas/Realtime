@@ -1,6 +1,23 @@
 import { VoiceEffects, DEFAULT_VOICE_EFFECTS } from './VoiceEffectsTypes'
 import { PITCH_CORRECTION_PROCESSOR_CODE } from './pitch-correction-worklet'
 
+/**
+ * EMERGENCY DIAGNOSTIC: set to `true` to disable the pitch correction
+ * worklet entirely. The engine will use the bypass gain node instead.
+ * When disabled, autotune does not work, but the rest of the voice
+ * effects chain continues to function.
+ *
+ * We confirmed the blank-screen renderer crash was NOT the worklet —
+ * it was `decodeAudioData` in Chromium 120's native MP3 decoder. With
+ * vocal playback and recording now going through HTMLAudioElement +
+ * MediaElementAudioSourceNode (which bypasses decodeAudioData), the
+ * worklet is safe to re-enable.
+ *
+ * Toggle this back to `true` if you see the crash return — it'll let
+ * you rule the worklet in or out again.
+ */
+const DISABLE_PITCH_CORRECTION_WORKLET = false
+
 export class VoiceEffectsEngine {
     private ctx: AudioContext
     private stream: MediaStream | null = null
@@ -62,7 +79,31 @@ export class VoiceEffectsEngine {
     private recorder: MediaRecorder | null = null
     private recordedChunks: Blob[] = []
     private playbackSource: AudioBufferSourceNode | null = null
+    private playbackAudio: HTMLAudioElement | null = null
+    private playbackSourceNode: MediaElementAudioSourceNode | null = null
+    private playbackBlobUrl: string | null = null
     private _onPlaybackEnded: (() => void) | null = null
+
+    // Dev test harness (synthesized signals + downloaded vocal samples)
+    // For vocal samples we deliberately use HTMLAudioElement +
+    // MediaElementAudioSourceNode instead of decodeAudioData: the latter
+    // has been observed to crash Electron 28 / Chromium 120 with SIGSEGV
+    // on specific MP3 files, whereas the HTMLMediaElement pipeline (same
+    // path AudioEngine.ts uses for song playback) is stable.
+    private testSource: OscillatorNode | AudioBufferSourceNode | null = null
+    private testSweepBuffer: AudioBuffer | null = null
+    private testVowelBuffer: AudioBuffer | null = null
+    // Vocal sample playback (HTMLAudioElement-based):
+    private vocalAudio: HTMLAudioElement | null = null
+    private vocalMediaSource: MediaElementAudioSourceNode | null = null
+    private vocalLoopHandler: (() => void) | null = null
+    // MediaElementAudioSourceNode can only be created ONCE per HTMLAudioElement,
+    // and that node stays bound to the element for its lifetime. Cache both
+    // together so re-selecting the same sample doesn't re-wire the graph.
+    private vocalMediaCache: Map<string, {
+        audio: HTMLAudioElement
+        source: MediaElementAudioSourceNode
+    }> = new Map()
 
     constructor(ctx: AudioContext | null = null) {
         this.ctx = ctx || new AudioContext({ latencyHint: 'interactive' })
@@ -154,17 +195,21 @@ export class VoiceEffectsEngine {
         this.analyser = this.ctx.createAnalyser()
         this.analyser.fftSize = 256
 
-        // Connection Graph:
-        // input -> [pitchCorrection OR bypass] -> comp -> eqLow -> eqMid -> eqHigh -> distortionIn
+        // Connection Graph (compressor BEFORE pitch correction so the shifter
+        // sees a level-controlled signal with consistent dynamics — improves
+        // peak tracking robustness and keeps the shifter from amplifying
+        // quantization noise through makeup gain):
+        //
+        // input -> comp -> [pitchCorrection OR bypass] -> eqLow -> eqMid -> eqHigh -> distortionIn
         // distortionDry & distortionWet -> chorusIn
         // chorusDry & chorusWet -> delayIn
         // delayDry & delayWet -> reverbIn
         // reverbDry & reverbWet -> gateGain -> masterGain -> analyser -> destination
 
         // Initially route through bypass; initPitchCorrection() will reroute through the worklet
-        this.inputGain.connect(this.pitchCorrectionBypass)
-        this.pitchCorrectionBypass.connect(this.comp)
-        this.comp.connect(this.eqLow)
+        this.inputGain.connect(this.comp)
+        this.comp.connect(this.pitchCorrectionBypass)
+        this.pitchCorrectionBypass.connect(this.eqLow)
         this.eqLow.connect(this.eqMid)
         this.eqMid.connect(this.eqHigh)
         this.eqHigh.connect(this.distortionIn)
@@ -190,8 +235,17 @@ export class VoiceEffectsEngine {
         // Initialize with default params
         this.apply(DEFAULT_VOICE_EFFECTS)
 
-        // Async: load pitch correction worklet
-        this.initPitchCorrection()
+        // Async: load pitch correction worklet (unless emergency-disabled)
+        if (DISABLE_PITCH_CORRECTION_WORKLET) {
+            console.warn(
+                '[VoiceEffectsEngine] ⚠️ Pitch correction worklet DISABLED via ' +
+                'DISABLE_PITCH_CORRECTION_WORKLET flag. Audio will flow through ' +
+                'the bypass node (no autotune). Flip the flag to false in ' +
+                'VoiceEffectsEngine.ts once the crash is resolved.'
+            )
+        } else {
+            this.initPitchCorrection()
+        }
     }
 
     /**
@@ -211,11 +265,11 @@ export class VoiceEffectsEngine {
                 channelCount: 1,
             })
 
-            // Reroute: inputGain -> pitchCorrection -> comp (replacing bypass)
-            this.inputGain.disconnect(this.pitchCorrectionBypass)
-            this.pitchCorrectionBypass.disconnect(this.comp)
-            this.inputGain.connect(this.pitchCorrectionNode)
-            this.pitchCorrectionNode.connect(this.comp)
+            // Reroute: comp -> pitchCorrection -> eqLow (replacing bypass node)
+            this.comp.disconnect(this.pitchCorrectionBypass)
+            this.pitchCorrectionBypass.disconnect(this.eqLow)
+            this.comp.connect(this.pitchCorrectionNode)
+            this.pitchCorrectionNode.connect(this.eqLow)
 
             this.pitchCorrectionReady = true
             console.log('Pitch correction worklet loaded')
@@ -480,66 +534,515 @@ export class VoiceEffectsEngine {
         return this.recorder?.state === 'recording'
     }
 
-    public async playRecording(blob: Blob, outputDeviceId?: string, onEnded?: () => void): Promise<void> {
+    /**
+     * Play back a recorded blob through the voice-effects chain.
+     *
+     * Uses HTMLAudioElement + MediaElementAudioSourceNode instead of
+     * decodeAudioData + AudioBufferSourceNode because decodeAudioData
+     * has been observed to crash Electron 28 / Chromium 120 with SIGSEGV
+     * on certain media formats (specifically, WebM/Opus produced by
+     * MediaRecorder on macOS has shown this behavior). HTMLAudioElement
+     * uses a different Chromium decoder path that is crash-safe.
+     *
+     * NOTE: we also intentionally do NOT call setSinkId here. Switching
+     * the audio output sink during an active signal chain has also been
+     * a crash source.
+     */
+    public async playRecording(blob: Blob, _outputDeviceId?: string, onEnded?: () => void): Promise<void> {
         this.stopPlayback()
         try {
-            if (this.ctx.state === 'suspended') await this.ctx.resume()
+            if (this.ctx.state === 'suspended') {
+                try { await this.ctx.resume() } catch (e) { console.warn('ctx.resume() failed:', e) }
+            }
             if (this.ctx.state === 'closed') {
                 if (onEnded) onEnded()
                 throw new Error('Audio context is closed')
             }
 
-            if (outputDeviceId && typeof (this.ctx as any).setSinkId === 'function') {
-                try { await (this.ctx as any).setSinkId(outputDeviceId) } catch {}
+            // Build a blob URL for the HTMLAudioElement. Revoke the previous
+            // one if any.
+            if (this.playbackBlobUrl) {
+                try { URL.revokeObjectURL(this.playbackBlobUrl) } catch { /* ignore */ }
+                this.playbackBlobUrl = null
+            }
+            const blobUrl = URL.createObjectURL(blob)
+            this.playbackBlobUrl = blobUrl
+
+            const audio = new Audio()
+            audio.src = blobUrl
+            audio.preload = 'auto'
+
+            await new Promise<void>((resolve, reject) => {
+                const cleanup = () => {
+                    audio.removeEventListener('canplay', onReady)
+                    audio.removeEventListener('canplaythrough', onReady)
+                    audio.removeEventListener('error', onError)
+                    if (timer) clearTimeout(timer)
+                }
+                const onReady = () => { cleanup(); resolve() }
+                const onError = () => { cleanup(); reject(new Error('Recording blob failed to load')) }
+                audio.addEventListener('canplay', onReady, { once: true })
+                audio.addEventListener('canplaythrough', onReady, { once: true })
+                audio.addEventListener('error', onError, { once: true })
+                const timer = setTimeout(() => { cleanup(); reject(new Error('Recording load timed out')) }, 5000)
+                audio.load()
+            })
+
+            if (this.source) {
+                try { this.source.disconnect() } catch { /* ignore */ }
             }
 
-            const arrayBuffer = await blob.arrayBuffer()
-            const audioBuffer = await this.ctx.decodeAudioData(arrayBuffer)
+            const mediaSource = this.ctx.createMediaElementSource(audio)
+            mediaSource.connect(this.inputGain)
 
-            if (this.source) this.source.disconnect()
-
-            this.playbackSource = this.ctx.createBufferSource()
-            this.playbackSource.buffer = audioBuffer
-            this.playbackSource.connect(this.inputGain)
-
-            try { this.analyser.connect(this.ctx.destination) } catch {}
+            try { this.analyser.connect(this.ctx.destination) } catch { /* ignore */ }
 
             this._onPlaybackEnded = onEnded || null
-            this.playbackSource.onended = () => {
-                this.playbackSource = null
-                if (this.source && this.stream) {
-                    try { this.source.connect(this.inputGain) } catch {}
-                }
+            audio.addEventListener('ended', () => {
+                this.stopPlayback()
                 if (this._onPlaybackEnded) this._onPlaybackEnded()
-            }
+            }, { once: true })
 
-            this.playbackSource.start()
+            this.playbackAudio = audio
+            this.playbackSourceNode = mediaSource
+
+            await audio.play()
         } catch (err) {
             console.error('Playback failed:', err)
+            if (this.playbackBlobUrl) {
+                try { URL.revokeObjectURL(this.playbackBlobUrl) } catch { /* ignore */ }
+                this.playbackBlobUrl = null
+            }
             if (onEnded) onEnded()
             throw err
         }
     }
 
     public stopPlayback(): void {
+        if (this.playbackAudio) {
+            try { this.playbackAudio.pause() } catch { /* ignore */ }
+            try { this.playbackAudio.src = '' } catch { /* ignore */ }
+            this.playbackAudio = null
+        }
+        if (this.playbackSourceNode) {
+            try { this.playbackSourceNode.disconnect() } catch { /* ignore */ }
+            this.playbackSourceNode = null
+        }
+        if (this.playbackBlobUrl) {
+            try { URL.revokeObjectURL(this.playbackBlobUrl) } catch { /* ignore */ }
+            this.playbackBlobUrl = null
+        }
+        // Legacy buffer-source path (kept in case anything still uses it)
         if (this.playbackSource) {
-            try { this.playbackSource.stop() } catch {}
-            try { this.playbackSource.disconnect() } catch {}
+            try { this.playbackSource.stop() } catch { /* ignore */ }
+            try { this.playbackSource.disconnect() } catch { /* ignore */ }
             this.playbackSource = null
         }
         if (this.source && this.stream) {
-            try { this.source.connect(this.inputGain) } catch {}
+            try { this.source.connect(this.inputGain) } catch { /* ignore */ }
         }
     }
 
     public get playing(): boolean {
-        return this.playbackSource !== null
+        return this.playbackSource !== null || this.playbackAudio !== null
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // Dev Test Harness
+    // ════════════════════════════════════════════════════════════════════
+    // Plays a synthesized test signal (sine / sweep / vowel) through the
+    // full voice-effects chain so the user can verify pitch-correction
+    // quality without needing a microphone. Stays in the app as a
+    // permanent dev/QA tool.
+
+    public async startTestPreview(
+        signalType: 'sine' | 'sweep' | 'vowel' | 'sample',
+        options?: {
+            sampleUrl?: string
+            outputId?: string
+            // For 'sample' signals, optionally play only a sub-segment of the
+            // file on loop. Useful for vocal stems where we only want a
+            // 10-15 second melodic phrase. Both are in seconds.
+            loopStart?: number
+            loopEnd?: number
+        },
+    ): Promise<boolean> {
+        // NOTE: we deliberately DON'T call setSinkId here. Switching the
+        // audio output sink via setSinkId has been observed to crash the
+        // Electron renderer when combined with dynamic signal-chain changes.
+        // The test will play out the system default audio output.
+        if (this.ctx.state === 'suspended') {
+            try { await this.ctx.resume() } catch (e) { console.warn('ctx.resume() failed:', e) }
+        }
+
+        // Wait for the pitch correction worklet to be ready (unless
+        // emergency-disabled). The test harness is always entered via
+        // user click, so the constructor has had plenty of time, but
+        // if someone clicks very fast we need to give it a chance to
+        // finish loading before we start feeding it audio. Poll up to 2s.
+        if (!DISABLE_PITCH_CORRECTION_WORKLET) {
+            const workletDeadline = Date.now() + 2000
+            while (!this.pitchCorrectionReady && Date.now() < workletDeadline) {
+                await new Promise(r => setTimeout(r, 50))
+            }
+            if (!this.pitchCorrectionReady) {
+                console.warn('[VoiceEffectsEngine] Pitch correction worklet not ready after 2s — proceeding with bypass path')
+            }
+        }
+
+        try {
+            // Don't touch destination.channelCount here — Electron's default
+            // is already correct and mutating it during a live graph has
+            // been a crash source historically.
+
+            // Stop any existing test source or mic
+            this.stopTestPreview()
+            if (this.source) {
+                try { this.source.disconnect() } catch { /* ignore */ }
+            }
+
+            if (signalType === 'sine') {
+                const osc = this.ctx.createOscillator()
+                osc.type = 'sine'
+                osc.frequency.value = 440
+                osc.connect(this.inputGain)
+                osc.start()
+                this.testSource = osc
+            } else if (signalType === 'sample') {
+                // Vocal samples: HTMLAudioElement + MediaElementAudioSourceNode.
+                // We do NOT use fetch + decodeAudioData + AudioBufferSourceNode
+                // because decodeAudioData has been observed to crash the
+                // Electron renderer (SIGSEGV / exit code 11) on specific MP3s.
+                if (!options?.sampleUrl) {
+                    console.error('startTestPreview: signalType=sample requires options.sampleUrl')
+                    return false
+                }
+                const entry = await this.loadVocalSampleMedia(options.sampleUrl)
+                const { audio, source } = entry
+
+                // Clamp the segment window to the actual audio duration so
+                // we never seek past the end of the file.
+                const duration = isFinite(audio.duration) ? audio.duration : 60
+                let loopStart = 0
+                let loopEnd = duration
+                if (options.loopStart !== undefined && options.loopStart >= 0) {
+                    loopStart = Math.min(options.loopStart, Math.max(0, duration - 0.1))
+                }
+                if (options.loopEnd !== undefined && options.loopEnd > 0) {
+                    loopEnd = Math.min(options.loopEnd, duration)
+                    if (loopEnd <= loopStart) loopEnd = duration
+                }
+
+                // HTMLAudioElement has a `loop` property but it only loops
+                // the whole file end-to-end. For segment looping we use a
+                // timeupdate listener that jumps back to loopStart whenever
+                // playback passes loopEnd.
+                audio.loop = false
+                audio.currentTime = loopStart
+                const loopHandler = () => {
+                    if (audio.currentTime >= loopEnd || audio.ended) {
+                        audio.currentTime = loopStart
+                        if (audio.paused) {
+                            audio.play().catch(err => {
+                                console.warn('Vocal sample loop restart failed:', err)
+                            })
+                        }
+                    }
+                }
+                audio.addEventListener('timeupdate', loopHandler)
+
+                // Connect to the effects graph. Each MediaElementAudioSourceNode
+                // is cached per-audio-element, so reconnecting is safe: Web
+                // Audio ignores redundant connect() calls between the same
+                // source and destination.
+                try {
+                    source.connect(this.inputGain)
+                } catch (connErr) {
+                    console.warn('Vocal sample source.connect() threw:', connErr)
+                }
+
+                try {
+                    await audio.play()
+                } catch (playErr) {
+                    console.error('HTMLAudioElement.play() failed:', playErr)
+                    audio.removeEventListener('timeupdate', loopHandler)
+                    try { source.disconnect(this.inputGain) } catch { /* ignore */ }
+                    return false
+                }
+
+                this.vocalAudio = audio
+                this.vocalMediaSource = source
+                this.vocalLoopHandler = loopHandler
+            } else {
+                // 'sweep' | 'vowel' — synthesized buffers, safe to use
+                // AudioBufferSourceNode because we build the AudioBuffer
+                // in JS (no MP3 decoder involvement).
+                let buf: AudioBuffer
+                if (signalType === 'sweep') {
+                    if (!this.testSweepBuffer) this.testSweepBuffer = this.generateSweepBuffer()
+                    buf = this.testSweepBuffer
+                } else {
+                    if (!this.testVowelBuffer) this.testVowelBuffer = this.generateVowelBuffer()
+                    buf = this.testVowelBuffer
+                }
+                const src = this.ctx.createBufferSource()
+                src.buffer = buf
+                src.loop = true
+                src.connect(this.inputGain)
+                try {
+                    src.start(0)
+                } catch (startErr) {
+                    console.error('BufferSource.start() failed:', startErr)
+                    try { src.disconnect() } catch { /* ignore */ }
+                    return false
+                }
+                this.testSource = src
+            }
+
+            try { this.analyser.connect(this.ctx.destination) } catch { /* ignore */ }
+            return true
+        } catch (err) {
+            console.error('Test preview start failed:', err)
+            return false
+        }
+    }
+
+    /**
+     * Downmix a (possibly stereo) AudioBuffer to a new mono AudioBuffer by
+     * averaging channels. Used to ensure the voice-effects chain always
+     * receives a single-channel input, avoiding Electron crash paths where
+     * implicit channel conversion through an AudioWorkletNode with
+     * explicit channel settings misbehaves.
+     */
+    private toMonoBuffer(buf: AudioBuffer): AudioBuffer {
+        if (buf.numberOfChannels === 1) return buf
+        const mono = this.ctx.createBuffer(1, buf.length, buf.sampleRate)
+        const out = mono.getChannelData(0)
+        const nCh = buf.numberOfChannels
+        for (let ch = 0; ch < nCh; ch++) {
+            const data = buf.getChannelData(ch)
+            for (let i = 0; i < buf.length; i++) {
+                out[i] += data[i] / nCh
+            }
+        }
+        return mono
+    }
+
+    /**
+     * Load a vocal sample via HTMLAudioElement (NOT decodeAudioData).
+     *
+     * decodeAudioData has been observed to crash the Electron 28 / Chromium 120
+     * renderer with SIGSEGV (exitCode 11) on specific MP3 files. The crash is
+     * in Chromium's native MP3 decoder and happens before any JS catch can
+     * intercept it. HTMLAudioElement uses a different decoding path in
+     * Chromium (the same path AudioEngine.ts already uses for song playback
+     * in this app) and does NOT trigger the crash.
+     *
+     * Returns an object containing the HTMLAudioElement and its bound
+     * MediaElementAudioSourceNode. Both are cached so selecting the same
+     * sample twice reuses the existing nodes.
+     */
+    private async loadVocalSampleMedia(
+        url: string,
+    ): Promise<{ audio: HTMLAudioElement; source: MediaElementAudioSourceNode }> {
+        const cached = this.vocalMediaCache.get(url)
+        if (cached) return cached
+
+        console.log('[VoiceEffectsEngine] Loading vocal sample (HTMLAudioElement):', url)
+        const audio = new Audio()
+        audio.crossOrigin = 'anonymous'
+        audio.preload = 'auto'
+        audio.src = url
+
+        // Wait until the element has enough buffered audio to start playback.
+        // 'canplaythrough' is optimistic but fastest; if it never fires within
+        // a reasonable timeout, fall back to 'canplay' or time out.
+        await new Promise<void>((resolve, reject) => {
+            const onReady = () => {
+                cleanup()
+                resolve()
+            }
+            const onError = () => {
+                cleanup()
+                reject(new Error('HTMLAudioElement failed to load: ' + url))
+            }
+            const cleanup = () => {
+                audio.removeEventListener('canplay', onReady)
+                audio.removeEventListener('canplaythrough', onReady)
+                audio.removeEventListener('error', onError)
+                if (timer) clearTimeout(timer)
+            }
+            audio.addEventListener('canplay', onReady, { once: true })
+            audio.addEventListener('canplaythrough', onReady, { once: true })
+            audio.addEventListener('error', onError, { once: true })
+            // 5 second timeout
+            const timer = setTimeout(() => {
+                cleanup()
+                reject(new Error('HTMLAudioElement load timed out: ' + url))
+            }, 5000)
+            audio.load()
+        })
+
+        console.log(
+            '[VoiceEffectsEngine] HTMLAudioElement ready:',
+            url,
+            'duration=' + audio.duration.toFixed(2) + 's',
+        )
+
+        // createMediaElementSource can only be called ONCE per audio element.
+        // The returned source stays bound to the element for its lifetime.
+        const source = this.ctx.createMediaElementSource(audio)
+        const entry = { audio, source }
+        this.vocalMediaCache.set(url, entry)
+        return entry
+    }
+
+    public stopTestPreview() {
+        if (this.testSource) {
+            try { (this.testSource as any).stop() } catch { /* ignore */ }
+            try { this.testSource.disconnect() } catch { /* ignore */ }
+            this.testSource = null
+        }
+        if (this.vocalAudio) {
+            try { this.vocalAudio.pause() } catch { /* ignore */ }
+            if (this.vocalLoopHandler) {
+                try { this.vocalAudio.removeEventListener('timeupdate', this.vocalLoopHandler) } catch { /* ignore */ }
+            }
+            // IMPORTANT: do NOT call vocalMediaSource.disconnect() fully —
+            // MediaElementAudioSourceNode stays bound to its audio element
+            // and the cached pair must remain intact for next use. Instead
+            // disconnect only from inputGain so the signal path breaks.
+            if (this.vocalMediaSource) {
+                try { this.vocalMediaSource.disconnect(this.inputGain) } catch { /* ignore */ }
+            }
+            this.vocalAudio = null
+            this.vocalMediaSource = null
+            this.vocalLoopHandler = null
+        }
+        try { this.analyser.disconnect(this.ctx.destination) } catch { /* ignore */ }
+    }
+
+    public get testing(): boolean {
+        return this.testSource !== null
+    }
+
+    /**
+     * Override the pitch-correction ratio in the worklet for deterministic
+     * testing. Pass `null` to restore normal YIN + scale-snap behavior.
+     * When set, the override bypasses smoothing and dead zone so the test
+     * signal is shifted by exactly the requested ratio.
+     */
+    public setDebugRatioOverride(ratio: number | null) {
+        if (this.pitchCorrectionReady && this.pitchCorrectionNode) {
+            this.pitchCorrectionNode.port.postMessage({ type: 'debugRatio', ratio })
+        }
+    }
+
+    /**
+     * Build a looping 5-second linear frequency sweep from 220 Hz to 880 Hz.
+     * Used for verifying continuous pitch-change behavior (no clicks / warbles).
+     */
+    private generateSweepBuffer(): AudioBuffer {
+        const sr = this.ctx.sampleRate
+        const dur = 5
+        const len = Math.floor(sr * dur)
+        const buf = this.ctx.createBuffer(1, len, sr)
+        const data = buf.getChannelData(0)
+        const f0 = 220
+        const f1 = 880
+        // Linear-frequency sweep (phase integral of linear freq = f0*t + (f1-f0)*t^2/(2*dur))
+        let phase = 0
+        for (let i = 0; i < len; i++) {
+            const t = i / sr
+            const f = f0 + (f1 - f0) * (t / dur)
+            phase += (2 * Math.PI * f) / sr
+            data[i] = 0.5 * Math.sin(phase)
+        }
+        return buf
+    }
+
+    /**
+     * Build a 2-second looping synthesized "ah" vowel at 200 Hz F0 with
+     * formant-shaped harmonic amplitudes (F1 ≈ 730, F2 ≈ 1090, F3 ≈ 2440 Hz)
+     * and mild 5 Hz vibrato. This is the most important test signal: it
+     * has a clear fundamental + rich harmonic structure and realistic vocal
+     * spectrum, which exercises the phase vocoder's peak tracking and
+     * reveals phasiness / underwater artifacts.
+     */
+    private generateVowelBuffer(): AudioBuffer {
+        const sr = this.ctx.sampleRate
+        const dur = 2
+        const len = Math.floor(sr * dur)
+        const buf = this.ctx.createBuffer(1, len, sr)
+        const data = buf.getChannelData(0)
+
+        const F0 = 200 // fundamental
+        const nHarmonics = 20
+        // Typical male "ah" formant frequencies and bandwidths (Hz)
+        const formants = [730, 1090, 2440, 3400]
+        const bandwidths = [80, 100, 150, 200]
+        const formantGains = [1.0, 0.7, 0.35, 0.15]
+
+        // Compute each harmonic's static amplitude via sum of Gaussians at formants
+        const harmonicAmp = (f: number): number => {
+            let amp = 0
+            for (let fi = 0; fi < formants.length; fi++) {
+                const diff = (f - formants[fi]) / bandwidths[fi]
+                amp += formantGains[fi] * Math.exp(-diff * diff)
+            }
+            return amp
+        }
+
+        // Precompute amplitudes and a slight 1/n rolloff so lower harmonics
+        // dominate (matches a glottal source spectrum)
+        const amps = new Float32Array(nHarmonics + 1)
+        let maxAmp = 0
+        for (let h = 1; h <= nHarmonics; h++) {
+            const f = h * F0
+            amps[h] = harmonicAmp(f) / h
+            if (amps[h] > maxAmp) maxAmp = amps[h]
+        }
+        for (let h = 1; h <= nHarmonics; h++) amps[h] /= maxAmp // normalize
+
+        // Synthesize with 5 Hz vibrato (~2% depth), gentle attack/release
+        // to make looping seamless
+        const phases = new Float32Array(nHarmonics + 1)
+        for (let i = 0; i < len; i++) {
+            const t = i / sr
+            const vibrato = 1 + 0.02 * Math.sin(2 * Math.PI * 5 * t)
+            const f0Now = F0 * vibrato
+
+            let s = 0
+            for (let h = 1; h <= nHarmonics; h++) {
+                const f = h * f0Now
+                if (f > sr * 0.45) continue // avoid aliasing near Nyquist
+                phases[h] += (2 * Math.PI * f) / sr
+                s += amps[h] * Math.sin(phases[h])
+            }
+
+            // Envelope: tiny fade in/out at loop edges so the loop point
+            // doesn't click
+            let env = 0.45
+            const fadeLen = Math.floor(sr * 0.02) // 20ms fade
+            if (i < fadeLen) env *= i / fadeLen
+            else if (i > len - fadeLen) env *= (len - i) / fadeLen
+            data[i] = s * env
+        }
+        return buf
     }
 
     public destroy() {
         this.stopPlayback()
         this.stopLivePreview()
+        this.stopTestPreview()
         this.stopNoiseGate()
+        // Tear down any cached HTMLAudioElements + their media sources.
+        for (const { audio, source } of this.vocalMediaCache.values()) {
+            try { audio.pause() } catch { /* ignore */ }
+            try { audio.src = '' } catch { /* ignore */ }
+            try { source.disconnect() } catch { /* ignore */ }
+        }
+        this.vocalMediaCache.clear()
         if (this.pitchCorrectionNode) {
             try { this.pitchCorrectionNode.disconnect() } catch { /* ignore */ }
             this.pitchCorrectionNode = null

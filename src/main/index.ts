@@ -45,6 +45,33 @@ function createWindow(): void {
         mainWindow?.show()
     })
 
+    // ─── Renderer crash diagnostics ───────────────────────────────
+    // When the renderer WebContents dies (blank screen), Electron fires
+    // 'render-process-gone' with details. Log everything to the terminal.
+    mainWindow.webContents.on('render-process-gone', (_event, details) => {
+        console.error('\n════════════════════════════════════════════════════════════')
+        console.error('🔥 MAIN WINDOW RENDERER CRASHED')
+        console.error('Reason:', details.reason)
+        console.error('Exit code:', details.exitCode)
+        console.error('Full details:', JSON.stringify(details, null, 2))
+        console.error('════════════════════════════════════════════════════════════\n')
+    })
+    mainWindow.webContents.on('unresponsive', () => {
+        console.error('⚠️  Main renderer became unresponsive')
+    })
+    mainWindow.webContents.on('responsive', () => {
+        console.error('✓ Main renderer is responsive again')
+    })
+    // Console messages from the renderer stream into the main terminal too,
+    // so the user sees JS errors even if they don't have DevTools open.
+    mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+        const levels = ['log', 'warning', 'error']
+        const tag = levels[level] || 'log'
+        if (tag === 'error' || tag === 'warning') {
+            console.log('[renderer ' + tag + '] ' + message + (sourceId ? ' (' + sourceId + ':' + line + ')' : ''))
+        }
+    })
+
     mainWindow.webContents.setWindowOpenHandler((details) => {
         shell.openExternal(details.url)
         return { action: 'deny' }
