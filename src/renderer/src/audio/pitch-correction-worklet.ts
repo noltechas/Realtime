@@ -115,6 +115,23 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
         this._outWrite = 0;
         this._hopCounter = this._HOP;
 
+        // ─── Silence gate ─────────────────────────────────────────────
+        // Prevents the phase vocoder from running on sub-singing-level
+        // audio (breath noise, room tone, fadeout tails). Without this
+        // gate, YIN detects random frequencies on noise, the peak
+        // detector finds noise-floor "peaks" and shifts them, and the
+        // timeCursor-based phase rotation produces audible FM sidebands
+        // that sound like "wobbly pitched-up tails" — especially after
+        // the default reverb smears them over 2.5 seconds.
+        //
+        // Asymmetric hysteresis: open loose, close tight + short hold.
+        this._RMS_GATE_OPEN = 0.006;  // ~-44 dB, loose enough for quiet vowels
+        this._RMS_GATE_CLOSE = 0.003; // ~-50 dB, tight enough for room tone
+        this._GATE_CLOSE_HOLD = 4;    // blocks (~11 ms) of silence before closing
+        this._silentFrames = 0;       // consecutive blocks below close threshold
+        this._gateOpen = false;       // current gate state
+        this._ABSOLUTE_PEAK_FLOOR = 0.01; // FFT bin magnitude floor (per frame, noise rejection)
+
         // Diagnostic
         this._logCounter = 0;
         this._logInterval = Math.floor(sampleRate); // ~1 Hz
@@ -283,9 +300,15 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
             if (m > maxMag) maxMag = m;
         }
 
-        // 5. Find spectral peaks (local max over 5-bin window, gated)
+        // 5. Find spectral peaks (local max over 5-bin window, gated).
+        //    Use the MAX of a relative floor (0.5% of the frame's max mag)
+        //    and an ABSOLUTE floor (_ABSOLUTE_PEAK_FLOOR). The absolute
+        //    floor rejects noise-level peaks even when the relative floor
+        //    is met, which prevents "phantom peaks" from being shifted on
+        //    quiet-but-not-silent frames (the main cause of fadeout FM
+        //    sidebands that get smeared by the downstream reverb).
         this._peakCount = 0;
-        const peakFloor = maxMag * 0.005;
+        const peakFloor = Math.max(maxMag * 0.005, this._ABSOLUTE_PEAK_FLOOR);
         for (let k = 2; k <= N2 - 2; k++) {
             const m = this._mag[k];
             if (m > peakFloor &&
@@ -379,7 +402,12 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
     // ───────────────────────────────────────────────────────────────
     process(inputs, outputs) {
         const inp = inputs[0] && inputs[0][0];
+        // Output has 2 channels (set via outputChannelCount in node options).
+        // The internal DSP is mono; we write the same mono-corrected signal
+        // to both output channels so downstream gets real stereo regardless
+        // of how it handles up-mixing.
         const out = outputs[0] && outputs[0][0];
+        const outR = outputs[0] && outputs[0][1];
         if (!inp || !out) return true;
 
         const bLen = this._bufSize;
@@ -396,36 +424,84 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
             this._initialized = true;
         }
 
-        // 3. YIN chunked state machine
-        if (this._yinPhase >= 1 && this._yinPhase <= 8) {
-            const chunkIdx = this._yinPhase - 1;
-            const tauStart = chunkIdx * this._yinChunkSize;
-            const tauEnd = Math.min(tauStart + this._yinChunkSize, this._yinHalf);
-            const buf = this._analysisBuf;
-            const yin = this._yinBuf;
-            const half = this._yinHalf;
-            for (let tau = tauStart; tau < tauEnd; tau++) {
-                let sum = 0;
-                for (let i = 0; i < half; i++) {
-                    const d = buf[i] - buf[i + tau];
-                    sum += d * d;
+        // 2b. Silence gate — compute block RMS and update gate state with
+        //     asymmetric hysteresis. When the gate is CLOSED, the phase
+        //     vocoder and YIN are bypassed entirely so that noise/fadeout
+        //     can't produce the wobbly pitched-up tail artifact.
+        let sumSq = 0;
+        for (let i = 0; i < len; i++) sumSq += inp[i] * inp[i];
+        const blockRms = Math.sqrt(sumSq / len);
+        if (this._gateOpen) {
+            // Currently open → start counting silent blocks once we drop
+            // below the CLOSE threshold; close only after GATE_CLOSE_HOLD
+            // consecutive silent blocks.
+            if (blockRms < this._RMS_GATE_CLOSE) {
+                this._silentFrames++;
+                if (this._silentFrames >= this._GATE_CLOSE_HOLD) {
+                    this._gateOpen = false;
+                    // Reset all pitch-correction state so the next word
+                    // starts with a clean phase reference.
+                    this._timeCursor = 0;
+                    this._voicedConfidence = 0;
+                    this._currentTargetMidi = -1;
+                    this._ratio = 1.0;
+                    this._smoothedRatio = 1.0;
+                    // Cancel any in-progress YIN cycle
+                    this._yinPhase = 0;
+                    this._analysisCount = 0;
+                    // Clear freq history so it doesn't bias the next detection
+                    this._freqHistory[0] = 0;
+                    this._freqHistory[1] = 0;
+                    this._freqHistory[2] = 0;
+                    this._freqHistory[3] = 0;
+                    this._freqHistory[4] = 0;
+                    this._detectedFreq = 0;
                 }
-                yin[tau] = sum;
+            } else {
+                this._silentFrames = 0;
             }
-            this._yinPhase++;
-        } else if (this._yinPhase === 9) {
-            this._finishDetection();
-            this._updateRatio();
-            this._yinPhase = 0;
         } else {
-            this._analysisCount += len;
-            if (this._analysisCount >= 1024) {
-                this._analysisCount = 0;
-                const start = (this._wPos - this._yinSize + bLen) % bLen;
-                for (let i = 0; i < this._yinSize; i++) {
-                    this._analysisBuf[i] = this._buf[(start + i) % bLen];
+            // Currently closed → reopen immediately when we exceed the
+            // OPEN threshold (no hold, so we don't miss the start of a word).
+            if (blockRms > this._RMS_GATE_OPEN) {
+                this._gateOpen = true;
+                this._silentFrames = 0;
+            }
+        }
+
+        // 3. YIN chunked state machine (only when gate is open — skip
+        //    entirely during silence to avoid running detection on noise)
+        if (this._gateOpen) {
+            if (this._yinPhase >= 1 && this._yinPhase <= 8) {
+                const chunkIdx = this._yinPhase - 1;
+                const tauStart = chunkIdx * this._yinChunkSize;
+                const tauEnd = Math.min(tauStart + this._yinChunkSize, this._yinHalf);
+                const buf = this._analysisBuf;
+                const yin = this._yinBuf;
+                const half = this._yinHalf;
+                for (let tau = tauStart; tau < tauEnd; tau++) {
+                    let sum = 0;
+                    for (let i = 0; i < half; i++) {
+                        const d = buf[i] - buf[i + tau];
+                        sum += d * d;
+                    }
+                    yin[tau] = sum;
                 }
-                this._yinPhase = 1;
+                this._yinPhase++;
+            } else if (this._yinPhase === 9) {
+                this._finishDetection();
+                this._updateRatio();
+                this._yinPhase = 0;
+            } else {
+                this._analysisCount += len;
+                if (this._analysisCount >= 1024) {
+                    this._analysisCount = 0;
+                    const start = (this._wPos - this._yinSize + bLen) % bLen;
+                    for (let i = 0; i < this._yinSize; i++) {
+                        this._analysisBuf[i] = this._buf[(start + i) % bLen];
+                    }
+                    this._yinPhase = 1;
+                }
             }
         }
 
@@ -462,22 +538,47 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
         // 6. Pre-init passthrough
         if (!this._initialized) {
             out.set(inp);
+            if (outR) outR.set(inp);
             return true;
         }
 
-        // 7. Hop counter: fire a frame every HOP samples of input
+        // 7. Hop counter: fire a frame every HOP samples of input.
+        //    When the silence gate is CLOSED we skip the phase vocoder
+        //    entirely but still advance _outWrite by HOP so the drain
+        //    stays in sync and the OLA tail from previous loud frames
+        //    drains naturally (producing a clean fade to silence).
         this._hopCounter -= len;
         if (this._hopCounter <= 0) {
             this._hopCounter += this._HOP;
-            this._processFrame(pitchFactor);
+            if (this._gateOpen) {
+                this._processFrame(pitchFactor);
+            } else {
+                this._outWrite = (this._outWrite + this._HOP) % this._outBufLen;
+            }
         }
 
-        // 8. Drain len samples from the output ring, zero as we read
+        // 8. Drain len samples from the output ring, zero as we read.
+        //    Write the same mono-corrected signal to BOTH output channels
+        //    (L and R) so downstream nodes receive true stereo — this is
+        //    the fix for "audio only in left AirPod".
         const obLen = this._outBufLen;
-        for (let i = 0; i < len; i++) {
-            const idx = (this._outRead + i) % obLen;
-            out[i] = this._outBuf[idx];
-            this._outBuf[idx] = 0;
+        if (outR) {
+            for (let i = 0; i < len; i++) {
+                const idx = (this._outRead + i) % obLen;
+                const sample = this._outBuf[idx];
+                out[i] = sample;
+                outR[i] = sample;
+                this._outBuf[idx] = 0;
+            }
+        } else {
+            // Defensive fallback: if for some reason we only got 1 output
+            // channel, write just to the left. Shouldn't happen because
+            // the node is constructed with outputChannelCount: [2].
+            for (let i = 0; i < len; i++) {
+                const idx = (this._outRead + i) % obLen;
+                out[i] = this._outBuf[idx];
+                this._outBuf[idx] = 0;
+            }
         }
         this._outRead = (this._outRead + len) % obLen;
 
@@ -486,7 +587,9 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
         if (this._logCounter >= this._logInterval) {
             this._logCounter = 0;
             if (this._strength > 0 || this._debugRatioOverride !== null) {
-                console.log('[pitch-correction] strength=' + this._strength +
+                console.log('[pitch-correction] gate=' + (this._gateOpen ? 'OPEN ' : 'CLOSED') +
+                    ' rms=' + blockRms.toFixed(4) +
+                    ' strength=' + this._strength +
                     ' detected=' + this._detectedFreq.toFixed(1) + 'Hz' +
                     ' targetMidi=' + this._currentTargetMidi +
                     ' ratio=' + this._ratio.toFixed(4) +
@@ -531,7 +634,11 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
             }
         }
 
-        // Global minimum fallback if threshold search failed
+        // Global minimum fallback if threshold search failed.
+        // Tightened from 0.4 to 0.2: the looser 0.4 would accept weak
+        // confidence detections from noise-autocorrelated signals during
+        // fadeouts, producing random frequencies that fed garbage to the
+        // phase vocoder. 0.2 requires a much stronger local minimum.
         if (tauEst === -1) {
             let bestTau = -1;
             let bestVal = 1.0;
@@ -541,7 +648,7 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
                     bestTau = tau;
                 }
             }
-            if (bestVal < 0.4) tauEst = bestTau;
+            if (bestVal < 0.2) tauEst = bestTau;
         }
 
         if (tauEst === -1) {

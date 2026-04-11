@@ -262,7 +262,18 @@ export class VoiceEffectsEngine {
             this.pitchCorrectionNode = new AudioWorkletNode(this.ctx, 'pitch-correction-processor', {
                 numberOfInputs: 1,
                 numberOfOutputs: 1,
+                // Force the input to exactly 1 channel (downmix stereo → mono
+                // inside the node) regardless of upstream source.
                 channelCount: 1,
+                channelCountMode: 'explicit',
+                channelInterpretation: 'speakers',
+                // Output exactly 2 channels. The processor writes the same
+                // mono-corrected signal to BOTH output channels (L and R),
+                // so downstream nodes receive true stereo and we avoid the
+                // "audio only in left ear" problem that occurs when the
+                // downstream chain fails to up-mix a 1-channel worklet
+                // output back to stereo (observed with AirPods on macOS).
+                outputChannelCount: [2],
             })
 
             // Reroute: comp -> pitchCorrection -> eqLow (replacing bypass node)

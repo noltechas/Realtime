@@ -33,6 +33,7 @@ interface VocalSampleMeta {
     loopEnd: number
 }
 const VOCAL_SAMPLES: VocalSampleMeta[] = [
+    // ─── Polished / trained singers ───────────────────────────────
     {
         id: 'iestankov_chant.mp3',
         label: '🎤 Male chant — iestankov',
@@ -60,6 +61,35 @@ const VOCAL_SAMPLES: VocalSampleMeta[] = [
         description: 'Melodic vocal stem, "Ophelia\'s Song"',
         loopStart: 15,
         loopEnd: 30,
+    },
+    // ─── Casual / "okay singer" territory ─────────────────────────
+    {
+        id: 'spinmeister_remixing.mp3',
+        label: '🎤 Casual male — spinmeister',
+        description: 'Humorous political sing-song, "Remixing is Okay" — looser pitch, real autotune workout',
+        loopStart: 15,
+        loopEnd: 30,
+    },
+    {
+        id: 'cuajitoben_bedtime_blues.mp3',
+        label: '🎤 Male blues #2 — cuajitoben',
+        description: 'Gritty expressive blues, "Bedtime Blues" — different voice quality from admiralbob',
+        loopStart: 30,
+        loopEnd: 45,
+    },
+    {
+        id: 'kizzylotus_homesick.mp3',
+        label: '🎤 Female vocal — kizzylotus',
+        description: 'Melodic female vocal, "Homesick" — different timbre from snowflake/musetta',
+        loopStart: 20,
+        loopEnd: 35,
+    },
+    {
+        id: 'sackjo22_solstice.mp3',
+        label: '🎤 Female contemplative — SackJo22',
+        description: 'Contemplative female vocal, "Solstice" — sustained melodic lines',
+        loopStart: 25,
+        loopEnd: 40,
     },
 ]
 
