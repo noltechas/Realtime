@@ -195,6 +195,8 @@ export class AudioEngine {
 
     destroy() {
         this.pause()
+        this.onTimeUpdate = null
+        this.onEnded = null
         this.audio.removeAttribute('src')
         this.audio.load() // resets the element
         if (this.vocalAudio) {

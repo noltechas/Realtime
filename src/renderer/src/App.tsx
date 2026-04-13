@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, Component, ErrorInfo, ReactNode } from 'react'
 import { HashRouter as Router, Routes, Route, NavLink, useLocation } from 'react-router-dom'
 import { AppProvider, useApp } from './context/AppContext'
 import { ThemeProvider, StageThemeProvider, useTheme } from './context/ThemeContext'
@@ -183,13 +183,55 @@ function TopNav() {
     )
 }
 
+class StageErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+    private recoveryTimer: ReturnType<typeof setTimeout> | null = null
+
+    state = { hasError: false }
+
+    static getDerivedStateFromError(): { hasError: boolean } {
+        return { hasError: true }
+    }
+
+    componentDidCatch(error: Error, info: ErrorInfo): void {
+        console.error('[Stage] Render crash — auto-recovering in 2s:', error, info.componentStack)
+    }
+
+    componentDidUpdate(_: unknown, prevState: { hasError: boolean }): void {
+        if (this.state.hasError && !prevState.hasError) {
+            this.recoveryTimer = setTimeout(() => this.setState({ hasError: false }), 2000)
+        }
+    }
+
+    componentWillUnmount(): void {
+        if (this.recoveryTimer) clearTimeout(this.recoveryTimer)
+    }
+
+    render(): ReactNode {
+        if (this.state.hasError) {
+            return (
+                <div style={{
+                    width: '100vw', height: '100vh', background: '#050508',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                    <p style={{ color: 'rgba(255,255,255,0.3)', fontFamily: 'system-ui', fontSize: 16 }}>
+                        Reloading stage...
+                    </p>
+                </div>
+            )
+        }
+        return this.props.children
+    }
+}
+
 function StageKaraokePage() {
     const { state } = useApp()
     const stageTheme = state.nowPlaying?.stageTheme
     return (
-        <StageThemeProvider themeName={stageTheme}>
-            <KaraokePage />
-        </StageThemeProvider>
+        <StageErrorBoundary>
+            <StageThemeProvider themeName={stageTheme}>
+                <KaraokePage />
+            </StageThemeProvider>
+        </StageErrorBoundary>
     )
 }
 

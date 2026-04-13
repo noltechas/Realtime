@@ -75,6 +75,7 @@ export function useAudioSync(): AudioSyncState {
             engine.setOnEnded(() => {
                 setPlaying(false)
                 dispatch({ type: 'NEXT_SONG' })
+                window.electronAPI?.sendPlaybackTime(0)
             })
             return
         }
@@ -93,6 +94,7 @@ export function useAudioSync(): AudioSyncState {
         engine.setOnEnded(() => {
             setPlaying(false)
             dispatch({ type: 'NEXT_SONG' })
+            window.electronAPI?.sendPlaybackTime(0)
         })
 
         engine.load(stemsPath || {}, monitorDeviceIds).then(() => {
@@ -170,6 +172,7 @@ export function useAudioSync(): AudioSyncState {
         setPlaying(false)
         dispatch({ type: 'SET_PLAYING', payload: false })
         dispatch({ type: 'NEXT_SONG' })
+        window.electronAPI?.sendPlaybackTime(0)
     }, [dispatch])
 
     const handlePrev = useCallback(() => {
@@ -178,6 +181,7 @@ export function useAudioSync(): AudioSyncState {
         setPlaying(false)
         dispatch({ type: 'SET_PLAYING', payload: false })
         dispatch({ type: 'PREV_SONG' })
+        window.electronAPI?.sendPlaybackTime(0)
     }, [dispatch])
 
     const handleStart = useCallback(() => {

@@ -511,6 +511,16 @@ export default function AdminPage() {
         }
         const rawConfigs = Array.isArray(song.voiceEffects) ? song.voiceEffects : [song.voiceEffects || JSON.parse(JSON.stringify(DEFAULT_VOICE_EFFECTS))]
         const editConfigs = normalizeMicLevel(rawConfigs) as VoiceEffects[]
+        // Merge stored Spotify data into configs that still have default key
+        if (song.spotifyData && typeof song.spotifyData.key === 'number' && song.spotifyData.key !== -1) {
+            for (const cfg of editConfigs) {
+                if (cfg.key === -1) {
+                    cfg.key = song.spotifyData.key
+                    cfg.mode = song.spotifyData.mode ?? cfg.mode
+                    cfg.tempo = song.spotifyData.tempo ?? cfg.tempo
+                }
+            }
+        }
         setLyricsError(null)
         setPending({
             track: mockTrack,
@@ -599,6 +609,17 @@ export default function AdminPage() {
                 configs = (normalizeMicLevel(raw) as VoiceEffects[]).slice()
             }
             while (configs.length < Math.max(1, roles.length)) configs.push(JSON.parse(JSON.stringify(configs[0])))
+        }
+
+        // Merge Spotify audio features into configs that still have default key
+        if (typeof spotifyData.key === 'number' && spotifyData.key !== -1) {
+            for (const cfg of configs) {
+                if (cfg.key === -1) {
+                    cfg.key = spotifyData.key
+                    cfg.mode = spotifyData.mode ?? cfg.mode
+                    cfg.tempo = spotifyData.tempo ?? cfg.tempo
+                }
+            }
         }
 
         setLyricsError(null)
