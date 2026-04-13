@@ -380,20 +380,27 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
         //     in the SHIFTED spectrum before IFFT. After shifting, noise-
         //     floor bins that were phase-rotated appear as low-level
         //     energy scattered across the output spectrum. Attenuating
-        //     them here (using peakFloor as threshold) removes the
-        //     "TV static" without splitting harmonic energy between
-        //     shifted and unshifted positions (which causes pitch-
-        //     doubling artifacts that weaken the autotune effect).
+        //     them here removes the "TV static" without splitting
+        //     harmonic energy between shifted/unshifted positions.
+        //
+        //     Threshold: 1% of frame max magnitude (-40 dB). This is
+        //     more aggressive than peakFloor (0.5% = -46 dB) and catches
+        //     noise bumps that pass the peak floor. Harmonics down to
+        //     about the 12th are preserved; weaker upper partials get
+        //     modest attenuation that's masked by the voice anyway.
+        //
+        //     Gate: (m/threshold)^4 on complex values = 5th-power on
+        //     magnitude. Very aggressive: 50% → 6.25%, 30% → 0.8%.
         //     Uses squared magnitudes to avoid sqrt in the hot loop.
-        const cf2 = peakFloor * peakFloor;
+        const cleanupFloor = maxMag * 0.01;
+        const cf2 = cleanupFloor * cleanupFloor;
         for (let k = 1; k < N2; k++) {
             const ore = this._outRe[k];
             const oim = this._outIm[k];
             const m2 = ore * ore + oim * oim;
             if (m2 < cf2) {
-                // Soft gate: multiply by (m/peakFloor)^2 ≈ cubic
-                // effective attenuation on magnitude.
-                const g = m2 / cf2;
+                const g2 = m2 / cf2;   // (m/threshold)^2
+                const g = g2 * g2;     // (m/threshold)^4
                 this._outRe[k] *= g;
                 this._outIm[k] *= g;
             }
