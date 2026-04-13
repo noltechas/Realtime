@@ -12,6 +12,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 const KEY_NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B']
 
+
 // ── Vocal sample registry for the debug harness ──
 // All samples are CC-BY 3.0 solo vocal stems from ccMixter (real human
 // singers, dry/no effects). Each sample loops a 10-15 second melodic
@@ -1878,6 +1879,7 @@ export default function AdminPage() {
                     />
                 </div>
             </section>
+
             </>}
 
             {/* ═══ Guests Tab ═══ */}

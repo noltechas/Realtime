@@ -259,9 +259,13 @@ ipcMain.handle('spotify:audio-features', async (_event, trackId: string, token: 
         const res = await fetch(`https://api.spotify.com/v1/audio-features/${trackId}`, {
             headers: { Authorization: `Bearer ${token}` }
         })
+        if (!res.ok) {
+            console.warn(`Spotify audio-features returned ${res.status} for ${trackId}`)
+            return null
+        }
         return await res.json()
     } catch (error) {
-        return { error: String(error) }
+        return null
     }
 })
 

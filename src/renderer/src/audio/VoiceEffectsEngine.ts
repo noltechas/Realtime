@@ -283,7 +283,6 @@ export class VoiceEffectsEngine {
             this.pitchCorrectionNode.connect(this.eqLow)
 
             this.pitchCorrectionReady = true
-            console.log('Pitch correction worklet loaded')
 
             // Re-send params that were applied before the worklet was ready
             if (this.lastAppliedFx) {

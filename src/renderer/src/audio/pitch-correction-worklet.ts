@@ -263,8 +263,7 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
             const err = Math.abs(testRe[i] - orig[i]);
             if (err > maxErr) maxErr = err;
         }
-        console.log('[pitch-correction] FFT self-test: peak at bin ' + maxBin +
-            ' (expected 10), round-trip max error ' + maxErr.toExponential(3));
+        // FFT self-test passed if maxBin === 10 and maxErr < 1e-5
     }
 
     // ───────────────────────────────────────────────────────────────
@@ -332,6 +331,13 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
         //    to keep the shifted sinusoid phase-coherent with a "real"
         //    sinusoid at the new frequency. This correction applies
         //    uniformly to all bins in the region (rigid rotation).
+        //
+        //    Noise rejection: after shifting, a spectral cleanup pass (step
+        //    7b) attenuates low-magnitude bins in the output spectrum.
+        //    This catches phase-rotated noise-floor energy that would
+        //    otherwise produce "TV static" in the OLA, without splitting
+        //    harmonic energy between shifted/unshifted positions (which
+        //    would cause pitch-doubling and weaken the autotune effect).
         for (let p = 0; p < this._peakCount; p++) {
             const peakIndex = this._peakBins[p];
             const peakIndexShifted = Math.round(peakIndex * pitchFactor);
@@ -370,6 +376,29 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
             }
         }
 
+        // 7b. Output spectral cleanup — attenuate low-magnitude bins
+        //     in the SHIFTED spectrum before IFFT. After shifting, noise-
+        //     floor bins that were phase-rotated appear as low-level
+        //     energy scattered across the output spectrum. Attenuating
+        //     them here (using peakFloor as threshold) removes the
+        //     "TV static" without splitting harmonic energy between
+        //     shifted and unshifted positions (which causes pitch-
+        //     doubling artifacts that weaken the autotune effect).
+        //     Uses squared magnitudes to avoid sqrt in the hot loop.
+        const cf2 = peakFloor * peakFloor;
+        for (let k = 1; k < N2; k++) {
+            const ore = this._outRe[k];
+            const oim = this._outIm[k];
+            const m2 = ore * ore + oim * oim;
+            if (m2 < cf2) {
+                // Soft gate: multiply by (m/peakFloor)^2 ≈ cubic
+                // effective attenuation on magnitude.
+                const g = m2 / cf2;
+                this._outRe[k] *= g;
+                this._outIm[k] *= g;
+            }
+        }
+
         // 8. Zero DC and Nyquist (must be real for inverse FFT)
         this._outRe[0] = 0;
         this._outIm[0] = 0;
@@ -394,6 +423,27 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
 
         // 12. Advance timeCursor (wrap mod N to keep cos/sin argument small;
         //     the phase wraps naturally because N*omegaDelta is a multiple of 2π).
+        this._timeCursor = (this._timeCursor + this._HOP) % N;
+    }
+
+    // ───────────────────────────────────────────────────────────────
+    // Passthrough Frame — windowed OLA without FFT round-trip
+    // Used when pitchFactor ≈ 1.0 to avoid phase-vocoder artifacts
+    // on the noise floor while producing identical output levels.
+    // ───────────────────────────────────────────────────────────────
+    _passthroughFrame() {
+        const N = this._FFT_SIZE;
+        const bLen = this._bufSize;
+        const start = (this._wPos - N + bLen) % bLen;
+        const obLen = this._outBufLen;
+        for (let i = 0; i < N; i++) {
+            const sample = this._buf[(start + i) % bLen];
+            const w = this._window[i];
+            // Apply window^2 (analysis + synthesis) to match _processFrame gain
+            this._outBuf[(this._outWrite + i) % obLen] += sample * w * w;
+        }
+        this._outWrite = (this._outWrite + this._HOP) % obLen;
+        // Keep timeCursor in sync so phase correction resumes cleanly
         this._timeCursor = (this._timeCursor + this._HOP) % N;
     }
 
@@ -551,7 +601,18 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
         if (this._hopCounter <= 0) {
             this._hopCounter += this._HOP;
             if (this._gateOpen) {
-                this._processFrame(pitchFactor);
+                // Near-unity bypass: when the pitch correction ratio is
+                // effectively 1.0, skip the FFT round-trip to avoid
+                // phase-rotating the noise floor (the main source of
+                // faint static during on-pitch singing). The 0.0005
+                // threshold is ~0.86 cents, well below the 15-cent dead
+                // zone. Exclude debugRatio so the test harness always
+                // exercises the full vocoder.
+                if (this._debugRatioOverride === null && Math.abs(pitchFactor - 1.0) < 0.0005) {
+                    this._passthroughFrame();
+                } else {
+                    this._processFrame(pitchFactor);
+                }
             } else {
                 this._outWrite = (this._outWrite + this._HOP) % this._outBufLen;
             }
@@ -582,21 +643,10 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
         }
         this._outRead = (this._outRead + len) % obLen;
 
-        // 9. Rate-limited diagnostic logging (1 Hz, only when correcting)
+        // 9. Rate-limited diagnostic counter (kept for future debug use)
         this._logCounter += len;
         if (this._logCounter >= this._logInterval) {
             this._logCounter = 0;
-            if (this._strength > 0 || this._debugRatioOverride !== null) {
-                console.log('[pitch-correction] gate=' + (this._gateOpen ? 'OPEN ' : 'CLOSED') +
-                    ' rms=' + blockRms.toFixed(4) +
-                    ' strength=' + this._strength +
-                    ' detected=' + this._detectedFreq.toFixed(1) + 'Hz' +
-                    ' targetMidi=' + this._currentTargetMidi +
-                    ' ratio=' + this._ratio.toFixed(4) +
-                    ' smooth=' + this._smoothedRatio.toFixed(4) +
-                    ' pitchFactor=' + pitchFactor.toFixed(4) +
-                    ' peaks=' + this._peakCount);
-            }
         }
 
         return true;
