@@ -82,7 +82,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
         description: 'Heavy autotune, dark atmospheric reverb, ad-lib delay trails',
         artistId: '0Y5tJX1MQlPlqiwlOH1tJY',
         effects: {
-            pitchCorrection: { enabled: true, strength: 90 },
+            pitchCorrection: { enabled: true, strength: 95 },
             compressor: { enabled: true, threshold: -20, ratio: 5, attack: 0.003, release: 0.08 },
             eq: { enabled: true, lowGain: -3, midGain: 3, highGain: 5 },
             chorus: { enabled: false, rate: 1.5, depth: 0.2, mix: 0 },
@@ -99,7 +99,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
         description: 'Emotional autotune, punchy compression, stadium reverb',
         artistId: '5K4W6rqBFWDnAN6FQUkS6x',
         effects: {
-            pitchCorrection: { enabled: true, strength: 80 },
+            pitchCorrection: { enabled: true, strength: 95 },
             compressor: { enabled: true, threshold: -20, ratio: 5, attack: 0.005, release: 0.12 },
             eq: { enabled: true, lowGain: -1, midGain: 3, highGain: 3 },
             chorus: { enabled: false, rate: 1.5, depth: 0.2, mix: 0 },
@@ -253,7 +253,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
         description: 'Heavy melodic autotune, dark reverb, signature mumble rap tone',
         artistId: '1RyvyyTE3xzB2ZywiAwp0i',
         effects: {
-            pitchCorrection: { enabled: true, strength: 85 },
+            pitchCorrection: { enabled: true, strength: 90 },
             compressor: { enabled: true, threshold: -20, ratio: 5, attack: 0.003, release: 0.08 },
             eq: { enabled: true, lowGain: 2, midGain: 1, highGain: 4 },
             chorus: { enabled: false, rate: 1.5, depth: 0.2, mix: 0 },
@@ -270,7 +270,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
         description: 'Energetic melodic rap, bright autotune, punchy highs',
         artistId: '4O15NlyKLIASxsJ0PrXPfz',
         effects: {
-            pitchCorrection: { enabled: true, strength: 80 },
+            pitchCorrection: { enabled: true, strength: 90 },
             compressor: { enabled: true, threshold: -20, ratio: 6, attack: 0.002, release: 0.06 },
             eq: { enabled: true, lowGain: -1, midGain: 0, highGain: 7 },
             chorus: { enabled: false, rate: 1.5, depth: 0.2, mix: 0 },
