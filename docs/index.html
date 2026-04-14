@@ -410,6 +410,194 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
 }
 .queue-singer-dot img { width: 100%; height: 100%; object-fit: cover; }
 .queue-singer-role { font-size: 9px; color: var(--white-muted); font-weight: 400; }
+
+/* ── Hidden-art tile (replaces 44x44 album art) ──────────────────────────── */
+.q-hidden-art {
+  width: 44px; height: 44px; border-radius: 10px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden;
+  background: rgba(30, 30, 40, 0.7);
+  border: 1px solid rgba(255,255,255,0.12);
+}
+.q-hidden-art .qh-neo { font-family: 'Space Grotesk', sans-serif; font-weight: 900; font-size: 24px; color: #FFD60A; }
+.q-hidden-art .qh-cyber { font-family: 'Share Tech Mono', 'Courier New', monospace; font-size: 11px; font-weight: 700; color: #00ff88; letter-spacing: 1px; text-shadow: 0 0 6px rgba(0,255,136,0.7); }
+.q-hidden-art .qh-urban { font-family: 'Oswald', sans-serif; font-size: 12px; font-weight: 700; color: #D4FF00; letter-spacing: 2px; }
+.q-hidden-art .qh-psy { font-family: 'Chicle', cursive; font-size: 22px; font-weight: 700; color: #fff; text-shadow: 0 0 6px #ff2d95, 0 0 14px #b6ff2d; }
+.q-hidden-art .qh-zen { font-family: 'Cormorant Garamond', serif; font-size: 20px; color: #D4B85A; text-shadow: 0 0 8px rgba(212,184,90,0.5); }
+.q-hidden-art .qh-space { font-family: 'Orbitron', sans-serif; font-size: 10px; font-weight: 700; color: #E040FB; letter-spacing: 2px; text-shadow: 0 0 6px rgba(224,64,251,0.8); }
+.q-hidden-art .qh-retro { font-family: 'Audiowide', sans-serif; font-size: 8px; font-weight: 700; color: #FF2D95; line-height: 1; letter-spacing: 1px; text-align: center; text-shadow: 0 0 4px rgba(255,45,149,0.8); }
+
+/* Hidden-art tile backdrops per theme */
+.queue-item[data-stage-theme="neo-brutal"] .q-hidden-art { background: #1A1A1A; border: 3px solid #1A1A1A; box-shadow: 2px 2px 0 #FFD60A; }
+.queue-item[data-stage-theme="cyberpunk"] .q-hidden-art { background: #060610; border: 1px solid #00ff88; border-radius: 0; box-shadow: 0 0 8px rgba(0,255,136,0.4); }
+.queue-item[data-stage-theme="sketch"] .q-hidden-art { background: #ffffff; border: 2px solid #2d2d2d; border-radius: 18px 4px 16px 4px / 4px 18px 4px 22px; box-shadow: 2px 2px 0 #2d2d2d; }
+.queue-item[data-stage-theme="urban"] .q-hidden-art { background: #0a0a0a; border: 1.5px solid #D4FF00; border-radius: 4px; background-image: repeating-linear-gradient(135deg, rgba(212,255,0,0.18) 0 4px, transparent 4px 8px); }
+.queue-item[data-stage-theme="deep-sea"] .q-hidden-art { background: rgba(4,9,24,0.95); border: 1px solid rgba(0,255,200,0.45); box-shadow: 0 0 10px rgba(0,255,200,0.3); }
+.queue-item[data-stage-theme="psychedelic"] .q-hidden-art { background: radial-gradient(circle at 30% 30%, #ff2d95, #1a0a2e 70%); border: 1px solid rgba(255,45,149,0.5); }
+.queue-item[data-stage-theme="zen"] .q-hidden-art { background: #1a1814; border: 1px solid rgba(212,184,90,0.45); box-shadow: 0 0 8px rgba(212,184,90,0.25); }
+.queue-item[data-stage-theme="space"] .q-hidden-art { background: radial-gradient(circle at 50% 50%, rgba(224,64,251,0.25), #08080F 70%); border: 1px solid rgba(224,64,251,0.45); box-shadow: 0 0 10px rgba(224,64,251,0.35); }
+.queue-item[data-stage-theme="steampunk"] .q-hidden-art { background: #14110F; border: 1px solid rgba(200,151,62,0.45); border-radius: 6px; }
+.queue-item[data-stage-theme="retrowave"] .q-hidden-art { background: #0a0614; border: 1px solid rgba(255,45,149,0.5); background-image: repeating-linear-gradient(180deg, transparent 0 2px, rgba(255,45,149,0.12) 2px 3px); }
+
+/* ── Per-song row theming (overrides the global applyTheme() rules) ──────── */
+/* Each row wears the theme its guest picked — independent of the session theme. */
+
+/* neo-brutal row */
+.queue-item[data-stage-theme="neo-brutal"] {
+  background: #FFFFFF !important; color: #1A1A1A !important;
+  border: 3px solid #1A1A1A !important; border-radius: 8px !important;
+  box-shadow: 4px 4px 0 #1A1A1A !important;
+}
+.queue-item[data-stage-theme="neo-brutal"] .queue-item-title { color: #1A1A1A !important; font-family: 'Space Grotesk', sans-serif !important; }
+.queue-item[data-stage-theme="neo-brutal"] .queue-item-artist { color: rgba(26,26,26,0.55) !important; }
+.queue-item[data-stage-theme="neo-brutal"] .queue-item-added { color: #FF3B30 !important; font-family: 'Space Grotesk', sans-serif !important; }
+.queue-item[data-stage-theme="neo-brutal"] .queue-pos { color: rgba(26,26,26,0.35) !important; }
+.queue-item[data-stage-theme="neo-brutal"] .queue-singer-pill { color: #1A1A1A !important; background: #FFF8EE !important; border: 2px solid #1A1A1A !important; }
+.queue-item[data-stage-theme="neo-brutal"] .queue-singer-role { color: rgba(26,26,26,0.55) !important; }
+
+/* cyberpunk row */
+.queue-item[data-stage-theme="cyberpunk"] {
+  background: rgba(10,10,20,0.85) !important; color: #d0ffe8 !important;
+  border: 1px solid #00ff88 !important; border-radius: 0 !important;
+  box-shadow: 0 0 12px rgba(0,255,136,0.18) !important;
+  font-family: 'Share Tech Mono', monospace !important;
+}
+.queue-item[data-stage-theme="cyberpunk"] .queue-item-title { color: #00ff88 !important; font-family: 'Share Tech Mono', monospace !important; text-shadow: 0 0 6px rgba(0,255,136,0.5); letter-spacing: 1px; }
+.queue-item[data-stage-theme="cyberpunk"] .queue-item-artist { color: rgba(208,255,232,0.55) !important; font-family: 'Share Tech Mono', monospace !important; }
+.queue-item[data-stage-theme="cyberpunk"] .queue-item-added { color: #ff00aa !important; font-family: 'Share Tech Mono', monospace !important; }
+.queue-item[data-stage-theme="cyberpunk"] .queue-pos { color: rgba(0,255,136,0.5) !important; font-family: 'Share Tech Mono', monospace !important; }
+.queue-item[data-stage-theme="cyberpunk"] .queue-singer-pill { color: #d0ffe8 !important; background: rgba(0,255,136,0.08) !important; border: 1px solid rgba(0,255,136,0.4) !important; border-radius: 0 !important; font-family: 'Share Tech Mono', monospace !important; }
+.queue-item[data-stage-theme="cyberpunk"] .queue-singer-role { color: rgba(0,255,136,0.55) !important; }
+
+/* sketch row */
+.queue-item[data-stage-theme="sketch"] {
+  background: #ffffff !important; color: #2d2d2d !important;
+  border: 3px solid #2d2d2d !important;
+  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px !important;
+  box-shadow: 4px 4px 0 #2d2d2d !important;
+  font-family: 'Patrick Hand', cursive !important;
+}
+.queue-item[data-stage-theme="sketch"] .queue-item-title { color: #2d2d2d !important; font-family: 'Kalam', cursive !important; font-weight: 700 !important; }
+.queue-item[data-stage-theme="sketch"] .queue-item-artist { color: #2d5da1 !important; font-family: 'Patrick Hand', cursive !important; }
+.queue-item[data-stage-theme="sketch"] .queue-item-added { color: #ff4d4d !important; font-family: 'Kalam', cursive !important; }
+.queue-item[data-stage-theme="sketch"] .queue-pos { color: rgba(45,45,45,0.45) !important; font-family: 'Kalam', cursive !important; }
+.queue-item[data-stage-theme="sketch"] .queue-singer-pill { color: #2d2d2d !important; background: #fff9c4 !important; border: 2px solid #2d2d2d !important; font-family: 'Patrick Hand', cursive !important; }
+.queue-item[data-stage-theme="sketch"] .queue-singer-role { color: #2d5da1 !important; }
+
+/* urban row */
+.queue-item[data-stage-theme="urban"] {
+  background: rgba(212,255,0,0.06) !important; color: #D4FF00 !important;
+  border: none !important; border-radius: 0 !important;
+  clip-path: polygon(2% 0%, 100% 0%, 98% 100%, 0% 100%) !important;
+  box-shadow: 0 0 16px rgba(212,255,0,0.15) !important;
+  font-family: 'Oswald', sans-serif !important;
+}
+.queue-item[data-stage-theme="urban"] .queue-item-title { color: #D4FF00 !important; font-family: 'Permanent Marker', cursive !important; letter-spacing: 1px; text-transform: uppercase; }
+.queue-item[data-stage-theme="urban"] .queue-item-artist { color: rgba(212,255,0,0.55) !important; font-family: 'Oswald', sans-serif !important; text-transform: uppercase; letter-spacing: 1px; }
+.queue-item[data-stage-theme="urban"] .queue-item-added { color: #FF1E1E !important; font-family: 'Oswald', sans-serif !important; text-transform: uppercase; }
+.queue-item[data-stage-theme="urban"] .queue-pos { color: rgba(212,255,0,0.55) !important; font-family: 'Permanent Marker', cursive !important; }
+.queue-item[data-stage-theme="urban"] .queue-singer-pill { color: #D4FF00 !important; background: rgba(0,0,0,0.5) !important; border: 1px solid rgba(212,255,0,0.5) !important; text-transform: uppercase; font-family: 'Oswald', sans-serif !important; }
+.queue-item[data-stage-theme="urban"] .queue-singer-role { color: rgba(212,255,0,0.55) !important; }
+
+/* deep-sea row */
+.queue-item[data-stage-theme="deep-sea"] {
+  background: rgba(12,29,66,0.8) !important; color: #e0fff8 !important;
+  border: 1px solid rgba(0,255,200,0.2) !important; border-radius: 12px !important;
+  backdrop-filter: blur(8px) !important; -webkit-backdrop-filter: blur(8px) !important;
+  box-shadow: 0 0 10px rgba(0,255,200,0.12), 0 0 22px rgba(0,255,200,0.06) !important;
+  font-family: 'Nunito', sans-serif !important;
+}
+.queue-item[data-stage-theme="deep-sea"] .queue-item-title { color: #00ffc8 !important; font-family: 'Quicksand', sans-serif !important; text-shadow: 0 0 6px rgba(0,255,200,0.4); }
+.queue-item[data-stage-theme="deep-sea"] .queue-item-artist { color: rgba(224,255,248,0.6) !important; font-family: 'Nunito', sans-serif !important; }
+.queue-item[data-stage-theme="deep-sea"] .queue-item-added { color: #b44dff !important; font-family: 'Quicksand', sans-serif !important; }
+.queue-item[data-stage-theme="deep-sea"] .queue-pos { color: rgba(0,255,200,0.5) !important; font-family: 'Quicksand', sans-serif !important; }
+.queue-item[data-stage-theme="deep-sea"] .queue-singer-pill { color: #e0fff8 !important; background: rgba(0,255,200,0.08) !important; border: 1px solid rgba(0,255,200,0.35) !important; }
+.queue-item[data-stage-theme="deep-sea"] .queue-singer-role { color: rgba(0,255,200,0.65) !important; }
+
+/* psychedelic row */
+.queue-item[data-stage-theme="psychedelic"] {
+  background: rgba(42,20,80,0.82) !important; color: #f5ecff !important;
+  border: 1px solid rgba(255,45,149,0.35) !important; border-radius: 16px !important;
+  backdrop-filter: blur(8px) !important; -webkit-backdrop-filter: blur(8px) !important;
+  box-shadow: 0 0 12px rgba(255,45,149,0.18), 0 0 24px rgba(182,255,45,0.08) !important;
+  font-family: 'Spicy Rice', cursive !important;
+}
+.queue-item[data-stage-theme="psychedelic"] .queue-item-title { color: #ff2d95 !important; font-family: 'Chicle', cursive !important; text-shadow: 0 0 6px rgba(255,45,149,0.45); }
+.queue-item[data-stage-theme="psychedelic"] .queue-item-artist { color: #b6ff2d !important; font-family: 'Spicy Rice', cursive !important; }
+.queue-item[data-stage-theme="psychedelic"] .queue-item-added { color: #ff8c2d !important; font-family: 'Chicle', cursive !important; }
+.queue-item[data-stage-theme="psychedelic"] .queue-pos { color: rgba(255,45,149,0.6) !important; font-family: 'Chicle', cursive !important; }
+.queue-item[data-stage-theme="psychedelic"] .queue-singer-pill { color: #f5ecff !important; background: rgba(255,45,149,0.1) !important; border: 1px solid rgba(255,45,149,0.4) !important; }
+.queue-item[data-stage-theme="psychedelic"] .queue-singer-role { color: #b6ff2d !important; }
+
+/* zen row */
+.queue-item[data-stage-theme="zen"] {
+  background: rgba(46,40,32,0.85) !important; color: #F0E6D3 !important;
+  border: 1px solid rgba(212,184,90,0.2) !important; border-radius: 10px !important;
+  backdrop-filter: blur(8px) !important; -webkit-backdrop-filter: blur(8px) !important;
+  box-shadow: 0 0 10px rgba(212,184,90,0.12) !important;
+  font-family: 'Zen Kaku Gothic New', sans-serif !important;
+}
+.queue-item[data-stage-theme="zen"] .queue-item-title { color: #D4B85A !important; font-family: 'Cormorant Garamond', serif !important; font-weight: 600 !important; text-shadow: 0 0 6px rgba(212,184,90,0.3); }
+.queue-item[data-stage-theme="zen"] .queue-item-artist { color: rgba(240,230,211,0.65) !important; font-family: 'Zen Kaku Gothic New', sans-serif !important; font-style: italic; }
+.queue-item[data-stage-theme="zen"] .queue-item-added { color: #D4442A !important; font-family: 'Cormorant Garamond', serif !important; font-style: italic; }
+.queue-item[data-stage-theme="zen"] .queue-pos { color: rgba(212,184,90,0.55) !important; font-family: 'Cormorant Garamond', serif !important; }
+.queue-item[data-stage-theme="zen"] .queue-singer-pill { color: #F0E6D3 !important; background: rgba(212,184,90,0.08) !important; border: 1px solid rgba(212,184,90,0.3) !important; }
+.queue-item[data-stage-theme="zen"] .queue-singer-role { color: rgba(212,184,90,0.65) !important; }
+
+/* space row */
+.queue-item[data-stage-theme="space"] {
+  background: rgba(21,21,40,0.85) !important; color: #E8E6F0 !important;
+  border: 1px solid rgba(224,64,251,0.25) !important; border-radius: 8px !important;
+  backdrop-filter: blur(8px) !important; -webkit-backdrop-filter: blur(8px) !important;
+  box-shadow: 0 0 12px rgba(224,64,251,0.18), 0 0 24px rgba(64,224,208,0.06) !important;
+  font-family: 'Exo 2', sans-serif !important;
+}
+.queue-item[data-stage-theme="space"] .queue-item-title { color: #E040FB !important; font-family: 'Orbitron', sans-serif !important; letter-spacing: 2px; text-shadow: 0 0 8px rgba(224,64,251,0.5); }
+.queue-item[data-stage-theme="space"] .queue-item-artist { color: rgba(232,230,240,0.6) !important; font-family: 'Exo 2', sans-serif !important; letter-spacing: 1px; }
+.queue-item[data-stage-theme="space"] .queue-item-added { color: #40E0D0 !important; font-family: 'Orbitron', sans-serif !important; letter-spacing: 1px; }
+.queue-item[data-stage-theme="space"] .queue-pos { color: rgba(224,64,251,0.6) !important; font-family: 'Orbitron', sans-serif !important; }
+.queue-item[data-stage-theme="space"] .queue-singer-pill { color: #E8E6F0 !important; background: rgba(224,64,251,0.08) !important; border: 1px solid rgba(224,64,251,0.3) !important; font-family: 'Orbitron', sans-serif !important; letter-spacing: 0.5px; }
+.queue-item[data-stage-theme="space"] .queue-singer-role { color: rgba(64,224,208,0.7) !important; }
+
+/* steampunk row */
+.queue-item[data-stage-theme="steampunk"] {
+  background: rgba(37,32,24,0.88) !important; color: #E8DCC8 !important;
+  border: 1px solid rgba(200,151,62,0.3) !important; border-radius: 6px !important;
+  backdrop-filter: blur(8px) !important; -webkit-backdrop-filter: blur(8px) !important;
+  box-shadow: 0 0 10px rgba(200,151,62,0.18), inset 0 0 14px rgba(200,151,62,0.06) !important;
+  font-family: 'Spectral', serif !important;
+}
+.queue-item[data-stage-theme="steampunk"] .queue-item-title { color: #C8973E !important; font-family: 'Cinzel Decorative', serif !important; text-shadow: 0 0 6px rgba(200,151,62,0.3); }
+.queue-item[data-stage-theme="steampunk"] .queue-item-artist { color: rgba(232,220,200,0.6) !important; font-family: 'Spectral', serif !important; font-style: italic; }
+.queue-item[data-stage-theme="steampunk"] .queue-item-added { color: #E07040 !important; font-family: 'Cinzel Decorative', serif !important; }
+.queue-item[data-stage-theme="steampunk"] .queue-pos { color: rgba(200,151,62,0.6) !important; font-family: 'Cinzel Decorative', serif !important; }
+.queue-item[data-stage-theme="steampunk"] .queue-singer-pill { color: #E8DCC8 !important; background: rgba(200,151,62,0.08) !important; border: 1px solid rgba(200,151,62,0.3) !important; font-family: 'Spectral', serif !important; }
+.queue-item[data-stage-theme="steampunk"] .queue-singer-role { color: rgba(200,151,62,0.7) !important; font-style: italic; }
+
+/* retrowave row */
+.queue-item[data-stage-theme="retrowave"] {
+  background: rgba(24,16,42,0.85) !important; color: #F0E6FF !important;
+  border: 1px solid rgba(255,45,149,0.25) !important; border-radius: 4px !important;
+  backdrop-filter: blur(8px) !important; -webkit-backdrop-filter: blur(8px) !important;
+  box-shadow: 0 0 10px rgba(255,45,149,0.18), 0 0 22px rgba(0,191,255,0.08) !important;
+  font-family: 'Rajdhani', sans-serif !important;
+}
+.queue-item[data-stage-theme="retrowave"] .queue-item-title { color: #FF2D95 !important; font-family: 'Audiowide', sans-serif !important; letter-spacing: 2px; text-shadow: 2px 0 0 #00BFFF, -2px 0 0 #FFD700, 0 0 8px rgba(255,45,149,0.5); }
+.queue-item[data-stage-theme="retrowave"] .queue-item-artist { color: rgba(240,230,255,0.6) !important; font-family: 'Rajdhani', sans-serif !important; letter-spacing: 1px; }
+.queue-item[data-stage-theme="retrowave"] .queue-item-added { color: #FFD700 !important; font-family: 'Audiowide', sans-serif !important; letter-spacing: 1px; }
+.queue-item[data-stage-theme="retrowave"] .queue-pos { color: rgba(255,45,149,0.6) !important; font-family: 'Audiowide', sans-serif !important; }
+.queue-item[data-stage-theme="retrowave"] .queue-singer-pill { color: #F0E6FF !important; background: rgba(255,45,149,0.1) !important; border: 1px solid rgba(255,45,149,0.35) !important; font-family: 'Audiowide', sans-serif !important; letter-spacing: 0.5px; }
+.queue-item[data-stage-theme="retrowave"] .queue-singer-role { color: rgba(0,191,255,0.7) !important; }
+
+/* Hidden variant nudges (mostly reuse the theme row look; tweak title casing) */
+.queue-item--hidden .queue-item-title { letter-spacing: 1px; }
+.queue-item[data-stage-theme="cyberpunk"].queue-item--hidden .queue-item-title { letter-spacing: 3px; }
+.queue-item[data-stage-theme="urban"].queue-item--hidden .queue-item-title { letter-spacing: 4px; }
+.queue-item[data-stage-theme="space"].queue-item--hidden .queue-item-title { letter-spacing: 3px; }
+.queue-item[data-stage-theme="retrowave"].queue-item--hidden .queue-item-title { letter-spacing: 3px; }
+.queue-item[data-stage-theme="sketch"].queue-item--hidden .queue-item-title { font-family: 'Patrick Hand', cursive !important; font-size: 18px; }
+.queue-item[data-stage-theme="zen"].queue-item--hidden .queue-item-title { font-size: 22px; letter-spacing: 2px; }
+.queue-item[data-stage-theme="psychedelic"].queue-item--hidden .queue-item-title { font-size: 18px; }
 .theme-picker { margin-top: 16px; margin-bottom: 8px; }
 .theme-picker-label {
   font-family: var(--font-display); font-weight: 600; font-size: 14px;
@@ -426,6 +614,45 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
 .theme-pick-btn.selected::after {
   content: "\2713"; position: absolute; top: 6px; right: 8px;
   font-size: 14px; font-weight: 900;
+}
+.hide-song-row {
+  margin-top: 16px; margin-bottom: 8px;
+}
+.hide-toggle-btn {
+  display: flex; align-items: center; gap: 14px;
+  width: 100%; padding: 14px 18px;
+  background: var(--surface-2); border: 2px solid var(--white-ghost);
+  border-radius: 12px; cursor: pointer; text-align: left;
+  font-family: var(--font-body); color: var(--white);
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+}
+.hide-toggle-btn:active { transform: scale(0.985); }
+.hide-toggle-btn.active {
+  background: var(--surface-3); border-color: var(--violet);
+  box-shadow: 0 0 0 3px rgba(167,139,250,0.2);
+}
+.hide-toggle-icon {
+  font-size: 24px; line-height: 1; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px;
+}
+.hide-toggle-copy { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.hide-toggle-title {
+  font-family: var(--font-display); font-weight: 700; font-size: 14px;
+  color: var(--white); line-height: 1.2;
+}
+.hide-toggle-subtitle {
+  font-size: 11px; color: var(--white-faint); line-height: 1.2;
+}
+.hide-toggle-check {
+  width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface-1); border: 2px solid var(--white-ghost);
+  font-size: 14px; font-weight: 900; color: transparent;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.hide-toggle-btn.active .hide-toggle-check {
+  background: var(--violet); border-color: var(--violet); color: #fff;
 }
 .queue-empty {
   text-align: center; padding: 60px 20px; color: var(--white-faint); font-size: 14px;
@@ -661,6 +888,11 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
 }
 .notif-toast.notif-out { animation: notif-out 0.35s cubic-bezier(0.55,0,1,0.45) forwards; }
 .notif-art { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
+.notif-art--hidden {
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #2a1552, #4a1f8f);
+  border: 1px solid rgba(167,139,250,0.5); font-size: 24px;
+}
 .notif-body { flex: 1; min-width: 0; }
 .notif-title {
   font-size: 13px; font-weight: 600; line-height: 1.3;
@@ -707,7 +939,7 @@ var NC=[
 {c:"#d946ef",g:"rgba(217,70,239,0.3)"},
 {c:"#e11d48",g:"rgba(225,29,72,0.3)"}
 ];
-var S={screen:"loading",sessionCode:null,sessionId:null,sessionName:null,guestId:null,guestName:"",profilePicture:null,guests:[],catalog:[],searchQuery:"",selectedTrack:null,singerCount:1,singers:[{name:"",color:NC[0].c,colorGlow:NC[0].g,roleIndices:[],profilePicture:null,whitePersonCheck:false}],queue:[],nowPlaying:null,errorMessage:"",theme_name:"neo-brutal",stage_theme:null,customEmoji:null,emojiPickerOpen:false,textInputOpen:false,memePickerOpen:false,memeSearchQuery:"",memeGifs:[],memeLoading:false,isPlaying:false,nowPlayingSingerConfigs:null,matchedSinger:null,nowPlayingStageTheme:null,joining:false,joinName:"",addingToQueue:false,vocalFxEnabled:true,autotuneEnabled:true};
+var S={screen:"loading",sessionCode:null,sessionId:null,sessionName:null,guestId:null,guestName:"",profilePicture:null,guests:[],catalog:[],searchQuery:"",selectedTrack:null,singerCount:1,singers:[{name:"",color:NC[0].c,colorGlow:NC[0].g,roleIndices:[],profilePicture:null,whitePersonCheck:false}],queue:[],nowPlaying:null,errorMessage:"",theme_name:"neo-brutal",stage_theme:null,hide_song:false,customEmoji:null,emojiPickerOpen:false,textInputOpen:false,memePickerOpen:false,memeSearchQuery:"",memeGifs:[],memeLoading:false,isPlaying:false,nowPlayingSingerConfigs:null,matchedSinger:null,nowPlayingStageTheme:null,joining:false,joinName:"",addingToQueue:false,vocalFxEnabled:true,autotuneEnabled:true};
 var qCh=null,sCh=null,gCh=null,rCh=null;
 var playedTrackIds={};
 var allGifs=[];
@@ -869,9 +1101,10 @@ async function addToQueue(){
   var np=(mr.data?mr.data.position:-1)+1;
   var ins={session_id:S.sessionId,track_id:t.track_id,track_name:t.name,track_artist:t.artist,track_art_url:t.art_url,track_duration_ms:t.duration_ms,singer_configs:sc,added_by_guest_id:S.guestId,added_by_name:S.guestName,source:"remote",position:np,status:"queued"};
   if(S.stage_theme)ins.stage_theme=S.stage_theme;
+  if(S.hide_song)ins.is_hidden=true;
   var r=await sb.from("karaoke_queue").insert(ins);
   if(r.error){S.addingToQueue=false;alert("Failed to add song. Try again.");return;}
-  S.addingToQueue=false;S.selectedTrack=null;S.stage_theme=null;S.screen="queue";await loadQueue();render();
+  S.addingToQueue=false;S.selectedTrack=null;S.stage_theme=null;S.hide_song=false;S.screen="queue";await loadQueue();render();
 }
 async function updateProfile(name,pic){
   var upd={name:name.trim()};
@@ -917,6 +1150,7 @@ function showQueueNotification(pl){
   if(!pl||!pl.new)return;
   var d=pl.new;
   if(d.added_by_guest_id&&d.added_by_guest_id===S.guestId)return;
+  var hidden=!!d.is_hidden;
   var song=d.track_name||"a song";
   var artist=d.track_artist||"";
   var artUrl=d.track_art_url||"";
@@ -944,13 +1178,20 @@ function showQueueNotification(pl){
   var container=document.getElementById("notif-container");
   if(!container)return;
   var el=document.createElement("div");
-  el.className="notif-toast";
-  el.innerHTML=(artUrl?'<img class="notif-art" src="'+esc(artUrl)+'" alt="">':"")+
-    '<div class="notif-body"><div class="notif-title">'+esc(displayName)+" signed up to sing "+esc(song)+"</div>"+
-    '<div class="notif-sub">by '+esc(artist)+"</div></div>"+
-    avatarHtml;
+  el.className="notif-toast"+(hidden?" notif-toast--hidden":"");
+  if(hidden){
+    el.innerHTML='<div class="notif-art notif-art--hidden" aria-hidden="true">\uD83C\uDFAD</div>'+
+      '<div class="notif-body"><div class="notif-title">'+esc(displayName)+' signed up for a surprise song</div>'+
+      '<div class="notif-sub">details hidden until it plays</div></div>'+
+      avatarHtml;
+  }else{
+    el.innerHTML=(artUrl?'<img class="notif-art" src="'+esc(artUrl)+'" alt="">':"")+
+      '<div class="notif-body"><div class="notif-title">'+esc(displayName)+" signed up to sing "+esc(song)+"</div>"+
+      '<div class="notif-sub">by '+esc(artist)+"</div></div>"+
+      avatarHtml;
+  }
   container.appendChild(el);
-  setTimeout(function(){el.className="notif-toast notif-out";setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);},400);},4000);
+  setTimeout(function(){el.className="notif-toast notif-out"+(hidden?" notif-toast--hidden":"");setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);},400);},4000);
 }
 function applyTheme(){
   var tg=document.getElementById("theme-global");
@@ -1403,8 +1644,54 @@ function renderConfig(){
         '<button class="theme-pick-btn'+(S.stage_theme==="retrowave"?" selected":"")+'" data-stage-theme="retrowave" style="background:#0a0614;color:#FF2D95;border:1px solid rgba(255,45,149,0.4);border-radius:4px;font-family:\'Audiowide\',sans-serif;text-shadow:0 0 8px rgba(255,45,149,0.4);font-size:11px;">Retrowave</button>'+
       '</div>'+
     '</div>'+
+    '<div class="hide-song-row">'+
+      '<button class="hide-toggle-btn'+(S.hide_song?" active":"")+'" id="hide-toggle-btn" aria-pressed="'+(S.hide_song?"true":"false")+'">'+
+        '<span class="hide-toggle-icon">'+(S.hide_song?"\uD83C\uDFAD":"\uD83D\uDC41\uFE0F")+'</span>'+
+        '<span class="hide-toggle-copy">'+
+          '<span class="hide-toggle-title">'+(S.hide_song?"Song hidden — surprise!":"Hide song (surprise)")+'</span>'+
+          '<span class="hide-toggle-subtitle">'+(S.hide_song?"Singers shown, details concealed until play":"Tap to conceal the title & artist")+'</span>'+
+        '</span>'+
+        '<span class="hide-toggle-check">'+(S.hide_song?"\u2713":"")+'</span>'+
+      '</button>'+
+    '</div>'+
     '<button class="add-queue-btn" id="add-queue-btn">Add to Queue</button>'+
   '</div>';
+}
+function hiddenLabel(t){
+  if(t==="cyberpunk")return"[REDACTED]";
+  if(t==="sketch")return"shhh\u2026";
+  if(t==="urban")return"UNKNOWN";
+  if(t==="deep-sea")return"Lost in the deep";
+  if(t==="psychedelic")return"Mystery Jam";
+  if(t==="zen")return"\u79D8";
+  if(t==="space")return"UNKNOWN SIGNAL";
+  if(t==="steampunk")return"Classified";
+  if(t==="retrowave")return"NO SIGNAL";
+  return"HIDDEN SONG";
+}
+function hiddenSubtitle(t){
+  if(t==="cyberpunk")return"// access denied";
+  if(t==="sketch")return"it's a secret!";
+  if(t==="urban")return"track redacted";
+  if(t==="deep-sea")return"a song from the abyss";
+  if(t==="psychedelic")return"guess the groove";
+  if(t==="zen")return"concealed";
+  if(t==="space")return"transmission encrypted";
+  if(t==="steampunk")return"sealed by the archivist";
+  if(t==="retrowave")return"track.dat \u2014 error 404";
+  return"surprise pick!";
+}
+function hiddenArtInner(t){
+  if(t==="cyberpunk")return'<span class="qh-cyber">[??]</span>';
+  if(t==="sketch")return'<svg class="qh-sketch" width="44" height="44" viewBox="0 0 44 44"><path d="M13 17 Q 13 10 22 10 Q 31 10 31 17 Q 31 22 22 25 L 22 30" stroke="#2d2d2d" stroke-width="2.5" fill="none" stroke-linecap="round"/><circle cx="22" cy="35" r="1.7" fill="#2d2d2d"/></svg>';
+  if(t==="urban")return'<span class="qh-urban">??</span>';
+  if(t==="deep-sea")return'<svg class="qh-ds" width="44" height="44" viewBox="0 0 44 44"><ellipse cx="22" cy="18" rx="10" ry="8" fill="rgba(0,255,200,0.15)" stroke="#00ffc8" stroke-width="1.2"/><path d="M15 24 q-1 4 -2 8 M19 26 q 0 4 -1 8 M22 26 q 0 4 0 8 M25 26 q 0 4 1 8 M29 24 q 1 4 2 8" stroke="#00ffc8" stroke-width="1" fill="none" opacity="0.8"/><text x="22" y="21" text-anchor="middle" font-size="10" font-weight="700" fill="#00ffc8">?</text></svg>';
+  if(t==="psychedelic")return'<span class="qh-psy">?</span>';
+  if(t==="zen")return'<span class="qh-zen">\u79D8</span>';
+  if(t==="space")return'<span class="qh-space">???</span>';
+  if(t==="steampunk")return'<svg class="qh-steam" width="44" height="44" viewBox="0 0 44 44"><rect x="13" y="20" width="18" height="16" rx="2" fill="#C8973E" stroke="#14110F" stroke-width="1.5"/><path d="M17 20 v-3 a5 5 0 0 1 10 0 v3" stroke="#C8973E" stroke-width="2" fill="none"/><circle cx="22" cy="28" r="1.6" fill="#14110F"/></svg>';
+  if(t==="retrowave")return'<span class="qh-retro">NO<br>SIG</span>';
+  return'<span class="qh-neo">?</span>';
 }
 function renderQueue(){
   var npH="";
@@ -1416,18 +1703,27 @@ function renderQueue(){
     var cs=q.singer_configs||[];
     var cat=S.catalog.find(function(c){return c.track_id===q.track_id;});
     var roles=cat&&cat.roles?cat.roles:[];
+    var hidden=!!q.is_hidden;
+    var rowTheme=q.stage_theme||"neo-brutal";
     var singerPills="";
     if(cs.length>0){
       singerPills='<div class="queue-singer-pills">'+cs.map(function(s){
         var rn=[];
-        if(s.roleIndices&&roles.length>0){s.roleIndices.forEach(function(ri){if(roles[ri])rn.push(roles[ri]);});}
+        if(!hidden&&s.roleIndices&&roles.length>0){s.roleIndices.forEach(function(ri){if(roles[ri])rn.push(roles[ri]);});}
         var dotContent=s.profilePicture?'<img src="'+s.profilePicture+'" alt="">':esc((s.name||"?").charAt(0).toUpperCase());
         return '<div class="queue-singer-pill"><div class="queue-singer-dot" style="background:'+s.color+'">'+dotContent+'</div>'+esc(s.name||"Singer")+(rn.length>0?'<span class="queue-singer-role"> \u00B7 '+esc(rn.join(", "))+'</span>':"")+'</div>';
       }).join("")+'</div>';
     }
-    return '<div class="queue-item"><div class="queue-pos">'+(i+1)+'</div>'+
-      (q.track_art_url?'<img src="'+q.track_art_url+'" alt="">':"")+
-      '<div class="queue-item-info"><div class="queue-item-title">'+esc(q.track_name)+'</div><div class="queue-item-artist">'+esc(q.track_artist)+'</div>'+
+    var classes='queue-item'+(hidden?' queue-item--hidden':'');
+    var artOrIcon=hidden
+      ? '<div class="q-hidden-art">'+hiddenArtInner(rowTheme)+'</div>'
+      : (q.track_art_url?'<img src="'+q.track_art_url+'" alt="">':"");
+    var titleHtml=hidden?esc(hiddenLabel(rowTheme)):esc(q.track_name);
+    var artistHtml=hidden?esc(hiddenSubtitle(rowTheme)):esc(q.track_artist);
+    return '<div class="'+classes+'" data-stage-theme="'+esc(rowTheme)+'">'+
+      '<div class="queue-pos">'+(i+1)+'</div>'+
+      artOrIcon+
+      '<div class="queue-item-info"><div class="queue-item-title">'+titleHtml+'</div><div class="queue-item-artist">'+artistHtml+'</div>'+
       (q.added_by_name?'<div class="queue-item-added">Added by '+esc(q.added_by_name)+'</div>':"")+
       singerPills+
     '</div></div>';
@@ -1651,6 +1947,8 @@ function bindEvents(){
       render();
     });
   });
+  var hb=document.getElementById("hide-toggle-btn");
+  if(hb)hb.addEventListener("click",function(){S.hide_song=!S.hide_song;render();});
   var ab=document.getElementById("add-queue-btn");
   if(ab)ab.addEventListener("click",addToQueue);
   // Stage reaction buttons

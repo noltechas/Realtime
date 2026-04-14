@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useApp } from '../context/AppContext'
 import { useTheme } from '../context/ThemeContext'
+import { HiddenSongStagePanel, HiddenSongStageHeading } from '../components/HiddenSongCard'
 
 import { VoiceEffectsEngine } from '../audio/VoiceEffectsEngine'
 
@@ -1717,14 +1718,14 @@ export default function KaraokePage() {
     return (
         <>
         <div className="karaoke-stage" onMouseMove={handleMouse} style={{ cursor: showUI ? 'default' : 'none' }}>
-            {/* Background with crossfade */}
+            {/* Background with crossfade — blurred art is suppressed while a hidden song waits in ready state */}
             <div className="k-bg">
                 {/* Previous art stays visible until new art loads */}
-                {prevArt && prevArt !== art && !artLoaded && (
+                {prevArt && prevArt !== art && !artLoaded && !(np?.isHidden && state.stageMode === 'ready') && (
                     <img className="k-bg__img k-bg__img--prev" src={prevArt} alt="" style={{ opacity: 1 }} />
                 )}
-                {art && <img className="k-bg__img" src={art} alt="" style={{ opacity: artLoaded || !prevArt ? 1 : 0 }} />}
-                {ytId && (
+                {art && !(np?.isHidden && state.stageMode === 'ready') && <img className="k-bg__img" src={art} alt="" style={{ opacity: artLoaded || !prevArt ? 1 : 0 }} />}
+                {ytId && !(np?.isHidden && state.stageMode === 'ready') && (
                     <div className="k-bg__yt-wrap" style={{ opacity: 1 }}>
                         <div id="yt-bg-player" />
                         <div className="k-bg__yt-mask" aria-hidden="true" />
@@ -1746,7 +1747,8 @@ export default function KaraokePage() {
                 </defs>
             </svg>
 
-            {/* Song chip (top-left) */}
+            {/* Song chip (top-left) — suppressed while a hidden song waits in ready state */}
+            {!(np?.isHidden && state.stageMode === 'ready') && (
             <div className="k-song-chip" style={{
                 background: theme.appBg, ...theme.stickerLabel, position: 'absolute', opacity: 1,
                 ...(theme.name === 'space' ? {
@@ -1780,6 +1782,7 @@ export default function KaraokePage() {
                     <p style={{ color: theme.muted, ...(theme.name === 'space' ? { color: '#9896A8' } : theme.name === 'steampunk' ? { color: '#A89878' } : theme.name === 'retrowave' ? { color: '#9B8CBF' } : {}) }}>{track.artists.map((a: any) => a.name).join(', ')}</p>
                 </div>
             </div>
+            )}
 
             {/* Singer tags (top-right) */}
             {singers.length > 0 && (
@@ -1852,8 +1855,10 @@ export default function KaraokePage() {
                             }}>
                                 Up Next
                             </div>
-                            {/* Prominent album art */}
-                            {art && (
+                            {/* Prominent album art — or themed Hidden panel for surprise songs */}
+                            {np?.isHidden ? (
+                                <HiddenSongStagePanel theme={theme} />
+                            ) : art ? (
                                 <img
                                     src={art}
                                     alt=""
@@ -1866,27 +1871,33 @@ export default function KaraokePage() {
                                         objectFit: 'cover',
                                     }}
                                 />
-                            )}
+                            ) : null}
                             <div style={{ textAlign: 'center', ...theme.card, padding: '32px 48px' }}>
-                                <h1 style={{ fontFamily: theme.fontDisplay, color: theme.page?.color as string || theme.black, fontSize: 42, fontWeight: 800, lineHeight: 1.15, marginBottom: 10, letterSpacing: '-0.5px' }}>
-                                    {track.name}
-                                </h1>
-                                <p style={{ fontSize: 18, color: theme.muted, opacity: theme.name === 'sketch' ? 1 : 0.8, marginBottom: 36, display: 'flex', gap: 16, justifyContent: 'center', alignItems: 'center' }}>
-                                    <span>{track.artists.map((a: any) => a.name).join(', ')}</span>
-                                    {track.duration_ms && (
-                                        <>
-                                            <span style={{ opacity: 0.5 }}>•</span>
-                                            <span>
-                                                {Math.floor(track.duration_ms / 60000)}:
-                                                {Math.floor((track.duration_ms % 60000) / 1000).toString().padStart(2, '0')}
-                                            </span>
-                                        </>
-                                    )}
-                                </p>
-                                {/* Large, prominent singer names */}
+                                {np?.isHidden ? (
+                                    <HiddenSongStageHeading theme={theme} />
+                                ) : (
+                                    <>
+                                        <h1 style={{ fontFamily: theme.fontDisplay, color: theme.page?.color as string || theme.black, fontSize: 42, fontWeight: 800, lineHeight: 1.15, marginBottom: 10, letterSpacing: '-0.5px' }}>
+                                            {track.name}
+                                        </h1>
+                                        <p style={{ fontSize: 18, color: theme.muted, opacity: theme.name === 'sketch' ? 1 : 0.8, marginBottom: 36, display: 'flex', gap: 16, justifyContent: 'center', alignItems: 'center' }}>
+                                            <span>{track.artists.map((a: any) => a.name).join(', ')}</span>
+                                            {track.duration_ms && (
+                                                <>
+                                                    <span style={{ opacity: 0.5 }}>•</span>
+                                                    <span>
+                                                        {Math.floor(track.duration_ms / 60000)}:
+                                                        {Math.floor((track.duration_ms % 60000) / 1000).toString().padStart(2, '0')}
+                                                    </span>
+                                                </>
+                                            )}
+                                        </p>
+                                    </>
+                                )}
+                                {/* Large, prominent singer names (roles hidden when song is a surprise) */}
                                 <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 16 }}>
                                     {singers.map(s => {
-                                        const roleStr = s.roleIndices && s.roleIndices.length > 0 && roles.length > 0
+                                        const roleStr = !np?.isHidden && s.roleIndices && s.roleIndices.length > 0 && roles.length > 0
                                             ? s.roleIndices.map(idx => roles[idx]).filter(Boolean).join(' & ')
                                             : ''
                                         const displayText = roleStr ? `${s.name} - ${roleStr}` : s.name

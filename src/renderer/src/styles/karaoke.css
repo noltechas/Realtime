@@ -694,3 +694,128 @@
     font-size: 12px;
     color: var(--white-muted);
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Hidden song placeholder animations (shared by QueuePage + KaraokePage).
+   Each class is scoped by the per-theme motif so unused ones stay inert.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+@keyframes hs-pulse {
+    0%, 100% { transform: scale(1); opacity: 0.95; }
+    50%      { transform: scale(1.05); opacity: 1; }
+}
+.hs-pulse {
+    animation: hs-pulse 2.4s ease-in-out infinite;
+    transform-origin: center;
+}
+
+@keyframes hs-glitch {
+    0%, 100% { transform: translate(0, 0); text-shadow: 0 0 8px rgba(0, 255, 136, 0.7); }
+    20%      { transform: translate(-1.5px, 1px); text-shadow: 1.5px 0 0 #ff00aa, -1.5px 0 0 #00e5ff, 0 0 10px rgba(0, 255, 136, 0.8); }
+    40%      { transform: translate(1.5px, -1px); text-shadow: -1.5px 0 0 #ff00aa, 1.5px 0 0 #00e5ff, 0 0 10px rgba(0, 255, 136, 0.8); }
+    60%      { transform: translate(-0.8px, 0.5px); text-shadow: 0 0 12px rgba(0, 255, 136, 0.9); }
+}
+.hs-glitch {
+    animation: hs-glitch 2.1s steps(6, end) infinite;
+}
+
+@keyframes hs-wiggle {
+    0%, 100% { transform: rotate(-1.5deg); }
+    50%      { transform: rotate(1.5deg); }
+}
+.hs-wiggle {
+    animation: hs-wiggle 3.2s ease-in-out infinite;
+    transform-origin: center;
+}
+
+@keyframes hs-ds-glow {
+    0%, 100% { filter: drop-shadow(0 0 4px rgba(0, 255, 200, 0.35)); }
+    50%      { filter: drop-shadow(0 0 12px rgba(0, 255, 200, 0.8)); }
+}
+.hs-ds-glow {
+    animation: hs-ds-glow 3s ease-in-out infinite;
+}
+
+@keyframes hs-ds-float {
+    0%, 100% { transform: translateY(0); filter: drop-shadow(0 0 8px rgba(0, 255, 200, 0.45)); }
+    50%      { transform: translateY(-6px); filter: drop-shadow(0 0 18px rgba(0, 255, 200, 0.85)); }
+}
+.hs-ds-float {
+    animation: hs-ds-float 5s ease-in-out infinite;
+}
+
+@keyframes hs-psy-hue {
+    0%   { filter: hue-rotate(0deg); }
+    100% { filter: hue-rotate(360deg); }
+}
+.hs-psy-hue {
+    animation: hs-psy-hue 8s linear infinite;
+}
+
+@keyframes hs-psy-spin {
+    0%   { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+.hs-psy-spin {
+    animation: hs-psy-spin 20s linear infinite;
+    transform-origin: center;
+}
+
+@keyframes hs-zen-pulse {
+    0%, 100% { opacity: 0.85; filter: drop-shadow(0 0 8px rgba(212, 184, 90, 0.3)); }
+    50%      { opacity: 1; filter: drop-shadow(0 0 18px rgba(212, 184, 90, 0.65)); }
+}
+.hs-zen-pulse {
+    animation: hs-zen-pulse 4s ease-in-out infinite;
+}
+
+@keyframes hs-zen-orbit {
+    0%   { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+.hs-zen-orbit {
+    animation: hs-zen-orbit 40s linear infinite;
+    transform-origin: 170px 170px;
+}
+
+@keyframes hs-space-ring {
+    0%, 100% { box-shadow: 0 0 40px rgba(224, 64, 251, 0.4), 0 0 80px rgba(64, 224, 208, 0.2); }
+    50%      { box-shadow: 0 0 70px rgba(224, 64, 251, 0.8), 0 0 140px rgba(64, 224, 208, 0.45); }
+}
+.hs-space-ring {
+    animation: hs-space-ring 3.5s ease-in-out infinite;
+}
+
+@keyframes hs-gear {
+    0%   { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+.hs-gear {
+    animation: hs-gear 24s linear infinite;
+    transform-origin: 50px 60px;
+}
+.hs-gear-rev {
+    animation: hs-gear 30s linear infinite reverse;
+    transform-origin: 295px 280px;
+}
+
+@keyframes hs-retro-flicker {
+    0%, 100% { opacity: 0.95; }
+    42%      { opacity: 0.65; }
+    44%      { opacity: 0.95; }
+    48%      { opacity: 0.6; }
+    50%      { opacity: 1; }
+}
+.hs-retro-flicker {
+    animation: hs-retro-flicker 3.6s steps(40, end) infinite;
+}
+
+@keyframes hs-retro-tracking {
+    0%   { top: -10%; opacity: 0; }
+    10%  { opacity: 1; }
+    90%  { opacity: 1; }
+    100% { top: 110%; opacity: 0; }
+}
+.hs-retro-tracking {
+    animation: hs-retro-tracking 4s linear infinite;
+}

@@ -239,6 +239,7 @@ export async function insertQueueItem(sessionId: string, item: {
     addedByName?: string | null
     source: 'local' | 'remote'
     stageTheme?: string | null
+    isHidden?: boolean
 }): Promise<{ id: string }> {
     // Get next position
     const { data: maxRow } = await supabase
@@ -264,6 +265,7 @@ export async function insertQueueItem(sessionId: string, item: {
             added_by_name: item.addedByName || null,
             source: item.source,
             stage_theme: item.stageTheme || null,
+            is_hidden: !!item.isHidden,
             position: nextPosition,
             status: 'queued'
         })

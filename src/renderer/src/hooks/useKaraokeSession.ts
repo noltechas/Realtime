@@ -91,6 +91,7 @@ export function useKaraokeSession() {
         return {
             id: `${row.track_id}-${row.id}`,
             stageTheme: row.stage_theme || null,
+            isHidden: !!row.is_hidden,
             track: {
                 id: catalogEntry.trackId,
                 name: catalogEntry.name,

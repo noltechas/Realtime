@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useApp, QueueItem, NEON_COLORS } from '../context/AppContext'
 import { DEFAULT_VOICE_EFFECTS, normalizeMicLevel } from '../audio/VoiceEffectsTypes'
 import { useTheme } from '../context/ThemeContext'
+import { HiddenSongQueueCard } from '../components/HiddenSongCard'
 
 function formatTime(ms: number): string {
     const s = Math.floor(ms / 1000)
@@ -100,9 +101,10 @@ function SetupPanel() {
     if (!track) return null
 
     const handleAddOrUpdate = () => {
-        const originalId = isEditing && state.editingQueueIndex !== null && state.queue[state.editingQueueIndex]
-            ? state.queue[state.editingQueueIndex].id
+        const originalItem = isEditing && state.editingQueueIndex !== null
+            ? state.queue[state.editingQueueIndex]
             : null
+        const originalId = originalItem?.id ?? null
         const item: QueueItem = {
             id: originalId ?? `${track.id}-${Date.now()}`,
             track,
@@ -113,7 +115,12 @@ function SetupPanel() {
             stemsPath: state.stemsPath,
             songPath: state.songPath,
             backgroundVideoPath: state.backgroundVideoPath,
-            monitorDeviceIds: state.monitorDeviceIds
+            monitorDeviceIds: state.monitorDeviceIds,
+            // Preserve fields that aren't set in the SetupPanel UI so edits don't drop them
+            addedBy: originalItem?.addedBy ?? null,
+            remoteQueueId: originalItem?.remoteQueueId ?? null,
+            stageTheme: originalItem?.stageTheme ?? null,
+            isHidden: originalItem?.isHidden ?? false
         }
         if (isEditing && originalId) {
             const index = state.queue.findIndex(q => q.id === originalId)
@@ -793,54 +800,61 @@ export default function QueuePage() {
                                     {index + 1}
                                 </div>
 
-                                {/* Art */}
-                                {art ? (
-                                    <img src={art} alt="" style={{
-                                        width: 48, height: 48, borderRadius: theme.radiusSmall,
-                                        objectFit: 'cover', border: theme.borderThin,
-                                    }} />
+                                {/* Art + track info — or themed Hidden placeholder when isHidden */}
+                                {item.isHidden ? (
+                                    <HiddenSongQueueCard theme={theme} addedBy={item.addedBy ?? undefined} />
                                 ) : (
-                                    <div style={{
-                                        width: 48, height: 48, borderRadius: theme.radiusSmall,
-                                        border: theme.borderThin, background: theme.creamDark,
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    }}>
-                                        <IconMusic size={20} />
-                                    </div>
+                                    <>
+                                        {art ? (
+                                            <img src={art} alt="" style={{
+                                                width: 48, height: 48, borderRadius: theme.radiusSmall,
+                                                objectFit: 'cover', border: theme.borderThin,
+                                            }} />
+                                        ) : (
+                                            <div style={{
+                                                width: 48, height: 48, borderRadius: theme.radiusSmall,
+                                                border: theme.borderThin, background: theme.creamDark,
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            }}>
+                                                <IconMusic size={20} />
+                                            </div>
+                                        )}
+
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{
+                                                fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 15,
+                                                color: theme.black,
+                                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                                                marginBottom: 2,
+                                            }}>
+                                                {item.track.name}
+                                            </div>
+                                            <div style={{
+                                                fontSize: 12, color: theme.black, opacity: 0.5,
+                                                fontFamily: theme.fontBody,
+                                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                                            }}>
+                                                {item.track.artists.map(a => a.name).join(', ')}
+                                            </div>
+                                            {item.addedBy && (
+                                                <div style={{
+                                                    fontSize: 11, fontFamily: theme.fontDisplay,
+                                                    fontWeight: 600, color: theme.hotRed, marginTop: 2,
+                                                }}>
+                                                    Added by {item.addedBy}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </>
                                 )}
 
-                                {/* Track info */}
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{
-                                        fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 15,
-                                        color: theme.black,
-                                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                                        marginBottom: 2,
-                                    }}>
-                                        {item.track.name}
-                                    </div>
-                                    <div style={{
-                                        fontSize: 12, color: theme.black, opacity: 0.5,
-                                        fontFamily: theme.fontBody,
-                                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                                    }}>
-                                        {item.track.artists.map(a => a.name).join(', ')}
-                                    </div>
-                                    {item.addedBy && (
-                                        <div style={{
-                                            fontSize: 11, fontFamily: theme.fontDisplay,
-                                            fontWeight: 600, color: theme.hotRed, marginTop: 2,
-                                        }}>
-                                            Added by {item.addedBy}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Singer avatars with names & roles */}
+                                {/* Singer avatars with names & roles (roles hidden when song is hidden) */}
                                 {singers.length > 0 && (
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
                                         {singers.map((s) => {
-                                            const roleNames = (s.roleIndices || []).map(ri => item.roles[ri]).filter(Boolean)
+                                            const roleNames = item.isHidden
+                                                ? []
+                                                : (s.roleIndices || []).map(ri => item.roles[ri]).filter(Boolean)
                                             return (
                                                 <div key={s.id} style={{
                                                     display: 'flex', alignItems: 'center', gap: 4,
@@ -870,22 +884,24 @@ export default function QueuePage() {
                                     {formatTime(item.track.duration_ms)}
                                 </div>
 
-                                {/* Actions */}
+                                {/* Actions — Edit is suppressed for hidden songs so the host can't reveal them */}
                                 <div style={{ display: 'flex', gap: 6 }}>
-                                    <button
-                                        onClick={() => editSong(item, index)}
-                                        style={{
-                                            padding: '6px 14px', borderRadius: 6,
-                                            background: theme.creamDark, border: theme.borderThin,
-                                            color: theme.black, fontSize: 11,
-                                            fontFamily: theme.fontDisplay, fontWeight: 700,
-                                            cursor: 'pointer', transition: 'all 0.1s',
-                                        }}
-                                        onMouseEnter={e => { e.currentTarget.style.background = theme.vividYellow }}
-                                        onMouseLeave={e => { e.currentTarget.style.background = theme.creamDark }}
-                                    >
-                                        Edit
-                                    </button>
+                                    {!item.isHidden && (
+                                        <button
+                                            onClick={() => editSong(item, index)}
+                                            style={{
+                                                padding: '6px 14px', borderRadius: 6,
+                                                background: theme.creamDark, border: theme.borderThin,
+                                                color: theme.black, fontSize: 11,
+                                                fontFamily: theme.fontDisplay, fontWeight: 700,
+                                                cursor: 'pointer', transition: 'all 0.1s',
+                                            }}
+                                            onMouseEnter={e => { e.currentTarget.style.background = theme.vividYellow }}
+                                            onMouseLeave={e => { e.currentTarget.style.background = theme.creamDark }}
+                                        >
+                                            Edit
+                                        </button>
+                                    )}
                                     <button
                                         onClick={() => removeSong(index)}
                                         style={{

@@ -383,24 +383,29 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
         //     them here removes the "TV static" without splitting
         //     harmonic energy between shifted/unshifted positions.
         //
-        //     Threshold: 1% of frame max magnitude (-40 dB). This is
-        //     more aggressive than peakFloor (0.5% = -46 dB) and catches
-        //     noise bumps that pass the peak floor. Harmonics down to
-        //     about the 12th are preserved; weaker upper partials get
-        //     modest attenuation that's masked by the voice anyway.
+        //     Threshold: 1% of frame max magnitude (-40 dB), CAPPED at an
+        //     absolute ceiling (0.02). Without the cap, loud singing
+        //     pushes the relative threshold up into legitimate low-
+        //     amplitude harmonics and crushes them — that chaotic per-
+        //     frame gain modulation across many bins is audible as
+        //     "static that gets worse when I sing louder." The cap keeps
+        //     the gate targeted at the noise floor regardless of input
+        //     level.
         //
-        //     Gate: (m/threshold)^4 on complex values = 5th-power on
-        //     magnitude. Very aggressive: 50% → 6.25%, 30% → 0.8%.
+        //     Gate: (m/threshold)^2 on complex values = 2nd-power on
+        //     magnitude. Aggressive but not brutal: 50% → 25%, 30% → 9%.
+        //     Softer than a 4th-power curve, which crushed bins just
+        //     under the threshold hard enough to leave holes in the
+        //     harmonic structure at high input levels.
         //     Uses squared magnitudes to avoid sqrt in the hot loop.
-        const cleanupFloor = maxMag * 0.01;
+        const cleanupFloor = Math.min(maxMag * 0.01, 0.02);
         const cf2 = cleanupFloor * cleanupFloor;
         for (let k = 1; k < N2; k++) {
             const ore = this._outRe[k];
             const oim = this._outIm[k];
             const m2 = ore * ore + oim * oim;
             if (m2 < cf2) {
-                const g2 = m2 / cf2;   // (m/threshold)^2
-                const g = g2 * g2;     // (m/threshold)^4
+                const g = m2 / cf2;    // (m/threshold)^2 — softer transition
                 this._outRe[k] *= g;
                 this._outIm[k] *= g;
             }

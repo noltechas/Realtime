@@ -68,6 +68,7 @@ export interface QueueItem {
     addedBy?: string | null
     remoteQueueId?: string | null
     stageTheme?: string | null
+    isHidden?: boolean
 }
 
 export type StageMode = 'idle' | 'ready' | 'playing'
