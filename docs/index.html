@@ -615,44 +615,34 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
   content: "\2713"; position: absolute; top: 6px; right: 8px;
   font-size: 14px; font-weight: 900;
 }
-.hide-song-row {
-  margin-top: 16px; margin-bottom: 8px;
+.secret-song-row { margin-top: 10px; margin-bottom: 4px; }
+.secret-toggle {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 6px 10px 6px 6px; background: transparent;
+  border: none; border-radius: 8px;
+  cursor: pointer; text-align: left;
+  font-family: var(--font-body); color: var(--white-muted);
+  transition: color 0.15s, background 0.15s;
 }
-.hide-toggle-btn {
-  display: flex; align-items: center; gap: 14px;
-  width: 100%; padding: 14px 18px;
-  background: var(--surface-2); border: 2px solid var(--white-ghost);
-  border-radius: 12px; cursor: pointer; text-align: left;
-  font-family: var(--font-body); color: var(--white);
-  transition: border-color 0.15s, background 0.15s, transform 0.1s;
-}
-.hide-toggle-btn:active { transform: scale(0.985); }
-.hide-toggle-btn.active {
-  background: var(--surface-3); border-color: var(--violet);
-  box-shadow: 0 0 0 3px rgba(167,139,250,0.2);
-}
-.hide-toggle-icon {
-  font-size: 24px; line-height: 1; flex-shrink: 0;
+.secret-toggle:hover { color: var(--white); background: var(--surface-1); }
+.secret-toggle.is-checked { color: var(--white); }
+.secret-toggle__box {
+  width: 18px; height: 18px; border-radius: 4px; flex-shrink: 0;
   display: inline-flex; align-items: center; justify-content: center;
-  width: 32px; height: 32px;
+  border: 1.5px solid var(--white-ghost); background: transparent;
+  color: #fff;
+  transition: background 0.15s, border-color 0.15s;
 }
-.hide-toggle-copy { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.hide-toggle-title {
-  font-family: var(--font-display); font-weight: 700; font-size: 14px;
-  color: var(--white); line-height: 1.2;
+.secret-toggle.is-checked .secret-toggle__box {
+  background: var(--violet); border-color: var(--violet);
 }
-.hide-toggle-subtitle {
-  font-size: 11px; color: var(--white-faint); line-height: 1.2;
+.secret-toggle__text { display: inline-flex; flex-direction: column; gap: 1px; line-height: 1.2; }
+.secret-toggle__label {
+  font-family: var(--font-display); font-size: 12px; font-weight: 600;
+  letter-spacing: 0.2px;
 }
-.hide-toggle-check {
-  width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  background: var(--surface-1); border: 2px solid var(--white-ghost);
-  font-size: 14px; font-weight: 900; color: transparent;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
-}
-.hide-toggle-btn.active .hide-toggle-check {
-  background: var(--violet); border-color: var(--violet); color: #fff;
+.secret-toggle__hint {
+  font-size: 10px; color: var(--white-faint); font-weight: 400;
 }
 .queue-empty {
   text-align: center; padding: 60px 20px; color: var(--white-faint); font-size: 14px;
@@ -890,8 +880,8 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
 .notif-art { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
 .notif-art--hidden {
   display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(135deg, #2a1552, #4a1f8f);
-  border: 1px solid rgba(167,139,250,0.5); font-size: 24px;
+  background: linear-gradient(135deg, #1f1635, #352461);
+  border: 1px solid rgba(167,139,250,0.35);
 }
 .notif-body { flex: 1; min-width: 0; }
 .notif-title {
@@ -1180,9 +1170,9 @@ function showQueueNotification(pl){
   var el=document.createElement("div");
   el.className="notif-toast"+(hidden?" notif-toast--hidden":"");
   if(hidden){
-    el.innerHTML='<div class="notif-art notif-art--hidden" aria-hidden="true">\uD83C\uDFAD</div>'+
-      '<div class="notif-body"><div class="notif-title">'+esc(displayName)+' signed up for a surprise song</div>'+
-      '<div class="notif-sub">details hidden until it plays</div></div>'+
+    el.innerHTML='<div class="notif-art notif-art--hidden" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="10.5" width="17" height="10.5" rx="2"/><path d="M7 10.5 V7 a5 5 0 0 1 10 0 v3.5"/></svg></div>'+
+      '<div class="notif-body"><div class="notif-title">'+esc(displayName)+' signed up for a secret song</div>'+
+      '<div class="notif-sub">title hidden until it plays</div></div>'+
       avatarHtml;
   }else{
     el.innerHTML=(artUrl?'<img class="notif-art" src="'+esc(artUrl)+'" alt="">':"")+
@@ -1644,14 +1634,15 @@ function renderConfig(){
         '<button class="theme-pick-btn'+(S.stage_theme==="retrowave"?" selected":"")+'" data-stage-theme="retrowave" style="background:#0a0614;color:#FF2D95;border:1px solid rgba(255,45,149,0.4);border-radius:4px;font-family:\'Audiowide\',sans-serif;text-shadow:0 0 8px rgba(255,45,149,0.4);font-size:11px;">Retrowave</button>'+
       '</div>'+
     '</div>'+
-    '<div class="hide-song-row">'+
-      '<button class="hide-toggle-btn'+(S.hide_song?" active":"")+'" id="hide-toggle-btn" aria-pressed="'+(S.hide_song?"true":"false")+'">'+
-        '<span class="hide-toggle-icon">'+(S.hide_song?"\uD83C\uDFAD":"\uD83D\uDC41\uFE0F")+'</span>'+
-        '<span class="hide-toggle-copy">'+
-          '<span class="hide-toggle-title">'+(S.hide_song?"Song hidden — surprise!":"Hide song (surprise)")+'</span>'+
-          '<span class="hide-toggle-subtitle">'+(S.hide_song?"Singers shown, details concealed until play":"Tap to conceal the title & artist")+'</span>'+
+    '<div class="secret-song-row">'+
+      '<button class="secret-toggle'+(S.hide_song?" is-checked":"")+'" id="hide-toggle-btn" role="checkbox" aria-checked="'+(S.hide_song?"true":"false")+'">'+
+        '<span class="secret-toggle__box" aria-hidden="true">'+
+          (S.hide_song?'<svg width="10" height="10" viewBox="0 0 14 14"><path d="M2.5 7.5 L5.5 10 L11 4" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>':'')+
         '</span>'+
-        '<span class="hide-toggle-check">'+(S.hide_song?"\u2713":"")+'</span>'+
+        '<span class="secret-toggle__text">'+
+          '<span class="secret-toggle__label">Secret song</span>'+
+          '<span class="secret-toggle__hint">'+(S.hide_song?"Title hidden until it plays":"Hide the title until it plays")+'</span>'+
+        '</span>'+
       '</button>'+
     '</div>'+
     '<button class="add-queue-btn" id="add-queue-btn">Add to Queue</button>'+
