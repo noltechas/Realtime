@@ -372,21 +372,24 @@ export default function KaraokePage() {
     useEffect(() => {
         if (!ytReady || !ytPlayerRef.current) return
 
-        if (state.stageMode === 'ready' && previewSlices.length > 0) {
+        // Suppress music-video preview teasers for secret songs — they'd leak the song visually
+        const canPreview = state.stageMode === 'ready' && previewSlices.length > 0 && !np?.isHidden
+
+        if (canPreview) {
             let sliceIdx = 0
-            
+
             const playSlice = () => {
                 if (!ytPlayerRef.current) return
                 const startSec = previewSlices[sliceIdx % previewSlices.length]
                 ytPlayerRef.current.seekTo(startSec, true)
                 ytPlayerRef.current.playVideo()
-                
+
                 sliceIdx++
             }
 
             // Play immediately
             playSlice()
-            
+
             // Then every 4 seconds
             const interval = setInterval(playSlice, 4000)
             return () => clearInterval(interval)
@@ -401,7 +404,7 @@ export default function KaraokePage() {
                 ytPlayerRef.current.pauseVideo()
             }
         }
-    }, [state.stageMode, state.isPlaying, previewSlices, ytReady])
+    }, [state.stageMode, state.isPlaying, previewSlices, ytReady, np?.isHidden])
 
     // Periodic drift correction: re-sync YouTube video if it drifts from audio
     useEffect(() => {
@@ -1718,15 +1721,23 @@ export default function KaraokePage() {
     return (
         <>
         <div className="karaoke-stage" onMouseMove={handleMouse} style={{ cursor: showUI ? 'default' : 'none' }}>
-            {/* Background with crossfade — blurred art is suppressed while a hidden song waits in ready state */}
+            {/* Background with crossfade — blurred art / video are hidden while a secret song waits in ready state.
+                The YT player DOM element stays mounted so it can initialize; we just make it invisible until the song actually plays. */}
             <div className="k-bg">
                 {/* Previous art stays visible until new art loads */}
                 {prevArt && prevArt !== art && !artLoaded && !(np?.isHidden && state.stageMode === 'ready') && (
                     <img className="k-bg__img k-bg__img--prev" src={prevArt} alt="" style={{ opacity: 1 }} />
                 )}
                 {art && !(np?.isHidden && state.stageMode === 'ready') && <img className="k-bg__img" src={art} alt="" style={{ opacity: artLoaded || !prevArt ? 1 : 0 }} />}
-                {ytId && !(np?.isHidden && state.stageMode === 'ready') && (
-                    <div className="k-bg__yt-wrap" style={{ opacity: 1 }}>
+                {ytId && (
+                    <div
+                        className="k-bg__yt-wrap"
+                        style={{
+                            opacity: 1,
+                            // Keep the element in the DOM so YT.Player can attach; just hide it visually for secret songs in ready state.
+                            visibility: (np?.isHidden && state.stageMode === 'ready') ? 'hidden' : 'visible',
+                        }}
+                    >
                         <div id="yt-bg-player" />
                         <div className="k-bg__yt-mask" aria-hidden="true" />
                     </div>
