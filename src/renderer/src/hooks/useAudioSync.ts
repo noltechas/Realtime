@@ -129,6 +129,19 @@ export function useAudioSync(): AudioSyncState {
         dispatch({ type: 'SET_REMOTE_PLAY_COMMAND', payload: null })
     }, [state.remotePlayCommand, loaded, playing, state.vocalOffsetMs, dispatch, isStage])
 
+    // Handle remote skip command from companion site
+    useEffect(() => {
+        if (isStage) return
+        if (!state.remoteSkipCommand) return
+        const engine = getEngine()
+        engine.pause()
+        setPlaying(false)
+        dispatch({ type: 'SET_PLAYING', payload: false })
+        dispatch({ type: 'NEXT_SONG' })
+        window.electronAPI?.sendPlaybackTime(0)
+        dispatch({ type: 'SET_REMOTE_SKIP_COMMAND', payload: false })
+    }, [state.remoteSkipCommand, dispatch, isStage])
+
     // Don't detach callbacks on unmount -- this hook is always mounted
     // The engine callbacks persist across the app lifecycle
 

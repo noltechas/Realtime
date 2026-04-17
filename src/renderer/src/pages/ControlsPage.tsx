@@ -4,6 +4,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useAudioSyncContext } from '../context/AudioSyncContext'
 import { getEngine } from '../audio/playback'
 import { VoiceEffects } from '../audio/VoiceEffectsTypes'
+import { useAudioDevices } from '../hooks/useAudioDevices'
 
 function formatTime(ms: number): string {
     const s = Math.floor(ms / 1000)
@@ -304,8 +305,7 @@ function NowPlaying() {
 function AudioMixPanel() {
     const { state, dispatch } = useApp()
     const theme = useTheme()
-    const [audioOutputs, setAudioOutputs] = useState<MediaDeviceInfo[]>([])
-    const [audioInputs, setAudioInputs] = useState<MediaDeviceInfo[]>([])
+    const { inputs: audioInputs, outputs: audioOutputs } = useAudioDevices()
 
     const np = state.nowPlaying
     const singers = np?.singers || []
@@ -315,13 +315,6 @@ function AudioMixPanel() {
 
     // Show all persisted mic slots, at least as many as current singers
     const slotCount = Math.max(singers.length, state.micSlots.length)
-
-    useEffect(() => {
-        navigator.mediaDevices.enumerateDevices().then(devices => {
-            setAudioOutputs(devices.filter(d => d.kind === 'audiooutput'))
-            setAudioInputs(devices.filter(d => d.kind === 'audioinput'))
-        })
-    }, [])
 
     useEffect(() => {
         if (singers.length > state.micSlots.length) {

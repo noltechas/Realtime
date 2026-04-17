@@ -5,6 +5,7 @@ import { useTheme } from '../context/ThemeContext'
 import { VoiceEffects, DEFAULT_VOICE_EFFECTS, normalizeMicLevel } from '../audio/VoiceEffectsTypes'
 import { VoiceEffectsEngine } from '../audio/VoiceEffectsEngine'
 import { BUILT_IN_PRESETS, PRESET_CATEGORIES, VocalPreset } from '../audio/VocalPresets'
+import { useAudioDevices } from '../hooks/useAudioDevices'
 
 const SUPABASE_URL = 'https://hnnbxwitjkeijvoldfuv.supabase.co'
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhubmJ4d2l0amtlaWp2b2xkZnV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MjcwMTQsImV4cCI6MjA5MDUwMzAxNH0.ENzZ2VLxszHr9StjFds06In7CyGkiyPvu6Jh1LUMMvA'
@@ -12,99 +13,6 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 const KEY_NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B']
 
-
-// ── Vocal sample registry for the debug harness ──
-// All samples are CC-BY 3.0 solo vocal stems from ccMixter (real human
-// singers, dry/no effects). Each sample loops a 10-15 second melodic
-// segment of the full track. See assets/vocal-samples/README.md for full
-// attribution. Resolved at build time via Vite.
-const VOCAL_SAMPLE_URLS = import.meta.glob('../assets/vocal-samples/*.mp3', {
-    eager: true,
-    query: '?url',
-    import: 'default',
-}) as Record<string, string>
-
-interface VocalSampleMeta {
-    id: string
-    label: string
-    description: string
-    /** Loop window start in seconds (where the melodic phrase begins) */
-    loopStart: number
-    /** Loop window end in seconds */
-    loopEnd: number
-}
-const VOCAL_SAMPLES: VocalSampleMeta[] = [
-    // ─── Polished / trained singers ───────────────────────────────
-    {
-        id: 'iestankov_chant.mp3',
-        label: '🎤 Male chant — iestankov',
-        description: 'Sustained "Lord Have Mercy" Orthodox chant — easy autotune target',
-        loopStart: 5,
-        loopEnd: 18,
-    },
-    {
-        id: 'admiralbob_blues.mp3',
-        label: '🎤 Male blues — admiralbob77',
-        description: 'Expressive blues melody, "The Remixin\' Blues"',
-        loopStart: 10,
-        loopEnd: 25,
-    },
-    {
-        id: 'snowflake_justice.mp3',
-        label: '🎤 Female pop — snowflake',
-        description: 'Melodic singing with words, "Justice Come Quickly"',
-        loopStart: 20,
-        loopEnd: 35,
-    },
-    {
-        id: 'musetta_ophelias_song.mp3',
-        label: '🎤 Female ballad — musetta',
-        description: 'Melodic vocal stem, "Ophelia\'s Song"',
-        loopStart: 15,
-        loopEnd: 30,
-    },
-    // ─── Casual / "okay singer" territory ─────────────────────────
-    {
-        id: 'spinmeister_remixing.mp3',
-        label: '🎤 Casual male — spinmeister',
-        description: 'Humorous political sing-song, "Remixing is Okay" — looser pitch, real autotune workout',
-        loopStart: 15,
-        loopEnd: 30,
-    },
-    {
-        id: 'cuajitoben_bedtime_blues.mp3',
-        label: '🎤 Male blues #2 — cuajitoben',
-        description: 'Gritty expressive blues, "Bedtime Blues" — different voice quality from admiralbob',
-        loopStart: 30,
-        loopEnd: 45,
-    },
-    {
-        id: 'kizzylotus_homesick.mp3',
-        label: '🎤 Female vocal — kizzylotus',
-        description: 'Melodic female vocal, "Homesick" — different timbre from snowflake/musetta',
-        loopStart: 20,
-        loopEnd: 35,
-    },
-    {
-        id: 'sackjo22_solstice.mp3',
-        label: '🎤 Female contemplative — SackJo22',
-        description: 'Contemplative female vocal, "Solstice" — sustained melodic lines',
-        loopStart: 25,
-        loopEnd: 40,
-    },
-]
-
-function getVocalSampleUrl(id: string): string | undefined {
-    // import.meta.glob keys are paths like '../assets/vocal-samples/iestankov_chant.mp3'
-    for (const [path, url] of Object.entries(VOCAL_SAMPLE_URLS)) {
-        if (path.endsWith('/' + id)) return url
-    }
-    return undefined
-}
-
-function getVocalSampleMeta(id: string): VocalSampleMeta | undefined {
-    return VOCAL_SAMPLES.find(s => s.id === id)
-}
 
 interface AdminGuest {
     id: string
@@ -160,9 +68,8 @@ export default function AdminPage() {
     const [lyricsError, setLyricsError] = useState<string | null>(null)
     const [newRoleName, setNewRoleName] = useState('')
 
-    const [mics, setMics] = useState<MediaDeviceInfo[]>([])
+    const { inputs: mics, outputs: speakers } = useAudioDevices()
     const [selectedMic, setSelectedMic] = useState('')
-    const [speakers, setSpeakers] = useState<MediaDeviceInfo[]>([])
     const [selectedSpeaker, setSelectedSpeaker] = useState('')
     const [isTesting, setIsTesting] = useState(false)
     const [testLevel, setTestLevel] = useState(0)
@@ -191,19 +98,36 @@ export default function AdminPage() {
     const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null)
     const guestChannelRef = useRef<RealtimeChannel | null>(null)
 
-    // ── Voice Effects Debug harness ──
-    const [debugOpen, setDebugOpen] = useState(false)
-    const [debugSignal, setDebugSignal] = useState<'sine' | 'sweep' | 'vowel' | 'sample'>('sample')
-    const [debugSampleId, setDebugSampleId] = useState<string>('iestankov_chant.mp3')
-    const [debugSemitones, setDebugSemitones] = useState(0) // -12 to +12
-    const [debugStrength, setDebugStrength] = useState<0 | 40 | 80 | 95>(0)
-    const [debugKey, setDebugKey] = useState<number>(-1)   // -1 = chromatic, 0..11 = C..B
-    const [debugMode, setDebugMode] = useState<number>(1)  // 0 = minor, 1 = major
-    const [debugTesting, setDebugTesting] = useState(false)
-    const debugCanvasRef = useRef<HTMLCanvasElement | null>(null)
-    const debugAnimRef = useRef<number>(0)
-    const debugRmsRef = useRef<HTMLSpanElement | null>(null)
-    const debugSpectrumDataRef = useRef<Uint8Array | null>(null)
+    // ── Voice Audition Booth ──
+    // Independent of the pending-song testing flow: lets the user audition artist
+    // presets or the exact effects they've set on any song's role, against their
+    // live mic OR a recorded snippet. Snippets replay through the live effect
+    // chain, so changing preset mid-playback works as live A/B.
+    const [auditionOpen, setAuditionOpen] = useState(true)
+    const [auditionSource, setAuditionSource] = useState<'preset' | 'song'>('preset')
+    const [auditionPresetId, setAuditionPresetId] = useState<string | null>(null)
+    const [auditionSongTrackId, setAuditionSongTrackId] = useState<string | null>(null)
+    const [auditionSongRoleIdx, setAuditionSongRoleIdx] = useState<number>(0)
+    const [auditionSongQuery, setAuditionSongQuery] = useState('')
+    // Autotune target scale: -1 = chromatic (snap to nearest semitone),
+    // 0..11 = C..B with mode 1 (major) or 0 (minor). Song roles load their
+    // stored key on selection; the user can still override.
+    const [auditionKey, setAuditionKey] = useState<number>(-1)
+    const [auditionMode, setAuditionMode] = useState<number>(1)
+    const [auditionLive, setAuditionLive] = useState(false)
+    const [auditionLevel, setAuditionLevel] = useState(0)
+    const [auditionRecording, setAuditionRecording] = useState(false)
+    const [auditionBlob, setAuditionBlob] = useState<Blob | null>(null)
+    const [auditionRecDuration, setAuditionRecDuration] = useState(0)
+    const [auditionSnipDuration, setAuditionSnipDuration] = useState(0)
+    const [auditionPlaying, setAuditionPlaying] = useState(false)
+    const [auditionPlayProgress, setAuditionPlayProgress] = useState(0)
+    const [auditionError, setAuditionError] = useState<string | null>(null)
+    const auditionAnimRef = useRef<number>(0)
+    const auditionRecTimerRef = useRef<number>(0)
+    const auditionPlayTimerRef = useRef<number>(0)
+    const auditionCanvasRef = useRef<HTMLCanvasElement | null>(null)
+    const auditionSpectrumRef = useRef<Uint8Array | null>(null)
 
     const debounceRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -236,113 +160,126 @@ export default function AdminPage() {
     useEffect(() => {
         loadCatalog()
         dispatch({ type: 'ENSURE_MIC_SLOTS', payload: 4 })
-        navigator.mediaDevices.enumerateDevices().then(devices => {
-            const audioIns = devices.filter(d => d.kind === 'audioinput')
-            const audioOuts = devices.filter(d => d.kind === 'audiooutput')
-            setMics(audioIns)
-            if (audioIns.length) setSelectedMic(audioIns[0].deviceId)
-            setSpeakers(audioOuts)
-            const defaultOut = audioOuts.find(d => d.deviceId === 'default') || audioOuts[0]
-            if (defaultOut) setSelectedSpeaker(defaultOut.deviceId)
-        })
     }, [])
+
+    // Seed default mic/speaker selection once devices first become available.
+    useEffect(() => {
+        if (!selectedMic && mics.length) {
+            setSelectedMic(mics[0].deviceId)
+        }
+    }, [mics, selectedMic])
+    useEffect(() => {
+        if (!selectedSpeaker && speakers.length) {
+            const defaultOut = speakers.find(d => d.deviceId === 'default') || speakers[0]
+            setSelectedSpeaker(defaultOut.deviceId)
+        }
+    }, [speakers, selectedSpeaker])
 
     useEffect(() => {
         engineRef.current = new VoiceEffectsEngine()
         return () => { engineRef.current?.destroy(); engineRef.current = null }
     }, [])
 
-    // ── Voice Effects Debug harness ──
+    // ── Voice Audition Booth handlers ──
 
-    // Build a VoiceEffects config for the debug panel. Starts from DEFAULT_VOICE_EFFECTS
-    // and overrides strength/key/mode + disables downstream effects that would color the
-    // output (so the user can clearly hear the pitch shifter in isolation).
-    const buildDebugEffects = (strength: number, key: number, mode: number): VoiceEffects => {
-        const fx: VoiceEffects = JSON.parse(JSON.stringify(DEFAULT_VOICE_EFFECTS))
-        fx.pitchCorrection = { enabled: strength > 0, strength: strength }
-        fx.key = key
-        fx.mode = mode
-        fx.compressor = { enabled: false, threshold: -24, ratio: 4, attack: 0.01, release: 0.1 }
-        fx.eq = { enabled: false, lowGain: 0, midGain: 0, highGain: 0 }
-        fx.chorus = { enabled: false, rate: 1.5, depth: 0.2, mix: 30 }
-        fx.delay = { enabled: false, time: 250, feedback: 25, mix: 20 }
-        fx.reverb = { enabled: false, decay: 2.5, preDelay: 20, mix: 35 }
-        fx.distortion = { enabled: false, drive: 0, mix: 0 }
-        fx.noiseGate = { enabled: false, threshold: -50 }
-        fx.micLevel = 0.8
-        return fx
+    /** Resolve the currently-selected preset or song-role to a full VoiceEffects object. */
+    const getAuditionEffects = (): VoiceEffects | null => {
+        if (auditionSource === 'preset') {
+            const p = BUILT_IN_PRESETS.find(pr => pr.id === auditionPresetId)
+            if (!p) return null
+            return {
+                key: auditionKey, mode: auditionMode, tempo: 120, micLevel: 1.0,
+                ...p.effects,
+            }
+        }
+        const song = catalog.find(s => s.trackId === auditionSongTrackId)
+        if (!song || !song.voiceEffects) return null
+        const arr = Array.isArray(song.voiceEffects) ? song.voiceEffects : [song.voiceEffects]
+        const fx = arr[auditionSongRoleIdx]
+        if (!fx) return null
+        return {
+            // User's autotune key overrides the song's stored key — lets you
+            // audition the same effect settings in whatever key you're singing.
+            key: auditionKey,
+            mode: auditionMode,
+            tempo: fx.tempo ?? 120,
+            micLevel: fx.micLevel ?? 1.0,
+            pitchCorrection: fx.pitchCorrection,
+            compressor: fx.compressor,
+            eq: fx.eq,
+            chorus: fx.chorus,
+            delay: fx.delay,
+            reverb: fx.reverb,
+            distortion: fx.distortion,
+            noiseGate: fx.noiseGate,
+        }
     }
 
-    const debugRatioValue = () => Math.pow(2, debugSemitones / 12)
+    const applyAuditionEffects = () => {
+        const fx = getAuditionEffects()
+        if (fx && engineRef.current) engineRef.current.apply(fx)
+    }
 
-    const toggleDebugTesting = async () => {
+    /** One-line parameter summary of currently-loaded effects. */
+    const auditionFingerprint = (): string => {
+        const fx = getAuditionEffects()
+        if (!fx) return 'No effects loaded'
+        const parts: string[] = []
+        if (fx.pitchCorrection?.enabled) {
+            const keyLabel = auditionKey < 0 ? 'chromatic' : `${KEY_NAMES[auditionKey]} ${auditionMode === 1 ? 'maj' : 'min'}`
+            parts.push(`autotune ${fx.pitchCorrection.strength} · ${keyLabel}`)
+        }
+        if (fx.reverb?.enabled) parts.push(`reverb ${fx.reverb.decay.toFixed(1)}s/${fx.reverb.mix}%`)
+        if (fx.delay?.enabled) parts.push(`delay ${fx.delay.time}ms/${fx.delay.mix}%`)
+        if (fx.chorus?.enabled) parts.push(`chorus ${fx.chorus.mix}%`)
+        if (fx.distortion?.enabled) parts.push(`drive ${fx.distortion.drive}/${fx.distortion.mix}`)
+        if (fx.eq?.enabled) parts.push(`eq ${fx.eq.lowGain >= 0 ? '+' : ''}${fx.eq.lowGain}/${fx.eq.midGain >= 0 ? '+' : ''}${fx.eq.midGain}/${fx.eq.highGain >= 0 ? '+' : ''}${fx.eq.highGain}`)
+        return parts.length ? parts.join(' · ') : 'all effects disabled'
+    }
+
+    const selectAuditionPreset = (presetId: string) => {
+        setAuditionSource('preset')
+        setAuditionPresetId(presetId)
+    }
+
+    const selectAuditionSongRole = (trackId: string, roleIdx: number) => {
+        setAuditionSource('song')
+        setAuditionSongTrackId(trackId)
+        setAuditionSongRoleIdx(roleIdx)
+        // Pre-load the song's stored key/mode so the autotune targets the right scale
+        const song = catalog.find(s => s.trackId === trackId)
+        if (song?.voiceEffects) {
+            const arr = Array.isArray(song.voiceEffects) ? song.voiceEffects : [song.voiceEffects]
+            const fx = arr[roleIdx]
+            if (fx) {
+                if (typeof fx.key === 'number') setAuditionKey(fx.key)
+                if (typeof fx.mode === 'number') setAuditionMode(fx.mode)
+            }
+        }
+    }
+
+    /** Auto-apply current effects to engine when source/selection/key changes while active. */
+    useEffect(() => {
+        if (auditionLive || auditionPlaying) applyAuditionEffects()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [auditionSource, auditionPresetId, auditionSongTrackId, auditionSongRoleIdx, auditionKey, auditionMode, auditionLive, auditionPlaying])
+
+    const startAuditionVisualization = () => {
         if (!engineRef.current) return
-        if (debugTesting) {
-            engineRef.current.stopTestPreview()
-            engineRef.current.setDebugRatioOverride(null)
-            setDebugTesting(false)
-            if (debugAnimRef.current) cancelAnimationFrame(debugAnimRef.current)
-            debugAnimRef.current = 0
-            return
-        }
-        // Starting
-        if (isTesting) {
-            // Stop live mic preview first so they don't both play
-            engineRef.current.stopLivePreview()
-            setIsTesting(false)
-            if (animRef.current) clearInterval(animRef.current)
-        }
-        engineRef.current.apply(buildDebugEffects(debugStrength, debugKey, debugMode))
-        const sampleMeta = debugSignal === 'sample' ? getVocalSampleMeta(debugSampleId) : undefined
-        const sampleUrl = debugSignal === 'sample' ? getVocalSampleUrl(debugSampleId) : undefined
-        // Sanity check: if 'sample' is selected but the URL is missing from the
-        // import.meta.glob map, bail out with a visible console error rather
-        // than letting the engine chase a bad URL.
-        if (debugSignal === 'sample' && (!sampleUrl || !sampleMeta)) {
-            console.error('[Debug] Vocal sample URL/meta missing for:', debugSampleId, {
-                sampleUrl, sampleMeta, availableIds: VOCAL_SAMPLES.map(s => s.id),
-            })
-            return
-        }
-        let ok = false
-        try {
-            ok = await engineRef.current.startTestPreview(debugSignal, {
-                sampleUrl,
-                outputId: selectedSpeaker,
-                loopStart: sampleMeta?.loopStart,
-                loopEnd: sampleMeta?.loopEnd,
-            })
-        } catch (err) {
-            console.error('[Debug] startTestPreview threw:', err)
-            return
-        }
-        if (!ok) {
-            console.warn('[Debug] startTestPreview returned false — check console for engine error')
-            return
-        }
-        // Apply ratio override (0 semitones = null = normal path)
-        engineRef.current.setDebugRatioOverride(debugSemitones === 0 ? null : debugRatioValue())
-        setDebugTesting(true)
-        // Start spectrum + RMS animation loop
         const analyser = engineRef.current.analyser
         const buf = new Uint8Array(analyser.frequencyBinCount)
-        debugSpectrumDataRef.current = buf
+        auditionSpectrumRef.current = buf
         const tick = () => {
-            if (!engineRef.current || !debugSpectrumDataRef.current) return
-            analyser.getByteFrequencyData(debugSpectrumDataRef.current)
-            // Compute RMS from time-domain data (use getByteTimeDomainData on a separate buf)
-            // For simplicity we estimate RMS from frequency magnitudes
+            if (!engineRef.current || !auditionSpectrumRef.current) return
+            analyser.getByteFrequencyData(auditionSpectrumRef.current)
             let sum = 0
-            for (let i = 0; i < debugSpectrumDataRef.current.length; i++) {
-                const v = debugSpectrumDataRef.current[i]
+            for (let i = 0; i < auditionSpectrumRef.current.length; i++) {
+                const v = auditionSpectrumRef.current[i]
                 sum += v * v
             }
-            const rms = Math.sqrt(sum / debugSpectrumDataRef.current.length) / 255
-            if (debugRmsRef.current) {
-                debugRmsRef.current.textContent = rms.toFixed(3)
-            }
-            // Draw spectrum
-            const canvas = debugCanvasRef.current
+            const rms = Math.sqrt(sum / auditionSpectrumRef.current.length) / 255
+            setAuditionLevel(rms)
+            const canvas = auditionCanvasRef.current
             if (canvas) {
                 const ctx2d = canvas.getContext('2d')
                 if (ctx2d) {
@@ -350,7 +287,6 @@ export default function AdminPage() {
                     const H = canvas.height
                     ctx2d.fillStyle = '#0a0a14'
                     ctx2d.fillRect(0, 0, W, H)
-                    // Grid lines
                     ctx2d.strokeStyle = 'rgba(255,255,255,0.08)'
                     ctx2d.lineWidth = 1
                     for (let g = 1; g < 4; g++) {
@@ -360,77 +296,189 @@ export default function AdminPage() {
                         ctx2d.lineTo(W, y)
                         ctx2d.stroke()
                     }
-                    // Spectrum bars (log-scale X)
-                    const N = debugSpectrumDataRef.current.length
+                    const N = auditionSpectrumRef.current.length
                     const sr = engineRef.current.getAudioContext().sampleRate
                     const nyquist = sr / 2
                     const fMin = 80
-                    const fMax = nyquist
                     const logMin = Math.log(fMin)
-                    const logMax = Math.log(fMax)
+                    const logMax = Math.log(nyquist)
                     ctx2d.fillStyle = '#4ade80'
                     for (let i = 0; i < N; i++) {
                         const f = (i / N) * nyquist
                         if (f < fMin) continue
                         const x = ((Math.log(f) - logMin) / (logMax - logMin)) * W
-                        const v = debugSpectrumDataRef.current[i] / 255
+                        const v = auditionSpectrumRef.current[i] / 255
                         const h = v * H
                         ctx2d.fillRect(x, H - h, Math.max(1, W / N), h)
                     }
-                    // F-axis labels
                     ctx2d.fillStyle = 'rgba(255,255,255,0.5)'
                     ctx2d.font = '10px monospace'
                     const labelFreqs = [100, 250, 500, 1000, 2500, 5000, 10000]
                     for (const f of labelFreqs) {
-                        if (f < fMin || f > fMax) continue
+                        if (f < fMin || f > nyquist) continue
                         const x = ((Math.log(f) - logMin) / (logMax - logMin)) * W
                         const lbl = f >= 1000 ? (f / 1000) + 'k' : String(f)
                         ctx2d.fillText(lbl, x + 2, H - 2)
                     }
                 }
             }
-            debugAnimRef.current = requestAnimationFrame(tick)
+            auditionAnimRef.current = requestAnimationFrame(tick)
         }
-        debugAnimRef.current = requestAnimationFrame(tick)
+        auditionAnimRef.current = requestAnimationFrame(tick)
     }
 
-    // React to parameter changes while testing
-    useEffect(() => {
-        if (!debugTesting || !engineRef.current) return
-        // Changing signal type or sample: restart the test source
-        engineRef.current.stopTestPreview()
-        const sampleMeta = debugSignal === 'sample' ? getVocalSampleMeta(debugSampleId) : undefined
-        const sampleUrl = debugSignal === 'sample' ? getVocalSampleUrl(debugSampleId) : undefined
-        if (debugSignal === 'sample' && (!sampleUrl || !sampleMeta)) {
-            console.error('[Debug] Signal change: vocal sample URL/meta missing for:', debugSampleId)
+    const toggleAuditionLive = async () => {
+        if (!engineRef.current) return
+        if (auditionLive) {
+            if (auditionRecording) {
+                await engineRef.current.stopRecording()
+                setAuditionRecording(false)
+                if (auditionRecTimerRef.current) clearInterval(auditionRecTimerRef.current)
+            }
+            engineRef.current.stopLivePreview()
+            setAuditionLive(false)
+            setAuditionLevel(0)
+            if (auditionAnimRef.current) cancelAnimationFrame(auditionAnimRef.current)
+            auditionAnimRef.current = 0
             return
         }
-        engineRef.current.startTestPreview(debugSignal, {
-            sampleUrl,
-            outputId: selectedSpeaker,
-            loopStart: sampleMeta?.loopStart,
-            loopEnd: sampleMeta?.loopEnd,
-        }).catch(err => {
-            console.error('[Debug] Signal change: startTestPreview failed:', err)
-        })
-    }, [debugSignal, debugSampleId])
+        if (!selectedMic) {
+            setAuditionError('Select a microphone first.')
+            return
+        }
+        // Stop the pending-song test preview if it's running so we don't double-stream
+        if (isTesting) {
+            if (isRecording) {
+                await engineRef.current.stopRecording()
+                setIsRecording(false)
+                if (recordingTimerRef.current) clearInterval(recordingTimerRef.current)
+            }
+            engineRef.current.stopLivePreview()
+            setIsTesting(false)
+            setTestLevel(0)
+            if (animRef.current) clearInterval(animRef.current)
+        }
+        setAuditionError(null)
+        const success = await engineRef.current.startLivePreview(selectedMic, selectedSpeaker)
+        if (!success) {
+            setAuditionError('Failed to start mic preview. Check mic permissions.')
+            return
+        }
+        setAuditionLive(true)
+        applyAuditionEffects()
+        startAuditionVisualization()
+    }
 
-    useEffect(() => {
-        if (!debugTesting || !engineRef.current) return
-        engineRef.current.setDebugRatioOverride(debugSemitones === 0 ? null : debugRatioValue())
-    }, [debugSemitones])
+    const toggleAuditionRec = async () => {
+        if (!engineRef.current) return
+        if (auditionRecording) {
+            const blob = await engineRef.current.stopRecording()
+            setAuditionRecording(false)
+            if (auditionRecTimerRef.current) clearInterval(auditionRecTimerRef.current)
+            if (blob) {
+                setAuditionBlob(blob)
+                setAuditionSnipDuration(auditionRecDuration)
+            }
+            return
+        }
+        if (!auditionLive) return
+        if (auditionPlaying) stopAuditionSnip()
+        const started = engineRef.current.startRecording()
+        if (started) {
+            setAuditionRecording(true)
+            setAuditionBlob(null)
+            setAuditionError(null)
+            setAuditionRecDuration(0)
+            setAuditionSnipDuration(0)
+            const startTime = Date.now()
+            auditionRecTimerRef.current = window.setInterval(() => {
+                setAuditionRecDuration(Date.now() - startTime)
+            }, 100)
+        }
+    }
 
-    useEffect(() => {
-        if (!debugTesting || !engineRef.current) return
-        engineRef.current.apply(buildDebugEffects(debugStrength, debugKey, debugMode))
-    }, [debugStrength, debugKey, debugMode])
+    const playAuditionSnip = async () => {
+        if (!engineRef.current || !auditionBlob) return
+        setAuditionError(null)
+        applyAuditionEffects()
+        setAuditionPlaying(true)
+        setAuditionPlayProgress(0)
+        const startTime = Date.now()
+        auditionPlayTimerRef.current = window.setInterval(() => {
+            const elapsed = Date.now() - startTime
+            setAuditionPlayProgress(Math.min(elapsed / auditionSnipDuration, 1))
+        }, 50)
+        try {
+            await engineRef.current.playRecording(auditionBlob, selectedSpeaker, () => {
+                setAuditionPlaying(false)
+                setAuditionPlayProgress(0)
+                if (auditionPlayTimerRef.current) clearInterval(auditionPlayTimerRef.current)
+            })
+        } catch (err) {
+            console.error('Audition playback failed:', err)
+            setAuditionPlaying(false)
+            setAuditionPlayProgress(0)
+            if (auditionPlayTimerRef.current) clearInterval(auditionPlayTimerRef.current)
+            setAuditionError('Playback failed. Try recording again.')
+        }
+    }
 
-    // Cleanup debug test on unmount
+    const stopAuditionSnip = () => {
+        if (!engineRef.current) return
+        engineRef.current.stopPlayback()
+        setAuditionPlaying(false)
+        setAuditionPlayProgress(0)
+        if (auditionPlayTimerRef.current) clearInterval(auditionPlayTimerRef.current)
+    }
+
+    const clearAuditionSnip = () => {
+        if (auditionPlaying) stopAuditionSnip()
+        setAuditionBlob(null)
+        setAuditionRecDuration(0)
+        setAuditionSnipDuration(0)
+        setAuditionPlayProgress(0)
+        setAuditionError(null)
+    }
+
+    // Cleanup on unmount
     useEffect(() => {
         return () => {
-            if (debugAnimRef.current) cancelAnimationFrame(debugAnimRef.current)
+            if (auditionAnimRef.current) cancelAnimationFrame(auditionAnimRef.current)
+            if (auditionRecTimerRef.current) clearInterval(auditionRecTimerRef.current)
+            if (auditionPlayTimerRef.current) clearInterval(auditionPlayTimerRef.current)
         }
     }, [])
+
+    /** Swap the live stream to a new mic/speaker without requiring the user to manually stop+start. */
+    useEffect(() => {
+        if (!auditionLive || !engineRef.current || !selectedMic) return
+        const eng = engineRef.current
+        let cancelled = false
+        ;(async () => {
+            // Finalize any recording first so we don't leak a MediaRecorder on the old stream
+            if (auditionRecording) {
+                await eng.stopRecording()
+                if (cancelled) return
+                setAuditionRecording(false)
+                if (auditionRecTimerRef.current) clearInterval(auditionRecTimerRef.current)
+            }
+            eng.stopLivePreview()
+            if (auditionAnimRef.current) cancelAnimationFrame(auditionAnimRef.current)
+            auditionAnimRef.current = 0
+            setAuditionLevel(0)
+            const ok = await eng.startLivePreview(selectedMic, selectedSpeaker)
+            if (cancelled) return
+            if (ok) {
+                applyAuditionEffects()
+                startAuditionVisualization()
+            } else {
+                setAuditionError('Failed to switch device.')
+                setAuditionLive(false)
+            }
+        })()
+        return () => { cancelled = true }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedMic, selectedSpeaker])
 
     // Guest realtime subscription
     useEffect(() => {
@@ -2071,10 +2119,10 @@ export default function AdminPage() {
                 </div>
             )}
 
-            {/* ── Voice Effects Debug harness (permanent dev tool) ── */}
+            {/* ── Voice Audition Booth ── */}
             <div style={{ marginTop: 32, ...theme.card, border: theme.border, padding: '16px 20px' }}>
                 <button
-                    onClick={() => setDebugOpen(o => !o)}
+                    onClick={() => setAuditionOpen(o => !o)}
                     style={{
                         width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                         background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
@@ -2082,201 +2130,408 @@ export default function AdminPage() {
                         color: theme.black, letterSpacing: '0.5px', textTransform: 'uppercase',
                     }}
                 >
-                    <span>🔬 Voice Effects Debug</span>
-                    <span style={{ fontSize: 18, opacity: 0.6 }}>{debugOpen ? '▾' : '▸'}</span>
+                    <span>🎙️ Voice Audition Booth</span>
+                    <span style={{ fontSize: 18, opacity: 0.6 }}>{auditionOpen ? '▾' : '▸'}</span>
                 </button>
 
-                {debugOpen && (
+                {auditionOpen && (
                     <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
                         <div style={{ fontSize: 11, color: theme.muted, lineHeight: 1.5, fontFamily: theme.fontBody }}>
-                            Play a synthesized test signal through the pitch-correction worklet to verify
-                            quality without a microphone. All downstream effects (compressor, EQ, reverb,
-                            etc.) are disabled so you hear the pitch shifter in isolation.
+                            Hear your voice through any artist preset or the exact effects you've set on a song
+                            in your library. Record a snippet, then A/B different presets by clicking them while
+                            it replays.
                         </div>
 
-                        {/* Signal selector */}
-                        <div>
-                            <div style={{ fontSize: 10, fontFamily: theme.fontDisplay, fontWeight: 700, color: theme.muted, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 6 }}>
-                                Test signal
+                        {/* Input / Output devices */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <div style={{ fontSize: 9, fontFamily: theme.fontDisplay, fontWeight: 700, color: theme.muted, textTransform: 'uppercase', letterSpacing: '1.5px' }}>
+                                Devices
                             </div>
-                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                                {([
-                                    { id: 'sample' as const, label: 'Real Vocal' },
-                                    { id: 'sine' as const, label: '440 Hz Sine' },
-                                    { id: 'sweep' as const, label: 'Sweep 220→880 Hz' },
-                                    { id: 'vowel' as const, label: 'Synth Vowel "ah"' },
-                                ]).map(opt => (
-                                    <button
-                                        key={opt.id}
-                                        onClick={() => setDebugSignal(opt.id)}
-                                        style={{
-                                            flex: 1, minWidth: 100, padding: '8px 10px', fontSize: 11, fontWeight: 700,
-                                            fontFamily: theme.fontDisplay, cursor: 'pointer',
-                                            border: debugSignal === opt.id ? `2px solid ${theme.mintGreen}` : theme.border,
-                                            borderRadius: theme.radiusSmall,
-                                            background: debugSignal === opt.id ? `${theme.mintGreen}22` : theme.cream,
-                                            color: theme.black,
-                                        }}
-                                    >
-                                        {opt.label}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Real vocal sample picker (only when 'Real Vocal' selected) */}
-                        {debugSignal === 'sample' && (
-                            <div>
-                                <div style={{ fontSize: 10, fontFamily: theme.fontDisplay, fontWeight: 700, color: theme.muted, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 6 }}>
-                                    Vocal sample (singer: Martin, MIT-licensed from vocobox/human-voice-dataset)
-                                </div>
+                            <div style={{ display: 'flex', gap: 8 }}>
                                 <select
-                                    value={debugSampleId}
-                                    onChange={e => setDebugSampleId(e.target.value)}
-                                    style={{ ...theme.select, width: '100%', padding: '8px', fontSize: 12 }}
+                                    value={selectedMic}
+                                    onChange={e => setSelectedMic(e.target.value)}
+                                    style={{ flex: 1, minWidth: 0, padding: '8px 10px', fontSize: 12, ...theme.select }}
                                 >
-                                    {VOCAL_SAMPLES.map(s => (
-                                        <option key={s.id} value={s.id}>
-                                            {s.label} — {s.description}
-                                        </option>
-                                    ))}
+                                    {mics.length === 0 && <option value="">No microphones detected</option>}
+                                    {mics.map(m => <option key={m.deviceId} value={m.deviceId}>🎤 {m.label || 'Mic'}</option>)}
                                 </select>
-                                <div style={{ fontSize: 10, color: theme.muted, marginTop: 4, fontFamily: theme.fontBody }}>
-                                    Tip: try the <strong>A4 OFF-PITCH</strong> sample with strength 40 to hear the autotune lock the wobble onto A4.
-                                    Or try a <strong>BEND</strong> sample to see how the algorithm tracks a sliding pitch.
+                                <select
+                                    value={selectedSpeaker}
+                                    onChange={e => setSelectedSpeaker(e.target.value)}
+                                    style={{ flex: 1, minWidth: 0, padding: '8px 10px', fontSize: 12, ...theme.select }}
+                                >
+                                    {speakers.length === 0 && <option value="">No output devices detected</option>}
+                                    {speakers.map(s => <option key={s.deviceId} value={s.deviceId}>🔊 {s.label || 'Speaker'}</option>)}
+                                </select>
+                            </div>
+                            {auditionLive && (
+                                <div style={{ fontSize: 10, color: theme.faint, fontFamily: theme.fontBody }}>
+                                    Changing a device will swap the live stream automatically.
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Source tabs */}
+                        <div style={{ display: 'flex', gap: 6 }}>
+                            {([
+                                { id: 'preset' as const, label: 'Artist Preset' },
+                                { id: 'song' as const, label: 'Song Role' },
+                            ]).map(opt => (
+                                <button
+                                    key={opt.id}
+                                    onClick={() => setAuditionSource(opt.id)}
+                                    style={{
+                                        flex: 1, padding: '10px 14px', fontSize: 12, fontWeight: 700,
+                                        fontFamily: theme.fontDisplay, cursor: 'pointer',
+                                        border: auditionSource === opt.id ? `2px solid ${theme.softViolet}` : theme.borderThin,
+                                        borderRadius: theme.radiusSmall,
+                                        background: auditionSource === opt.id ? `${theme.softViolet}18` : theme.cream,
+                                        color: auditionSource === opt.id ? theme.softViolet : theme.muted,
+                                    }}
+                                >
+                                    {opt.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Preset grid */}
+                        {auditionSource === 'preset' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {PRESET_CATEGORIES.map(cat => {
+                                    const presets = BUILT_IN_PRESETS.filter(p => p.category === cat.key)
+                                    if (!presets.length) return null
+                                    return (
+                                        <div key={cat.key}>
+                                            <div style={{
+                                                fontSize: 9, color: theme.faint, textTransform: 'uppercase',
+                                                letterSpacing: '1.5px', fontFamily: theme.fontDisplay, fontWeight: 700, marginBottom: 4,
+                                            }}>
+                                                {cat.label}
+                                            </div>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                                {presets.map(preset => {
+                                                    const isActive = auditionPresetId === preset.id
+                                                    const imgUrl = preset.artistId && !presetImageErrors.has(preset.artistId) ? presetImages[preset.artistId] : null
+                                                    return (
+                                                        <button
+                                                            key={preset.id}
+                                                            onClick={() => selectAuditionPreset(preset.id)}
+                                                            title={preset.description}
+                                                            style={{
+                                                                display: 'flex', alignItems: 'center', gap: 5,
+                                                                padding: '3px 10px 3px 4px',
+                                                                borderRadius: 99,
+                                                                fontSize: 10,
+                                                                fontFamily: theme.fontDisplay, fontWeight: 700,
+                                                                border: isActive ? `2px solid ${theme.softViolet}` : theme.borderThin,
+                                                                background: isActive ? `${theme.softViolet}18` : theme.creamDark,
+                                                                color: isActive ? theme.softViolet : theme.muted,
+                                                                cursor: 'pointer', whiteSpace: 'nowrap',
+                                                            }}
+                                                        >
+                                                            {imgUrl ? (
+                                                                <img
+                                                                    src={imgUrl}
+                                                                    alt={preset.name}
+                                                                    onError={() => preset.artistId && setPresetImageErrors(prev => new Set(prev).add(preset.artistId!))}
+                                                                    style={{ width: 18, height: 18, borderRadius: '50%', objectFit: 'cover', border: isActive ? `2px solid ${theme.softViolet}` : theme.borderThin }}
+                                                                />
+                                                            ) : (
+                                                                <div style={{
+                                                                    width: 18, height: 18, borderRadius: '50%',
+                                                                    background: isActive ? theme.softViolet : theme.faint,
+                                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                    fontSize: 8, color: theme.white, fontWeight: 700,
+                                                                }}>
+                                                                    {preset.name.charAt(0)}
+                                                                </div>
+                                                            )}
+                                                            {preset.name}
+                                                        </button>
+                                                    )
+                                                })}
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        )}
+
+                        {/* Song-role picker */}
+                        {auditionSource === 'song' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                <input
+                                    type="text"
+                                    value={auditionSongQuery}
+                                    onChange={e => setAuditionSongQuery(e.target.value)}
+                                    placeholder="Search by song, artist, or album…"
+                                    style={{ ...theme.select, padding: '8px 12px', fontSize: 12 }}
+                                />
+                                <div style={{
+                                    maxHeight: 280, overflowY: 'auto',
+                                    border: theme.borderThin, borderRadius: theme.radiusSmall,
+                                    background: theme.cream,
+                                }}>
+                                    {(() => {
+                                        const q = auditionSongQuery.trim().toLowerCase()
+                                        const matches = catalog.filter(s => {
+                                            if (!s.voiceEffects) return false
+                                            if (!q) return true
+                                            return (s.name || '').toLowerCase().includes(q)
+                                                || (s.artist || '').toLowerCase().includes(q)
+                                                || (s.albumName || '').toLowerCase().includes(q)
+                                        }).slice(0, 80)
+                                        if (!matches.length) {
+                                            return (
+                                                <div style={{ padding: 16, fontSize: 11, color: theme.muted, fontFamily: theme.fontBody, textAlign: 'center' }}>
+                                                    {q ? 'No matching songs.' : 'No songs with voice effects.'}
+                                                </div>
+                                            )
+                                        }
+                                        return matches.map(song => {
+                                            const fxArr = Array.isArray(song.voiceEffects) ? song.voiceEffects : [song.voiceEffects!]
+                                            const roleLabels = (song.roles && song.roles.length) ? song.roles : [song.artist || 'Main']
+                                            const isSelectedSong = auditionSongTrackId === song.trackId
+                                            return (
+                                                <div key={song.trackId} style={{
+                                                    padding: '10px 12px',
+                                                    borderBottom: theme.borderThin,
+                                                    background: isSelectedSong ? `${theme.softViolet}10` : 'transparent',
+                                                }}>
+                                                    <div style={{ fontSize: 12, fontFamily: theme.fontDisplay, fontWeight: 700, color: theme.black, marginBottom: 2 }}>
+                                                        {song.name}
+                                                    </div>
+                                                    <div style={{ fontSize: 10, color: theme.muted, fontFamily: theme.fontBody, marginBottom: 6 }}>
+                                                        {song.artist}{song.albumName ? ` · ${song.albumName}` : ''}
+                                                    </div>
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                                        {roleLabels.map((roleName, idx) => {
+                                                            if (!fxArr[idx]) return null
+                                                            const isActiveChip = isSelectedSong && auditionSongRoleIdx === idx
+                                                            return (
+                                                                <button
+                                                                    key={idx}
+                                                                    onClick={() => selectAuditionSongRole(song.trackId, idx)}
+                                                                    style={{
+                                                                        padding: '4px 10px', fontSize: 10, fontWeight: 700,
+                                                                        fontFamily: theme.fontDisplay, cursor: 'pointer',
+                                                                        borderRadius: 99,
+                                                                        border: isActiveChip ? `2px solid ${theme.softViolet}` : theme.borderThin,
+                                                                        background: isActiveChip ? `${theme.softViolet}18` : theme.creamDark,
+                                                                        color: isActiveChip ? theme.softViolet : theme.muted,
+                                                                    }}
+                                                                >
+                                                                    {roleName}
+                                                                </button>
+                                                            )
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )
+                                        })
+                                    })()}
                                 </div>
                             </div>
                         )}
 
-                        {/* Ratio override slider */}
-                        <div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                                <span style={{ fontSize: 10, fontFamily: theme.fontDisplay, fontWeight: 700, color: theme.muted, textTransform: 'uppercase', letterSpacing: '1px' }}>
-                                    Forced pitch shift {debugSemitones === 0 && '(disabled — normal autotune active)'}
-                                </span>
-                                <span style={{ fontSize: 11, fontFamily: 'monospace', color: theme.black }}>
-                                    {debugSemitones > 0 ? '+' : ''}{debugSemitones} semitones
-                                    {' • '}
-                                    ratio {debugRatioValue().toFixed(4)}
-                                    {' • '}
-                                    {(debugSemitones * 100).toFixed(0)} cents
-                                </span>
-                            </div>
-                            <input
-                                type="range" min={-12} max={12} step={1}
-                                value={debugSemitones}
-                                onChange={e => setDebugSemitones(parseInt(e.target.value))}
-                                style={{ width: '100%' }}
-                            />
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: theme.muted, fontFamily: 'monospace', marginTop: 2 }}>
-                                <span>-12 (oct down)</span>
-                                <span>-6</span>
-                                <span>0 (unity)</span>
-                                <span>+6</span>
-                                <span>+12 (oct up)</span>
-                            </div>
-                        </div>
-
-                        {/* Strength override buttons */}
-                        <div>
-                            <div style={{ fontSize: 10, fontFamily: theme.fontDisplay, fontWeight: 700, color: theme.muted, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 6 }}>
-                                Autotune strength (applies when forced shift = 0)
-                            </div>
-                            <div style={{ display: 'flex', gap: 6 }}>
-                                {([
-                                    { val: 0 as const, label: 'Off (bypass)' },
-                                    { val: 40 as const, label: '40 (natural)' },
-                                    { val: 80 as const, label: '80 (heavy)' },
-                                    { val: 95 as const, label: '95 (T-Pain)' },
-                                ]).map(opt => (
-                                    <button
-                                        key={opt.val}
-                                        onClick={() => setDebugStrength(opt.val)}
-                                        style={{
-                                            flex: 1, padding: '8px 10px', fontSize: 11, fontWeight: 700,
-                                            fontFamily: theme.fontDisplay, cursor: 'pointer',
-                                            border: debugStrength === opt.val ? `2px solid ${theme.mintGreen}` : theme.border,
-                                            borderRadius: theme.radiusSmall,
-                                            background: debugStrength === opt.val ? `${theme.mintGreen}22` : theme.cream,
-                                            color: theme.black,
-                                        }}
-                                    >
-                                        {opt.label}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Key + Mode pickers (scale snap target) */}
-                        <div>
-                            <div style={{ fontSize: 10, fontFamily: theme.fontDisplay, fontWeight: 700, color: theme.muted, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 6 }}>
-                                Test key (autotune snaps to this scale when forced shift = 0 and strength &gt; 0)
+                        {/* Autotune key / mode */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <div style={{ fontSize: 9, fontFamily: theme.fontDisplay, fontWeight: 700, color: theme.muted, textTransform: 'uppercase', letterSpacing: '1.5px' }}>
+                                Autotune target scale
                             </div>
                             <div style={{ display: 'flex', gap: 8 }}>
                                 <select
-                                    value={debugKey}
-                                    onChange={e => setDebugKey(parseInt(e.target.value))}
-                                    style={{ ...theme.select, flex: 1, padding: '8px', fontSize: 12 }}
+                                    value={auditionKey}
+                                    onChange={e => setAuditionKey(parseInt(e.target.value))}
+                                    style={{ flex: 2, minWidth: 0, padding: '8px 10px', fontSize: 12, ...theme.select }}
                                 >
-                                    <option value={-1}>Chromatic (any semitone)</option>
-                                    {KEY_NAMES.map((k, i) => (
-                                        <option key={i} value={i}>{k}</option>
-                                    ))}
+                                    <option value={-1}>Chromatic (snap to any semitone)</option>
+                                    {KEY_NAMES.map((k, i) => <option key={i} value={i}>Key of {k}</option>)}
                                 </select>
                                 <select
-                                    value={debugMode}
-                                    onChange={e => setDebugMode(parseInt(e.target.value))}
-                                    disabled={debugKey < 0}
+                                    value={auditionMode}
+                                    onChange={e => setAuditionMode(parseInt(e.target.value))}
+                                    disabled={auditionKey < 0}
                                     style={{
-                                        ...theme.select,
-                                        flex: 1,
-                                        padding: '8px',
-                                        fontSize: 12,
-                                        opacity: debugKey < 0 ? 0.4 : 1,
-                                        cursor: debugKey < 0 ? 'not-allowed' : 'pointer',
+                                        flex: 1, minWidth: 0, padding: '8px 10px', fontSize: 12, ...theme.select,
+                                        opacity: auditionKey < 0 ? 0.4 : 1,
+                                        cursor: auditionKey < 0 ? 'not-allowed' : 'pointer',
                                     }}
                                 >
                                     <option value={1}>Major</option>
                                     <option value={0}>Minor</option>
                                 </select>
                             </div>
-                            <div style={{ fontSize: 10, color: theme.muted, marginTop: 4, fontFamily: theme.fontBody }}>
-                                Chromatic snaps to the nearest semitone regardless of scale.
-                                Picking a key + mode constrains snapping to that scale's notes only.
+                            <div style={{ fontSize: 10, color: theme.faint, fontFamily: theme.fontBody }}>
+                                <strong>Chromatic</strong> snaps every note to the nearest semitone — classic T-Pain, works regardless of what you're singing.
+                                Picking a <strong>Key + Mode</strong> restricts snap targets to that scale's notes only (more musical, more natural-sounding for melodies).
+                                Selecting a Song Role above will auto-load that song's stored key.
                             </div>
                         </div>
 
-                        {/* Start/Stop + RMS meter */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        {/* Fingerprint strip */}
+                        <div style={{
+                            padding: '10px 14px',
+                            background: theme.creamDark,
+                            border: theme.borderThin,
+                            borderRadius: theme.radiusSmall,
+                            fontSize: 11, fontFamily: 'monospace',
+                            color: theme.black,
+                            lineHeight: 1.5,
+                        }}>
+                            <div style={{ fontSize: 9, fontFamily: theme.fontDisplay, fontWeight: 700, color: theme.muted, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: 4 }}>
+                                Currently loaded
+                            </div>
+                            {(() => {
+                                const fx = getAuditionEffects()
+                                if (!fx) {
+                                    return <span style={{ color: theme.faint }}>Pick a preset or song role above.</span>
+                                }
+                                let label = ''
+                                if (auditionSource === 'preset') {
+                                    const p = BUILT_IN_PRESETS.find(pr => pr.id === auditionPresetId)
+                                    label = p?.name || '(preset)'
+                                } else {
+                                    const song = catalog.find(s => s.trackId === auditionSongTrackId)
+                                    const roles = (song?.roles && song.roles.length) ? song.roles : [song?.artist || 'Main']
+                                    const roleName = roles[auditionSongRoleIdx] || 'Main'
+                                    label = `${roleName} — ${song?.name || ''}`
+                                }
+                                return (
+                                    <span>
+                                        <span style={{ color: theme.softViolet, fontWeight: 700 }}>{label}</span>
+                                        <span style={{ color: theme.muted }}> · {auditionFingerprint()}</span>
+                                    </span>
+                                )
+                            })()}
+                        </div>
+
+                        {/* Transport row */}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
                             <button
-                                onClick={toggleDebugTesting}
+                                onClick={toggleAuditionLive}
+                                disabled={!selectedMic}
                                 style={{
-                                    padding: '10px 24px', fontSize: 13, fontWeight: 800,
-                                    fontFamily: theme.fontDisplay, cursor: 'pointer',
-                                    border: `2px solid ${debugTesting ? '#e55' : theme.mintGreen}`,
+                                    padding: '10px 18px', fontSize: 13, fontWeight: 800,
+                                    fontFamily: theme.fontDisplay,
+                                    cursor: selectedMic ? 'pointer' : 'not-allowed',
+                                    opacity: selectedMic ? 1 : 0.4,
+                                    border: `2px solid ${auditionLive ? '#e55' : theme.mintGreen}`,
                                     borderRadius: theme.radius,
-                                    background: debugTesting ? '#fee' : `${theme.mintGreen}22`,
-                                    color: debugTesting ? '#c33' : theme.black,
+                                    background: auditionLive ? '#fee' : `${theme.mintGreen}22`,
+                                    color: auditionLive ? '#c33' : theme.black,
                                 }}
                             >
-                                {debugTesting ? '■ Stop test' : '▶ Start test'}
+                                {auditionLive ? '■ Stop live' : '● Go live'}
                             </button>
-                            <div style={{ fontSize: 11, fontFamily: 'monospace', color: theme.muted }}>
-                                Output RMS: <span ref={debugRmsRef} style={{ color: theme.black }}>0.000</span>
+
+                            <button
+                                onClick={toggleAuditionRec}
+                                disabled={!auditionLive}
+                                style={{
+                                    padding: '10px 18px', fontSize: 13, fontWeight: 800,
+                                    fontFamily: theme.fontDisplay,
+                                    cursor: auditionLive ? 'pointer' : 'not-allowed',
+                                    opacity: auditionLive ? 1 : 0.4,
+                                    border: `2px solid ${auditionRecording ? '#e55' : theme.softViolet}`,
+                                    borderRadius: theme.radius,
+                                    background: auditionRecording ? '#fee' : `${theme.softViolet}22`,
+                                    color: auditionRecording ? '#c33' : theme.black,
+                                }}
+                            >
+                                {auditionRecording ? `■ Stop rec (${(auditionRecDuration / 1000).toFixed(1)}s)` : '● Record'}
+                            </button>
+
+                            {auditionBlob && !auditionPlaying && (
+                                <button
+                                    onClick={playAuditionSnip}
+                                    style={{
+                                        padding: '10px 18px', fontSize: 13, fontWeight: 800,
+                                        fontFamily: theme.fontDisplay, cursor: 'pointer',
+                                        border: `2px solid ${theme.softViolet}`,
+                                        borderRadius: theme.radius,
+                                        background: `${theme.softViolet}18`,
+                                        color: theme.softViolet,
+                                    }}
+                                >
+                                    ▶ Play snippet ({(auditionSnipDuration / 1000).toFixed(1)}s)
+                                </button>
+                            )}
+
+                            {auditionPlaying && (
+                                <button
+                                    onClick={stopAuditionSnip}
+                                    style={{
+                                        padding: '10px 18px', fontSize: 13, fontWeight: 800,
+                                        fontFamily: theme.fontDisplay, cursor: 'pointer',
+                                        border: `2px solid #e55`,
+                                        borderRadius: theme.radius,
+                                        background: '#fee',
+                                        color: '#c33',
+                                    }}
+                                >
+                                    ■ Stop ({Math.floor(auditionPlayProgress * 100)}%)
+                                </button>
+                            )}
+
+                            {auditionBlob && (
+                                <button
+                                    onClick={clearAuditionSnip}
+                                    style={{
+                                        padding: '10px 14px', fontSize: 11, fontWeight: 700,
+                                        fontFamily: theme.fontDisplay, cursor: 'pointer',
+                                        border: theme.borderThin,
+                                        borderRadius: theme.radius,
+                                        background: theme.cream,
+                                        color: theme.muted,
+                                    }}
+                                >
+                                    ✕ Clear
+                                </button>
+                            )}
+
+                            {auditionError && (
+                                <div style={{ fontSize: 11, color: '#c33', fontFamily: theme.fontBody }}>
+                                    {auditionError}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* VU meter */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{ fontSize: 9, fontFamily: theme.fontDisplay, fontWeight: 700, color: theme.muted, textTransform: 'uppercase', letterSpacing: '1.5px', minWidth: 30 }}>
+                                VU
+                            </div>
+                            <div style={{
+                                flex: 1, height: 12, borderRadius: 6,
+                                background: theme.creamDark,
+                                border: theme.borderThin,
+                                overflow: 'hidden',
+                            }}>
+                                <div style={{
+                                    width: `${Math.min(100, auditionLevel * 250)}%`,
+                                    height: '100%',
+                                    background: auditionRecording ? '#e55' : theme.mintGreen,
+                                    transition: 'width 50ms linear',
+                                }} />
+                            </div>
+                            <div style={{ fontSize: 10, fontFamily: 'monospace', color: theme.muted, minWidth: 48, textAlign: 'right' }}>
+                                {auditionLevel.toFixed(3)}
                             </div>
                         </div>
 
-                        {/* Live spectrum canvas */}
+                        {/* Spectrum canvas */}
                         <div>
-                            <div style={{ fontSize: 10, fontFamily: theme.fontDisplay, fontWeight: 700, color: theme.muted, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 6 }}>
-                                Output spectrum (log frequency)
+                            <div style={{ fontSize: 9, fontFamily: theme.fontDisplay, fontWeight: 700, color: theme.muted, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: 6 }}>
+                                Output spectrum
                             </div>
                             <canvas
-                                ref={debugCanvasRef}
+                                ref={auditionCanvasRef}
                                 width={760}
-                                height={180}
+                                height={140}
                                 style={{
-                                    width: '100%', maxWidth: 760, height: 180,
+                                    width: '100%', maxWidth: 760, height: 140,
                                     borderRadius: theme.radiusSmall, border: theme.border,
                                     background: '#0a0a14', display: 'block',
                                 }}

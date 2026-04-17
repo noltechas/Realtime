@@ -31,6 +31,7 @@ export function useKaraokeSession() {
     const reactionChannelRef = useRef<RealtimeChannel | null>(null)
     const sessionChannelRef = useRef<RealtimeChannel | null>(null)
     const isRemotePlayRef = useRef(false)
+    const lastSeenSkipAtRef = useRef<string | null>(null)
 
     // Load catalog for resolving remote additions
     useEffect(() => {
@@ -287,6 +288,17 @@ export function useKaraokeSession() {
             supabase.removeChannel(sessionChannelRef.current)
         }
 
+        // Prime the skip-request ref so reconnects / late subscribes don't
+        // fire a stale skip from a previous skip request in the same session.
+        supabase.from('karaoke_sessions')
+            .select('skip_requested_at')
+            .eq('id', state.karaokeSessionId)
+            .single()
+            .then(res => {
+                if (res.error) return
+                lastSeenSkipAtRef.current = (res.data as any)?.skip_requested_at ?? null
+            })
+
         const channel = supabase
             .channel('renderer-session-' + state.karaokeSessionId)
             .on(
@@ -304,6 +316,11 @@ export function useKaraokeSession() {
                             type: 'SET_REMOTE_PLAY_COMMAND',
                             payload: d.is_playing ? 'play' : 'pause'
                         })
+                    }
+                    // Remote skip from companion (edge-triggered on timestamp change)
+                    if (d.skip_requested_at && d.skip_requested_at !== lastSeenSkipAtRef.current) {
+                        lastSeenSkipAtRef.current = d.skip_requested_at
+                        dispatch({ type: 'SET_REMOTE_SKIP_COMMAND', payload: true })
                     }
                     // Handle remote vocal FX / autotune toggles
                     if (d.vocal_fx_enabled !== undefined || d.autotune_enabled !== undefined) {

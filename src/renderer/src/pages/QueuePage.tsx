@@ -4,6 +4,7 @@ import { useApp, QueueItem, NEON_COLORS } from '../context/AppContext'
 import { DEFAULT_VOICE_EFFECTS, normalizeMicLevel } from '../audio/VoiceEffectsTypes'
 import { useTheme } from '../context/ThemeContext'
 import { HiddenSongQueueCard } from '../components/HiddenSongCard'
+import { useAudioDevices } from '../hooks/useAudioDevices'
 
 function formatTime(ms: number): string {
     const s = Math.floor(ms / 1000)
@@ -77,15 +78,7 @@ function SetupPanel() {
     const { state, dispatch } = useApp()
     const navigate = useNavigate()
     const theme = useTheme()
-    const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([])
-    const [audioOutputs, setAudioOutputs] = useState<MediaDeviceInfo[]>([])
-
-    useEffect(() => {
-        navigator.mediaDevices.enumerateDevices().then(devices => {
-            setAudioDevices(devices.filter(d => d.kind === 'audioinput'))
-            setAudioOutputs(devices.filter(d => d.kind === 'audiooutput'))
-        })
-    }, [])
+    const { inputs: audioDevices, outputs: audioOutputs } = useAudioDevices()
 
     const doesAnyRoleHaveOffensiveWord = (roleIndices: number[]) => {
         return state.lyrics.some(l =>

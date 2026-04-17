@@ -1,5 +1,6 @@
 import { VoiceEffects, DEFAULT_VOICE_EFFECTS } from './VoiceEffectsTypes'
 import { PITCH_CORRECTION_PROCESSOR_CODE } from './pitch-correction-worklet'
+import { parseDeviceId } from '../hooks/useAudioDevices'
 
 /**
  * EMERGENCY DIAGNOSTIC: set to `true` to disable the pitch correction
@@ -22,6 +23,7 @@ export class VoiceEffectsEngine {
     private ctx: AudioContext
     private stream: MediaStream | null = null
     private source: MediaStreamAudioSourceNode | null = null
+    private channelSplitter: ChannelSplitterNode | null = null
 
     // Chain nodes
     private inputGain: GainNode
@@ -479,16 +481,35 @@ export class VoiceEffectsEngine {
             // report mono channel count after setSinkId, causing audio to
             // play only in the left ear.
             this.ctx.destination.channelCount = 2
+
+            const { realDeviceId, channelIndex } = parseDeviceId(deviceId)
+            const wantMultiChannel = channelIndex !== undefined
+
             this.stream = await navigator.mediaDevices.getUserMedia({
                 audio: {
-                    deviceId: { exact: deviceId },
+                    deviceId: { exact: realDeviceId },
                     echoCancellation: false,
                     noiseSuppression: false,
-                    autoGainControl: false
+                    autoGainControl: false,
+                    // Request multi-channel capture when a specific channel
+                    // was selected so a stereo USB interface (e.g. UMC202HD)
+                    // gives us both mic inputs on separate channels.
+                    ...(wantMultiChannel ? { channelCount: { ideal: 2 } } : {}),
                 }
             })
             this.source = this.ctx.createMediaStreamSource(this.stream)
-            this.source.connect(this.inputGain)
+
+            if (wantMultiChannel) {
+                const trackChannels =
+                    this.stream.getAudioTracks()[0]?.getSettings?.().channelCount ?? 2
+                const splitter = this.ctx.createChannelSplitter(Math.max(trackChannels, 2))
+                this.channelSplitter = splitter
+                this.source.connect(splitter)
+                const idx = Math.min(channelIndex!, trackChannels - 1)
+                splitter.connect(this.inputGain, idx, 0)
+            } else {
+                this.source.connect(this.inputGain)
+            }
 
             // Connect to output speakers for testing
             this.analyser.connect(this.ctx.destination)
@@ -507,6 +528,10 @@ export class VoiceEffectsEngine {
         if (this.source) {
             this.source.disconnect()
             this.source = null
+        }
+        if (this.channelSplitter) {
+            try { this.channelSplitter.disconnect() } catch { }
+            this.channelSplitter = null
         }
         try { this.analyser.disconnect(this.ctx.destination) } catch { }
     }

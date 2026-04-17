@@ -146,6 +146,111 @@ Themes are defined in `src/renderer/src/styles/` and registered in `src/renderer
 
 Themes load custom fonts via `@import url(...)` in their `globalCss`. Always include fallback fonts in the font family string.
 
+## Per-Song Vocal Effect Customization
+
+**When the user asks you to "set vocal effects for all the [Artist] songs" (or similar)** — i.e., hand-tune per-song, per-role effects beyond the generic artist preset — follow the workflow below. Precedents: [scripts/travis-per-song.js](scripts/travis-per-song.js), [scripts/kanye-per-song.js](scripts/kanye-per-song.js). **Copy one of those scripts as a template**; don't reinvent the shape.
+
+### Workflow (in order)
+
+1. **Enumerate the library.** Run a Node one-liner against `~/.realtime-karaoke/songs/*/meta.json` to get every track by the artist, including `name`, `albumName`, `roles`, and `trackId`. Don't guess which songs are in the library — the user adds/removes over time.
+2. **Honestly assess confidence per track.** Before writing any code, classify each song:
+   - **HIGH** — you can name specific sonic features you'd adjust and why (e.g., "goosebumps' slapback delay is iconic — mix 32% vs stock 28%", or "Blame Game's Chris Rock outro is dry spoken-word, not rap — no reverb").
+   - **MEDIUM** — you know the era/vibe but would be approximating specific values.
+   - **LOW** — you don't have vivid memory of this specific mix.
+3. **Report the breakdown to the user** *before* writing the script. They need to know which tracks you'll actually customize vs leave alone. This is not optional — bluffing on LOW-confidence tracks will produce worse results than the generic preset.
+4. **Leave LOW-confidence tracks on the generic preset.** List them explicitly in a `LOW_CONFIDENCE` object in the script (for the report output). Don't guess.
+5. **Skip "generic-is-already-optimal" tracks.** Some tracks are exactly what the generic preset was tuned for (Heartless → Kanye 808s preset). Customizing adds noise. Note these in `LOW_CONFIDENCE` with a comment like `"Heartless — generic 808s is already optimal"`.
+6. **Skip tracks that aren't actually by the artist.** Library artist-filter matches can pull false positives (e.g., a track where the artist is only sampled, not performing). Verify by checking `roles[]` for the artist's name.
+7. **Write `scripts/{artist}-per-song.js`** following the template.
+8. **Dry run** (no flags) to verify every role name matches the library's `meta.roles` exactly. Any mismatch = bad role name spelling.
+9. **Apply** (`--apply` flag) once the dry run is clean. Each modified `meta.json` gets a `.pertrack.bak` backup on first write.
+10. **Verify build**: `npx tsc --noEmit` + `npx electron-vite build` must both pass (these scripts are pure JS and shouldn't affect the app build, but run them to catch any regressions from other recent changes).
+
+### Critical knowledge for picking values
+
+**Signal chain order** (from [VoiceEffectsEngine.ts](src/renderer/src/audio/VoiceEffectsEngine.ts)):
+```
+input → compressor → pitchCorrection → EQ → distortion → chorus → delay → reverb → noiseGate → output
+```
+
+**The chorus-after-autotune gotcha** (most common mistake): for mechanical-autotune presets (T-Pain, Travis Scott, Kanye 808s, Future, Playboi Carti), chorus runs *after* pitch correction and creates a pitch-modulated second voice that *undoes* the hard-snap quality. Real records of these artists don't use analog chorus on the vocal — "doubling" is a separately-recorded second take. **Rule of thumb:**
+- `pitchCorrection.strength >= 80` → `chorus.enabled: false` (or `mix <= 10`)
+- `pitchCorrection.strength 40-80` → `chorus.mix <= 15` if enabled
+- `pitchCorrection.strength < 40` or disabled → chorus can go up to ~22 for pop/R&B width
+
+**Exceptions where chorus IS the character, keep it heavy:** Daft Punk (vocoder), Bon Iver (layered harmonies), Tame Impala (psychedelic modulation), Imogen Heap (crystalline harmonizer), Kevin-Parker-produced tracks like SKELETONS.
+
+**Other parameter guidance:**
+- `reverb.mix > 40%` → vocal sounds distant/washy. Use for cavern/hall effects (Travis, Kanye 808s, Bon Iver).
+- `reverb.decay > 4.0s` → very atmospheric. Pair with large `preDelay` (30–50ms) for stadium feel.
+- `reverb.decay < 1.2s` → tight room. Good for intimate (Billie Eilish), dry (Kendrick, Chris Rock spoken-word), or iconic "close" sounds (T-Pain).
+- `delay.mix > 20%` → obvious echo; pair with `feedback > 30%` for slapback trails (Travis Scott, goosebumps).
+- `delay.time 150-220ms` = slapback. `250-350ms` = "tail". `400-550ms` = long echo (Bon Iver, Imogen Heap).
+- `distortion.drive > 25` + `mix > 20%` → heavy grit (Playboi Carti, rage-era Travis, Pop Smoke, MF DOOM). Subtle warmth is `drive 4-8 / mix 4-6`.
+- `compressor.ratio 6-8` = tight/punchy. `3-4` = gentle. Spoken word / rap clarity benefits from `ratio 6` + fast attack (0.002-0.003).
+- `noiseGate.enabled: true` for spoken word, rap without reverb wash, tight-room treatments. `threshold -42 to -48`.
+
+### Role name matching is exact and case-sensitive
+
+The `meta.roles[]` array holds hand-typed strings. They match whatever was entered at import time. Common surprises:
+- **Typos preserved**: "Jaimie Foxx" (not "Jamie Foxx") on Slow Jamz, "The Weekend" (not "The Weeknd") on SKELETONS.
+- **Formatting**: "JAY Z" (no dash) in library, even though artist credit is "JAY-Z".
+- **Mislabels**: Paranoid's second role is "Kid Cudi" but the actual vocalist is Mr Hudson. Apply the *actual vocalist's* treatment, not the role name's.
+- **Synthetic roles**: "Girl Tracks" (New Workout Plan), "Otis" (the Otis Redding sample itself).
+
+Verify role names before writing the script:
+```js
+node -e "const m=JSON.parse(require('fs').readFileSync(require('path').join(require('os').homedir(), '.realtime-karaoke/songs/{trackId}/meta.json')));console.log(m.roles)"
+```
+
+If the dry-run reports `Roles skipped (name not found)`, the role-name key in the script doesn't match. Fix the key, don't rename the library.
+
+### Preservation rule (must-have)
+
+Every role's `voiceEffects[i]` entry holds **per-song musical context** that must be preserved across any effect rewrite: `key`, `mode`, `tempo`, and `micLevel`. The script template does this correctly — don't remove it:
+```js
+const existing = meta.voiceEffects[idx] || {}
+const preserved = {}
+if ('key' in existing) preserved.key = existing.key
+if ('mode' in existing) preserved.mode = existing.mode
+if ('tempo' in existing) preserved.tempo = existing.tempo
+if ('micLevel' in existing) preserved.micLevel = existing.micLevel
+meta.voiceEffects[idx] = { ...preserved, ...newEffects }
+```
+
+Losing `key`/`mode` breaks scale-aware autotune for that song — the user's Voice Audition Booth will no longer auto-load the right key when they click the song's role.
+
+### Co-artist strategy
+
+If a co-artist in the song **has their own preset in [VocalPresets.ts](src/renderer/src/audio/VocalPresets.ts)** and the track's mix matches their usual treatment (Rihanna on Famous, Kendrick on goosebumps), **don't override them** — the refined preset is already right. Just omit that role from `TRACK_EFFECTS[trackId]` and comment why in the script:
+```js
+// goosebumps: Kendrick Lamar → keeps new Kendrick preset (intentional contrast)
+```
+
+**Exception:** when the track's production intentionally treats the co-artist differently from their usual sound, write a custom block. Examples:
+- The Weeknd on SKELETONS → Kevin-Parker-psychedelic treatment (heavy chorus, huge reverb), not his usual 80s-retro polish.
+- Travis Scott on CRUSH (Carti's album) → unusually bright and heavily distorted, playing in Carti-space.
+
+### Don't touch VocalPresets.ts for per-song work
+
+Per-song customization is **only** applied via the script to individual `meta.json` files. Do not modify [VocalPresets.ts](src/renderer/src/audio/VocalPresets.ts) — that file defines global artist presets used everywhere (Admin preset picker, Voice Audition Booth, future imports). Changes there affect all users of the preset, not just one song.
+
+### Full effect parameter reference
+
+From [VoiceEffectsTypes.ts](src/renderer/src/audio/VoiceEffectsTypes.ts) — use these exact ranges:
+| Effect | Params | Range |
+|---|---|---|
+| `pitchCorrection` | `enabled`, `strength` | 0–100 (0=bypass, 100=hard snap) |
+| `compressor` | `enabled`, `threshold`, `ratio`, `attack`, `release` | -100..0 dB, 1–20, 0–1s, 0–1s |
+| `eq` | `enabled`, `lowGain`, `midGain`, `highGain` | ±24 dB each (3-band) |
+| `chorus` | `enabled`, `rate`, `depth`, `mix` | 0–20 Hz, 0–1, 0–100% |
+| `delay` | `enabled`, `time`, `feedback`, `mix` | 0–2000 ms, 0–100%, 0–100% |
+| `reverb` | `enabled`, `decay`, `preDelay`, `mix` | 0.1–10 s, 0–100 ms, 0–100% |
+| `distortion` | `enabled`, `drive`, `mix` | 0–100, 0–100% |
+| `noiseGate` | `enabled`, `threshold` | -100..0 dB |
+
+Always include every block in every role — don't partial-update. If you want a block inert, set `enabled: false` and give the other fields neutral values (the existing scripts follow this pattern).
+
 ## Common Pitfalls
 
 - When modifying `QueueItem` interface, also update the companion site's queue insert (they must match the DB schema).

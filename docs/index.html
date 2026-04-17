@@ -439,6 +439,256 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
 .queue-item[data-stage-theme="steampunk"] .q-hidden-art { background: #14110F; border: 1px solid rgba(200,151,62,0.45); border-radius: 6px; }
 .queue-item[data-stage-theme="retrowave"] .q-hidden-art { background: #0a0614; border: 1px solid rgba(255,45,149,0.5); background-image: repeating-linear-gradient(180deg, transparent 0 2px, rgba(255,45,149,0.12) 2px 3px); }
 
+/* ── Add-song wizard (4-step flow) ──────────────────────────────────────── */
+.wiz-screen { padding: 0 20px 140px; }
+.wiz-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 0 6px;
+}
+.wiz-topbar-back, .wiz-topbar-cancel {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--surface-1); border: 1.5px solid var(--white-ghost);
+  color: var(--white); cursor: pointer; padding: 0;
+  transition: background 0.15s, transform 0.15s;
+}
+.wiz-topbar-back:active, .wiz-topbar-cancel:active { transform: scale(0.92); background: var(--surface-2); }
+.wiz-topbar-title {
+  font-family: var(--font-display); font-weight: 600; font-size: 11px;
+  letter-spacing: 2px; text-transform: uppercase; color: var(--white-muted);
+  flex: 1; text-align: center;
+}
+.wiz-stepper {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 4px; padding: 10px 4px 22px; max-width: 320px; margin: 0 auto;
+}
+.wiz-step {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;
+  position: relative; background: none; border: none; padding: 0;
+  font-family: var(--font-display); cursor: default; min-width: 0;
+}
+.wiz-step[data-go] { cursor: pointer; }
+.wiz-step-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--surface-3); border: 1.5px solid var(--white-ghost);
+  transition: background 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+.wiz-step.is-done .wiz-step-dot { background: var(--emerald); border-color: var(--emerald); }
+.wiz-step.is-active .wiz-step-dot {
+  background: var(--violet); border-color: var(--violet); transform: scale(1.25);
+  box-shadow: 0 0 0 4px rgba(167,139,250,0.18);
+}
+.wiz-step-label {
+  font-size: 10px; font-weight: 600; letter-spacing: 1.2px;
+  text-transform: uppercase; color: var(--white-faint);
+}
+.wiz-step.is-active .wiz-step-label { color: var(--white); }
+.wiz-step.is-done .wiz-step-label { color: var(--white-muted); }
+.wiz-step + .wiz-step::before {
+  content: ""; position: absolute; top: 6px; right: calc(50% + 10px); left: calc(-50% + 10px);
+  height: 1.5px; background: var(--white-ghost); z-index: -1;
+}
+.wiz-step.is-done + .wiz-step::before,
+.wiz-step.is-done + .wiz-step.is-active::before { background: var(--violet); }
+.wiz-song-banner { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
+.wiz-song-banner img {
+  width: 64px; height: 64px; border-radius: 12px; object-fit: cover;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.4); flex-shrink: 0;
+}
+.wiz-song-banner-body { min-width: 0; flex: 1; }
+.wiz-song-banner-title {
+  font-family: var(--font-display); font-weight: 700; font-size: 18px;
+  line-height: 1.2; color: var(--white);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.wiz-song-banner-artist { font-size: 13px; color: var(--white-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wiz-hero {
+  font-family: var(--font-display); font-weight: 700; font-size: 24px;
+  line-height: 1.2; letter-spacing: -0.3px; color: var(--white);
+  margin-bottom: 6px;
+}
+.wiz-hero-sub { font-size: 13px; color: var(--white-muted); margin-bottom: 18px; line-height: 1.4; }
+.wiz-section-title {
+  font-family: var(--font-display); font-weight: 600; font-size: 13px;
+  letter-spacing: 0.8px; text-transform: uppercase; color: var(--white-muted);
+  margin: 18px 0 10px;
+}
+.wiz-singer-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+.wiz-singer-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px; position: relative;
+  background: var(--surface-1); border: 1px solid var(--white-ghost);
+  border-radius: 14px;
+}
+.wiz-singer-row-avatar {
+  width: 44px; height: 44px; border-radius: 50%; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px; font-weight: 700; color: #000; flex-shrink: 0;
+}
+.wiz-singer-row-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.wiz-singer-row-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.wiz-singer-row-name-wrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.wiz-singer-row-name {
+  font-family: var(--font-display); font-weight: 600; font-size: 15px;
+  color: var(--white); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.wiz-singer-row-meta {
+  font-size: 11px; color: var(--white-faint);
+  font-family: var(--font-display); letter-spacing: 0.5px; text-transform: uppercase;
+}
+.wiz-singer-row-badge {
+  display: inline-flex; align-items: center; padding: 2px 8px;
+  background: rgba(167,139,250,0.18); color: var(--violet);
+  border-radius: 99px; font-size: 9px; font-weight: 700;
+  letter-spacing: 1px; text-transform: uppercase;
+  font-family: var(--font-display);
+}
+.wiz-singer-row-remove {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: transparent; border: 1px solid var(--white-ghost);
+  color: var(--white-muted); cursor: pointer; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0; transition: all 0.15s;
+}
+.wiz-singer-row-remove:active { transform: scale(0.9); background: var(--surface-2); color: var(--red); border-color: var(--red); }
+.wiz-add-singer {
+  width: 100%; padding: 16px; background: transparent;
+  border: 1.5px dashed var(--white-ghost); border-radius: 14px;
+  color: var(--white-muted); font-family: var(--font-display);
+  font-weight: 600; font-size: 14px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  transition: all 0.15s;
+}
+.wiz-add-singer:active { transform: scale(0.98); border-color: var(--violet); color: var(--violet); }
+.wiz-add-singer-plus {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: rgba(167,139,250,0.18); color: var(--violet);
+  font-size: 16px; font-weight: 700; line-height: 1;
+}
+.wiz-role-list { display: flex; flex-direction: column; gap: 14px; margin-bottom: 12px; }
+.wiz-role-row {
+  padding: 16px; background: var(--surface-1);
+  border: 1px solid var(--white-ghost); border-radius: 14px;
+}
+.wiz-role-row-head {
+  display: flex; flex-direction: column; gap: 2px; margin-bottom: 12px;
+}
+.wiz-role-row-eyebrow {
+  font-family: var(--font-display); font-weight: 600; font-size: 10px;
+  letter-spacing: 1.5px; text-transform: uppercase; color: var(--white-faint);
+}
+.wiz-role-row-title {
+  font-family: var(--font-display); font-weight: 700; font-size: 18px;
+  color: var(--white); line-height: 1.2;
+}
+.wiz-role-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.role-singer-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 14px 8px 8px;
+  background: var(--surface-2); border: 1.5px solid var(--white-ghost);
+  border-radius: 999px; color: var(--white-muted);
+  font-family: var(--font-display); font-weight: 600; font-size: 13px;
+  cursor: pointer; transition: transform 0.15s;
+  max-width: 100%;
+}
+.role-singer-chip:active { transform: scale(0.96); }
+.role-singer-chip-name {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px;
+}
+.role-singer-chip-avatar {
+  width: 24px; height: 24px; border-radius: 50%; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: #000; flex-shrink: 0;
+}
+.role-singer-chip-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.wiz-warn {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px; margin: 4px 0 14px;
+  background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.35);
+  border-radius: 12px; font-size: 13px; color: var(--amber);
+  font-family: var(--font-body); line-height: 1.35;
+}
+.wiz-warn svg { flex-shrink: 0; }
+.wiz-footer {
+  position: fixed; left: 0; right: 0;
+  bottom: calc(64px + env(safe-area-inset-bottom));
+  z-index: 50;
+  display: flex; gap: 10px;
+  padding: 14px 20px 14px;
+  background: linear-gradient(to top, var(--black) 40%, rgba(0,0,0,0));
+  pointer-events: none;
+}
+.wiz-footer > * { pointer-events: auto; }
+.wiz-footer-back {
+  flex: 0 0 auto; padding: 16px 20px;
+  background: var(--surface-2); border: 1.5px solid var(--white-ghost);
+  color: var(--white-muted); border-radius: 14px;
+  font-family: var(--font-display); font-weight: 600; font-size: 14px;
+  cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+  transition: transform 0.15s;
+}
+.wiz-footer-back:active { transform: scale(0.97); }
+.wiz-footer-next { flex: 1; margin-top: 0 !important; }
+.wiz-footer-next[disabled] { opacity: 0.5; cursor: not-allowed; }
+.wiz-theme-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;
+  margin-top: 4px;
+}
+.wiz-theme-tile-default {
+  padding: 14px 12px; cursor: pointer; text-align: center;
+  font-weight: 700; font-size: 13px; letter-spacing: 0.5px;
+  border-radius: 12px; position: relative;
+  background: var(--surface-1); color: var(--white);
+  border: 1.5px dashed var(--white-ghost);
+  font-family: var(--font-display);
+  transition: transform 0.15s;
+}
+.wiz-theme-tile-default:active { transform: scale(0.96); }
+.wiz-theme-tile-default.selected { border-color: var(--violet); background: rgba(167,139,250,0.12); border-style: solid; }
+.wiz-theme-tile-default.selected::after {
+  content: "\2713"; position: absolute; top: 6px; right: 8px;
+  font-size: 14px; font-weight: 900; color: var(--violet);
+}
+.singer-picker-list {
+  display: flex; flex-direction: column; gap: 8px;
+  max-height: 38vh; overflow-y: auto; margin-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+}
+.singer-picker-list::-webkit-scrollbar { display: none; }
+.singer-picker-pill {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px 10px 10px;
+  background: var(--surface-1); border: 1.5px solid var(--white-ghost);
+  border-radius: 12px; cursor: pointer;
+  font-family: var(--font-display); font-weight: 600; font-size: 14px;
+  color: var(--white); transition: transform 0.15s, border-color 0.2s;
+  text-align: left;
+}
+.singer-picker-pill:active { transform: scale(0.98); border-color: var(--violet); }
+.singer-picker-avatar {
+  width: 36px; height: 36px; border-radius: 50%; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700; color: #000; flex-shrink: 0;
+}
+.singer-picker-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.singer-picker-divider {
+  text-align: center; font-size: 10px; letter-spacing: 2px; font-weight: 600;
+  color: var(--white-faint); margin: 14px 0 10px; text-transform: uppercase;
+  font-family: var(--font-display);
+}
+.singer-picker-cancel {
+  width: 100%; margin-top: 8px; padding: 13px;
+  background: transparent; border: 1.5px solid var(--white-ghost);
+  border-radius: 12px; color: var(--white-muted);
+  font-family: var(--font-display); font-weight: 600; font-size: 14px;
+  cursor: pointer;
+}
+.singer-picker-cancel:active { transform: scale(0.98); }
+.wiz-stage-hint {
+  font-size: 12px; color: var(--white-faint); margin: 6px 2px 12px; line-height: 1.4;
+}
+
 /* ── Per-song row theming (overrides the global applyTheme() rules) ──────── */
 /* Each row wears the theme its guest picked — independent of the session theme. */
 
@@ -827,7 +1077,8 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
 .reaction-cooldown { opacity: 0.4; pointer-events: none; }
 .youreup-screen {
   display: flex; flex-direction: column; align-items: center;
-  justify-content: center; min-height: 100dvh; padding: 40px 24px;
+  justify-content: center; min-height: 100dvh; padding: 24px 24px 28px;
+  box-sizing: border-box;
   text-align: center; position: relative; overflow: hidden;
 }
 .youreup-title {
@@ -848,7 +1099,7 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
   font-family: var(--font-display); font-weight: 700;
   font-size: 22px; color: var(--white); margin-bottom: 4px;
 }
-.youreup-artist { font-size: 15px; color: var(--white-muted); margin-bottom: 40px; }
+.youreup-artist { font-size: 15px; color: var(--white-muted); margin-bottom: 20px; }
 .youreup-play-btn {
   width: 120px; height: 120px; border-radius: 50%;
   border: none; cursor: pointer; display: flex;
@@ -858,9 +1109,29 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
 .youreup-play-btn:active { transform: scale(0.9); }
 .youreup-play-btn svg { width: 52px; height: 52px; fill: white; }
 .youreup-singer-label {
-  margin-top: 24px; font-size: 13px; color: var(--white-muted);
+  margin-top: 14px; font-size: 13px; color: var(--white-muted);
   font-family: var(--font-body);
 }
+.youreup-skip-btn { transition: border-color 0.15s, color 0.15s, background 0.15s, box-shadow 0.15s, transform 0.15s; }
+.youreup-skip-btn:active { transform: scale(0.98); }
+.skip-confirm-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 10000; padding: 24px;
+}
+.skip-confirm-card {
+  background: var(--surface-1, #17171f); border: 1px solid var(--white-faint);
+  border-radius: 20px; padding: 28px 24px; max-width: 360px; width: 100%;
+  text-align: center;
+}
+.skip-confirm-title { font-family: var(--font-display); font-weight: 700; font-size: 22px; color: var(--white); margin-bottom: 8px; }
+.skip-confirm-sub { font-size: 14px; color: var(--white-muted); margin-bottom: 24px; font-family: var(--font-body); }
+.skip-confirm-actions { display: flex; gap: 12px; }
+.skip-confirm-btn { flex: 1; padding: 14px; border-radius: 12px; border: 2px solid var(--white-faint); font-weight: 700; font-family: var(--font-display); font-size: 14px; cursor: pointer; letter-spacing: 0.5px; transition: transform 0.15s, box-shadow 0.15s; }
+.skip-confirm-btn-ghost { background: transparent; color: var(--white-muted); }
+.skip-confirm-btn-danger { background: #FF4D6D; border-color: #FF4D6D; color: #fff; }
+.skip-confirm-btn:active { transform: scale(0.96); }
 #notif-container {
   position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
   display: flex; flex-direction: column; align-items: center;
@@ -929,7 +1200,7 @@ var NC=[
 {c:"#d946ef",g:"rgba(217,70,239,0.3)"},
 {c:"#e11d48",g:"rgba(225,29,72,0.3)"}
 ];
-var S={screen:"loading",sessionCode:null,sessionId:null,sessionName:null,guestId:null,guestName:"",profilePicture:null,guests:[],catalog:[],searchQuery:"",selectedTrack:null,singerCount:1,singers:[{name:"",color:NC[0].c,colorGlow:NC[0].g,roleIndices:[],profilePicture:null,whitePersonCheck:false}],queue:[],nowPlaying:null,errorMessage:"",theme_name:"neo-brutal",stage_theme:null,hide_song:false,customEmoji:null,emojiPickerOpen:false,textInputOpen:false,memePickerOpen:false,memeSearchQuery:"",memeGifs:[],memeLoading:false,isPlaying:false,nowPlayingSingerConfigs:null,matchedSinger:null,nowPlayingStageTheme:null,joining:false,joinName:"",addingToQueue:false,vocalFxEnabled:true,autotuneEnabled:true};
+var S={screen:"loading",sessionCode:null,sessionId:null,sessionName:null,guestId:null,guestName:"",profilePicture:null,guests:[],catalog:[],searchQuery:"",selectedTrack:null,singers:[],wizardStep:2,singerPickerOpen:false,customSingerName:"",queue:[],nowPlaying:null,errorMessage:"",theme_name:"neo-brutal",stage_theme:null,hide_song:false,customEmoji:null,emojiPickerOpen:false,textInputOpen:false,memePickerOpen:false,memeSearchQuery:"",memeGifs:[],memeLoading:false,isPlaying:false,nowPlayingSingerConfigs:null,matchedSinger:null,nowPlayingStageTheme:null,joining:false,joinName:"",addingToQueue:false,vocalFxEnabled:true,autotuneEnabled:true,skipConfirmOpen:false};
 var qCh=null,sCh=null,gCh=null,rCh=null;
 var playedTrackIds={};
 var allGifs=[];
@@ -1079,14 +1350,14 @@ function subRT(){
 async function addToQueue(){
   if(S.addingToQueue)return;
   var t=S.selectedTrack;if(!t)return;
-  S.addingToQueue=true;
-  var sc=S.singers.slice(0,S.singerCount).map(function(s){var o={name:s.name||"Singer",color:s.color,colorGlow:s.colorGlow,roleIndices:s.roleIndices||[]};if(s.profilePicture)o.profilePicture=s.profilePicture;if(s.whitePersonCheck)o.whitePersonCheck=true;return o;});
-  if(t.roles&&t.roles.length>0&&S.singerCount>0){
+  var sc=S.singers.slice().map(function(s){var o={name:(s.name||"").trim()||"Singer",color:s.color,colorGlow:s.colorGlow,roleIndices:s.roleIndices||[]};if(s.profilePicture)o.profilePicture=s.profilePicture;if(s.whitePersonCheck)o.whitePersonCheck=true;return o;});
+  if(t.roles&&t.roles.length>0&&sc.length>0){
     var ur=sc.filter(function(s){return !s.roleIndices||s.roleIndices.length===0;});
     if(ur.length>0){
       if(!confirm("One or more singers don't have roles assigned. Add to queue anyway?"))return;
     }
   }
+  S.addingToQueue=true;
   var mr=await sb.from("karaoke_queue").select("position").eq("session_id",S.sessionId).order("position",{ascending:false}).limit(1).single();
   var np=(mr.data?mr.data.position:-1)+1;
   var ins={session_id:S.sessionId,track_id:t.track_id,track_name:t.name,track_artist:t.artist,track_art_url:t.art_url,track_duration_ms:t.duration_ms,singer_configs:sc,added_by_guest_id:S.guestId,added_by_name:S.guestName,source:"remote",position:np,status:"queued"};
@@ -1094,7 +1365,7 @@ async function addToQueue(){
   if(S.hide_song)ins.is_hidden=true;
   var r=await sb.from("karaoke_queue").insert(ins);
   if(r.error){S.addingToQueue=false;alert("Failed to add song. Try again.");return;}
-  S.addingToQueue=false;S.selectedTrack=null;S.stage_theme=null;S.hide_song=false;S.screen="queue";await loadQueue();render();
+  S.addingToQueue=false;S.selectedTrack=null;S.singers=[];S.stage_theme=null;S.hide_song=false;S.customSingerName="";S.singerPickerOpen=false;S.screen="queue";await loadQueue();render();
 }
 async function updateProfile(name,pic){
   var upd={name:name.trim()};
@@ -1123,10 +1394,88 @@ function resizeImage(file,maxSize,quality,cb){
   };
   reader.readAsDataURL(file);
 }
-function setSC(n){
-  S.singerCount=n;
-  while(S.singers.length<n){var i=S.singers.length;S.singers.push({name:"",color:NC[i%NC.length].c,colorGlow:NC[i%NC.length].g,roleIndices:[],profilePicture:null,whitePersonCheck:false});}
+var MAX_SINGERS=4;
+function initWizardFromTrack(track){
+  S.selectedTrack=track;
+  S.singers=[{name:S.guestName,color:NC[0].c,colorGlow:NC[0].g,roleIndices:[],profilePicture:S.profilePicture,whitePersonCheck:false}];
+  S.wizardStep=2;
+  S.screen="wizard-singers";
+  S.customSingerName="";
+  S.singerPickerOpen=false;
+  S.stage_theme=null;
+  S.hide_song=false;
+}
+function addSinger(payload){
+  if(S.singers.length>=MAX_SINGERS)return;
+  var i=S.singers.length;
+  var singer={
+    name:(payload&&payload.name)||"",
+    color:NC[i%NC.length].c,
+    colorGlow:NC[i%NC.length].g,
+    roleIndices:[],
+    profilePicture:(payload&&payload.profilePicture)||null,
+    whitePersonCheck:false
+  };
+  S.singers.push(singer);
+}
+function removeSinger(i){
+  if(i<=0)return;
+  if(i>=S.singers.length)return;
+  S.singers.splice(i,1);
+}
+function alreadyHasSinger(name,guestId){
+  if(!name)return false;
+  var lc=name.toLowerCase();
+  for(var i=0;i<S.singers.length;i++){
+    if((S.singers[i].name||"").toLowerCase()===lc)return true;
+  }
+  return false;
+}
+function wizardHasAnyChanges(){
+  if(S.singers.length>1)return true;
+  if(S.singers[0]&&S.singers[0].roleIndices&&S.singers[0].roleIndices.length>0)return true;
+  if(S.stage_theme)return true;
+  if(S.hide_song)return true;
+  return false;
+}
+function gotoWizardStep(step){
+  S.wizardStep=step;
+  S.screen=(step===2)?"wizard-singers":(step===3)?"wizard-roles":"wizard-stage";
+  S.singerPickerOpen=false;
   render();
+}
+function wizardBack(){
+  if(S.wizardStep===2){
+    if(wizardHasAnyChanges()){
+      if(!confirm("Discard this song setup?"))return;
+    }
+    S.selectedTrack=null;S.singers=[];S.stage_theme=null;S.hide_song=false;S.customSingerName="";S.singerPickerOpen=false;
+    S.screen="songs";render();return;
+  }
+  if(S.wizardStep===3){gotoWizardStep(2);return;}
+  if(S.wizardStep===4){
+    var roles=(S.selectedTrack&&S.selectedTrack.roles)||[];
+    gotoWizardStep(roles.length>1?3:2);return;
+  }
+}
+function nextWizardStep(){
+  var roles=(S.selectedTrack&&S.selectedTrack.roles)||[];
+  if(S.wizardStep===2){
+    if(roles.length<=1){
+      // Auto-assign the single role (or nothing) to every singer.
+      if(roles.length===1){
+        for(var i=0;i<S.singers.length;i++){
+          S.singers[i].roleIndices=[0];
+        }
+      }
+      gotoWizardStep(4);
+    }else{
+      gotoWizardStep(3);
+    }
+    return;
+  }
+  if(S.wizardStep===3){gotoWizardStep(4);return;}
+  if(S.wizardStep===4){addToQueue();return;}
 }
 function fmtD(ms){var s=Math.floor(ms/1000);return Math.floor(s/60)+":"+String(s%60).padStart(2,"0");}
 function esc(s){if(!s)return"";var d=document.createElement("div");d.textContent=s;return d.innerHTML;}
@@ -1216,8 +1565,17 @@ function applyTheme(){
     " .meme-pick-btn{border:3px solid #1A1A1A !important;box-shadow:3px 3px 0px #1A1A1A !important;background:#FFFFFF !important;}" +
     " .youreup-screen{background:#FFF8EE !important;}" +
     " .youreup-play-btn{border:3px solid #1A1A1A !important;box-shadow:6px 6px 0px #1A1A1A !important;border-radius:50% !important;}" +
+    " .youreup-play-btn svg{fill:#1A1A1A !important;}" +
     " .youreup-play-btn:active{box-shadow:2px 2px 0px #1A1A1A !important;transform:translate(4px,4px) !important;}" +
-    " .youreup-art{border:3px solid #1A1A1A !important;box-shadow:4px 4px 0px #1A1A1A !important;border-radius:8px !important;}";
+    " .youreup-art{border:3px solid #1A1A1A !important;box-shadow:4px 4px 0px #1A1A1A !important;border-radius:8px !important;}" +
+    " .youreup-skip-btn{border:3px solid #1A1A1A !important;box-shadow:4px 4px 0px #1A1A1A !important;border-radius:8px !important;background:#FFFFFF !important;color:#1A1A1A !important;}" +
+    " .youreup-skip-btn:active{box-shadow:2px 2px 0px #1A1A1A !important;transform:translate(2px,2px) !important;}" +
+    " .skip-confirm-card{background:#FFF8EE !important;border:3px solid #1A1A1A !important;box-shadow:6px 6px 0px #1A1A1A !important;border-radius:8px !important;}" +
+    " .skip-confirm-title{color:#1A1A1A !important;}" +
+    " .skip-confirm-sub{color:rgba(26,26,26,0.7) !important;}" +
+    " .skip-confirm-btn-ghost{border:3px solid #1A1A1A !important;background:#FFFFFF !important;color:#1A1A1A !important;box-shadow:3px 3px 0px #1A1A1A !important;border-radius:8px !important;}" +
+    " .skip-confirm-btn-danger{border:3px solid #1A1A1A !important;background:#FF3B30 !important;color:#FFFFFF !important;box-shadow:3px 3px 0px #1A1A1A !important;border-radius:8px !important;}" +
+    " .skip-confirm-btn:active{box-shadow:1px 1px 0px #1A1A1A !important;transform:translate(2px,2px) !important;}";
   }else if(activeTheme==="cyberpunk"){
     css=":root{--black:#060610;--surface-1:rgba(0,255,136,0.04);--surface-2:rgba(0,255,136,0.07);--surface-3:rgba(0,255,136,0.1);--white:#d0ffe8;--white-muted:rgba(0,255,136,0.6);--white-faint:rgba(0,255,136,0.3);--white-ghost:rgba(0,255,136,0.18);--violet:#00e5ff;--pink:#ff00aa;--cyan:#00ff88;--emerald:#00ff88;--amber:#ffcc00;--red:#ff0055;--grad-hero:linear-gradient(135deg, #00ff88, #00e5ff);--grad-text:linear-gradient(135deg, #00ff88, #00e5ff);--font-display:'Share Tech Mono', 'Courier New', monospace;--font-body:'Share Tech Mono', 'Courier New', monospace;}" +
     " *{border-radius:0 !important;}" +
@@ -1231,7 +1589,11 @@ function applyTheme(){
     " .text-input-field:focus{box-shadow:0 0 10px rgba(0,255,136,0.3) !important;}" +
     " .meme-pick-btn{border:1px solid rgba(0,255,136,0.15) !important;background:rgba(0,255,136,0.04) !important;}" +
     " .youreup-play-btn{border-radius:0 !important;border:1px solid #00ff88 !important;box-shadow:0 0 30px rgba(0,255,136,0.4),0 0 60px rgba(0,255,136,0.2) !important;}" +
-    " .youreup-art{border-radius:0 !important;border:1px solid rgba(0,255,136,0.3) !important;box-shadow:0 0 20px rgba(0,255,136,0.2) !important;}";
+    " .youreup-art{border-radius:0 !important;border:1px solid rgba(0,255,136,0.3) !important;box-shadow:0 0 20px rgba(0,255,136,0.2) !important;}" +
+    " .youreup-skip-btn{border:1px solid #00ff88 !important;border-radius:0 !important;color:#00ff88 !important;background:rgba(0,255,136,0.04) !important;box-shadow:0 0 15px rgba(0,255,136,0.2) !important;}" +
+    " .skip-confirm-card{background:#0a0a1a !important;border:1px solid #00ff88 !important;box-shadow:0 0 30px rgba(0,255,136,0.25) !important;border-radius:0 !important;}" +
+    " .skip-confirm-btn-ghost{border:1px solid rgba(0,255,136,0.4) !important;color:#d0ffe8 !important;border-radius:0 !important;}" +
+    " .skip-confirm-btn-danger{background:#ff0055 !important;border:1px solid #ff0055 !important;color:#fff !important;border-radius:0 !important;box-shadow:0 0 20px rgba(255,0,85,0.4) !important;}";
   }else if(activeTheme==="sketch"){
     css=":root{--black:#fdfbf7;--surface-1:rgba(45,93,161,0.05);--surface-2:rgba(45,45,45,0.06);--surface-3:rgba(45,45,45,0.1);--white:#2d2d2d;--white-muted:rgba(45,45,45,0.65);--white-faint:rgba(45,45,45,0.4);--white-ghost:rgba(45,45,45,0.15);--violet:#2d5da1;--pink:#ff4d4d;--cyan:#2d5da1;--emerald:#4caf50;--amber:#fff9c4;--red:#ff4d4d;--grad-hero:linear-gradient(135deg, #ff4d4d, #2d5da1);--grad-text:linear-gradient(135deg, #ff4d4d, #2d5da1);--font-display:'Kalam', cursive;--font-body:'Patrick Hand', cursive;}" +
     " .mesh-bg{background:radial-gradient(#e5e0d8 1px, transparent 1px) !important;background-size:24px 24px !important;animation:none !important;}" +
@@ -1261,7 +1623,14 @@ function applyTheme(){
     " .youreup-play-btn{border:3px solid #2d2d2d !important;box-shadow:6px 6px 0px #2d2d2d !important;border-radius:50% !important;}" +
     " .youreup-play-btn svg{fill:#2d5da1 !important;}" +
     " .youreup-play-btn:active{box-shadow:2px 2px 0px #2d2d2d !important;transform:translate(4px,4px) rotate(1deg) !important;}" +
-    " .youreup-art{border:3px dashed #2d2d2d !important;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px !important;box-shadow:4px 4px 0px #2d2d2d !important;}";
+    " .youreup-art{border:3px dashed #2d2d2d !important;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px !important;box-shadow:4px 4px 0px #2d2d2d !important;}" +
+    " .youreup-skip-btn{border:2px dashed #2d2d2d !important;background:#ffffff !important;color:#2d2d2d !important;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px !important;box-shadow:3px 3px 0px #2d2d2d !important;}" +
+    " .youreup-skip-btn:active{box-shadow:1px 1px 0px #2d2d2d !important;transform:translate(2px,2px) rotate(1deg) !important;}" +
+    " .skip-confirm-card{background:#fdfbf7 !important;border:3px solid #2d2d2d !important;box-shadow:6px 6px 0px #2d2d2d !important;border-radius:25px 225px 15px 255px / 255px 15px 225px 15px !important;}" +
+    " .skip-confirm-title{color:#2d2d2d !important;}" +
+    " .skip-confirm-sub{color:rgba(45,45,45,0.65) !important;}" +
+    " .skip-confirm-btn-ghost{border:2px dashed #2d2d2d !important;background:#ffffff !important;color:#2d2d2d !important;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px !important;}" +
+    " .skip-confirm-btn-danger{border:3px solid #2d2d2d !important;background:#ff4d4d !important;color:#ffffff !important;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px !important;box-shadow:3px 3px 0px #2d2d2d !important;}";
   }else if(activeTheme==="urban"){
     css=":root{--black:#050505;--surface-1:rgba(212,255,0,0.04);--surface-2:rgba(212,255,0,0.06);--surface-3:rgba(212,255,0,0.1);--white:#f0f0f0;--white-muted:rgba(176,176,176,0.8);--white-faint:rgba(176,176,176,0.5);--white-ghost:rgba(212,255,0,0.1);--violet:#D4FF00;--pink:#FF1E1E;--cyan:#00F0FF;--emerald:#D4FF00;--amber:#FFA600;--red:#FF1E1E;--grad-hero:linear-gradient(135deg, #D4FF00, #FF1E1E);--grad-text:linear-gradient(135deg, #D4FF00, #FF1E1E);--font-display:'Permanent Marker', cursive;--font-body:'Oswald', sans-serif;}" +
     " .mesh-bg{background:radial-gradient(circle at 50% 30%, #1c1c1c 0%, #030303 80%) !important;animation:none !important;}" +
@@ -1291,7 +1660,12 @@ function applyTheme(){
     " .meme-pick-btn{border:1px solid rgba(212,255,0,0.15) !important;background:rgba(212,255,0,0.04) !important;border-radius:0 !important;}" +
     " .youreup-play-btn{border-radius:0 !important;border:none !important;clip-path:polygon(4% 0%, 100% 0%, 96% 100%, 0% 100%) !important;box-shadow:0 0 30px rgba(212,255,0,0.4),0 0 60px rgba(212,255,0,0.2) !important;}" +
     " .youreup-art{border-radius:0 !important;clip-path:polygon(3% 0%, 100% 0%, 97% 100%, 0% 100%) !important;box-shadow:none !important;}" +
-    " .youreup-title{font-family:'Permanent Marker',cursive !important;text-transform:uppercase !important;letter-spacing:3px !important;}";
+    " .youreup-title{font-family:'Permanent Marker',cursive !important;text-transform:uppercase !important;letter-spacing:3px !important;}" +
+    " .youreup-skip-btn{clip-path:polygon(3% 0%, 100% 0%, 97% 100%, 0% 100%) !important;border:1px solid #D4FF00 !important;border-radius:0 !important;background:rgba(212,255,0,0.08) !important;color:#D4FF00 !important;text-transform:uppercase !important;font-family:'Oswald',sans-serif !important;letter-spacing:2px !important;}" +
+    " .skip-confirm-card{background:#0a0a0a !important;border:1px solid #D4FF00 !important;border-radius:0 !important;clip-path:polygon(2% 0%, 100% 0%, 98% 100%, 0% 100%) !important;box-shadow:0 0 30px rgba(212,255,0,0.25) !important;}" +
+    " .skip-confirm-title{font-family:'Permanent Marker',cursive !important;text-transform:uppercase !important;letter-spacing:3px !important;}" +
+    " .skip-confirm-btn-ghost{border:1px solid rgba(212,255,0,0.4) !important;background:rgba(212,255,0,0.04) !important;color:#f0f0f0 !important;border-radius:0 !important;clip-path:polygon(4% 0%, 100% 0%, 96% 100%, 0% 100%) !important;text-transform:uppercase !important;font-family:'Oswald',sans-serif !important;letter-spacing:2px !important;}" +
+    " .skip-confirm-btn-danger{background:#FF1E1E !important;border:1px solid #FF1E1E !important;color:#fff !important;border-radius:0 !important;clip-path:polygon(4% 0%, 100% 0%, 96% 100%, 0% 100%) !important;text-transform:uppercase !important;font-family:'Oswald',sans-serif !important;letter-spacing:2px !important;box-shadow:0 0 20px rgba(255,30,30,0.4) !important;}";
   }else if(activeTheme==="deep-sea"){
     css=":root{--black:#040918;--surface-1:rgba(0,255,200,0.04);--surface-2:rgba(0,255,200,0.07);--surface-3:rgba(0,255,200,0.1);--white:#e0fff8;--white-muted:rgba(142,207,194,0.8);--white-faint:rgba(142,207,194,0.4);--white-ghost:rgba(0,255,200,0.1);--violet:#b44dff;--pink:#ff6b8a;--cyan:#00ffc8;--emerald:#00ffc8;--amber:#ffc857;--red:#ff6b8a;--grad-hero:linear-gradient(135deg, #00ffc8, #b44dff);--grad-text:linear-gradient(135deg, #00ffc8, #b44dff);--font-display:'Quicksand', sans-serif;--font-body:'Nunito', sans-serif;}" +
     " .mesh-bg{background:radial-gradient(ellipse at 30% 40%, rgba(0,255,200,0.04) 0%, transparent 60%), radial-gradient(ellipse at 70% 60%, rgba(180,77,255,0.03) 0%, transparent 60%) !important;animation:none !important;}" +
@@ -1320,7 +1694,11 @@ function applyTheme(){
     " .meme-pick-btn{border:1px solid rgba(0,255,200,0.12) !important;background:rgba(0,255,200,0.04) !important;border-radius:12px !important;}" +
     " .youreup-screen{background:#040918 !important;}" +
     " .youreup-play-btn{border:1px solid #00ffc8 !important;box-shadow:0 0 30px rgba(0,255,200,0.4),0 0 60px rgba(0,255,200,0.2) !important;}" +
-    " .youreup-art{border:1px solid rgba(0,255,200,0.2) !important;border-radius:12px !important;box-shadow:0 0 20px rgba(0,255,200,0.15) !important;}";
+    " .youreup-art{border:1px solid rgba(0,255,200,0.2) !important;border-radius:12px !important;box-shadow:0 0 20px rgba(0,255,200,0.15) !important;}" +
+    " .youreup-skip-btn{border:1px solid rgba(0,255,200,0.4) !important;border-radius:8px !important;background:rgba(0,255,200,0.06) !important;color:#00ffc8 !important;box-shadow:0 0 12px rgba(0,255,200,0.15) !important;}" +
+    " .skip-confirm-card{background:#071228 !important;border:1px solid rgba(0,255,200,0.3) !important;border-radius:12px !important;box-shadow:0 0 30px rgba(0,255,200,0.2) !important;}" +
+    " .skip-confirm-btn-ghost{border:1px solid rgba(0,255,200,0.3) !important;background:rgba(0,255,200,0.04) !important;color:#e0fff8 !important;border-radius:8px !important;}" +
+    " .skip-confirm-btn-danger{background:#ff6b8a !important;border:1px solid #ff6b8a !important;color:#fff !important;border-radius:8px !important;box-shadow:0 0 20px rgba(255,107,138,0.4) !important;}";
   }else if(activeTheme==="psychedelic"){
     css=":root{--black:#1a0a2e;--surface-1:rgba(255,45,149,0.04);--surface-2:rgba(255,45,149,0.07);--surface-3:rgba(255,45,149,0.1);--white:#f5ecff;--white-muted:rgba(200,168,232,0.8);--white-faint:rgba(200,168,232,0.45);--white-ghost:rgba(255,45,149,0.1);--violet:#ff2d95;--pink:#ff2d95;--cyan:#b6ff2d;--emerald:#b6ff2d;--amber:#ff8c2d;--red:#ff2d95;--grad-hero:linear-gradient(135deg, #ff2d95, #b6ff2d, #ff8c2d);--grad-text:linear-gradient(135deg, #ff2d95, #b6ff2d);--font-display:'Chicle', cursive;--font-body:'Spicy Rice', cursive;}" +
     " .mesh-bg{background:radial-gradient(ellipse at 30% 40%, rgba(255,45,149,0.06) 0%, transparent 60%), radial-gradient(ellipse at 70% 60%, rgba(182,255,45,0.04) 0%, transparent 60%) !important;animation:none !important;}" +
@@ -1349,7 +1727,11 @@ function applyTheme(){
     " .meme-pick-btn{border:1px solid rgba(255,45,149,0.12) !important;background:rgba(255,45,149,0.04) !important;border-radius:16px !important;}" +
     " .youreup-screen{background:#1a0a2e !important;}" +
     " .youreup-play-btn{border:1px solid #ff2d95 !important;box-shadow:0 0 30px rgba(255,45,149,0.4),0 0 60px rgba(182,255,45,0.2) !important;}" +
-    " .youreup-art{border:1px solid rgba(255,45,149,0.2) !important;border-radius:16px !important;box-shadow:0 0 20px rgba(255,45,149,0.15) !important;}";
+    " .youreup-art{border:1px solid rgba(255,45,149,0.2) !important;border-radius:16px !important;box-shadow:0 0 20px rgba(255,45,149,0.15) !important;}" +
+    " .youreup-skip-btn{border:1px solid rgba(255,45,149,0.4) !important;border-radius:16px !important;background:rgba(255,45,149,0.06) !important;color:#ff2d95 !important;box-shadow:0 0 12px rgba(255,45,149,0.2) !important;}" +
+    " .skip-confirm-card{background:#241040 !important;border:1px solid rgba(255,45,149,0.3) !important;border-radius:16px !important;box-shadow:0 0 30px rgba(255,45,149,0.2) !important;}" +
+    " .skip-confirm-btn-ghost{border:1px solid rgba(255,45,149,0.3) !important;background:rgba(255,45,149,0.04) !important;color:#f5ecff !important;border-radius:16px !important;}" +
+    " .skip-confirm-btn-danger{background:#ff2d95 !important;border:1px solid #ff2d95 !important;color:#fff !important;border-radius:16px !important;box-shadow:0 0 20px rgba(255,45,149,0.4) !important;}";
   }else if(activeTheme==="zen"){
     css=":root{--black:#1a1814;--surface-1:rgba(201,168,76,0.04);--surface-2:rgba(201,168,76,0.07);--surface-3:rgba(201,168,76,0.1);--white:#F0E6D3;--white-muted:rgba(184,168,152,0.8);--white-faint:rgba(184,168,152,0.45);--white-ghost:rgba(201,168,76,0.1);--violet:#D4442A;--pink:#E8A0BF;--cyan:#7BA05B;--emerald:#7BA05B;--amber:#D4B85A;--red:#D4442A;--grad-hero:linear-gradient(135deg, #D4442A, #D4B85A);--grad-text:linear-gradient(135deg, #D4442A, #D4B85A);--font-display:'Cormorant Garamond', Georgia, serif;--font-body:'Zen Kaku Gothic New', sans-serif;}" +
     " .mesh-bg{background:radial-gradient(ellipse at 30% 40%, rgba(201,168,76,0.04) 0%, transparent 60%), radial-gradient(ellipse at 70% 60%, rgba(139,107,74,0.03) 0%, transparent 60%) !important;animation:none !important;}" +
@@ -1378,7 +1760,11 @@ function applyTheme(){
     " .meme-pick-btn{border:1px solid rgba(201,168,76,0.12) !important;background:rgba(201,168,76,0.04) !important;border-radius:10px !important;}" +
     " .youreup-screen{background:#1a1814 !important;}" +
     " .youreup-play-btn{border:1px solid #D4B85A !important;box-shadow:0 0 30px rgba(201,168,76,0.3),0 0 60px rgba(212,68,42,0.15) !important;}" +
-    " .youreup-art{border:1px solid rgba(201,168,76,0.2) !important;border-radius:10px !important;box-shadow:0 0 20px rgba(201,168,76,0.1) !important;}";
+    " .youreup-art{border:1px solid rgba(201,168,76,0.2) !important;border-radius:10px !important;box-shadow:0 0 20px rgba(201,168,76,0.1) !important;}" +
+    " .youreup-skip-btn{border:1px solid rgba(201,168,76,0.4) !important;border-radius:6px !important;background:rgba(201,168,76,0.06) !important;color:#D4B85A !important;box-shadow:0 0 12px rgba(201,168,76,0.15) !important;}" +
+    " .skip-confirm-card{background:#231f1a !important;border:1px solid rgba(201,168,76,0.3) !important;border-radius:10px !important;box-shadow:0 0 30px rgba(201,168,76,0.2) !important;}" +
+    " .skip-confirm-btn-ghost{border:1px solid rgba(201,168,76,0.3) !important;background:rgba(201,168,76,0.04) !important;color:#F0E6D3 !important;border-radius:6px !important;}" +
+    " .skip-confirm-btn-danger{background:#D4442A !important;border:1px solid #D4442A !important;color:#F0E6D3 !important;border-radius:6px !important;box-shadow:0 0 20px rgba(212,68,42,0.4) !important;}";
   }else if(activeTheme==="space"){
     css=":root{--black:#08080F;--surface-1:rgba(224,64,251,0.04);--surface-2:rgba(224,64,251,0.07);--surface-3:rgba(224,64,251,0.1);--white:#E8E6F0;--white-muted:rgba(152,150,168,0.8);--white-faint:rgba(152,150,168,0.45);--white-ghost:rgba(224,64,251,0.1);--violet:#E040FB;--pink:#FB40A0;--cyan:#40E0D0;--emerald:#40FB80;--amber:#FFB740;--red:#FF4060;--grad-hero:linear-gradient(135deg, #E040FB, #40E0D0);--grad-text:linear-gradient(135deg, #E040FB, #40E0D0);--font-display:'Orbitron', sans-serif;--font-body:'Exo 2', sans-serif;}" +
     " .mesh-bg{background:radial-gradient(ellipse at 25% 35%, rgba(224,64,251,0.04) 0%, transparent 60%), radial-gradient(ellipse at 75% 55%, rgba(64,224,208,0.03) 0%, transparent 60%) !important;animation:none !important;}" +
@@ -1407,7 +1793,11 @@ function applyTheme(){
     " .meme-pick-btn{border:1px solid rgba(224,64,251,0.12) !important;background:rgba(224,64,251,0.04) !important;border-radius:8px !important;}" +
     " .youreup-screen{background:#08080F !important;}" +
     " .youreup-play-btn{border:1px solid #E040FB !important;box-shadow:0 0 30px rgba(224,64,251,0.4),0 0 60px rgba(64,224,208,0.2) !important;}" +
-    " .youreup-art{border:1px solid rgba(224,64,251,0.2) !important;border-radius:8px !important;box-shadow:0 0 20px rgba(224,64,251,0.15) !important;}";
+    " .youreup-art{border:1px solid rgba(224,64,251,0.2) !important;border-radius:8px !important;box-shadow:0 0 20px rgba(224,64,251,0.15) !important;}" +
+    " .youreup-skip-btn{border:1px solid rgba(224,64,251,0.4) !important;border-radius:4px !important;background:rgba(224,64,251,0.06) !important;color:#E040FB !important;box-shadow:0 0 12px rgba(224,64,251,0.2) !important;letter-spacing:1px !important;}" +
+    " .skip-confirm-card{background:#0E0E1A !important;border:1px solid rgba(224,64,251,0.3) !important;border-radius:8px !important;box-shadow:0 0 30px rgba(224,64,251,0.25) !important;}" +
+    " .skip-confirm-btn-ghost{border:1px solid rgba(224,64,251,0.3) !important;background:rgba(224,64,251,0.04) !important;color:#E8E6F0 !important;border-radius:4px !important;letter-spacing:1px !important;}" +
+    " .skip-confirm-btn-danger{background:#FF4060 !important;border:1px solid #FF4060 !important;color:#fff !important;border-radius:4px !important;box-shadow:0 0 20px rgba(255,64,96,0.4) !important;letter-spacing:1px !important;}";
   }else if(activeTheme==="steampunk"){
     css=":root{--black:#14110F;--surface-1:rgba(200,151,62,0.04);--surface-2:rgba(200,151,62,0.07);--surface-3:rgba(200,151,62,0.1);--white:#E8DCC8;--white-muted:rgba(168,152,120,0.8);--white-faint:rgba(168,152,120,0.45);--white-ghost:rgba(200,151,62,0.1);--violet:#C8973E;--pink:#E07040;--cyan:#5A9E8F;--emerald:#5A9E8F;--amber:#C8973E;--red:#B84030;--grad-hero:linear-gradient(135deg, #C8973E, #E07040);--grad-text:linear-gradient(135deg, #C8973E, #E07040);--font-display:'Cinzel Decorative', serif;--font-body:'Spectral', Georgia, serif;}" +
     " .mesh-bg{background:radial-gradient(ellipse at 30% 40%, rgba(200,151,62,0.04) 0%, transparent 60%), radial-gradient(ellipse at 70% 60%, rgba(224,112,64,0.03) 0%, transparent 60%) !important;animation:none !important;}" +
@@ -1436,7 +1826,11 @@ function applyTheme(){
     " .meme-pick-btn{border:1px solid rgba(200,151,62,0.12) !important;background:rgba(200,151,62,0.04) !important;border-radius:6px !important;}" +
     " .youreup-screen{background:#14110F !important;}" +
     " .youreup-play-btn{border:1px solid #C8973E !important;box-shadow:0 0 30px rgba(200,151,62,0.3),0 0 60px rgba(224,112,64,0.15) !important;}" +
-    " .youreup-art{border:1px solid rgba(200,151,62,0.2) !important;border-radius:6px !important;box-shadow:0 0 20px rgba(200,151,62,0.1) !important;}";
+    " .youreup-art{border:1px solid rgba(200,151,62,0.2) !important;border-radius:6px !important;box-shadow:0 0 20px rgba(200,151,62,0.1) !important;}" +
+    " .youreup-skip-btn{border:1px solid rgba(200,151,62,0.4) !important;border-radius:3px !important;background:rgba(200,151,62,0.06) !important;color:#C8973E !important;box-shadow:0 0 12px rgba(200,151,62,0.2) !important;}" +
+    " .skip-confirm-card{background:#1C1816 !important;border:1px solid rgba(200,151,62,0.3) !important;border-radius:6px !important;box-shadow:0 0 30px rgba(200,151,62,0.25) !important;}" +
+    " .skip-confirm-btn-ghost{border:1px solid rgba(200,151,62,0.3) !important;background:rgba(200,151,62,0.04) !important;color:#E8DCC8 !important;border-radius:3px !important;}" +
+    " .skip-confirm-btn-danger{background:#B84030 !important;border:1px solid #B84030 !important;color:#E8DCC8 !important;border-radius:3px !important;box-shadow:0 0 20px rgba(184,64,48,0.4) !important;}";
   }else if(activeTheme==="retrowave"){
     css=":root{--black:#0a0614;--surface-1:rgba(255,45,149,0.04);--surface-2:rgba(255,45,149,0.07);--surface-3:rgba(255,45,149,0.1);--white:#F0E6FF;--white-muted:rgba(155,140,191,0.8);--white-faint:rgba(155,140,191,0.45);--white-ghost:rgba(255,45,149,0.1);--violet:#B44AFF;--pink:#FF2D95;--cyan:#00BFFF;--emerald:#00BFFF;--amber:#FFD700;--red:#FF1A6B;--grad-hero:linear-gradient(135deg, #FF2D95, #FF6B2B, #FFD700);--grad-text:linear-gradient(135deg, #FFD700, #FF6B2B, #FF2D95);--font-display:'Audiowide', sans-serif;--font-body:'Rajdhani', 'Exo 2', sans-serif;}" +
     " .mesh-bg{background:radial-gradient(ellipse at 30% 40%, rgba(255,45,149,0.04) 0%, transparent 60%), radial-gradient(ellipse at 70% 60%, rgba(0,191,255,0.03) 0%, transparent 60%) !important;animation:none !important;}" +
@@ -1465,7 +1859,11 @@ function applyTheme(){
     " .meme-pick-btn{border:1px solid rgba(255,45,149,0.12) !important;background:rgba(255,45,149,0.04) !important;border-radius:4px !important;}" +
     " .youreup-screen{background:#0a0614 !important;}" +
     " .youreup-play-btn{border:1px solid #FF2D95 !important;box-shadow:0 0 30px rgba(255,45,149,0.3),0 0 60px rgba(0,191,255,0.15) !important;}" +
-    " .youreup-art{border:1px solid rgba(255,45,149,0.2) !important;border-radius:4px !important;box-shadow:0 0 20px rgba(255,45,149,0.1) !important;}";
+    " .youreup-art{border:1px solid rgba(255,45,149,0.2) !important;border-radius:4px !important;box-shadow:0 0 20px rgba(255,45,149,0.1) !important;}" +
+    " .youreup-skip-btn{border:1px solid rgba(255,45,149,0.4) !important;border-radius:4px !important;background:rgba(255,45,149,0.06) !important;color:#FF2D95 !important;box-shadow:0 0 12px rgba(255,45,149,0.2) !important;}" +
+    " .skip-confirm-card{background:#110a1e !important;border:1px solid rgba(255,45,149,0.3) !important;border-radius:4px !important;box-shadow:0 0 30px rgba(255,45,149,0.25) !important;}" +
+    " .skip-confirm-btn-ghost{border:1px solid rgba(255,45,149,0.3) !important;background:rgba(255,45,149,0.04) !important;color:#F0E6FF !important;border-radius:4px !important;}" +
+    " .skip-confirm-btn-danger{background:#FF1A6B !important;border:1px solid #FF1A6B !important;color:#fff !important;border-radius:4px !important;box-shadow:0 0 20px rgba(255,26,107,0.4) !important;}";
   }else{
     css="";
   }
@@ -1487,7 +1885,9 @@ function render(){
     case"join":a.innerHTML=renderJoin();break;
     case"joining":a.innerHTML=renderJoining();break;
     case"songs":a.innerHTML=renderSongs()+renderBN("songs");break;
-    case"config":a.innerHTML=renderConfig()+renderBN("songs");break;
+    case"wizard-singers":a.innerHTML=renderWizardShell(2,renderWizardSingers())+renderWizardFooter(2)+renderBN("songs")+renderSingerPickerOverlay();break;
+    case"wizard-roles":a.innerHTML=renderWizardShell(3,renderWizardRoles())+renderWizardFooter(3)+renderBN("songs");break;
+    case"wizard-stage":a.innerHTML=renderWizardShell(4,renderWizardStage())+renderWizardFooter(4)+renderBN("songs");break;
     case"queue":a.innerHTML=renderQueue()+renderBN("queue");break;
     case"stage":a.innerHTML=renderStage()+renderBN("stage")+renderEmojiPicker()+renderTextInput()+renderMemePicker();break;
     case"profile":a.innerHTML=renderProfile()+renderBN("profile");break;
@@ -1565,87 +1965,199 @@ function renderSongs(){
     '<div class="song-grid" id="song-grid">'+cards+'</div>'+
   '</div>';
 }
-function renderConfig(){
+function renderWizardStepper(step){
+  var roles=(S.selectedTrack&&S.selectedTrack.roles)||[];
+  var hasRoles=roles.length>1;
+  var totalSteps=hasRoles?4:3;
+  var steps=[{key:1,label:"Song",go:"songs"},{key:2,label:"Singers",go:null}];
+  if(hasRoles)steps.push({key:3,label:"Roles",go:null});
+  steps.push({key:4,label:"Finish",go:null});
+  var html='<div class="wiz-stepper" data-total="'+totalSteps+'">';
+  for(var i=0;i<steps.length;i++){
+    var st=steps[i];
+    var cls="wiz-step";
+    var data="";
+    if(st.key<step){cls+=" is-done";if(st.go){data=' data-go="'+st.go+'"';}}
+    else if(st.key===step){cls+=" is-active";}
+    else{cls+=" is-upcoming";}
+    html+='<button class="'+cls+'"'+data+' type="button"><span class="wiz-step-dot"></span><span class="wiz-step-label">'+esc(st.label)+'</span></button>';
+  }
+  html+='</div>';
+  return html;
+}
+function renderWizardSongBanner(){
   var t=S.selectedTrack;if(!t)return"";
-  var roles=t.roles||[];
-  var sh="";
-  for(var i=0;i<S.singerCount;i++){
+  return '<div class="wiz-song-banner">'+
+    (t.art_url?'<img src="'+esc(t.art_url)+'" alt="">':"")+
+    '<div class="wiz-song-banner-body">'+
+      '<div class="wiz-song-banner-title">'+esc(t.name)+'</div>'+
+      '<div class="wiz-song-banner-artist">'+esc(t.artist)+'</div>'+
+    '</div>'+
+  '</div>';
+}
+function renderWizardShell(step,body){
+  var hasRoles=((S.selectedTrack&&S.selectedTrack.roles)||[]).length>1;
+  var totalLabel=hasRoles?"4":"3";
+  var numLabel=(step===4&&!hasRoles)?"3":(step===4?"4":(step===3?"3":"2"));
+  var stepText="Step "+numLabel+" of "+totalLabel;
+  var titles={2:stepText+" \u00b7 Singers",3:stepText+" \u00b7 Roles",4:stepText+" \u00b7 Finish"};
+  return '<div class="wiz-screen screen">'+
+    '<div class="wiz-topbar">'+
+      '<button class="wiz-topbar-back" id="wiz-back" aria-label="Back" type="button">'+
+        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>'+
+      '</button>'+
+      '<div class="wiz-topbar-title">'+esc(titles[step]||"")+'</div>'+
+      '<button class="wiz-topbar-cancel" id="wiz-cancel" aria-label="Cancel" type="button">'+
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>'+
+      '</button>'+
+    '</div>'+
+    renderWizardStepper(step)+
+    renderWizardSongBanner()+
+    body+
+  '</div>';
+}
+function renderWizardFooter(step){
+  var cta=(step===4)?"Add to Queue":"Next";
+  var disabled=(step===4&&S.addingToQueue)?" disabled":"";
+  var nextSvg=(step===4)?"":' <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-left:4px"><path d="M5 12h14M13 5l7 7-7 7"/></svg>';
+  return '<div class="wiz-footer">'+
+    '<button class="wiz-footer-back" id="wiz-footer-back" type="button">Back</button>'+
+    '<button class="add-queue-btn wiz-footer-next" id="wiz-next" type="button"'+disabled+'>'+esc(cta)+nextSvg+'</button>'+
+  '</div>';
+}
+function renderWizardSingers(){
+  var rows="";
+  for(var i=0;i<S.singers.length;i++){
     var s=S.singers[i];
-    var cd=NC.map(function(nc,ci){
-      var act=s.color===nc.c;
-      return '<button class="color-dot'+(act?" active":"")+'" data-singer="'+i+'" data-color="'+ci+'" style="background:'+nc.c+(act?";box-shadow:0 0 0 2px var(--black),0 0 0 4px "+nc.c+",0 0 15px "+nc.g:"")+'"></button>';
-    }).join("");
-    var rh="";
-    if(roles.length>0){
-      rh='<div class="field-label" style="margin-top:14px">Roles</div><div class="role-btns">'+
-        roles.map(function(r,ri){return '<button class="role-btn'+((s.roleIndices||[]).indexOf(ri)>=0?" active":"")+'" data-singer="'+i+'" data-role="'+ri+'">'+esc(r)+'</button>';}).join("")+
-      '</div>';
-    }
-    var gp="";
-    if(S.guests.length>0){
-      gp='<div class="guest-picker" data-singer="'+i+'">'+S.guests.map(function(g){
-        var isSel=s.name===g.name;
-        var avBg=g.profilePicture?'<img src="'+g.profilePicture+'" alt="">':esc((g.name||"?").charAt(0).toUpperCase());
-        return '<button class="guest-picker-pill'+(isSel?" selected":"")+'" data-singer="'+i+'" data-guest-id="'+g.id+'"><div class="guest-picker-avatar" style="background:'+NC[S.guests.indexOf(g)%NC.length].c+'">'+avBg+'</div>'+esc(g.name)+'</button>';
-      }).join("")+'</div>';
-    }
-    var wpc="";
-    var ori=t.offensive_role_indices||[];
-    if(s.roleIndices&&s.roleIndices.length>0&&s.roleIndices.some(function(ri){return ori.indexOf(ri)>=0;})){
-      wpc='<label class="wpc-label" data-singer="'+i+'" style="display:flex;align-items:center;gap:10px;margin-top:14px;padding:10px 12px;border-radius:8px;background:var(--surface-1,rgba(128,128,128,0.08));cursor:pointer">'+
-        '<input type="checkbox" class="wpc-check" data-singer="'+i+'"'+(s.whitePersonCheck?" checked":"")+' style="width:18px;height:18px;cursor:pointer;accent-color:'+s.color+'">'+
-        '<div><div style="font-size:12px;font-weight:700;color:var(--white)">White Singer</div>'+
-        '<div style="font-size:10px;opacity:0.7;color:var(--white-muted)">Sanitizes certain words from lyrics on stage</div></div>'+
-      '</label>';
-    }
-    sh+='<div class="singer-card" style="border:1px solid '+s.color+'">'+
-      '<div class="singer-card-accent" style="background:'+s.color+'"></div>'+
-      '<div class="singer-card-header"><div class="singer-card-dot" style="background:'+s.color+'"></div><div class="singer-card-label">Singer '+(i+1)+'</div></div>'+
-      '<div class="field-label">Name</div>'+
-      '<input class="singer-name-input" data-singer="'+i+'" value="'+esc(s.name)+'" placeholder="Singer '+(i+1)+'">'+
-      gp+
-      '<div class="field-label" style="margin-top:10px">Color</div>'+
-      '<div class="color-dots">'+cd+'</div>'+
-      rh+
-      wpc+
+    var av='<div class="wiz-singer-row-avatar" style="background:'+s.color+'">'+
+      (s.profilePicture?'<img src="'+esc(s.profilePicture)+'" alt="">':esc((s.name||"?").charAt(0).toUpperCase()))+
+    '</div>';
+    var badge=(i===0)?'<span class="wiz-singer-row-badge">You</span>':'';
+    var removeBtn=(i===0)?"":'<button class="wiz-singer-row-remove" data-remove="'+i+'" type="button" aria-label="Remove singer">'+
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>'+
+    '</button>';
+    rows+='<div class="wiz-singer-row" style="border-color:'+s.color+'">'+
+      av+
+      '<div class="wiz-singer-row-body">'+
+        '<div class="wiz-singer-row-name-wrap"><span class="wiz-singer-row-name">'+esc(s.name||"Singer "+(i+1))+'</span>'+badge+'</div>'+
+        '<div class="wiz-singer-row-meta">Singer '+(i+1)+'</div>'+
+      '</div>'+
+      removeBtn+
     '</div>';
   }
-  var scb=[0,1,2,3,4].map(function(n){return '<button class="singer-count-btn'+(S.singerCount===n?" active":"")+'" data-count="'+n+'">'+(!n?"None":n)+'</button>';}).join("");
-  return '<div class="config-screen screen">'+
-    '<button class="config-back" id="config-back"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Back to Songs</button>'+
-    '<div class="config-song">'+
-      (t.art_url?'<img src="'+t.art_url+'" alt="">':"")+
-      '<div><div class="config-song-title">'+esc(t.name)+'</div><div class="config-song-artist">'+esc(t.artist)+'</div></div>'+
-    '</div>'+
-    '<div class="config-section"><div class="config-label"><div class="config-label-icon" style="background:rgba(244,114,182,0.1)">&#127908;</div> How many singers?</div><div class="singer-count-btns">'+scb+'</div></div>'+
-    sh+
-    '<div class="theme-picker">'+
-      '<div class="theme-picker-label"><div class="config-label-icon" style="background:rgba(167,139,250,0.1)">&#127912;</div> Stage Theme</div>'+
-      '<div class="theme-picker-grid">'+
-        '<button class="theme-pick-btn'+(S.stage_theme==="neo-brutal" || S.stage_theme === null ?" selected":"")+'" data-stage-theme="neo-brutal" style="background:#FFFDF5;color:#1A1A1A;border:3px solid #1A1A1A;border-radius:8px;font-family:\'Space Grotesk\',sans-serif;box-shadow:3px 3px 0 #1A1A1A;">Default</button>'+
-        '<button class="theme-pick-btn'+(S.stage_theme==="cyberpunk"?" selected":"")+'" data-stage-theme="cyberpunk" style="background:#0a0a1a;color:#00ff88;border:1.5px solid #00ff88;border-radius:0;font-family:\'Courier New\',monospace;text-shadow:0 0 8px rgba(0,255,136,0.5);">Cyberpunk</button>'+
-        '<button class="theme-pick-btn'+(S.stage_theme==="sketch"?" selected":"")+'" data-stage-theme="sketch" style="background:#fdfbf7;color:#2d5da1;border:2px dashed #2d5da1;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px;font-family:\'Patrick Hand\',cursive;">Sketch</button>'+
-        '<button class="theme-pick-btn'+(S.stage_theme==="urban"?" selected":"")+'" data-stage-theme="urban" style="background:#0a0a0a;color:#D4FF00;border:1.5px solid #D4FF00;border-radius:4px;font-family:\'Oswald\',sans-serif;text-transform:uppercase;letter-spacing:2px;">Urban</button>'+
-        '<button class="theme-pick-btn'+(S.stage_theme==="deep-sea"?" selected":"")+'" data-stage-theme="deep-sea" style="background:#040918;color:#00ffc8;border:1px solid rgba(0,255,200,0.4);border-radius:12px;font-family:\'Quicksand\',sans-serif;text-shadow:0 0 8px rgba(0,255,200,0.4);">Deep Sea</button>'+
-        '<button class="theme-pick-btn'+(S.stage_theme==="psychedelic"?" selected":"")+'" data-stage-theme="psychedelic" style="background:#1a0a2e;color:#ff2d95;border:1px solid rgba(255,45,149,0.4);border-radius:16px;font-family:\'Chicle\',cursive;text-shadow:0 0 8px rgba(255,45,149,0.4);">Psychedelic</button>'+
-        '<button class="theme-pick-btn'+(S.stage_theme==="zen"?" selected":"")+'" data-stage-theme="zen" style="background:#1a1814;color:#D4B85A;border:1px solid rgba(201,168,76,0.4);border-radius:6px;font-family:\'Cormorant Garamond\',serif;font-style:italic;text-shadow:0 0 8px rgba(201,168,76,0.3);">Zen</button>'+
-        '<button class="theme-pick-btn'+(S.stage_theme==="space"?" selected":"")+'" data-stage-theme="space" style="background:#08080F;color:#E040FB;border:1px solid rgba(224,64,251,0.4);border-radius:4px;font-family:\'Orbitron\',sans-serif;text-shadow:0 0 8px rgba(224,64,251,0.4);letter-spacing:1px;font-size:11px;">Space</button>'+
-        '<button class="theme-pick-btn'+(S.stage_theme==="steampunk"?" selected":"")+'" data-stage-theme="steampunk" style="background:#14110F;color:#C8973E;border:1px solid rgba(200,151,62,0.4);border-radius:3px;font-family:\'Cinzel Decorative\',serif;text-shadow:0 0 8px rgba(200,151,62,0.3);font-size:11px;">Steampunk</button>'+
-        '<button class="theme-pick-btn'+(S.stage_theme==="retrowave"?" selected":"")+'" data-stage-theme="retrowave" style="background:#0a0614;color:#FF2D95;border:1px solid rgba(255,45,149,0.4);border-radius:4px;font-family:\'Audiowide\',sans-serif;text-shadow:0 0 8px rgba(255,45,149,0.4);font-size:11px;">Retrowave</button>'+
+  var addBtn=(S.singers.length<MAX_SINGERS)?'<button class="wiz-add-singer" id="wiz-add-singer" type="button">'+
+    '<span class="wiz-add-singer-plus">+</span> Add another singer'+
+  '</button>':'';
+  return '<div class="wiz-hero">Who\u2019s singing?</div>'+
+    '<div class="wiz-hero-sub">You\u2019re locked in as the first singer. Add up to '+(MAX_SINGERS-1)+' more people who\u2019ll sing this song with you.</div>'+
+    '<div class="wiz-singer-list">'+rows+'</div>'+
+    addBtn;
+}
+function renderWizardRoles(){
+  var t=S.selectedTrack;if(!t)return"";
+  var roles=t.roles||[];
+  var singerChipHTML=function(roleIdx){
+    return S.singers.map(function(s,si){
+      var active=(s.roleIndices||[]).indexOf(roleIdx)>=0;
+      var avInner=s.profilePicture?'<img src="'+esc(s.profilePicture)+'" alt="">':esc((s.name||"?").charAt(0).toUpperCase());
+      var style=active?'border-color:'+s.color+';background:'+s.colorGlow+';color:var(--white);box-shadow:0 0 0 1.5px '+s.color:'';
+      return '<button class="role-singer-chip'+(active?" is-active":"")+'" data-role-idx="'+roleIdx+'" data-singer-idx="'+si+'" type="button" style="'+style+'">'+
+        '<span class="role-singer-chip-avatar" style="background:'+s.color+'">'+avInner+'</span>'+
+        '<span class="role-singer-chip-name">'+esc(s.name||"Singer "+(si+1))+'</span>'+
+      '</button>';
+    }).join("");
+  };
+  var roleRows=roles.map(function(r,ri){
+    return '<div class="wiz-role-row">'+
+      '<div class="wiz-role-row-head">'+
+        '<div class="wiz-role-row-eyebrow">Who sings</div>'+
+        '<div class="wiz-role-row-title">'+esc(r)+'</div>'+
       '</div>'+
+      '<div class="wiz-role-chips">'+singerChipHTML(ri)+'</div>'+
+    '</div>';
+  }).join("");
+  var unassigned=S.singers.filter(function(s){return !s.roleIndices||s.roleIndices.length===0;}).length;
+  var warnHtml="";
+  if(unassigned>0){
+    var who=(unassigned===1?"1 singer hasn\u2019t":unassigned+" singers haven\u2019t")+" been assigned a role.";
+    warnHtml='<div class="wiz-warn">'+
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>'+
+      '<div>'+who+' Tap their name under the parts they\u2019ll sing, or continue if they\u2019re just hanging out.</div>'+
+    '</div>';
+  }
+  return '<div class="wiz-hero">Who sings what?</div>'+
+    '<div class="wiz-hero-sub">Tap a singer for each part. Multi-select for duets \u2014 a singer can cover multiple parts too.</div>'+
+    '<div class="wiz-role-list">'+roleRows+'</div>'+
+    warnHtml;
+}
+function renderWizardStage(){
+  var tiles=[
+    {k:"none",label:"Session Default"},
+    {k:"neo-brutal",label:"Neo-Brutal",style:"background:#FFFDF5;color:#1A1A1A;border:3px solid #1A1A1A;border-radius:8px;font-family:'Space Grotesk',sans-serif;box-shadow:3px 3px 0 #1A1A1A;"},
+    {k:"cyberpunk",label:"Cyberpunk",style:"background:#0a0a1a;color:#00ff88;border:1.5px solid #00ff88;border-radius:0;font-family:'Courier New',monospace;text-shadow:0 0 8px rgba(0,255,136,0.5);"},
+    {k:"sketch",label:"Sketch",style:"background:#fdfbf7;color:#2d5da1;border:2px dashed #2d5da1;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px;font-family:'Patrick Hand',cursive;"},
+    {k:"urban",label:"Urban",style:"background:#0a0a0a;color:#D4FF00;border:1.5px solid #D4FF00;border-radius:4px;font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:2px;"},
+    {k:"deep-sea",label:"Deep Sea",style:"background:#040918;color:#00ffc8;border:1px solid rgba(0,255,200,0.4);border-radius:12px;font-family:'Quicksand',sans-serif;text-shadow:0 0 8px rgba(0,255,200,0.4);"},
+    {k:"psychedelic",label:"Psychedelic",style:"background:#1a0a2e;color:#ff2d95;border:1px solid rgba(255,45,149,0.4);border-radius:16px;font-family:'Chicle',cursive;text-shadow:0 0 8px rgba(255,45,149,0.4);"},
+    {k:"zen",label:"Zen",style:"background:#1a1814;color:#D4B85A;border:1px solid rgba(201,168,76,0.4);border-radius:6px;font-family:'Cormorant Garamond',serif;font-style:italic;text-shadow:0 0 8px rgba(201,168,76,0.3);"},
+    {k:"space",label:"Space",style:"background:#08080F;color:#E040FB;border:1px solid rgba(224,64,251,0.4);border-radius:4px;font-family:'Orbitron',sans-serif;text-shadow:0 0 8px rgba(224,64,251,0.4);letter-spacing:1px;font-size:11px;"},
+    {k:"steampunk",label:"Steampunk",style:"background:#14110F;color:#C8973E;border:1px solid rgba(200,151,62,0.4);border-radius:3px;font-family:'Cinzel Decorative',serif;text-shadow:0 0 8px rgba(200,151,62,0.3);font-size:11px;"},
+    {k:"retrowave",label:"Retrowave",style:"background:#0a0614;color:#FF2D95;border:1px solid rgba(255,45,149,0.4);border-radius:4px;font-family:'Audiowide',sans-serif;text-shadow:0 0 8px rgba(255,45,149,0.4);font-size:11px;"}
+  ];
+  var grid=tiles.map(function(tt){
+    var sel=(tt.k==="none"?S.stage_theme==null:S.stage_theme===tt.k);
+    if(tt.k==="none"){
+      return '<button class="wiz-theme-tile-default'+(sel?" selected":"")+'" data-stage-theme="none" type="button">'+esc(tt.label)+'</button>';
+    }
+    return '<button class="theme-pick-btn'+(sel?" selected":"")+'" data-stage-theme="'+tt.k+'" type="button" style="'+tt.style+'">'+esc(tt.label)+'</button>';
+  }).join("");
+  return '<div class="wiz-hero">Finish up</div>'+
+    '<div class="wiz-hero-sub">Give the stage a vibe and decide whether the title stays a secret until it plays.</div>'+
+    '<div class="config-section">'+
+      '<div class="config-label"><div class="config-label-icon" style="background:rgba(167,139,250,0.1)">&#127912;</div> Stage theme</div>'+
+      '<div class="wiz-theme-grid">'+grid+'</div>'+
+      '<div class="wiz-stage-hint">Themes change how this song looks on the big screen. Session Default keeps the host\u2019s theme.</div>'+
     '</div>'+
-    '<div class="secret-song-row">'+
-      '<button class="secret-toggle'+(S.hide_song?" is-checked":"")+'" id="hide-toggle-btn" role="checkbox" aria-checked="'+(S.hide_song?"true":"false")+'">'+
+    '<div class="config-section">'+
+      '<div class="config-label"><div class="config-label-icon" style="background:rgba(244,114,182,0.1)">&#128584;</div> Secret song</div>'+
+      '<button class="secret-toggle'+(S.hide_song?" is-checked":"")+'" id="hide-toggle-btn" role="checkbox" aria-checked="'+(S.hide_song?"true":"false")+'" type="button" style="width:100%;padding:12px 14px;border:1.5px solid var(--white-ghost);border-radius:12px;background:var(--surface-1);margin-top:4px">'+
         '<span class="secret-toggle__box" aria-hidden="true">'+
           (S.hide_song?'<svg width="10" height="10" viewBox="0 0 14 14"><path d="M2.5 7.5 L5.5 10 L11 4" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>':'')+
         '</span>'+
         '<span class="secret-toggle__text">'+
-          '<span class="secret-toggle__label">Secret song</span>'+
-          '<span class="secret-toggle__hint">'+(S.hide_song?"Title hidden until it plays":"Hide the title until it plays")+'</span>'+
+          '<span class="secret-toggle__label">Keep the title hidden</span>'+
+          '<span class="secret-toggle__hint">'+(S.hide_song?"Other guests won\u2019t see the song name until it plays":"Surprise everyone \u2014 the song name shows up only when it plays")+'</span>'+
         '</span>'+
       '</button>'+
+    '</div>';
+}
+function renderSingerPickerOverlay(){
+  if(!S.singerPickerOpen)return"";
+  var usedNames={};
+  for(var i=0;i<S.singers.length;i++){usedNames[(S.singers[i].name||"").toLowerCase()]=true;}
+  var available=(S.guests||[]).filter(function(g){return !usedNames[(g.name||"").toLowerCase()];});
+  var list="";
+  if(available.length===0){
+    list='<div class="wiz-hero-sub" style="margin-bottom:12px">No other guests are in this session yet. You can still add someone by typing their name below.</div>';
+  }else{
+    list='<div class="singer-picker-list">'+available.map(function(g){
+      var av=g.profilePicture?'<img src="'+esc(g.profilePicture)+'" alt="">':esc((g.name||"?").charAt(0).toUpperCase());
+      var bg=NC[(S.guests.indexOf(g))%NC.length].c;
+      return '<button class="singer-picker-pill" data-add-guest="'+esc(g.id)+'" type="button">'+
+        '<span class="singer-picker-avatar" style="background:'+bg+'">'+av+'</span>'+
+        esc(g.name)+
+      '</button>';
+    }).join("")+'</div>';
+  }
+  return '<div class="text-input-overlay" id="singer-picker-overlay">'+
+    '<div class="text-input-sheet" id="singer-picker-sheet">'+
+      '<div class="emoji-picker-title">Add a singer</div>'+
+      list+
+      '<div class="singer-picker-divider">Or type a name</div>'+
+      '<input class="text-input-field" id="custom-singer-input" placeholder="Someone not on their phone" maxlength="30" value="'+esc(S.customSingerName||"")+'">'+
+      '<button class="text-input-send" id="custom-singer-add" type="button">Add singer</button>'+
+      '<button class="singer-picker-cancel" id="singer-picker-cancel" type="button">Cancel</button>'+
     '</div>'+
-    '<button class="add-queue-btn" id="add-queue-btn">Add to Queue</button>'+
   '</div>';
 }
 function hiddenLabel(t){
@@ -1792,7 +2304,7 @@ function renderYoureUp(){
   var vfxOn=S.vocalFxEnabled!==false;
   var atOn=S.autotuneEnabled!==false;
   var checkSvg='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-  var toggles='<div style="display:flex;gap:12px;margin-top:24px;width:100%;max-width:320px">'+
+  var toggles='<div style="display:flex;gap:12px;margin-top:14px;width:100%;max-width:320px">'+
     '<button id="youreup-vfx-btn" style="flex:1;display:flex;align-items:center;gap:10px;padding:14px 16px;border-radius:12px;border:2px solid '+(vfxOn?singerColor:'var(--white-faint)')+';background:'+(vfxOn?singerColor+'22':'transparent')+';cursor:pointer">'+
       '<div style="width:30px;height:30px;border-radius:6px;border:2.5px solid '+(vfxOn?singerColor:'var(--white-faint)')+';background:'+(vfxOn?singerColor:'transparent')+';display:flex;align-items:center;justify-content:center;flex-shrink:0">'+(vfxOn?checkSvg:'')+'</div>'+
       '<span style="font-size:14px;font-weight:700;font-family:var(--font-display);color:'+(vfxOn?'var(--white)':'var(--white-faint)')+'">Vocal FX</span>'+
@@ -1802,6 +2314,21 @@ function renderYoureUp(){
       '<span style="font-size:14px;font-weight:700;font-family:var(--font-display);color:'+(atOn?'var(--white)':'var(--white-faint)')+'">Autotune</span>'+
     '</button>'+
   '</div>';
+  var skipBtn='<button id="youreup-skip-btn" class="youreup-skip-btn" style="margin-top:12px;width:100%;max-width:320px;padding:12px 16px;border-radius:12px;border:2px solid var(--white-faint);background:transparent;color:var(--white-muted);font-size:13px;font-weight:700;font-family:var(--font-display);cursor:pointer;letter-spacing:0.5px;display:flex;align-items:center;justify-content:center;gap:8px">'+
+    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>'+
+    'Skip Song'+
+  '</button>';
+  var skipConfirm=S.skipConfirmOpen?
+    '<div class="skip-confirm-backdrop" id="skip-confirm-backdrop">'+
+      '<div class="skip-confirm-card">'+
+        '<div class="skip-confirm-title">Skip this song?</div>'+
+        '<div class="skip-confirm-sub">Move on to the next track in the queue.</div>'+
+        '<div class="skip-confirm-actions">'+
+          '<button id="skip-confirm-cancel" class="skip-confirm-btn skip-confirm-btn-ghost">Cancel</button>'+
+          '<button id="skip-confirm-yes" class="skip-confirm-btn skip-confirm-btn-danger">Skip</button>'+
+        '</div>'+
+      '</div>'+
+    '</div>':'';
   if(S.isPlaying){
     return '<div class="youreup-screen screen">'+
       '<div class="youreup-song" style="margin-top:0">'+esc(np.name)+'</div>'+
@@ -1809,6 +2336,8 @@ function renderYoureUp(){
       '<button class="youreup-play-btn" id="youreup-play-btn" style="'+btnBg+'">'+playIcon+'</button>'+
       (ms?'<div class="youreup-singer-label" style="color:'+singerColor+'">Singing as '+esc(ms.name)+'</div>':'')+
       toggles+
+      skipBtn+
+      skipConfirm+
     '</div>';
   }
   return '<div class="youreup-screen screen">'+
@@ -1820,6 +2349,8 @@ function renderYoureUp(){
     '<button class="youreup-play-btn" id="youreup-play-btn" style="'+btnBg+'">'+playIcon+'</button>'+
     (ms?'<div class="youreup-singer-label" style="color:'+singerColor+'">Singing as '+esc(ms.name)+'</div>':'')+
     toggles+
+    skipBtn+
+    skipConfirm+
   '</div>';
 }
 function renderError(){
@@ -1877,8 +2408,8 @@ function bindEvents(){
       grid.querySelectorAll(".song-card").forEach(function(card){
         card.addEventListener("click",function(){
           var tid=card.dataset.track;
-          S.selectedTrack=S.catalog.find(function(s2){return s2.track_id===tid;});
-          if(S.selectedTrack){S.singerCount=1;S.singers=[{name:S.guestName,color:NC[0].c,colorGlow:NC[0].g,roleIndices:[],profilePicture:S.profilePicture,whitePersonCheck:false}];S.screen="config";render();}
+          var track=S.catalog.find(function(s2){return s2.track_id===tid;});
+          if(track){initWizardFromTrack(track);render();}
         });
       });
     }
@@ -1886,52 +2417,93 @@ function bindEvents(){
   document.querySelectorAll(".song-card").forEach(function(card){
     card.addEventListener("click",function(){
       var tid=card.dataset.track;
-      S.selectedTrack=S.catalog.find(function(s){return s.track_id===tid;});
-      if(S.selectedTrack){S.singerCount=1;S.singers=[{name:S.guestName,color:NC[0].c,colorGlow:NC[0].g,roleIndices:[],profilePicture:S.profilePicture,whitePersonCheck:false}];S.screen="config";render();}
+      var track=S.catalog.find(function(s){return s.track_id===tid;});
+      if(track){initWizardFromTrack(track);render();}
     });
   });
-  var cb=document.getElementById("config-back");
-  if(cb)cb.addEventListener("click",function(){S.screen="songs";render();});
-  document.querySelectorAll(".singer-count-btn").forEach(function(b){
-    b.addEventListener("click",function(){setSC(parseInt(b.dataset.count));});
+  var wizBack=document.getElementById("wiz-back");
+  if(wizBack)wizBack.addEventListener("click",wizardBack);
+  var wizCancel=document.getElementById("wiz-cancel");
+  if(wizCancel)wizCancel.addEventListener("click",function(){
+    if(wizardHasAnyChanges()&&!confirm("Discard this song setup?"))return;
+    S.selectedTrack=null;S.singers=[];S.stage_theme=null;S.hide_song=false;
+    S.customSingerName="";S.singerPickerOpen=false;
+    S.screen="songs";render();
   });
-  document.querySelectorAll(".singer-name-input").forEach(function(inp){
-    inp.addEventListener("input",function(){var si2=parseInt(inp.dataset.singer);S.singers[si2].name=inp.value;S.singers[si2].profilePicture=null;});
+  var wizFooterBack=document.getElementById("wiz-footer-back");
+  if(wizFooterBack)wizFooterBack.addEventListener("click",wizardBack);
+  var wizNext=document.getElementById("wiz-next");
+  if(wizNext)wizNext.addEventListener("click",nextWizardStep);
+  var wizAdd=document.getElementById("wiz-add-singer");
+  if(wizAdd)wizAdd.addEventListener("click",function(){
+    S.singerPickerOpen=true;S.customSingerName="";render();
+    setTimeout(function(){var inp=document.getElementById("custom-singer-input");if(inp)inp.focus();},80);
   });
-  document.querySelectorAll(".color-dot").forEach(function(dot){
-    dot.addEventListener("click",function(){
-      var i=parseInt(dot.dataset.singer),ci=parseInt(dot.dataset.color);
-      S.singers[i].color=NC[ci].c;S.singers[i].colorGlow=NC[ci].g;render();
-    });
-  });
-  document.querySelectorAll(".role-btn").forEach(function(btn){
+  document.querySelectorAll(".wiz-singer-row-remove").forEach(function(btn){
     btn.addEventListener("click",function(){
-      var si2=parseInt(btn.dataset.singer),ri=parseInt(btn.dataset.role);
-      var idx=S.singers[si2].roleIndices||[];
-      if(idx.indexOf(ri)>=0){S.singers[si2].roleIndices=idx.filter(function(x){return x!==ri;});}
-      else{S.singers[si2].roleIndices=idx.concat([ri]);}
-      render();
+      var idx=parseInt(btn.dataset.remove);
+      removeSinger(idx);render();
     });
   });
-  document.querySelectorAll(".wpc-check").forEach(function(cb){
-    cb.addEventListener("change",function(){
-      var si2=parseInt(cb.dataset.singer);
-      S.singers[si2].whitePersonCheck=cb.checked;
-    });
-  });
-  document.querySelectorAll(".guest-picker-pill").forEach(function(pill){
-    pill.addEventListener("click",function(){
-      var si2=parseInt(pill.dataset.singer);
-      var gid=pill.dataset.guestId;
-      var guest=S.guests.find(function(g){return g.id===gid;});
-      if(guest){
-        S.singers[si2].name=guest.name;
-        S.singers[si2].profilePicture=guest.profilePicture||null;
-        render();
+  document.querySelectorAll(".wiz-step[data-go]").forEach(function(stepBtn){
+    stepBtn.addEventListener("click",function(){
+      var go=stepBtn.dataset.go;
+      if(go==="songs"){
+        if(wizardHasAnyChanges()&&!confirm("Discard this song setup?"))return;
+        S.selectedTrack=null;S.singers=[];S.stage_theme=null;S.hide_song=false;
+        S.customSingerName="";S.singerPickerOpen=false;
+        S.screen="songs";render();
       }
     });
   });
-  document.querySelectorAll(".theme-pick-btn").forEach(function(btn){
+  document.querySelectorAll(".role-singer-chip").forEach(function(chip){
+    chip.addEventListener("click",function(){
+      var ri=parseInt(chip.dataset.roleIdx);
+      var si=parseInt(chip.dataset.singerIdx);
+      var idx=S.singers[si].roleIndices||[];
+      if(idx.indexOf(ri)>=0){S.singers[si].roleIndices=idx.filter(function(x){return x!==ri;});}
+      else{S.singers[si].roleIndices=idx.concat([ri]);}
+      render();
+    });
+  });
+  // Singer picker overlay bindings
+  var spOv=document.getElementById("singer-picker-overlay");
+  if(spOv){
+    spOv.addEventListener("click",function(e){if(e.target===spOv){S.singerPickerOpen=false;render();}});
+    document.querySelectorAll(".singer-picker-pill[data-add-guest]").forEach(function(pill){
+      pill.addEventListener("click",function(){
+        var gid=pill.dataset.addGuest;
+        var guest=(S.guests||[]).find(function(g){return g.id===gid;});
+        if(!guest)return;
+        addSinger({name:guest.name,profilePicture:guest.profilePicture||null});
+        S.singerPickerOpen=false;S.customSingerName="";render();
+      });
+    });
+    var csi=document.getElementById("custom-singer-input");
+    var csa=document.getElementById("custom-singer-add");
+    if(csi){
+      csi.addEventListener("input",function(){S.customSingerName=csi.value;});
+      csi.addEventListener("keydown",function(e){
+        if(e.key==="Enter"){
+          var v=csi.value.trim();
+          if(!v)return;
+          addSinger({name:v,profilePicture:null});
+          S.singerPickerOpen=false;S.customSingerName="";render();
+        }
+      });
+    }
+    if(csa){
+      csa.addEventListener("click",function(){
+        var v=(csi&&csi.value||"").trim();
+        if(!v)return;
+        addSinger({name:v,profilePicture:null});
+        S.singerPickerOpen=false;S.customSingerName="";render();
+      });
+    }
+    var spc=document.getElementById("singer-picker-cancel");
+    if(spc)spc.addEventListener("click",function(){S.singerPickerOpen=false;render();});
+  }
+  document.querySelectorAll(".theme-pick-btn,.wiz-theme-tile-default").forEach(function(btn){
     btn.addEventListener("click",function(){
       var v=btn.dataset.stageTheme;
       S.stage_theme=(v==="none"?null:v);
@@ -1940,8 +2512,6 @@ function bindEvents(){
   });
   var hb=document.getElementById("hide-toggle-btn");
   if(hb)hb.addEventListener("click",function(){S.hide_song=!S.hide_song;render();});
-  var ab=document.getElementById("add-queue-btn");
-  if(ab)ab.addEventListener("click",addToQueue);
   // Stage reaction buttons
   var rc=document.getElementById("react-clap");
   if(rc)rc.addEventListener("click",function(){sendReaction("emoji","\uD83D\uDC4F");});
@@ -2049,6 +2619,42 @@ function bindEvents(){
       sb.from("karaoke_sessions").update({autotune_enabled:S.autotuneEnabled,updated_at:new Date().toISOString()}).eq("id",S.sessionId).then(function(res){
         if(res.error)console.error("Failed to toggle autotune:",res.error);
       });
+      render();
+    });
+  }
+  var skipBtnEl=document.getElementById("youreup-skip-btn");
+  if(skipBtnEl){
+    skipBtnEl.addEventListener("click",function(){
+      S.skipConfirmOpen=true;
+      render();
+    });
+  }
+  var skipCancel=document.getElementById("skip-confirm-cancel");
+  if(skipCancel){
+    skipCancel.addEventListener("click",function(){
+      S.skipConfirmOpen=false;
+      render();
+    });
+  }
+  var skipBackdrop=document.getElementById("skip-confirm-backdrop");
+  if(skipBackdrop){
+    skipBackdrop.addEventListener("click",function(e){
+      if(e.target===skipBackdrop){
+        S.skipConfirmOpen=false;
+        render();
+      }
+    });
+  }
+  var skipYes=document.getElementById("skip-confirm-yes");
+  if(skipYes){
+    skipYes.addEventListener("click",function(){
+      S.skipConfirmOpen=false;
+      sb.from("karaoke_sessions")
+        .update({skip_requested_at:new Date().toISOString(),updated_at:new Date().toISOString()})
+        .eq("id",S.sessionId)
+        .then(function(res){
+          if(res.error)console.error("Failed to request skip:",res.error);
+        });
       render();
     });
   }
