@@ -688,6 +688,26 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
 .wiz-stage-hint {
   font-size: 12px; color: var(--white-faint); margin: 6px 2px 12px; line-height: 1.4;
 }
+.wpc-hint { font-size: 12px; color: var(--white-muted); margin: 4px 2px 12px; line-height: 1.4; }
+.wpc-list { display: flex; flex-direction: column; gap: 8px; }
+.wpc-row {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; padding: 12px 14px;
+  background: var(--surface-1); border: 1.5px solid var(--white-ghost);
+  border-radius: 12px; cursor: pointer;
+  font-family: var(--font-display); font-weight: 600; font-size: 14px;
+  color: var(--white); text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+}
+.wpc-row.is-checked { border-color: var(--violet); background: rgba(167,139,250,0.1); }
+.wpc-row.is-checked .secret-toggle__box { background: var(--violet); border-color: var(--violet); color: #fff; }
+.wpc-row-avatar {
+  width: 32px; height: 32px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; color: #000;
+}
+.wpc-row-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.wpc-row-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ── Per-song row theming (overrides the global applyTheme() rules) ──────── */
 /* Each row wears the theme its guest picked — independent of the session theme. */
@@ -2118,6 +2138,7 @@ function renderWizardStage(){
       '<div class="wiz-theme-grid">'+grid+'</div>'+
       '<div class="wiz-stage-hint">Themes change how this song looks on the big screen. Session Default keeps the host\u2019s theme.</div>'+
     '</div>'+
+    renderWizardLyricsCheck()+
     '<div class="config-section">'+
       '<div class="config-label"><div class="config-label-icon" style="background:rgba(244,114,182,0.1)">&#128584;</div> Secret song</div>'+
       '<button class="secret-toggle'+(S.hide_song?" is-checked":"")+'" id="hide-toggle-btn" role="checkbox" aria-checked="'+(S.hide_song?"true":"false")+'" type="button" style="width:100%;padding:12px 14px;border:1.5px solid var(--white-ghost);border-radius:12px;background:var(--surface-1);margin-top:4px">'+
@@ -2130,6 +2151,37 @@ function renderWizardStage(){
         '</span>'+
       '</button>'+
     '</div>';
+}
+function renderWizardLyricsCheck(){
+  var t=S.selectedTrack;if(!t)return"";
+  var ori=t.offensive_role_indices||[];
+  if(!ori.length||!S.singers.length)return"";
+  var flagged=[];
+  for(var i=0;i<S.singers.length;i++){
+    var s=S.singers[i];
+    var roles=s.roleIndices||[];
+    var hits=false;
+    for(var r=0;r<roles.length;r++){if(ori.indexOf(roles[r])>=0){hits=true;break;}}
+    if(hits)flagged.push({singer:s,index:i});
+  }
+  if(!flagged.length)return"";
+  var rows=flagged.map(function(fl){
+    var s=fl.singer,i=fl.index;
+    var av=s.profilePicture?'<img src="'+esc(s.profilePicture)+'" alt="">':esc((s.name||"?").charAt(0).toUpperCase());
+    var checked=!!s.whitePersonCheck;
+    return '<button class="wpc-row'+(checked?" is-checked":"")+'" data-wpc-singer="'+i+'" type="button" role="checkbox" aria-checked="'+(checked?"true":"false")+'">'+
+      '<span class="wpc-row-avatar" style="background:'+s.color+'">'+av+'</span>'+
+      '<span class="wpc-row-name">'+esc(s.name||"Singer "+(i+1))+'</span>'+
+      '<span class="secret-toggle__box" aria-hidden="true" style="margin-left:auto">'+
+        (checked?'<svg width="10" height="10" viewBox="0 0 14 14"><path d="M2.5 7.5 L5.5 10 L11 4" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>':'')+
+      '</span>'+
+    '</button>';
+  }).join("");
+  return '<div class="config-section">'+
+    '<div class="config-label"><div class="config-label-icon" style="background:rgba(251,191,36,0.12)">&#9888;&#65039;</div> Lyric sanitization</div>'+
+    '<div class="wpc-hint">One or more singers are assigned to a part with the n-word in the lyrics. Toggle on for anyone who shouldn\u2019t sing it \u2014 those words will be replaced with "fella(s)" on the stage.</div>'+
+    '<div class="wpc-list">'+rows+'</div>'+
+  '</div>';
 }
 function renderSingerPickerOverlay(){
   if(!S.singerPickerOpen)return"";
@@ -2512,6 +2564,14 @@ function bindEvents(){
   });
   var hb=document.getElementById("hide-toggle-btn");
   if(hb)hb.addEventListener("click",function(){S.hide_song=!S.hide_song;render();});
+  document.querySelectorAll(".wpc-row[data-wpc-singer]").forEach(function(row){
+    row.addEventListener("click",function(){
+      var si=parseInt(row.dataset.wpcSinger);
+      if(!S.singers[si])return;
+      S.singers[si].whitePersonCheck=!S.singers[si].whitePersonCheck;
+      render();
+    });
+  });
   // Stage reaction buttons
   var rc=document.getElementById("react-clap");
   if(rc)rc.addEventListener("click",function(){sendReaction("emoji","\uD83D\uDC4F");});

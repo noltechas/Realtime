@@ -2007,18 +2007,33 @@ export default function KaraokePage() {
                                                 inlineStyle.textShadow = `0 0 10px ${singer.colorGlow}, 0 0 20px ${singer.colorGlow}, 0 0 40px ${singer.colorGlow}`
                                             }
                                         } else if (theme.name === 'urban') {
-                                            const singerColor = line.singerIndex !== undefined && singers[line.singerIndex] ? singers[line.singerIndex].color : theme.accentA
+                                            const singerColor = line.singerIndex !== undefined && singers[line.singerIndex]?.color
+                                                ? singers[line.singerIndex].color
+                                                : theme.accentA
+                                            const multiColors = line.singerIndices && line.singerIndices.length > 1
+                                                ? line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
+                                                : []
+                                            const highlight = multiColors.length > 1
+                                                ? `linear-gradient(90deg, ${multiColors.join(', ')})`
+                                                : singerColor
                                             if (isActiveGroup) {
                                                 cls += ' k-line--urban-active'
                                                 // @ts-ignore (CSS variables)
-                                                inlineStyle['--highlight-color'] = singerColor
+                                                inlineStyle['--highlight-color'] = multiColors.length > 1 ? multiColors[0] : singerColor
+                                                inlineStyle.background = highlight
                                                 inlineStyle.color = theme.white // DARK_VOID
                                                 inlineStyle.opacity = 1
                                             } else {
                                                 inlineStyle.display = 'inline'
-                                                inlineStyle.color = singerColor
                                                 inlineStyle.opacity = 0.4
                                                 inlineStyle.padding = '0.1em 0.3em'
+                                                if (multiColors.length > 1) {
+                                                    inlineStyle.backgroundImage = `linear-gradient(90deg, ${multiColors.join(', ')})`
+                                                    inlineStyle.WebkitBackgroundClip = 'text'
+                                                    inlineStyle.WebkitTextFillColor = 'transparent'
+                                                } else {
+                                                    inlineStyle.color = singerColor
+                                                }
                                             }
                                         } else if (theme.name === 'deep-sea') {
                                             cls += ' k-line--deep-sea'
