@@ -701,6 +701,31 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
 }
 .wpc-row.is-checked { border-color: var(--violet); background: rgba(167,139,250,0.1); }
 .wpc-row.is-checked .secret-toggle__box { background: var(--violet); border-color: var(--violet); color: #fff; }
+.wiz-singer-slot { display: flex; flex-direction: column; gap: 0; }
+.wpc-row--nested {
+  margin-top: -4px;
+  background: rgba(251,191,36,0.08);
+  border: 1.5px solid rgba(251,191,36,0.35);
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  align-items: flex-start; gap: 10px;
+}
+.wpc-row--nested.is-checked {
+  background: rgba(167,139,250,0.12);
+  border-color: var(--violet);
+}
+.wpc-row--nested .wpc-row-icon { color: var(--amber); margin-top: 2px; flex-shrink: 0; }
+.wpc-row--nested.is-checked .wpc-row-icon { color: var(--violet); }
+.wpc-row-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.wpc-row-title {
+  font-family: var(--font-display); font-weight: 700; font-size: 13px;
+  color: var(--white); line-height: 1.3;
+}
+.wpc-row-sub {
+  font-size: 11px; color: var(--white-muted); font-weight: 400;
+  line-height: 1.4; font-family: var(--font-body);
+}
+.wpc-row--nested .secret-toggle__box { margin-top: 4px; flex-shrink: 0; }
 .wpc-row-avatar {
   width: 32px; height: 32px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
@@ -2046,6 +2071,7 @@ function renderWizardFooter(step){
   '</div>';
 }
 function renderWizardSingers(){
+  var ori=(S.selectedTrack&&S.selectedTrack.offensive_role_indices)||[];
   var rows="";
   for(var i=0;i<S.singers.length;i++){
     var s=S.singers[i];
@@ -2056,13 +2082,33 @@ function renderWizardSingers(){
     var removeBtn=(i===0)?"":'<button class="wiz-singer-row-remove" data-remove="'+i+'" type="button" aria-label="Remove singer">'+
       '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>'+
     '</button>';
-    rows+='<div class="wiz-singer-row" style="border-color:'+s.color+'">'+
-      av+
-      '<div class="wiz-singer-row-body">'+
-        '<div class="wiz-singer-row-name-wrap"><span class="wiz-singer-row-name">'+esc(s.name||"Singer "+(i+1))+'</span>'+badge+'</div>'+
-        '<div class="wiz-singer-row-meta">Singer '+(i+1)+'</div>'+
+    var roles=s.roleIndices||[];
+    var flagged=false;
+    for(var ri=0;ri<roles.length;ri++){if(ori.indexOf(roles[ri])>=0){flagged=true;break;}}
+    var wpcRow="";
+    if(flagged){
+      var checked=!!s.whitePersonCheck;
+      wpcRow='<button class="wpc-row wpc-row--nested'+(checked?" is-checked":"")+'" data-wpc-singer="'+i+'" type="button" role="checkbox" aria-checked="'+(checked?"true":"false")+'">'+
+        '<svg class="wpc-row-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>'+
+        '<span class="wpc-row-body">'+
+          '<span class="wpc-row-title">Sanitize n-word on stage</span>'+
+          '<span class="wpc-row-sub">This part contains the n-word. Toggle on and it\u2019ll be replaced with "fella(s)" while they sing.</span>'+
+        '</span>'+
+        '<span class="secret-toggle__box" aria-hidden="true">'+
+          (checked?'<svg width="10" height="10" viewBox="0 0 14 14"><path d="M2.5 7.5 L5.5 10 L11 4" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>':'')+
+        '</span>'+
+      '</button>';
+    }
+    rows+='<div class="wiz-singer-slot">'+
+      '<div class="wiz-singer-row" style="border-color:'+s.color+'">'+
+        av+
+        '<div class="wiz-singer-row-body">'+
+          '<div class="wiz-singer-row-name-wrap"><span class="wiz-singer-row-name">'+esc(s.name||"Singer "+(i+1))+'</span>'+badge+'</div>'+
+          '<div class="wiz-singer-row-meta">Singer '+(i+1)+'</div>'+
+        '</div>'+
+        removeBtn+
       '</div>'+
-      removeBtn+
+      wpcRow+
     '</div>';
   }
   var addBtn=(S.singers.length<MAX_SINGERS)?'<button class="wiz-add-singer" id="wiz-add-singer" type="button">'+
@@ -2138,7 +2184,6 @@ function renderWizardStage(){
       '<div class="wiz-theme-grid">'+grid+'</div>'+
       '<div class="wiz-stage-hint">Themes change how this song looks on the big screen. Session Default keeps the host\u2019s theme.</div>'+
     '</div>'+
-    renderWizardLyricsCheck()+
     '<div class="config-section">'+
       '<div class="config-label"><div class="config-label-icon" style="background:rgba(244,114,182,0.1)">&#128584;</div> Secret song</div>'+
       '<button class="secret-toggle'+(S.hide_song?" is-checked":"")+'" id="hide-toggle-btn" role="checkbox" aria-checked="'+(S.hide_song?"true":"false")+'" type="button" style="width:100%;padding:12px 14px;border:1.5px solid var(--white-ghost);border-radius:12px;background:var(--surface-1);margin-top:4px">'+
