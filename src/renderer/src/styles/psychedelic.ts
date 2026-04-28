@@ -161,6 +161,26 @@ const GLOBAL_CSS = `
 [data-theme="psychedelic"] button:hover {
   text-shadow: 0 0 8px rgba(255,45,149,0.5), 0 0 16px rgba(182,255,45,0.3);
 }
+
+/* ── Active lyric line: lava-lamp morphing blob (singer color only) ──────── */
+@keyframes psyLyricBlob {
+  0%, 100% { border-radius: 58% 32% 60% 40% / 40% 62% 30% 52%; }
+  25%      { border-radius: 32% 62% 40% 54% / 62% 30% 52% 40%; }
+  50%      { border-radius: 44% 50% 30% 62% / 50% 40% 62% 32%; }
+  75%      { border-radius: 62% 40% 52% 30% / 32% 50% 40% 62%; }
+}
+
+@keyframes psyLyricFlow {
+  0%, 100% { background-position: 0% 0%; }
+  50%      { background-position: 100% 100%; }
+}
+
+[data-theme="psychedelic"] .k-line--psychedelic-active {
+  animation:
+    psyLyricBlob 9s ease-in-out infinite,
+    psyLyricFlow 7s ease-in-out infinite alternate,
+    psyWobble 6s ease-in-out infinite;
+}
 `
 
 // ── Theme export ─────────────────────────────────────────────────────────────

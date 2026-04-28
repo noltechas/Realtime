@@ -170,6 +170,37 @@ const GLOBAL_CSS = `
 [data-theme="deep-sea"] h1 {
   text-shadow: 0 0 20px rgba(0,255,200,0.25), 0 0 40px rgba(180,77,255,0.12);
 }
+
+/* ── Active lyric line: shimmering water-caustic refraction ──────────────── */
+@keyframes dsLyricCaustics {
+  0%   { background-position: 0% 0%, 0% 0%, 0% 0%; }
+  50%  { background-position: 60% 40%, -50% 30%, 30% -40%; }
+  100% { background-position: 0% 0%, 0% 0%, 0% 0%; }
+}
+
+[data-theme="deep-sea"] .k-line--deep-sea-active {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+[data-theme="deep-sea"] .k-line--deep-sea-active::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(ellipse 90px 26px at 25% 35%, rgba(255,255,255,0.55), transparent 70%),
+    radial-gradient(ellipse 70px 22px at 70% 65%, rgba(190,255,250,0.50), transparent 70%),
+    radial-gradient(ellipse 110px 30px at 50% 15%, rgba(160,240,255,0.40), transparent 70%);
+  background-size: 220% 220%, 260% 260%, 240% 240%;
+  background-repeat: no-repeat;
+  mix-blend-mode: screen;
+  filter: blur(2px);
+  animation: dsLyricCaustics 9s ease-in-out infinite;
+}
 `
 
 // ── Theme export ─────────────────────────────────────────────────────────────

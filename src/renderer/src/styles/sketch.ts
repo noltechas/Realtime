@@ -74,6 +74,40 @@ const GLOBAL_CSS = `
   0%, 100% { transform: translateY(0) rotate(1deg); }
   50% { transform: translateY(-5px) rotate(-1deg); }
 }
+
+/* ── Active lyric line: hand-drawn rough rectangle + retraced outline ────── */
+[data-theme="sketch"] .k-line--sketch-active {
+  position: relative;
+  isolation: isolate;
+}
+
+/* Filled colored rectangle with rough wavy edges (highlighter look) */
+[data-theme="sketch"] .k-line--sketch-active::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  background: var(--sketch-fill, ` + YELLOW + `);
+  border: 4px solid ` + BLACK + `;
+  border-radius: 12px;
+  filter: url(#sketch-rough-filter);
+  z-index: -2;
+  pointer-events: none;
+}
+
+/* Retraced black outline, slightly offset and re-roughened — gives the
+   classic "drew it twice and it doesn't quite match" hand-drawn feel */
+[data-theme="sketch"] .k-line--sketch-active::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border: 2.5px solid ` + BLACK + `;
+  border-radius: 14px;
+  background: transparent;
+  filter: url(#sketch-rough-filter-b);
+  transform: translate(2.5px, 1.5px) rotate(0.4deg);
+  z-index: -1;
+  pointer-events: none;
+}
 `
 
 export const SKETCH: Theme = {

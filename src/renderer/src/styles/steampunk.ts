@@ -239,6 +239,56 @@ const GLOBAL_CSS = `
   box-shadow: 0 0 0 2px rgba(200,151,62,0.4), 0 0 0 4px rgba(224,112,64,0.15), 0 0 16px rgba(200,151,62,0.15) !important;
   border-color: ${BRASS} !important;
 }
+
+/* ── Active lyric line: 3 random variants (plate / gauge / pipes) ────────── */
+[data-theme="steampunk"] .k-line--steampunk-active {
+  position: relative;
+  isolation: isolate;
+}
+
+/* ── Variant A: Riveted Brass Plate ──────────────────────────────────────── */
+[data-theme="steampunk"] .k-line--steampunk-plate {
+  border-radius: 4px;
+  border: 2px solid ${IRON_DARK};
+  box-shadow:
+    inset 0 0 0 2px ${BRASS},
+    inset 0 0 18px rgba(0,0,0,0.35),
+    0 0 14px rgba(200,151,62,0.45);
+}
+[data-theme="steampunk"] .k-line--steampunk-plate::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle 4px at 10px 10px,    #1a1410 0%, #0a0805 55%, transparent 70%),
+    radial-gradient(circle 4px at calc(100% - 10px) 10px,    #1a1410 0%, #0a0805 55%, transparent 70%),
+    radial-gradient(circle 4px at 10px calc(100% - 10px),    #1a1410 0%, #0a0805 55%, transparent 70%),
+    radial-gradient(circle 4px at calc(100% - 10px) calc(100% - 10px), #1a1410 0%, #0a0805 55%, transparent 70%),
+    radial-gradient(circle 1.5px at 9px 9px,    rgba(255,220,150,0.85) 0%, transparent 90%),
+    radial-gradient(circle 1.5px at calc(100% - 11px) 9px, rgba(255,220,150,0.85) 0%, transparent 90%),
+    radial-gradient(circle 1.5px at 9px calc(100% - 11px),    rgba(255,220,150,0.85) 0%, transparent 90%),
+    radial-gradient(circle 1.5px at calc(100% - 11px) calc(100% - 11px), rgba(255,220,150,0.85) 0%, transparent 90%);
+  z-index: 2;
+}
+[data-theme="steampunk"] .k-line--steampunk-plate::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(115deg, transparent 38%, rgba(255,235,180,0.22) 50%, transparent 62%);
+  background-size: 220% 100%;
+  mix-blend-mode: overlay;
+  animation: steamPlateSheen 9s linear infinite;
+  z-index: 1;
+}
+@keyframes steamPlateSheen {
+  0%   { background-position: -120% 0; }
+  100% { background-position: 220% 0; }
+}
+
 `
 
 // ── Theme export ─────────────────────────────────────────────────────────────

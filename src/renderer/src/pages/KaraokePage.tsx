@@ -1755,6 +1755,14 @@ export default function KaraokePage() {
                         <feTurbulence type="fractalNoise" baseFrequency="0.04 0.15" numOctaves="3" result="noise" />
                         <feDisplacementMap in="SourceGraphic" in2="noise" scale="12" xChannelSelector="R" yChannelSelector="G" />
                     </filter>
+                    <filter id="sketch-rough-filter">
+                        <feTurbulence type="fractalNoise" baseFrequency="0.018 0.035" numOctaves="2" seed="3" result="noise" />
+                        <feDisplacementMap in="SourceGraphic" in2="noise" scale="5" xChannelSelector="R" yChannelSelector="G" />
+                    </filter>
+                    <filter id="sketch-rough-filter-b">
+                        <feTurbulence type="fractalNoise" baseFrequency="0.022 0.04" numOctaves="2" seed="11" result="noise" />
+                        <feDisplacementMap in="SourceGraphic" in2="noise" scale="6" xChannelSelector="R" yChannelSelector="G" />
+                    </filter>
                 </defs>
             </svg>
 
@@ -1960,202 +1968,111 @@ export default function KaraokePage() {
                                         fontFamily: theme.fontDisplay
                                     }
 
+                                    const activeColors = line.singerIndices && line.singerIndices.length > 1
+                                        ? line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
+                                        : []
+                                    const activeSingerColor = line.singerIndex !== undefined && singers[line.singerIndex]?.color
+                                        ? singers[line.singerIndex].color
+                                        : theme.accentA
+                                    const activeHighlight = activeColors.length > 1
+                                        ? `linear-gradient(90deg, ${activeColors.join(', ')})`
+                                        : activeSingerColor
+                                    const ACTIVE_TEXT = '#0a0a0a'
+
                                     if (isActiveGroup) {
                                         cls += ' k-line--now'
+                                        inlineStyle.background = activeHighlight
+                                        inlineStyle.color = ACTIVE_TEXT
+                                        inlineStyle.padding = '0.12em 0.55em'
 
                                         if (theme.name === 'neo-brutal') {
-                                            const singerColor = line.singerIndex !== undefined && singers[line.singerIndex] ? singers[line.singerIndex].color : 'white'
-                                            inlineStyle.background = singerColor
-                                            inlineStyle.color = 'black'
+                                            cls += ' k-line--neo-brutal-active'
                                             inlineStyle.padding = '8px 24px'
-                                            inlineStyle.border = '4px solid black'
-                                            inlineStyle.boxShadow = '6px 6px 0px black'
-                                            inlineStyle.borderRadius = '0px'
+                                            inlineStyle.border = '4px solid #0a0a0a'
+                                            inlineStyle.boxShadow = '6px 6px 0 #0a0a0a'
                                             inlineStyle.margin = '4px'
-
-                                            if (line.singerIndices && line.singerIndices.length > 1) {
-                                                const colors = line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
-                                                if (colors.length > 1) {
-                                                    inlineStyle.background = `linear-gradient(90deg, ${colors.join(', ')})`
-                                                }
-                                            }
+                                            inlineStyle.borderRadius = '0px'
                                         } else if (theme.name === 'sketch') {
-                                            cls += ' k-line--sketch'
-                                            inlineStyle.position = 'relative'
-                                            if (line.singerIndices && line.singerIndices.length > 1) {
-                                                // Multi-singer gradient applied to inner span, not outer div
-                                                // (background-clip:text on parent breaks when content is in child elements)
-                                                inlineStyle.filter = `drop-shadow(2px 2px 0px rgba(0,0,0,0.15))`
-                                            } else if (line.singerIndex !== undefined && singers[line.singerIndex]) {
-                                                const singer = singers[line.singerIndex]
-                                                inlineStyle.color = singer.color
-                                                inlineStyle.textShadow = `2px 2px 0px rgba(0,0,0,0.15)`
-                                            }
+                                            cls += ' k-line--sketch-active'
+                                            inlineStyle.padding = '0.22em 0.95em'
+                                            inlineStyle.background = 'transparent'
+                                            inlineStyle.color = '#2d2d2d'
+                                            inlineStyle.transform = 'rotate(-1deg)'
+                                            // @ts-ignore (CSS variables)
+                                            inlineStyle['--sketch-fill'] = activeHighlight
                                         } else if (theme.name === 'cyberpunk') {
-                                            cls += ' k-line--cyber'
-                                            if (line.singerIndices && line.singerIndices.length > 1) {
-                                                const colors = line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
-                                                if (colors.length > 1) {
-                                                    inlineStyle.backgroundImage = `linear-gradient(90deg, ${colors.join(', ')})`
-                                                    inlineStyle.WebkitBackgroundClip = 'text'
-                                                    inlineStyle.WebkitTextFillColor = 'transparent'
-                                                    inlineStyle.filter = `drop-shadow(0 0 15px ${colors[0]}) drop-shadow(0 0 15px ${colors[colors.length - 1]})`
-                                                }
-                                            } else if (line.singerIndex !== undefined && singers[line.singerIndex]) {
-                                                const singer = singers[line.singerIndex]
-                                                inlineStyle.color = singer.color
-                                                inlineStyle.textShadow = `0 0 10px ${singer.colorGlow}, 0 0 20px ${singer.colorGlow}, 0 0 40px ${singer.colorGlow}`
-                                            }
+                                            cls += ' k-line--cyber k-line--cyber-active'
+                                            inlineStyle.padding = '0.18em 0.9em'
+                                            inlineStyle.borderRadius = '0'
+                                            inlineStyle.clipPath = 'polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)'
+                                            inlineStyle.boxShadow = `0 0 18px ${activeSingerColor}, 0 0 38px ${activeSingerColor}`
                                         } else if (theme.name === 'urban') {
-                                            const singerColor = line.singerIndex !== undefined && singers[line.singerIndex]?.color
-                                                ? singers[line.singerIndex].color
-                                                : theme.accentA
-                                            const multiColors = line.singerIndices && line.singerIndices.length > 1
-                                                ? line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
-                                                : []
-                                            const highlight = multiColors.length > 1
-                                                ? `linear-gradient(90deg, ${multiColors.join(', ')})`
-                                                : singerColor
-                                            if (isActiveGroup) {
-                                                cls += ' k-line--urban-active'
-                                                // @ts-ignore (CSS variables)
-                                                inlineStyle['--highlight-color'] = multiColors.length > 1 ? multiColors[0] : singerColor
-                                                inlineStyle.background = highlight
-                                                inlineStyle.color = theme.white // DARK_VOID
-                                                inlineStyle.opacity = 1
-                                            } else {
-                                                inlineStyle.display = 'inline'
-                                                inlineStyle.opacity = 0.4
-                                                inlineStyle.padding = '0.1em 0.3em'
-                                                if (multiColors.length > 1) {
-                                                    inlineStyle.backgroundImage = `linear-gradient(90deg, ${multiColors.join(', ')})`
-                                                    inlineStyle.WebkitBackgroundClip = 'text'
-                                                    inlineStyle.WebkitTextFillColor = 'transparent'
-                                                } else {
-                                                    inlineStyle.color = singerColor
-                                                }
-                                            }
+                                            cls += ' k-line--urban-active'
+                                            // @ts-ignore (CSS variables)
+                                            inlineStyle['--highlight-color'] = activeHighlight
+                                            inlineStyle.background = 'transparent'
+                                            inlineStyle.color = ACTIVE_TEXT
+                                            inlineStyle.padding = '0.1em 0.4em'
                                         } else if (theme.name === 'deep-sea') {
-                                            cls += ' k-line--deep-sea'
-                                            if (line.singerIndices && line.singerIndices.length > 1) {
-                                                const colors = line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
-                                                if (colors.length > 1) {
-                                                    inlineStyle.backgroundImage = `linear-gradient(90deg, ${colors.join(', ')})`
-                                                    inlineStyle.WebkitBackgroundClip = 'text'
-                                                    inlineStyle.WebkitTextFillColor = 'transparent'
-                                                    inlineStyle.filter = `drop-shadow(0 0 20px ${colors[0]}) drop-shadow(0 0 20px ${colors[colors.length - 1]})`
-                                                }
-                                            } else if (line.singerIndex !== undefined && singers[line.singerIndex]) {
-                                                const singer = singers[line.singerIndex]
-                                                inlineStyle.color = singer.color
-                                                inlineStyle.textShadow = `0 0 12px ${singer.colorGlow}, 0 0 30px ${singer.colorGlow}, 0 0 60px ${singer.colorGlow}, 0 0 100px ${singer.colorGlow}`
-                                            }
+                                            cls += ' k-line--deep-sea k-line--deep-sea-active'
+                                            inlineStyle.padding = '0.22em 0.85em'
+                                            inlineStyle.borderRadius = '999px'
+                                            inlineStyle.boxShadow = `0 0 28px ${activeSingerColor}, 0 0 60px rgba(0,255,200,0.35), inset 0 1px 0 rgba(255,255,255,0.4)`
                                         } else if (theme.name === 'psychedelic') {
-                                            cls += ' k-line--psychedelic'
-                                            if (line.singerIndices && line.singerIndices.length > 1) {
-                                                const colors = line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
-                                                if (colors.length > 1) {
-                                                    inlineStyle.backgroundImage = `linear-gradient(90deg, ${colors.join(', ')})`
-                                                    inlineStyle.WebkitBackgroundClip = 'text'
-                                                    inlineStyle.WebkitTextFillColor = 'transparent'
-                                                    inlineStyle.filter = `drop-shadow(0 0 20px ${colors[0]}) drop-shadow(0 0 20px ${colors[colors.length - 1]})`
-                                                }
-                                            } else if (line.singerIndex !== undefined && singers[line.singerIndex]) {
-                                                const singer = singers[line.singerIndex]
-                                                inlineStyle.color = singer.color
-                                                inlineStyle.textShadow = `0 0 10px ${singer.colorGlow}, 0 0 30px ${singer.colorGlow}, 0 0 60px ${singer.colorGlow}`
+                                            cls += ' k-line--psychedelic k-line--psychedelic-active'
+                                            inlineStyle.padding = '0.22em 1em'
+                                            inlineStyle.backgroundColor = activeSingerColor
+                                            if (activeColors.length > 1) {
+                                                const flow = [...activeColors, activeColors[0]].join(', ')
+                                                inlineStyle.backgroundImage = `linear-gradient(120deg, ${flow})`
+                                                inlineStyle.backgroundSize = '300% 300%'
+                                            } else {
+                                                inlineStyle.backgroundImage = 'linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.08) 28%, transparent 50%, rgba(0,0,0,0.18) 72%, rgba(0,0,0,0.4) 100%)'
+                                                inlineStyle.backgroundSize = '220% 220%'
                                             }
+                                            inlineStyle.boxShadow = `0 0 28px ${activeSingerColor}, 0 0 60px ${activeSingerColor}80`
                                         } else if (theme.name === 'zen') {
-                                            cls += ' k-line--zen'
-                                            if (line.singerIndices && line.singerIndices.length > 1) {
-                                                const colors = line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
-                                                if (colors.length > 1) {
-                                                    inlineStyle.backgroundImage = `linear-gradient(90deg, ${colors.join(', ')})`
-                                                    inlineStyle.WebkitBackgroundClip = 'text'
-                                                    inlineStyle.WebkitTextFillColor = 'transparent'
-                                                    inlineStyle.filter = `drop-shadow(0 0 12px ${colors[0]}) drop-shadow(0 0 12px ${colors[colors.length - 1]})`
-                                                }
-                                            } else if (line.singerIndex !== undefined && singers[line.singerIndex]) {
-                                                const singer = singers[line.singerIndex]
-                                                inlineStyle.color = singer.color
-                                                inlineStyle.textShadow = `0 0 8px ${singer.colorGlow}, 0 0 20px ${singer.colorGlow}, 0 0 45px ${singer.colorGlow}`
-                                            }
+                                            cls += ' k-line--zen k-line--zen-active'
+                                            inlineStyle.padding = '0.2em 0.85em'
+                                            inlineStyle.borderRadius = '6px'
+                                            inlineStyle.border = '1px solid #D4B85A'
+                                            inlineStyle.boxShadow = '0 0 18px rgba(212,184,90,0.45), inset 0 0 0 3px rgba(255,255,255,0.08)'
                                         } else if (theme.name === 'space') {
-                                            cls += ' k-line--space'
-                                            if (line.singerIndices && line.singerIndices.length > 1) {
-                                                const colors = line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
-                                                if (colors.length > 1) {
-                                                    inlineStyle.backgroundImage = `linear-gradient(90deg, ${colors.join(', ')})`
-                                                    inlineStyle.WebkitBackgroundClip = 'text'
-                                                    inlineStyle.WebkitTextFillColor = 'transparent'
-                                                    inlineStyle.filter = `drop-shadow(0 0 15px ${colors[0]}) drop-shadow(0 0 15px ${colors[colors.length - 1]})`
-                                                }
-                                            } else if (line.singerIndex !== undefined && singers[line.singerIndex]) {
-                                                const singer = singers[line.singerIndex]
-                                                inlineStyle.color = singer.color
-                                                inlineStyle.textShadow = `0 0 6px ${singer.colorGlow}, 0 0 18px ${singer.colorGlow}, 0 0 50px ${singer.colorGlow}, 0 0 80px ${singer.colorGlow}`
-                                            }
+                                            cls += ' k-line--space k-line--space-active'
+                                            inlineStyle.padding = '0.18em 0.75em'
+                                            inlineStyle.borderRadius = '8px'
+                                            const reversedSpaceColors = activeColors.length > 1 ? [...activeColors].reverse() : []
+                                            const spaceGlow = reversedSpaceColors.length > 1
+                                                ? `linear-gradient(90deg, ${reversedSpaceColors.join(', ')})`
+                                                : activeSingerColor
+                                            // @ts-ignore (CSS variables)
+                                            inlineStyle['--space-glow'] = spaceGlow
+                                            inlineStyle.boxShadow = 'inset 0 0 14px rgba(255,255,255,0.18)'
                                         } else if (theme.name === 'steampunk') {
-                                            cls += ' k-line--steampunk'
-                                            if (line.singerIndices && line.singerIndices.length > 1) {
-                                                const colors = line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
-                                                if (colors.length > 1) {
-                                                    inlineStyle.backgroundImage = `linear-gradient(90deg, ${colors.join(', ')})`
-                                                    inlineStyle.WebkitBackgroundClip = 'text'
-                                                    inlineStyle.WebkitTextFillColor = 'transparent'
-                                                    inlineStyle.filter = `drop-shadow(0 0 10px ${colors[0]}) drop-shadow(0 0 10px ${colors[colors.length - 1]})`
-                                                }
-                                            } else if (line.singerIndex !== undefined && singers[line.singerIndex]) {
-                                                const singer = singers[line.singerIndex]
-                                                inlineStyle.color = singer.color
-                                                inlineStyle.textShadow = `0 0 8px ${singer.colorGlow}, 0 0 20px ${singer.colorGlow}, 0 0 40px rgba(200,151,62,0.15)`
-                                            }
+                                            cls += ' k-line--steampunk k-line--steampunk-active k-line--steampunk-plate'
+                                            inlineStyle.padding = '0.22em 1.1em'
                                         } else if (theme.name === 'retrowave') {
-                                            cls += ' k-line--retrowave'
-                                            if (line.singerIndices && line.singerIndices.length > 1) {
-                                                const colors = line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
-                                                if (colors.length > 1) {
-                                                    inlineStyle.backgroundImage = `linear-gradient(90deg, ${colors.join(', ')})`
-                                                    inlineStyle.WebkitBackgroundClip = 'text'
-                                                    inlineStyle.WebkitTextFillColor = 'transparent'
-                                                    inlineStyle.filter = `drop-shadow(0 0 12px ${colors[0]}) drop-shadow(0 0 12px ${colors[colors.length - 1]})`
-                                                }
-                                            } else if (line.singerIndex !== undefined && singers[line.singerIndex]) {
-                                                const singer = singers[line.singerIndex]
-                                                inlineStyle.color = singer.color
-                                                inlineStyle.textShadow = `0 0 8px ${singer.colorGlow}, 0 0 20px ${singer.colorGlow}, 0 0 50px rgba(255,45,149,0.12)`
-                                            }
+                                            cls += ' k-line--retrowave k-line--retrowave-active'
+                                            inlineStyle.padding = '0.18em 0.75em'
+                                            inlineStyle.borderRadius = '4px'
+                                            inlineStyle.boxShadow = `0 0 18px ${activeSingerColor}, 0 0 38px ${activeSingerColor}, inset 0 0 0 2px rgba(255,255,255,0.6)`
                                         } else {
-                                            if (line.singerIndices && line.singerIndices.length > 1) {
-                                                const colors = line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
-                                                if (colors.length > 1) {
-                                                    inlineStyle.backgroundImage = `linear-gradient(90deg, ${colors.join(', ')})`
-                                                    inlineStyle.WebkitBackgroundClip = 'text'
-                                                    inlineStyle.WebkitTextFillColor = 'transparent'
-                                                    inlineStyle.filter = `drop-shadow(0 0 15px ${colors[0]}) drop-shadow(0 0 15px ${colors[colors.length - 1]})`
-                                                }
-                                            } else if (line.singerIndex !== undefined && singers[line.singerIndex]) {
-                                                const singer = singers[line.singerIndex]
-                                                inlineStyle.color = singer.color
-                                                inlineStyle.textShadow = `0 0 40px ${singer.colorGlow}, 0 2px 20px ${singer.colorGlow}`
-                                            }
+                                            inlineStyle.padding = '0.18em 0.75em'
+                                            inlineStyle.borderRadius = '8px'
+                                            inlineStyle.boxShadow = `0 0 28px ${activeSingerColor}`
                                         }
                                     } else if (isPastGroup) {
                                         cls += ' k-line--past'
                                     } else {
                                         cls += ' k-line--future'
-                                        if (line.singerIndices && line.singerIndices.length > 1) {
-                                            const colors = line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
-                                            if (colors.length > 1) {
-                                                inlineStyle.backgroundImage = `linear-gradient(90deg, ${colors.join(', ')})`
-                                                inlineStyle.WebkitBackgroundClip = 'text'
-                                                inlineStyle.WebkitTextFillColor = 'transparent'
-                                                inlineStyle.opacity = 0.5
-                                            }
+                                        if (activeColors.length > 1) {
+                                            inlineStyle.backgroundImage = `linear-gradient(90deg, ${activeColors.join(', ')})`
+                                            inlineStyle.WebkitBackgroundClip = 'text'
+                                            inlineStyle.WebkitTextFillColor = 'transparent'
                                         } else if (line.singerIndex !== undefined && singers[line.singerIndex]) {
                                             inlineStyle.color = singers[line.singerIndex].color
-                                            inlineStyle.opacity = 0.4
                                         }
+                                        inlineStyle.opacity = 1
                                     }
 
                                     let displayWords = line.words;
@@ -2172,137 +2089,7 @@ export default function KaraokePage() {
                                         });
                                     }
 
-                                    // content logic handled in styles for urban to keep crispness
-                                    let content: React.ReactNode = displayWords
-
-                                    if (theme.name === 'sketch' && isActiveGroup) {
-                                        const seed = (line.originalIndex || 0) * 11 + (j * 7) + 1
-                                        const r = (offset: number) => {
-                                            const x = Math.sin(seed + offset) * 10000;
-                                            return x - Math.floor(x);
-                                        }
-                                        // Random quadratic Bezier path mimicking a stroke
-                                        const path = `M0,${5 + r(2) * 4} Q${20 + r(3) * 20},${2 + r(4) * 6} ${50 + r(5) * 20},${5 + r(6) * 4} T100,${4 + r(7) * 5}`
-                                        const strokeW = 2 + r(8) * 2
-                                        const multiColors = line.singerIndices && line.singerIndices.length > 1
-                                            ? line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
-                                            : []
-                                        const highlightColor = line.singerIndex !== undefined && singers[line.singerIndex] ? singers[line.singerIndex].color : 'black'
-                                        const gradientId = multiColors.length > 1 ? `sketch-grad-${line.originalIndex}-${j}` : null
-
-                                        // For multi-singer lines, apply gradient to the span text (not parent div)
-                                        const spanStyle: React.CSSProperties = { position: 'relative', zIndex: 1 }
-                                        if (multiColors.length > 1) {
-                                            spanStyle.backgroundImage = `linear-gradient(90deg, ${multiColors.join(', ')})`
-                                            spanStyle.WebkitBackgroundClip = 'text'
-                                            spanStyle.WebkitTextFillColor = 'transparent'
-                                        }
-
-                                        content = (
-                                            <>
-                                                <span style={spanStyle}>{displayWords}</span>
-                                                <svg
-                                                    style={{ position: 'absolute', bottom: 6, left: 0, width: '100%', height: '14px', pointerEvents: 'none', zIndex: 0, overflow: 'visible' }}
-                                                    viewBox="0 0 100 10"
-                                                    preserveAspectRatio="none"
-                                                >
-                                                    {gradientId && (
-                                                        <defs>
-                                                            <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
-                                                                {multiColors.map((c: string, ci: number) => (
-                                                                    <stop key={ci} offset={`${(ci / (multiColors.length - 1)) * 100}%`} stopColor={c} />
-                                                                ))}
-                                                            </linearGradient>
-                                                        </defs>
-                                                    )}
-                                                    <path d={path} stroke={gradientId ? `url(#${gradientId})` : highlightColor} strokeWidth={strokeW} fill="none" strokeLinecap="round" />
-                                                </svg>
-                                            </>
-                                        )
-                                    }
-
-                                    if (theme.name === 'psychedelic' && isActiveGroup) {
-                                        const words = displayWords.split(/(\s+)/)
-                                        const lineSeed = (line.originalIndex || 0) * 13 + j * 7
-                                        content = words.map((word: string, wi: number) => {
-                                            if (/^\s+$/.test(word)) return word
-                                            const hash = Math.sin(lineSeed + wi * 97 + 0.5) * 10000
-                                            const delay = (hash - Math.floor(hash)) * 3
-                                            const dur = 2.5 + (Math.sin(lineSeed + wi * 53) * 10000 % 1) * 1.5
-                                            return <span key={wi} className="psy-word" style={{ animationDelay: `${delay.toFixed(2)}s`, animationDuration: `${dur.toFixed(2)}s` }}>{word}</span>
-                                        })
-                                    }
-
-                                    if (theme.name === 'zen' && isActiveGroup) {
-                                        const seed = (line.originalIndex || 0) * 11 + (j * 7) + 1
-                                        const r = (offset: number) => {
-                                            const x = Math.sin(seed + offset) * 10000;
-                                            return x - Math.floor(x);
-                                        }
-                                        // Brush-stroke path — more fluid/calligraphic than sketch's squiggle
-                                        const y1 = 4 + r(2) * 3
-                                        const y2 = 3 + r(3) * 2
-                                        const y3 = 5 + r(4) * 2
-                                        const path = `M2,${y1} C${20 + r(5) * 15},${y2} ${60 + r(6) * 20},${y3} 98,${4 + r(7) * 3}`
-                                        const strokeW = 1.5 + r(8) * 1.5
-                                        const multiColors = line.singerIndices && line.singerIndices.length > 1
-                                            ? line.singerIndices.map((idx: number) => singers[idx]?.color).filter(Boolean)
-                                            : []
-                                        const brushColor = line.singerIndex !== undefined && singers[line.singerIndex] ? singers[line.singerIndex].color : '#C9A84C'
-                                        const gradientId = multiColors.length > 1 ? `zen-grad-${line.originalIndex}-${j}` : null
-
-                                        content = (
-                                            <>
-                                                <span style={{ position: 'relative', zIndex: 1 }}>{displayWords}</span>
-                                                <svg
-                                                    style={{ position: 'absolute', bottom: 4, left: '5%', width: '90%', height: '10px', pointerEvents: 'none', zIndex: 0, overflow: 'visible' }}
-                                                    viewBox="0 0 100 10"
-                                                    preserveAspectRatio="none"
-                                                >
-                                                    {gradientId && (
-                                                        <defs>
-                                                            <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
-                                                                {multiColors.map((c: string, ci: number) => (
-                                                                    <stop key={ci} offset={`${(ci / (multiColors.length - 1)) * 100}%`} stopColor={c} />
-                                                                ))}
-                                                            </linearGradient>
-                                                        </defs>
-                                                    )}
-                                                    <path
-                                                        d={path}
-                                                        stroke={gradientId ? `url(#${gradientId})` : brushColor}
-                                                        strokeWidth={strokeW}
-                                                        fill="none"
-                                                        strokeLinecap="round"
-                                                        strokeDasharray="100"
-                                                        strokeDashoffset="100"
-                                                        className="zen-brush-stroke"
-                                                        opacity="0.6"
-                                                    />
-                                                </svg>
-                                            </>
-                                        )
-                                    }
-
-                                    if (theme.name === 'space' && isActiveGroup) {
-                                        const words = displayWords.split(/(\s+)/)
-                                        const lineSeed = (line.originalIndex || 0) * 17 + j * 11
-                                        content = words.map((word: string, wi: number) => {
-                                            if (/^\s+$/.test(word)) return word
-                                            const hash = Math.sin(lineSeed + wi * 83 + 0.5) * 10000
-                                            const delay = (hash - Math.floor(hash)) * 2.5
-                                            const dur = 2 + (Math.sin(lineSeed + wi * 47) * 10000 % 1) * 1.5
-                                            return <span key={wi} className="space-flare-word" style={{ animationDelay: `${delay.toFixed(2)}s`, animationDuration: `${dur.toFixed(2)}s` }}>{word}</span>
-                                        })
-                                    }
-
-                                    if (theme.name === 'retrowave' && isActiveGroup && !(line.singerIndices && line.singerIndices.length > 1)) {
-                                        const words = displayWords.split(/(\s+)/)
-                                        content = words.map((word: string, wi: number) => {
-                                            if (/^\s+$/.test(word)) return word
-                                            return <span key={wi} className="rw-scan-word">{word}</span>
-                                        })
-                                    }
+                                    const content: React.ReactNode = displayWords
 
                                     return <div key={j} className={cls} style={inlineStyle}>{content}</div>
                                 })}

@@ -233,6 +233,58 @@ const GLOBAL_CSS = `
 [data-theme="space"] h1 {
   text-shadow: 0 0 20px rgba(224,64,251,0.25), 0 0 40px rgba(64,224,208,0.1);
 }
+
+/* ── Active lyric line: reverse-gradient fuzz + starfield ────────────────── */
+[data-theme="space"] .k-line--space-active {
+  position: relative;
+  isolation: isolate;
+}
+
+[data-theme="space"] .k-line--space-active::before {
+  content: '';
+  position: absolute;
+  inset: -18px;
+  border-radius: inherit;
+  background: var(--space-glow, ${NEBULA_MAG});
+  filter: blur(24px);
+  z-index: -2;
+  pointer-events: none;
+  opacity: 0.9;
+}
+
+@keyframes spaceLineTwinkleA {
+  0%, 100% { opacity: 0.7; }
+  50%      { opacity: 0.25; }
+}
+
+@keyframes spaceLineTwinkleB {
+  0%, 100% { opacity: 0.35; }
+  50%      { opacity: 1; }
+}
+
+[data-theme="space"] .k-line--space-active::after {
+  content: '';
+  position: absolute;
+  inset: -34px;
+  pointer-events: none;
+  z-index: -1;
+  background-image:
+    radial-gradient(1.6px 1.6px at 5% 18%, #fff 0%, transparent 100%),
+    radial-gradient(1px 1px at 14% 76%, #fff 0%, transparent 100%),
+    radial-gradient(2px 2px at 27% 12%, #fff 0%, transparent 100%),
+    radial-gradient(1px 1px at 41% 88%, #fff 0%, transparent 100%),
+    radial-gradient(1.4px 1.4px at 56% 32%, #fff 0%, transparent 100%),
+    radial-gradient(1px 1px at 71% 6%, #fff 0%, transparent 100%),
+    radial-gradient(1.8px 1.8px at 87% 70%, #fff 0%, transparent 100%),
+    radial-gradient(1px 1px at 3% 60%, #fff 0%, transparent 100%),
+    radial-gradient(1.3px 1.3px at 34% 50%, #fff 0%, transparent 100%),
+    radial-gradient(1.6px 1.6px at 96% 26%, #fff 0%, transparent 100%),
+    radial-gradient(1px 1px at 22% 38%, #fff 0%, transparent 100%),
+    radial-gradient(1.2px 1.2px at 64% 82%, #fff 0%, transparent 100%);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  animation: spaceLineTwinkleA 3.2s ease-in-out infinite;
+}
 `
 
 // ── Theme export ─────────────────────────────────────────────────────────────
