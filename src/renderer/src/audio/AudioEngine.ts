@@ -7,12 +7,23 @@
 
 export class AudioEngine {
     private audio: HTMLAudioElement
+    // The vocal `<audio>` element is created lazily on the first song with
+    // vocals, then **reused across every subsequent song**. Recreating the
+    // element on song boundaries forced Chromium to open a fresh OS audio
+    // stream each time, which on Bluetooth monitors (AirPods etc.) meant
+    // a full A2DP renegotiation — and audibly different latency per song.
+    // Keeping the element + its sinkId around lets the OS hold the audio
+    // handle warm so latency stays much more consistent.
     private vocalAudio: HTMLAudioElement | null = null
     private onTimeUpdate: ((timeMs: number) => void) | null = null
     private onEnded: (() => void) | null = null
     private _loaded = false
     private _intendedPlayState = false
     private _vocalOffsetMs = 0
+    // AbortController tied to the in-flight load() call. Aborting cleans up
+    // canplaythrough/error listeners attached to the persistent audio
+    // elements so they can't resolve a stale (superseded) load Promise.
+    private _loadAbort: AbortController | null = null
 
     constructor() {
         this.audio = new Audio()
@@ -54,50 +65,67 @@ export class AudioEngine {
         this.onEnded = cb
     }
     async load(stems: { instrumental?: string, vocals?: string }, monitorDeviceIds: string[] = []): Promise<void> {
-        return new Promise((resolve, reject) => {
-            // Cleanup previous vocals
-            if (this.vocalAudio) {
-                this.vocalAudio.pause()
-                this.vocalAudio.removeAttribute('src')
-                this.vocalAudio.load()
-                this.vocalAudio = null
-            }
+        // Abort listeners attached by any prior in-flight load() so a stale
+        // canplaythrough/error event can't resolve the previous Promise.
+        this._loadAbort?.abort()
+        this._loadAbort = new AbortController()
+        const signal = this._loadAbort.signal
 
+        return new Promise((resolve, reject) => {
             this.audio.src = stems.instrumental ? `file://${stems.instrumental}` : ''
 
             if (stems.vocals) {
-                this.vocalAudio = new Audio()
-                this.vocalAudio.preload = 'auto'
+                // Create the persistent vocal element exactly once, the first
+                // time a song with vocals loads. After that, we just swap src
+                // on the same element — sinkId, listeners, and the underlying
+                // OS audio stream survive the song boundary.
+                if (!this.vocalAudio) {
+                    this.vocalAudio = new Audio()
+                    this.vocalAudio.preload = 'auto'
+                    this.vocalAudio.muted = true
+                    // Prevent OS device disconnections (AirPods etc.) from
+                    // pausing the vocal track.
+                    this.vocalAudio.addEventListener('pause', () => {
+                        if (this._intendedPlayState && this.vocalAudio) {
+                            this.vocalAudio.play().catch(() => { })
+                        }
+                    })
+                }
                 this.vocalAudio.src = `file://${stems.vocals}`
-
-                // Prevent OS from pausing the vocal track when disconnected
-                this.vocalAudio.addEventListener('pause', () => {
-                    if (this._intendedPlayState && this.vocalAudio) {
-                        this.vocalAudio.play().catch(() => { })
-                    }
-                })
 
                 const deviceId = monitorDeviceIds[0] || ''
                 if (deviceId) {
                     this.vocalAudio.muted = false
-                    void this._applyVocalSink(deviceId)
+                    // Only call setSinkId when the device actually changed —
+                    // a no-op setSinkId on Bluetooth can still trigger a
+                    // brief A2DP renegotiation we'd rather avoid.
+                    const currentSink = (this.vocalAudio as unknown as { sinkId?: string }).sinkId
+                    if (currentSink !== deviceId) {
+                        void this._applyVocalSink(deviceId)
+                    }
                 } else {
                     this.vocalAudio.muted = true
                 }
+            } else if (this.vocalAudio) {
+                // This song has no vocals. Pause + clear src but keep the
+                // element around for whatever song comes next.
+                this.vocalAudio.pause()
+                this.vocalAudio.removeAttribute('src')
             }
 
-            const elementsToWait = [this.audio]
-            if (this.vocalAudio) elementsToWait.push(this.vocalAudio)
+            const elementsToWait: HTMLAudioElement[] = []
+            if (this.audio.src) elementsToWait.push(this.audio)
+            if (this.vocalAudio && this.vocalAudio.src) elementsToWait.push(this.vocalAudio)
 
-            let loadedCount = 0
-
-            if (elementsToWait.length === 0 || !this.audio.src) {
+            if (elementsToWait.length === 0) {
                 this._loaded = true
                 resolve()
                 return
             }
 
+            let loadedCount = 0
             const checkDone = () => {
+                if (signal.aborted) return
                 loadedCount++
                 if (loadedCount === elementsToWait.length) {
                     this._loaded = true
@@ -109,8 +137,11 @@ export class AudioEngine {
                 if (audioEl.readyState >= 4) {
                     checkDone()
                 } else {
-                    audioEl.addEventListener('canplaythrough', checkDone, { once: true })
-                    audioEl.addEventListener('error', () => reject(new Error(`Failed to load audio: ${audioEl.src}`)), { once: true })
+                    audioEl.addEventListener('canplaythrough', checkDone, { once: true, signal })
+                    audioEl.addEventListener('error', () => {
+                        if (signal.aborted) return
+                        reject(new Error(`Failed to load audio: ${audioEl.src}`))
+                    }, { once: true, signal })
                     audioEl.load()
                 }
             })
@@ -170,6 +201,10 @@ export class AudioEngine {
             return
         }
         this.vocalAudio.muted = false
+        // Skip the round trip if the element is already on the requested
+        // sink — every setSinkId on Bluetooth can re-handshake the link.
+        const currentSink = (this.vocalAudio as unknown as { sinkId?: string }).sinkId
+        if (currentSink === deviceId) return
         void this._applyVocalSink(deviceId)
     }
 
@@ -214,16 +249,24 @@ export class AudioEngine {
     }
 
     destroy() {
+        // Cancel any pending load listeners so a stale canplaythrough/error
+        // can't resolve the previous load Promise after we've reset.
+        this._loadAbort?.abort()
+        this._loadAbort = null
+
         this.pause()
         this.onTimeUpdate = null
         this.onEnded = null
         this.audio.removeAttribute('src')
         this.audio.load() // resets the element
         if (this.vocalAudio) {
+            // **Keep the element alive across song boundaries.** Pause + clear
+            // src, but don't null the reference and don't call .load() with
+            // an empty src — that would tear down the OS audio stream and
+            // force a fresh A2DP handshake on the next song. The element
+            // (and its sinkId) survive and the next load() just swaps src.
             this.vocalAudio.pause()
             this.vocalAudio.removeAttribute('src')
-            this.vocalAudio.load()
-            this.vocalAudio = null
         }
         this._loaded = false
     }

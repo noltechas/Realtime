@@ -26,7 +26,13 @@ export function useAudioSync(): AudioSyncState {
 
     const np = state.nowPlaying
     const track = np?.track
-    const monitorDeviceIdsStr = (np?.monitorDeviceIds || []).join(',')
+    // Vocal monitor device is a session-wide preference: drive it from live
+    // state.monitorDeviceIds (which the Controls page Vocal Out picker writes
+    // to), not from np.monitorDeviceIds (which only captures a stale snapshot
+    // taken when the queue item was first added). Without this, picking a
+    // vocal out mid-session works for the current song but the next song
+    // reverts to whatever device — if any — was selected at queue time.
+    const monitorDeviceIdsStr = state.monitorDeviceIds.join(',')
 
     // Initialize from engine on mount (in case engine is already loaded)
     useEffect(() => {
@@ -67,6 +73,9 @@ export function useAudioSync(): AudioSyncState {
                 engine.setVocalOffset(state.vocalOffsetMs)
                 engine.setVolume(state.volume)
                 engine.setVocalVolume(state.vocalVolume ?? 1.0)
+                // Same song, but the Vocal Out picker may have changed —
+                // re-route the existing vocal audio to the current sink.
+                engine.setVocalSinkId(monitorDeviceIds[0] || '')
                 setLoaded(true)
                 setDuration(engine.durationMs || track?.duration_ms || 0)
                 setPlaying(engine.isPlaying)
@@ -115,6 +124,21 @@ export function useAudioSync(): AudioSyncState {
         if (isStage) return
         getEngine().setVocalOffset(state.vocalOffsetMs)
     }, [state.vocalOffsetMs, isStage])
+
+    // When the vocal monitor device changes, restore the offset we last
+    // measured/applied for that specific device. Depends only on the device
+    // id so an update to the saved map (driven by SET_VOCAL_OFFSET) doesn't
+    // re-fire this effect.
+    const currentMonitorId = state.monitorDeviceIds[0] ?? ''
+    useEffect(() => {
+        if (isStage) return
+        if (!currentMonitorId) return
+        const saved = state.vocalOffsetByDevice[currentMonitorId]
+        if (saved !== undefined && saved !== state.vocalOffsetMs) {
+            dispatch({ type: 'SET_VOCAL_OFFSET', payload: saved })
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentMonitorId, isStage, dispatch])
 
     // Handle remote play/pause commands from companion site
     useEffect(() => {

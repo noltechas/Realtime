@@ -109,6 +109,10 @@ export interface AppState {
     monitorDeviceIds: string[]
     mainOutputId: string
     vocalOffsetMs: number
+    // Last-applied vocal offset per output device id. Persisted to
+    // localStorage so a previously-measured offset (e.g. for AirPods) is
+    // restored automatically when you switch back to that device.
+    vocalOffsetByDevice: Record<string, number>
     micSlots: MicSlotConfig[]
     // Spotify Auth
     spotifyClientId: string | null
@@ -141,6 +145,27 @@ export const NEON_COLORS = [
     { color: '#e11d48', colorGlow: 'rgba(225, 29, 72, 0.3)' }   // Rose
 ]
 
+// Hydrate the vocal-offset-by-device map from localStorage at startup.
+// Falls back to {} on any parse / storage error.
+function loadVocalOffsetByDevice(): Record<string, number> {
+    try {
+        if (typeof localStorage === 'undefined') return {}
+        const stored = localStorage.getItem('vocalOffsetByDevice')
+        if (!stored) return {}
+        const parsed = JSON.parse(stored)
+        if (!parsed || typeof parsed !== 'object') return {}
+        const result: Record<string, number> = {}
+        for (const [k, v] of Object.entries(parsed)) {
+            if (typeof k === 'string' && typeof v === 'number' && Number.isFinite(v)) {
+                result[k] = v
+            }
+        }
+        return result
+    } catch {
+        return {}
+    }
+}
+
 const initialState: AppState = {
     spotifyToken: null,
     currentTrack: null,
@@ -165,6 +190,7 @@ const initialState: AppState = {
     monitorDeviceIds: [],
     mainOutputId: '',
     vocalOffsetMs: 165,
+    vocalOffsetByDevice: loadVocalOffsetByDevice(),
     micSlots: [],
     spotifyClientId: import.meta.env.VITE_SPOTIFY_CLIENT_ID || null,
     spotifyClientSecret: import.meta.env.VITE_SPOTIFY_CLIENT_SECRET || null,
@@ -347,8 +373,20 @@ function reducer(state: AppState, action: Action): AppState {
             return { ...state, monitorDeviceIds: action.payload }
         case 'SET_MAIN_OUTPUT':
             return { ...state, mainOutputId: action.payload }
-        case 'SET_VOCAL_OFFSET':
-            return { ...state, vocalOffsetMs: action.payload }
+        case 'SET_VOCAL_OFFSET': {
+            // Always update the live offset. If a vocal monitor device is
+            // currently selected, also remember this value for that device
+            // so it auto-restores next time the same device is picked.
+            const deviceId = state.monitorDeviceIds[0] || ''
+            const newOffsetByDevice = (deviceId && state.vocalOffsetByDevice[deviceId] !== action.payload)
+                ? { ...state.vocalOffsetByDevice, [deviceId]: action.payload }
+                : state.vocalOffsetByDevice
+            return {
+                ...state,
+                vocalOffsetMs: action.payload,
+                vocalOffsetByDevice: newOffsetByDevice,
+            }
+        }
         case 'SET_SPOTIFY_AUTH':
             return { ...state, spotifyClientId: action.payload.clientId, spotifyClientSecret: action.payload.clientSecret }
         case 'SET_VOICE_EFFECTS':
@@ -551,6 +589,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
             dispatch({ type: 'NEXT_SONG' })
         }
     }, [state.nowPlaying, state.queue.length, dispatch])
+
+    // Persist the per-device vocal offset map across app restarts.
+    useEffect(() => {
+        try {
+            localStorage.setItem('vocalOffsetByDevice', JSON.stringify(state.vocalOffsetByDevice))
+        } catch { /* localStorage may be unavailable; ignore */ }
+    }, [state.vocalOffsetByDevice])
 
     useEffect(() => {
         if (!window.electronAPI) return
