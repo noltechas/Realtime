@@ -86,6 +86,19 @@ function SetupPanel() {
         )
     }
 
+    // Default whitePersonCheck to true the first time a singer is assigned a role
+    // containing the n-word. The user can uncheck to opt out; we don't override
+    // an explicit false.
+    useEffect(() => {
+        state.singers.forEach((singer, i) => {
+            const indices = singer.roleIndices || []
+            if (indices.length === 0) return
+            if (singer.whitePersonCheck !== undefined) return
+            if (!doesAnyRoleHaveOffensiveWord(indices)) return
+            dispatch({ type: 'UPDATE_SINGER', payload: { index: i, singer: { whitePersonCheck: true } } })
+        })
+    }, [state.singers, state.lyrics])
+
     const track = state.currentTrack
     const art = track?.album.images[0]?.url
     const hasInstrumental = !!state.stemsPath?.instrumental
@@ -358,7 +371,7 @@ function SetupPanel() {
                             }}>
                                 <input
                                     type="checkbox"
-                                    checked={singer.whitePersonCheck || false}
+                                    checked={singer.whitePersonCheck ?? true}
                                     onChange={(e) => dispatch({ type: 'UPDATE_SINGER', payload: { index: i, singer: { whitePersonCheck: e.target.checked } } })}
                                     style={{ width: 18, height: 18, cursor: 'pointer', accentColor: singer.color }}
                                 />

@@ -1245,7 +1245,7 @@ var NC=[
 {c:"#d946ef",g:"rgba(217,70,239,0.3)"},
 {c:"#e11d48",g:"rgba(225,29,72,0.3)"}
 ];
-var S={screen:"loading",sessionCode:null,sessionId:null,sessionName:null,guestId:null,guestName:"",profilePicture:null,guests:[],catalog:[],searchQuery:"",selectedTrack:null,singers:[],wizardStep:2,singerPickerOpen:false,customSingerName:"",queue:[],nowPlaying:null,errorMessage:"",theme_name:"neo-brutal",stage_theme:null,hide_song:false,customEmoji:null,emojiPickerOpen:false,textInputOpen:false,memePickerOpen:false,memeSearchQuery:"",memeGifs:[],memeLoading:false,isPlaying:false,nowPlayingSingerConfigs:null,matchedSinger:null,nowPlayingStageTheme:null,joining:false,joinName:"",addingToQueue:false,vocalFxEnabled:true,autotuneEnabled:true,skipConfirmOpen:false};
+var S={screen:"loading",sessionCode:null,sessionId:null,sessionName:null,guestId:null,guestName:"",profilePicture:null,guests:[],catalog:[],searchQuery:"",selectedTrack:null,singers:[],wizardStep:2,singerPickerOpen:false,customSingerName:"",queue:[],nowPlaying:null,errorMessage:"",theme_name:"neo-brutal",stage_theme:null,hide_song:false,customEmoji:null,emojiPickerOpen:false,textInputOpen:false,memePickerOpen:false,memeSearchQuery:"",memeGifs:[],memeLoading:false,isPlaying:false,nowPlayingSingerConfigs:null,matchedSinger:null,nowPlayingStageTheme:null,joining:false,joinName:"",addingToQueue:false,vocalFxEnabled:true,autotuneEnabled:true,skipConfirmOpen:false,prefersSanitize:true};
 var qCh=null,sCh=null,gCh=null,rCh=null;
 var playedTrackIds={};
 var allGifs=[];
@@ -1293,6 +1293,8 @@ function init(){
   if(!S.sessionCode){S.screen="error";S.errorMessage="No session code provided. Scan the QR code to join.";render();return;}
   var saved=localStorage.getItem("karaoke_guest_"+S.sessionCode);
   if(saved){try{var g=JSON.parse(saved);S.guestId=g.guestId;S.guestName=g.guestName;S.sessionId=g.sessionId;S.profilePicture=g.profilePicture||null;}catch(e){}}
+  var dp=loadDeviceProfile();
+  if(dp&&typeof dp.prefersSanitize==="boolean")S.prefersSanitize=dp.prefersSanitize;
   validateSession();
 }
 async function validateSession(){
@@ -1331,7 +1333,7 @@ function loadDeviceProfile(){
 }
 function saveDeviceProfile(){
   if(!S.guestName)return;
-  try{localStorage.setItem("karaoke_device_profile",JSON.stringify({name:S.guestName,profilePicture:S.profilePicture||null}));}catch(e){}
+  try{localStorage.setItem("karaoke_device_profile",JSON.stringify({name:S.guestName,profilePicture:S.profilePicture||null,prefersSanitize:S.prefersSanitize!==false}));}catch(e){}
 }
 function clearDeviceProfile(){
   try{localStorage.removeItem("karaoke_device_profile");}catch(e){}
@@ -1340,6 +1342,7 @@ function tryAutoRejoin(){
   var p=loadDeviceProfile();
   if(p&&p.name){
     S.profilePicture=p.profilePicture||null;
+    if(typeof p.prefersSanitize==="boolean")S.prefersSanitize=p.prefersSanitize;
     joinSession(p.name);
     return true;
   }
@@ -1464,7 +1467,7 @@ function resizeImage(file,maxSize,quality,cb){
 var MAX_SINGERS=4;
 function initWizardFromTrack(track){
   S.selectedTrack=track;
-  S.singers=[{name:S.guestName,color:NC[0].c,colorGlow:NC[0].g,roleIndices:[],profilePicture:S.profilePicture,whitePersonCheck:false}];
+  S.singers=[{name:S.guestName,color:NC[0].c,colorGlow:NC[0].g,roleIndices:[],profilePicture:S.profilePicture,whitePersonCheck:S.prefersSanitize!==false}];
   S.wizardStep=2;
   S.screen="wizard-singers";
   S.customSingerName="";
@@ -1481,7 +1484,7 @@ function addSinger(payload){
     colorGlow:NC[i%NC.length].g,
     roleIndices:[],
     profilePicture:(payload&&payload.profilePicture)||null,
-    whitePersonCheck:false
+    whitePersonCheck:true
   };
   S.singers.push(singer);
 }
@@ -2649,6 +2652,10 @@ function bindEvents(){
       var si=parseInt(row.dataset.wpcSinger);
       if(!S.singers[si])return;
       S.singers[si].whitePersonCheck=!S.singers[si].whitePersonCheck;
+      if(si===0){
+        S.prefersSanitize=!!S.singers[si].whitePersonCheck;
+        saveDeviceProfile();
+      }
       render();
     });
   });

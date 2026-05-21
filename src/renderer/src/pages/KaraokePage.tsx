@@ -16,6 +16,17 @@ function extractYouTubeId(url: string): string | null {
     return null
 }
 
+// Viewport-relative font size for stage text. The mid value scales with the
+// rendering surface so AirPlay to a TV (which gets a larger virtual display)
+// keeps text proportional, not visually shrunken. Floor/ceiling guard against
+// extreme window sizes. `px` is the laptop-reference size at ~900px viewport.
+const stageFont = (px: number): string => {
+    const min = Math.round(px * 0.82)
+    const mid = +((px / 9).toFixed(2))
+    const max = Math.round(px * 2.2)
+    return `clamp(${min}px, ${mid}vh, ${max}px)`
+}
+
 // ---- Singer Mic Processing Hook ----
 function useSingerMic(deviceId: string, enabled: boolean, effects: any, mainOutputId: string) {
     const [level, setLevel] = useState(0)
@@ -522,13 +533,13 @@ export default function KaraokePage() {
 
                     <div style={{ textAlign: 'center', zIndex: 1 }}>
                         <h1 style={{
-                            fontFamily: 'Space Grotesk, sans-serif', fontSize: 72, fontWeight: 800, color: '#1A1A1A',
+                            fontFamily: 'Space Grotesk, sans-serif', fontSize: stageFont(72), fontWeight: 800, color: '#1A1A1A',
                             lineHeight: 1.1, marginBottom: 16,
                             textShadow: 'none',
                         }}>
                             Add a Song!
                         </h1>
-                        <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 20, color: '#1A1A1A', opacity: 0.6, marginBottom: 48 }}>
+                        <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: stageFont(20), color: '#1A1A1A', opacity: 0.6, marginBottom: 48 }}>
                             Scan to join the queue
                         </p>
                         {qrUrl && (
@@ -541,7 +552,7 @@ export default function KaraokePage() {
                         )}
                         {sessionCode && (
                             <p style={{
-                                fontFamily: 'Space Grotesk, sans-serif', fontSize: 28, fontWeight: 800, color: '#1A1A1A',
+                                fontFamily: 'Space Grotesk, sans-serif', fontSize: stageFont(28), fontWeight: 800, color: '#1A1A1A',
                                 letterSpacing: '0.25em', textTransform: 'uppercase', marginTop: 24,
                             }}>
                                 {sessionCode}
@@ -573,20 +584,20 @@ export default function KaraokePage() {
 
                     <div style={{ textAlign: 'center', zIndex: 1 }}>
                         <p style={{
-                            fontFamily: 'Share Tech Mono, monospace', fontSize: 16, color: '#00ff88', opacity: 0.5,
+                            fontFamily: 'Share Tech Mono, monospace', fontSize: stageFont(16), color: '#00ff88', opacity: 0.5,
                             letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: 12,
                         }}>
                             {'>'} system.queue.status
                         </p>
                         <h1 style={{
-                            fontFamily: 'Share Tech Mono, monospace', fontSize: 56, fontWeight: 400, color: '#00ff88',
+                            fontFamily: 'Share Tech Mono, monospace', fontSize: stageFont(56), fontWeight: 400, color: '#00ff88',
                             lineHeight: 1.2, marginBottom: 8,
                             textShadow: '0 0 20px rgba(0,255,136,0.6), 0 0 60px rgba(0,255,136,0.3)',
                         }}>
                             // AWAITING INPUT
                         </h1>
                         <p style={{
-                            fontFamily: 'Share Tech Mono, monospace', fontSize: 14, color: '#00e5ff', opacity: 0.4,
+                            fontFamily: 'Share Tech Mono, monospace', fontSize: stageFont(14), color: '#00e5ff', opacity: 0.4,
                             marginBottom: 48,
                         }}>
                             scan_qr_code() to enqueue track
@@ -602,7 +613,7 @@ export default function KaraokePage() {
                         )}
                         {sessionCode && (
                             <p style={{
-                                fontFamily: 'Share Tech Mono, monospace', fontSize: 22, color: '#00ff88',
+                                fontFamily: 'Share Tech Mono, monospace', fontSize: stageFont(22), color: '#00ff88',
                                 letterSpacing: '0.3em', textTransform: 'uppercase', marginTop: 20,
                                 textShadow: '0 0 10px rgba(0,255,136,0.5)',
                             }}>
@@ -644,14 +655,14 @@ export default function KaraokePage() {
 
                     <div style={{ textAlign: 'center', zIndex: 1 }}>
                         <h1 style={{
-                            fontFamily: 'Kalam, cursive', fontSize: 68, fontWeight: 700, color: '#2d2d2d',
+                            fontFamily: 'Kalam, cursive', fontSize: stageFont(68), fontWeight: 700, color: '#2d2d2d',
                             lineHeight: 1.2, marginBottom: 8,
                             transform: 'rotate(-1.5deg)',
                         }}>
                             Add a song!
                         </h1>
                         <p style={{
-                            fontFamily: 'Patrick Hand, cursive', fontSize: 22, color: '#2d2d2d', opacity: theme.name === 'sketch' ? 0.9 : 0.5,
+                            fontFamily: 'Patrick Hand, cursive', fontSize: stageFont(22), color: '#2d2d2d', opacity: theme.name === 'sketch' ? 0.9 : 0.5,
                             marginBottom: 44, transform: 'rotate(0.5deg)',
                         }}>
                             Scan this to pick your tune
@@ -669,7 +680,7 @@ export default function KaraokePage() {
                         )}
                         {sessionCode && (
                             <p style={{
-                                fontFamily: 'Kalam, cursive', fontSize: 26, fontWeight: 700, color: '#2d5da1',
+                                fontFamily: 'Kalam, cursive', fontSize: stageFont(26), fontWeight: 700, color: '#2d5da1',
                                 letterSpacing: '0.2em', textTransform: 'uppercase', marginTop: 20,
                                 transform: 'rotate(-0.8deg)',
                             }}>
@@ -755,20 +766,20 @@ export default function KaraokePage() {
 
                     <div style={{ textAlign: 'center', zIndex: 1 }}>
                         <p style={{
-                            fontFamily: 'Nunito, sans-serif', fontSize: 14, color: '#00ffc8', opacity: 0.4,
+                            fontFamily: 'Nunito, sans-serif', fontSize: stageFont(14), color: '#00ffc8', opacity: 0.4,
                             letterSpacing: '0.4em', textTransform: 'uppercase', marginBottom: 10,
                         }}>
                             ~ now surfacing ~
                         </p>
                         <h1 style={{
-                            fontFamily: 'Quicksand, sans-serif', fontSize: 68, fontWeight: 700, color: '#e0fff8',
+                            fontFamily: 'Quicksand, sans-serif', fontSize: stageFont(68), fontWeight: 700, color: '#e0fff8',
                             lineHeight: 1.1, marginBottom: 8,
                             textShadow: '0 0 30px rgba(0,255,200,0.5), 0 0 60px rgba(0,255,200,0.25), 0 0 100px rgba(180,77,255,0.15)',
                         }}>
                             Add a Song
                         </h1>
                         <p style={{
-                            fontFamily: 'Nunito, sans-serif', fontSize: 20, color: '#8ecfc2',
+                            fontFamily: 'Nunito, sans-serif', fontSize: stageFont(20), color: '#8ecfc2',
                             marginBottom: 44,
                         }}>
                             Scan to dive into the queue
@@ -787,7 +798,7 @@ export default function KaraokePage() {
                         )}
                         {sessionCode && (
                             <p style={{
-                                fontFamily: 'Quicksand, sans-serif', fontSize: 26, fontWeight: 700, color: '#00ffc8',
+                                fontFamily: 'Quicksand, sans-serif', fontSize: stageFont(26), fontWeight: 700, color: '#00ffc8',
                                 letterSpacing: '0.3em', textTransform: 'uppercase', marginTop: 24,
                                 textShadow: '0 0 15px rgba(0,255,200,0.5), 0 0 30px rgba(0,255,200,0.2)',
                             }}>
@@ -863,13 +874,13 @@ export default function KaraokePage() {
 
                     <div style={{ textAlign: 'center', zIndex: 1 }}>
                         <p style={{
-                            fontFamily: 'Spicy Rice, cursive', fontSize: 16, color: '#ff2d95', opacity: 0.5,
+                            fontFamily: 'Spicy Rice, cursive', fontSize: stageFont(16), color: '#ff2d95', opacity: 0.5,
                             letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: 8,
                         }}>
                             ~ far out ~
                         </p>
                         <h1 style={{
-                            fontFamily: 'Chicle, cursive', fontSize: 72, color: '#f5ecff',
+                            fontFamily: 'Chicle, cursive', fontSize: stageFont(72), color: '#f5ecff',
                             lineHeight: 1.1, marginBottom: 8,
                             textShadow: '0 0 30px rgba(255,45,149,0.5), 0 0 60px rgba(182,255,45,0.25), 0 0 100px rgba(255,140,45,0.15)',
                             animation: 'psyWobble 6s ease-in-out infinite',
@@ -877,7 +888,7 @@ export default function KaraokePage() {
                             Add a Song
                         </h1>
                         <p style={{
-                            fontFamily: 'Spicy Rice, cursive', fontSize: 22, color: '#c8a8e8',
+                            fontFamily: 'Spicy Rice, cursive', fontSize: stageFont(22), color: '#c8a8e8',
                             marginBottom: 44,
                         }}>
                             Scan to join the groove
@@ -896,7 +907,7 @@ export default function KaraokePage() {
                         )}
                         {sessionCode && (
                             <p style={{
-                                fontFamily: 'Chicle, cursive', fontSize: 28, color: '#ff2d95',
+                                fontFamily: 'Chicle, cursive', fontSize: stageFont(28), color: '#ff2d95',
                                 letterSpacing: '0.2em', textTransform: 'uppercase', marginTop: 24,
                                 textShadow: '0 0 15px rgba(255,45,149,0.5), 0 0 30px rgba(182,255,45,0.2)',
                             }}>
@@ -1050,7 +1061,7 @@ export default function KaraokePage() {
                     {/* Content */}
                     <div style={{ textAlign: 'center', zIndex: 2 }}>
                         <h1 style={{
-                            fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 72, color: '#F0E6D3',
+                            fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: stageFont(72), color: '#F0E6D3',
                             fontWeight: 500, fontStyle: 'italic', lineHeight: 1.1, marginBottom: 8,
                             textShadow: '0 0 30px rgba(201,168,76,0.25), 0 0 60px rgba(201,168,76,0.1)',
                             letterSpacing: '0.05em',
@@ -1058,7 +1069,7 @@ export default function KaraokePage() {
                             Find Your Song
                         </h1>
                         <p style={{
-                            fontFamily: "'Zen Kaku Gothic New', sans-serif", fontSize: 16, color: '#B8A898',
+                            fontFamily: "'Zen Kaku Gothic New', sans-serif", fontSize: stageFont(16), color: '#B8A898',
                             letterSpacing: '0.35em', textTransform: 'uppercase', marginBottom: 48,
                         }}>
                             Scan to begin
@@ -1077,7 +1088,7 @@ export default function KaraokePage() {
                         )}
                         {sessionCode && (
                             <p style={{
-                                fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 28, fontWeight: 600,
+                                fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: stageFont(28), fontWeight: 600,
                                 color: '#C9A84C', letterSpacing: '0.3em', textTransform: 'uppercase', marginTop: 20,
                                 textShadow: '0 0 15px rgba(201,168,76,0.3)',
                             }}>
@@ -1194,7 +1205,7 @@ export default function KaraokePage() {
                     {/* Content */}
                     <div style={{ textAlign: 'center', zIndex: 2 }}>
                         <h1 style={{
-                            fontFamily: "'Orbitron', sans-serif", fontSize: 64, color: '#E8E6F0',
+                            fontFamily: "'Orbitron', sans-serif", fontSize: stageFont(64), color: '#E8E6F0',
                             fontWeight: 700, lineHeight: 1.1, marginBottom: 8,
                             textShadow: '0 0 30px rgba(224,64,251,0.35), 0 0 60px rgba(64,224,208,0.15), 0 0 100px rgba(224,64,251,0.1)',
                             letterSpacing: '0.08em', textTransform: 'uppercase',
@@ -1202,7 +1213,7 @@ export default function KaraokePage() {
                             Launch a Song
                         </h1>
                         <p style={{
-                            fontFamily: "'Exo 2', sans-serif", fontSize: 16, color: '#9896A8',
+                            fontFamily: "'Exo 2', sans-serif", fontSize: stageFont(16), color: '#9896A8',
                             letterSpacing: '0.4em', textTransform: 'uppercase', marginBottom: 48,
                         }}>
                             Scan to queue from orbit
@@ -1221,7 +1232,7 @@ export default function KaraokePage() {
                         )}
                         {sessionCode && (
                             <p style={{
-                                fontFamily: "'Orbitron', sans-serif", fontSize: 24, fontWeight: 600,
+                                fontFamily: "'Orbitron', sans-serif", fontSize: stageFont(24), fontWeight: 600,
                                 color: '#E040FB', letterSpacing: '0.35em', textTransform: 'uppercase', marginTop: 20,
                                 textShadow: '0 0 15px rgba(224,64,251,0.4), 0 0 30px rgba(224,64,251,0.15)',
                             }}>
@@ -1365,7 +1376,7 @@ export default function KaraokePage() {
                     {/* Content */}
                     <div style={{ textAlign: 'center', zIndex: 2 }}>
                         <h1 style={{
-                            fontFamily: "'Cinzel Decorative', serif", fontSize: 52, color: '#E8DCC8',
+                            fontFamily: "'Cinzel Decorative', serif", fontSize: stageFont(52), color: '#E8DCC8',
                             fontWeight: 400, lineHeight: 1.2, marginBottom: 8,
                             textShadow: '0 0 20px rgba(200,151,62,0.35), 0 0 50px rgba(200,151,62,0.12), 0 0 80px rgba(224,112,64,0.06)',
                             letterSpacing: '0.06em',
@@ -1373,7 +1384,7 @@ export default function KaraokePage() {
                             Queue a Tune
                         </h1>
                         <p style={{
-                            fontFamily: "'Spectral', serif", fontSize: 16, color: '#A89878',
+                            fontFamily: "'Spectral', serif", fontSize: stageFont(16), color: '#A89878',
                             letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: 48,
                             fontStyle: 'italic',
                         }}>
@@ -1393,7 +1404,7 @@ export default function KaraokePage() {
                         )}
                         {sessionCode && (
                             <p style={{
-                                fontFamily: "'Cinzel', serif", fontSize: 26, fontWeight: 600,
+                                fontFamily: "'Cinzel', serif", fontSize: stageFont(26), fontWeight: 600,
                                 color: '#C8973E', letterSpacing: '0.35em', textTransform: 'uppercase', marginTop: 20,
                                 textShadow: '0 0 15px rgba(200,151,62,0.3)',
                             }}>
@@ -1544,7 +1555,7 @@ export default function KaraokePage() {
                         alignItems: 'center', gap: 16, textAlign: 'center', marginTop: -160,
                     }}>
                         <h1 style={{
-                            fontFamily: "'Audiowide', sans-serif", fontSize: 80, fontWeight: 400,
+                            fontFamily: "'Audiowide', sans-serif", fontSize: stageFont(80), fontWeight: 400,
                             background: 'linear-gradient(180deg, #FFD700 0%, #FF6B2B 40%, #FF2D95 100%)',
                             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
                             filter: 'drop-shadow(0 0 25px rgba(255,45,149,0.5)) drop-shadow(0 0 8px rgba(255,107,43,0.4))',
@@ -1553,7 +1564,7 @@ export default function KaraokePage() {
                             HIT PLAY
                         </h1>
                         <p style={{
-                            fontFamily: "'Rajdhani', sans-serif", fontSize: 16, color: 'rgba(155,140,191,0.7)',
+                            fontFamily: "'Rajdhani', sans-serif", fontSize: stageFont(16), color: 'rgba(155,140,191,0.7)',
                             letterSpacing: 8, textTransform: 'uppercase', margin: 0,
                         }}>
                             Scan to ride the wave
@@ -1576,7 +1587,7 @@ export default function KaraokePage() {
                                 boxShadow: '0 0 12px rgba(255,45,149,0.1)',
                             }}>
                                 <p style={{
-                                    fontFamily: "'Audiowide', sans-serif", fontSize: 24, color: '#FF2D95',
+                                    fontFamily: "'Audiowide', sans-serif", fontSize: stageFont(24), color: '#FF2D95',
                                     letterSpacing: 10, margin: 0,
                                     textShadow: '0 0 12px rgba(255,45,149,0.6), 0 0 30px rgba(255,45,149,0.25)',
                                 }}>
@@ -1618,14 +1629,14 @@ export default function KaraokePage() {
 
                 <div style={{ textAlign: 'center', zIndex: 1 }}>
                     <h1 style={{
-                        fontFamily: 'Permanent Marker, cursive', fontSize: 76, color: '#FFFFFF',
+                        fontFamily: 'Permanent Marker, cursive', fontSize: stageFont(76), color: '#FFFFFF',
                         lineHeight: 1.1, marginBottom: 4,
                         textShadow: '3px 3px 0 rgba(0,0,0,0.8)',
                     }}>
                         DROP A TRACK
                     </h1>
                     <p style={{
-                        fontFamily: 'Oswald, sans-serif', fontSize: 18, color: '#B0B0B0',
+                        fontFamily: 'Oswald, sans-serif', fontSize: stageFont(18), color: '#B0B0B0',
                         letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: 48,
                     }}>
                         Scan to add your song
@@ -1642,7 +1653,7 @@ export default function KaraokePage() {
                     )}
                     {sessionCode && (
                         <p style={{
-                            fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, color: '#D4FF00',
+                            fontFamily: 'Oswald, sans-serif', fontSize: stageFont(26), fontWeight: 600, color: '#D4FF00',
                             letterSpacing: '0.35em', textTransform: 'uppercase', marginTop: 20,
                             textShadow: '0 0 10px rgba(212,255,0,0.3)',
                         }}>
@@ -1870,7 +1881,7 @@ export default function KaraokePage() {
                                 position: 'relative',
                                 display: 'inline-block',
                                 padding: '8px 24px',
-                                fontSize: 13, fontWeight: 800, color: theme.mintGreen || theme.page?.color, letterSpacing: '0.2em', textTransform: 'uppercase',
+                                fontSize: stageFont(13), fontWeight: 800, color: theme.mintGreen || theme.page?.color, letterSpacing: '0.2em', textTransform: 'uppercase',
                             }}>
                                 Up Next
                             </div>
@@ -1896,10 +1907,10 @@ export default function KaraokePage() {
                                     <HiddenSongStageHeading theme={theme} />
                                 ) : (
                                     <>
-                                        <h1 style={{ fontFamily: theme.fontDisplay, color: theme.page?.color as string || theme.black, fontSize: 42, fontWeight: 800, lineHeight: 1.15, marginBottom: 10, letterSpacing: '-0.5px' }}>
+                                        <h1 style={{ fontFamily: theme.fontDisplay, color: theme.page?.color as string || theme.black, fontSize: stageFont(42), fontWeight: 800, lineHeight: 1.15, marginBottom: 10, letterSpacing: '-0.5px' }}>
                                             {track.name}
                                         </h1>
-                                        <p style={{ fontSize: 18, color: theme.muted, opacity: theme.name === 'sketch' ? 1 : 0.8, marginBottom: 36, display: 'flex', gap: 16, justifyContent: 'center', alignItems: 'center' }}>
+                                        <p style={{ fontSize: stageFont(18), color: theme.muted, opacity: theme.name === 'sketch' ? 1 : 0.8, marginBottom: 36, display: 'flex', gap: 16, justifyContent: 'center', alignItems: 'center' }}>
                                             <span>{track.artists.map((a: any) => a.name).join(', ')}</span>
                                             {track.duration_ms && (
                                                 <>
@@ -1935,7 +1946,7 @@ export default function KaraokePage() {
                                                     padding: '16px 36px',
                                                     color: s.color,
                                                     fontWeight: 700,
-                                                    fontSize: 28,
+                                                    fontSize: stageFont(28),
                                                 }}
                                             >
                                                 {s.profilePicture && (
@@ -1951,7 +1962,7 @@ export default function KaraokePage() {
                     </div>
                 ) : groupedLyrics.length === 0 ? (
                     <div style={{ textAlign: 'center' }}>
-                        <p style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: 'var(--white-faint)' }}>
+                        <p style={{ fontFamily: 'var(--font-display)', fontSize: stageFont(22), fontWeight: 700, color: 'var(--white-faint)' }}>
                             No lyrics available
                         </p>
                     </div>
