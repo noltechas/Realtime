@@ -1320,10 +1320,30 @@ async function validateSession(){
     }
     S.guestId=null;S.guestName="";S.profilePicture=null;localStorage.removeItem("karaoke_guest_"+S.sessionCode);
   }
+  if(tryAutoRejoin())return;
   S.screen="join";render();
 }
 function saveLocal(){
   localStorage.setItem("karaoke_guest_"+S.sessionCode,JSON.stringify({guestId:S.guestId,guestName:S.guestName,sessionId:S.sessionId,profilePicture:S.profilePicture}));
+}
+function loadDeviceProfile(){
+  try{var raw=localStorage.getItem("karaoke_device_profile");return raw?JSON.parse(raw):null;}catch(e){return null;}
+}
+function saveDeviceProfile(){
+  if(!S.guestName)return;
+  try{localStorage.setItem("karaoke_device_profile",JSON.stringify({name:S.guestName,profilePicture:S.profilePicture||null}));}catch(e){}
+}
+function clearDeviceProfile(){
+  try{localStorage.removeItem("karaoke_device_profile");}catch(e){}
+}
+function tryAutoRejoin(){
+  var p=loadDeviceProfile();
+  if(p&&p.name){
+    S.profilePicture=p.profilePicture||null;
+    joinSession(p.name);
+    return true;
+  }
+  return false;
 }
 async function joinSession(name){
   if(S.joining)return;
@@ -1334,6 +1354,7 @@ async function joinSession(name){
   if(r.error){S.joining=false;S.screen="join";render();alert("Failed to join. Try again.");return;}
   S.guestId=r.data.id;
   saveLocal();
+  saveDeviceProfile();
   await loadCatalog();await loadQueue();await loadGuests();subRT();S.joining=false;S.screen="songs";render();
 }
 async function loadCatalog(){
@@ -1354,7 +1375,7 @@ function checkYoureUp(){
     for(var i=0;i<S.nowPlayingSingerConfigs.length;i++){
       if(S.nowPlayingSingerConfigs[i].name===S.guestName){match=S.nowPlayingSingerConfigs[i];break;}
     }
-    if(match&&S.screen!=="youreup"&&S.screen!=="stage"){
+    if(match&&S.screen!=="youreup"){
       S.matchedSinger=match;
       S.screen="youreup";
       return;
@@ -1420,6 +1441,7 @@ async function updateProfile(name,pic){
   S.guestName=name.trim();
   if(pic!==undefined)S.profilePicture=pic;
   saveLocal();
+  saveDeviceProfile();
   S.screen="songs";render();
 }
 function resizeImage(file,maxSize,quality,cb){
@@ -1936,7 +1958,7 @@ function render(){
     case"queue":a.innerHTML=renderQueue()+renderBN("queue");break;
     case"stage":a.innerHTML=renderStage()+renderBN("stage")+renderEmojiPicker()+renderTextInput()+renderMemePicker();break;
     case"profile":a.innerHTML=renderProfile()+renderBN("profile");break;
-    case"youreup":a.innerHTML=renderYoureUp()+renderBN("stage");break;
+    case"youreup":a.innerHTML=renderYoureUp()+renderBN("youreup");break;
     case"error":a.innerHTML=renderError();break;
   }
   bindEvents();
@@ -1981,6 +2003,7 @@ function renderProfile(){
       '<input class="profile-name-input" id="profile-name" value="'+esc(S.guestName)+'" maxlength="30" autocomplete="off">'+
     '</div>'+
     '<button class="profile-save-btn" id="profile-save">Save Changes</button>'+
+    '<button id="profile-switch" style="margin-top:14px;width:100%;padding:14px 16px;border-radius:10px;border:1px solid var(--white-faint);background:transparent;color:var(--white-muted);font-size:13px;font-weight:700;font-family:var(--font-display);cursor:pointer;letter-spacing:0.5px">Switch user</button>'+
   '</div>';
 }
 function renderSongs(){
@@ -2379,9 +2402,13 @@ function renderMemePicker(){
 }
 function renderBN(act){
   var navAv=S.profilePicture?'<div class="nav-guest-avatar"><img src="'+S.profilePicture+'" alt=""></div>':'<div class="nav-guest-avatar">'+esc(S.guestName?S.guestName.charAt(0).toUpperCase():"?")+'</div>';
+  var isSinging=!!(S.matchedSinger&&S.nowPlaying);
+  var middleBtn=isSinging?
+    '<button class="nav-tab'+(act==="youreup"?" active":"")+'" data-nav="youreup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>Stage</button>':
+    '<button class="nav-tab'+(act==="stage"?" active":"")+'" data-nav="stage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>React</button>';
   return '<div class="bottom-nav">'+
     '<button class="nav-tab'+(act==="songs"?" active":"")+'" data-nav="songs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Songs</button>'+
-    '<button class="nav-tab'+(act==="stage"?" active":"")+'" data-nav="stage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>React</button>'+
+    middleBtn+
     '<button class="nav-guest-pill" id="nav-profile">'+navAv+'<span>'+esc(S.guestName)+'</span></button>'+
     '<button class="nav-tab'+(act==="queue"?" active":"")+'" data-nav="queue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Queue</button>'+
   '</div>';
@@ -2480,6 +2507,14 @@ function bindEvents(){
   if(ps&&pn){
     ps.addEventListener("click",function(){if(pn.value.trim())updateProfile(pn.value,S.profilePicture);});
   }
+  var psw=document.getElementById("profile-switch");
+  if(psw){psw.addEventListener("click",function(){
+    if(!confirm("Switch user? You'll need to enter a new name. Songs you've added will stay queued."))return;
+    localStorage.removeItem("karaoke_guest_"+S.sessionCode);
+    clearDeviceProfile();
+    S.guestId=null;S.guestName="";S.profilePicture=null;S.joinName="";
+    S.screen="join";render();
+  });}
   var np2=document.getElementById("nav-profile");
   if(np2){np2.addEventListener("click",function(){S.screen="profile";render();});}
   var si=document.getElementById("search-input");
