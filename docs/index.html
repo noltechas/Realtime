@@ -123,6 +123,42 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
   font-size: 11px; color: var(--white-faint); margin-bottom: 24px;
   font-family: var(--font-display);
 }
+.rejoin-list {
+  width: 100%; max-width: 360px; display: flex; flex-direction: column;
+  gap: 10px; margin-bottom: 20px; max-height: 60dvh; overflow-y: auto;
+}
+.rejoin-row {
+  display: flex; align-items: center; gap: 14px; width: 100%;
+  padding: 10px 14px; min-height: 56px; border-radius: 14px;
+  background: var(--surface-1); border: 1px solid var(--white-ghost);
+  color: var(--white); font-family: var(--font-display); font-weight: 600;
+  font-size: 15px; cursor: pointer; text-align: left;
+  transition: transform 0.12s, border-color 0.15s, background 0.15s;
+}
+.rejoin-row:active { transform: scale(0.98); }
+.rejoin-row:hover { border-color: var(--violet); }
+.rejoin-row-avatar {
+  width: 40px; height: 40px; border-radius: 50%; flex: 0 0 40px;
+  background: var(--surface-2); overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--white-ghost);
+}
+.rejoin-row-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.rejoin-row-avatar svg { color: var(--white-faint); }
+.rejoin-row-name {
+  flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.rejoin-empty {
+  font-size: 14px; color: var(--white-muted); text-align: center;
+  padding: 40px 16px; font-family: var(--font-display);
+}
+.rejoin-back-btn {
+  margin-top: 4px; width: 100%; max-width: 320px; padding: 14px 16px;
+  border-radius: 99px; border: 1px solid var(--white-faint);
+  background: transparent; color: var(--white-muted);
+  font-size: 13px; font-weight: 700; font-family: var(--font-display);
+  cursor: pointer; letter-spacing: 0.5px;
+}
 .profile-screen { padding: 20px; }
 .profile-title {
   font-family: var(--font-display); font-weight: 700; font-size: 28px;
@@ -1322,7 +1358,6 @@ async function validateSession(){
     }
     S.guestId=null;S.guestName="";S.profilePicture=null;localStorage.removeItem("karaoke_guest_"+S.sessionCode);
   }
-  if(tryAutoRejoin())return;
   S.screen="join";render();
 }
 function saveLocal(){
@@ -1338,15 +1373,20 @@ function saveDeviceProfile(){
 function clearDeviceProfile(){
   try{localStorage.removeItem("karaoke_device_profile");}catch(e){}
 }
-function tryAutoRejoin(){
-  var p=loadDeviceProfile();
-  if(p&&p.name){
-    S.profilePicture=p.profilePicture||null;
-    if(typeof p.prefersSanitize==="boolean")S.prefersSanitize=p.prefersSanitize;
-    joinSession(p.name);
-    return true;
-  }
-  return false;
+async function rejoinAsGuest(g){
+  if(S.joining)return;
+  S.joining=true;
+  S.guestId=g.id;
+  S.guestName=g.name;
+  S.profilePicture=g.profilePicture||null;
+  S.screen="joining";render();
+  saveLocal();
+  saveDeviceProfile();
+  await loadCatalog();await loadQueue();await loadGuests();subRT();
+  S.joining=false;
+  S.screen="songs";
+  checkYoureUp();
+  render();
 }
 async function joinSession(name){
   if(S.joining)return;
@@ -1953,6 +1993,7 @@ function render(){
   switch(S.screen){
     case"loading":a.innerHTML='<div class="loading-center"><div class="spinner"></div></div>';break;
     case"join":a.innerHTML=renderJoin();break;
+    case"rejoin":a.innerHTML=renderRejoin();break;
     case"joining":a.innerHTML=renderJoining();break;
     case"songs":a.innerHTML=renderSongs()+renderBN("songs");break;
     case"wizard-singers":a.innerHTML=renderWizardShell(2,renderWizardSingers())+renderWizardFooter(2)+renderBN("songs")+renderSingerPickerOverlay();break;
@@ -1977,6 +2018,25 @@ function renderJoin(){
     '<div class="avatar-upload-hint">Tap to add a photo (optional)</div>'+
     '<input class="join-input" id="name-input" placeholder="Your name" maxlength="30" autocomplete="off" value="'+esc(S.joinName||"")+'">'+
     '<button class="join-btn" id="join-btn" disabled>Join Session</button>'+
+    '<button id="rejoin-open" style="margin-top:14px;width:100%;max-width:320px;padding:14px 16px;border-radius:99px;border:1px solid var(--white-faint);background:transparent;color:var(--white-muted);font-size:13px;font-weight:700;font-family:var(--font-display);cursor:pointer;letter-spacing:0.5px">Rejoin existing user</button>'+
+    '<div class="join-session-code">'+esc(S.sessionCode)+'</div>'+
+  '</div>';
+}
+function renderRejoin(){
+  var rows=(S.guests||[]).map(function(g){
+    var av=g.profilePicture?'<img src="'+g.profilePicture+'" alt="">':'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/></svg>';
+    return '<button class="rejoin-row guest-picker-pill" data-guest-id="'+esc(g.id)+'">'+
+      '<span class="rejoin-row-avatar">'+av+'</span>'+
+      '<span class="rejoin-row-name">'+esc(g.name)+'</span>'+
+      '</button>';
+  }).join("");
+  var body=rows||'<div class="rejoin-empty">No one has joined this session yet.</div>';
+  return '<div class="join-screen screen">'+
+    '<div class="join-logo">Realtime</div>'+
+    '<div class="join-title">Rejoin</div>'+
+    '<p class="join-sub">Pick your profile</p>'+
+    '<div class="rejoin-list">'+body+'</div>'+
+    '<button id="rejoin-back" class="rejoin-back-btn">Back</button>'+
     '<div class="join-session-code">'+esc(S.sessionCode)+'</div>'+
   '</div>';
 }
@@ -2499,6 +2559,20 @@ function bindEvents(){
       if(ai.files&&ai.files[0]){var ni2=document.getElementById("name-input");if(ni2)S.joinName=ni2.value;resizeImage(ai.files[0],128,0.8,function(url){S.profilePicture=url;render();});}
     });
   }
+  var ro=document.getElementById("rejoin-open");
+  if(ro){ro.addEventListener("click",function(){
+    S.screen="rejoin";render();
+    loadGuests().then(render);
+  });}
+  var rb=document.getElementById("rejoin-back");
+  if(rb){rb.addEventListener("click",function(){S.screen="join";render();});}
+  document.querySelectorAll(".rejoin-row").forEach(function(row){
+    row.addEventListener("click",function(){
+      var gid=row.dataset.guestId;
+      var g=(S.guests||[]).find(function(x){return x.id===gid;});
+      if(g)rejoinAsGuest(g);
+    });
+  });
   var pa=document.getElementById("profile-avatar"),pai=document.getElementById("profile-avatar-input");
   if(pa&&pai){
     pa.addEventListener("click",function(){pai.click();});

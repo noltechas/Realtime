@@ -34,6 +34,8 @@ export function useAudioSync(): AudioSyncState {
         const engine = getEngine()
         if (engine.isLoaded && np?.stemsPath?.instrumental) {
             engine.setVocalOffset(state.vocalOffsetMs)
+            engine.setVolume(state.volume)
+            engine.setVocalVolume(state.vocalVolume ?? 1.0)
             loadedPathRef.current = np.stemsPath.instrumental
             setLoaded(true)
             setDuration(engine.durationMs || track?.duration_ms || 0)
@@ -63,6 +65,8 @@ export function useAudioSync(): AudioSyncState {
             const engine = getEngine()
             if (engine.isLoaded) {
                 engine.setVocalOffset(state.vocalOffsetMs)
+                engine.setVolume(state.volume)
+                engine.setVocalVolume(state.vocalVolume ?? 1.0)
                 setLoaded(true)
                 setDuration(engine.durationMs || track?.duration_ms || 0)
                 setPlaying(engine.isPlaying)
@@ -99,6 +103,8 @@ export function useAudioSync(): AudioSyncState {
 
         engine.load(stemsPath || {}, monitorDeviceIds).then(() => {
             engine.setVocalOffset(state.vocalOffsetMs)
+            engine.setVolume(state.volume)
+            engine.setVocalVolume(state.vocalVolume ?? 1.0)
             setDuration(engine.durationMs || track?.duration_ms || 0)
             setLoaded(true)
         }).catch(err => console.error('[AudioSync] Audio load failed:', err))

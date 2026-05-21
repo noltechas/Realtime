@@ -80,9 +80,7 @@ export class AudioEngine {
                 const deviceId = monitorDeviceIds[0] || ''
                 if (deviceId) {
                     this.vocalAudio.muted = false
-                    if (typeof (this.vocalAudio as any).setSinkId === 'function') {
-                        ; (this.vocalAudio as any).setSinkId(deviceId).catch((e: any) => console.warn('Failed to setSinkId', e))
-                    }
+                    void this._applyVocalSink(deviceId)
                 } else {
                     this.vocalAudio.muted = true
                 }
@@ -169,11 +167,33 @@ export class AudioEngine {
 
         if (!deviceId) {
             this.vocalAudio.muted = true
-        } else {
-            this.vocalAudio.muted = false
-            if (typeof (this.vocalAudio as any).setSinkId === 'function') {
-                ; (this.vocalAudio as any).setSinkId(deviceId).catch((e: any) => console.warn('Failed to set vocal sinkId', e))
+            return
+        }
+        this.vocalAudio.muted = false
+        void this._applyVocalSink(deviceId)
+    }
+
+    // Robustly point the vocal `<audio>` at `deviceId`. Chromium has a quirk
+    // where the first setSinkId call on a freshly-created (or freshly-unmuted)
+    // media element is accepted but silently no-ops — the element keeps
+    // playing on the system-default sink until a second call lands. We verify
+    // via the `sinkId` getter and retry once after a brief delay, which has
+    // been enough to make routing reliable on the first device change.
+    private async _applyVocalSink(deviceId: string): Promise<void> {
+        if (!this.vocalAudio || !deviceId) return
+        const va = this.vocalAudio as unknown as {
+            setSinkId?: (id: string) => Promise<void>
+            sinkId?: string
+        }
+        if (typeof va.setSinkId !== 'function') return
+        try {
+            await va.setSinkId(deviceId)
+            if (va.sinkId !== deviceId) {
+                await new Promise(r => setTimeout(r, 30))
+                await va.setSinkId(deviceId)
             }
+        } catch (e) {
+            console.warn('Failed to set vocal sinkId', e)
         }
     }
 
