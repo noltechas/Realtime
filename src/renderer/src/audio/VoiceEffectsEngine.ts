@@ -1,5 +1,6 @@
 import { VoiceEffects, DEFAULT_VOICE_EFFECTS } from './VoiceEffectsTypes'
 import { PITCH_CORRECTION_PROCESSOR_CODE } from './pitch-correction-worklet'
+import { NOISE_GATE_PROCESSOR_CODE } from './noise-gate-worklet'
 import { parseDeviceId } from '../hooks/useAudioDevices'
 
 /**
@@ -27,6 +28,14 @@ export class VoiceEffectsEngine {
 
     // Chain nodes
     private inputGain: GainNode
+    // Always-on 50 Hz Butterworth high-pass to remove sub-bass rumble
+    // (HVAC, cable thumps, body-handling noise) and lightly attenuate
+    // 50/60 Hz electrical hum before the compressor can apply makeup gain
+    // to them. The corner is intentionally well below the lowest sung
+    // fundamentals (E2 ≈ 82 Hz only sees -0.6 dB) so the high-pass doesn't
+    // weaken the fundamental and trick the YIN pitch detector into locking
+    // onto a harmonic (which would produce octave-up errors).
+    private inputHighPass: BiquadFilterNode
 
     // Pitch correction (AudioWorklet)
     private pitchCorrectionNode: AudioWorkletNode | null = null
@@ -66,10 +75,12 @@ export class VoiceEffectsEngine {
     private distortionWet: GainNode
     private distortionShaper: WaveShaperNode
 
-    // Noise Gate
-    private gateGain: GainNode
-    private gateAnalyser: AnalyserNode
-    private gateRunning = false
+    // Noise Gate (downward expander, AudioWorklet). noiseGateBypass carries
+    // the signal at unity gain until the worklet is ready; if loading fails
+    // the chain stays functional with the gate effectively disabled.
+    private noiseGateNode: AudioWorkletNode | null = null
+    private noiseGateReady = false
+    private noiseGateBypass: GainNode
 
     private masterGain: GainNode
     public analyser: AnalyserNode
@@ -112,6 +123,14 @@ export class VoiceEffectsEngine {
 
         // 1. Input
         this.inputGain = this.ctx.createGain()
+
+        // 1a. Input cleanup: 50 Hz high-pass, Butterworth Q (0.707).
+        // Kept well below the lowest sung fundamentals so it can't weaken
+        // them and trip YIN into octave errors.
+        this.inputHighPass = this.ctx.createBiquadFilter()
+        this.inputHighPass.type = 'highpass'
+        this.inputHighPass.frequency.value = 50
+        this.inputHighPass.Q.value = 0.707
 
         // 1b. Pitch correction bypass (used until worklet is loaded)
         this.pitchCorrectionBypass = this.ctx.createGain()
@@ -184,10 +203,8 @@ export class VoiceEffectsEngine {
         this.distortionIn.connect(this.distortionShaper)
         this.distortionShaper.connect(this.distortionWet)
 
-        // 8. Noise Gate (analyser-driven gain)
-        this.gateGain = this.ctx.createGain()
-        this.gateAnalyser = this.ctx.createAnalyser()
-        this.gateAnalyser.fftSize = 256
+        // 8. Noise Gate bypass (replaced by worklet once it loads)
+        this.noiseGateBypass = this.ctx.createGain()
 
         // 9. Output & Metering
         this.masterGain = this.ctx.createGain()
@@ -209,7 +226,8 @@ export class VoiceEffectsEngine {
         // reverbDry & reverbWet -> gateGain -> masterGain -> analyser -> destination
 
         // Initially route through bypass; initPitchCorrection() will reroute through the worklet
-        this.inputGain.connect(this.comp)
+        this.inputGain.connect(this.inputHighPass)
+        this.inputHighPass.connect(this.comp)
         this.comp.connect(this.pitchCorrectionBypass)
         this.pitchCorrectionBypass.connect(this.eqLow)
         this.eqLow.connect(this.eqMid)
@@ -225,13 +243,10 @@ export class VoiceEffectsEngine {
         this.delayDry.connect(this.reverbIn)
         this.delayWet.connect(this.reverbIn)
 
-        this.reverbDry.connect(this.gateGain)
-        this.reverbWet.connect(this.gateGain)
+        this.reverbDry.connect(this.noiseGateBypass)
+        this.reverbWet.connect(this.noiseGateBypass)
 
-        // Tap the signal before the gate for level detection
-        this.inputGain.connect(this.gateAnalyser)
-
-        this.gateGain.connect(this.masterGain)
+        this.noiseGateBypass.connect(this.masterGain)
         this.masterGain.connect(this.analyser)
 
         // Initialize with default params
@@ -248,6 +263,8 @@ export class VoiceEffectsEngine {
         } else {
             this.initPitchCorrection()
         }
+
+        this.initNoiseGate()
     }
 
     /**
@@ -301,6 +318,52 @@ export class VoiceEffectsEngine {
         }
     }
 
+    /**
+     * Load the noise-gate AudioWorklet and splice it in between the reverb
+     * mix bus and masterGain. Until this resolves, noiseGateBypass passes
+     * the signal at unity gain. If the worklet fails to load, the chain
+     * keeps working with the gate effectively disabled.
+     */
+    private async initNoiseGate() {
+        try {
+            const blob = new Blob([NOISE_GATE_PROCESSOR_CODE], { type: 'application/javascript' })
+            const url = URL.createObjectURL(blob)
+            await this.ctx.audioWorklet.addModule(url)
+            URL.revokeObjectURL(url)
+
+            this.noiseGateNode = new AudioWorkletNode(this.ctx, 'noise-gate-processor', {
+                numberOfInputs: 1,
+                numberOfOutputs: 1,
+                channelCount: 2,
+                channelCountMode: 'explicit',
+                channelInterpretation: 'speakers',
+                outputChannelCount: [2],
+            })
+
+            // Reroute: reverbDry/Wet -> noiseGateNode -> masterGain
+            this.reverbDry.disconnect(this.noiseGateBypass)
+            this.reverbWet.disconnect(this.noiseGateBypass)
+            this.noiseGateBypass.disconnect(this.masterGain)
+            this.reverbDry.connect(this.noiseGateNode)
+            this.reverbWet.connect(this.noiseGateNode)
+            this.noiseGateNode.connect(this.masterGain)
+
+            this.noiseGateReady = true
+
+            // Re-send params that were applied before the worklet was ready
+            if (this.lastAppliedFx) {
+                this.noiseGateNode.port.postMessage({
+                    type: 'params',
+                    enabled: this.lastAppliedFx.noiseGate?.enabled ?? false,
+                    threshold: this.lastAppliedFx.noiseGate?.threshold ?? -50,
+                })
+            }
+        } catch (err) {
+            console.warn('Noise gate worklet failed to load, using bypass:', err)
+            // Bypass remains connected, gate is effectively disabled
+        }
+    }
+
     private reverbGenId = 0
     private generateReverbIRAsync(durationMs: number, decayRate: number): void {
         const genId = ++this.reverbGenId
@@ -309,6 +372,28 @@ export class VoiceEffectsEngine {
         const impulse = this.ctx.createBuffer(2, length, this.ctx.sampleRate)
         const left = impulse.getChannelData(0)
         const right = impulse.getChannelData(1)
+        // Pink-noise + low-pass IR — replaces the old pure-white-noise IR.
+        //
+        // Convolving a loud vocal with white noise produces a bright
+        // noise-shaped tail (hiss/static riding behind the voice while
+        // singing loudly). Real rooms absorb high frequencies as sound
+        // decays, so we shape the noise two ways:
+        //   1. Paul Kellet's pink-noise filter (1/f spectrum)
+        //      — naturally -10 dB at 1 kHz, -20 dB at 10 kHz vs white.
+        //   2. One-pole low-pass at 2 kHz on top, for additional HF damping.
+        // RMS_MAKEUP is calibrated empirically so the final IR has roughly
+        // the same total RMS as the old white-noise IR — perceived reverb
+        // level stays the same, only the spectrum changes.
+        const LP_FC = 2000
+        const lpAlpha = 1 - Math.exp(-2 * Math.PI * LP_FC / this.ctx.sampleRate)
+        // Empirically calibrated so total IR RMS roughly matches the old
+        // pure-white-noise IR — see scripts/test-buzz-fix.js Test 6.
+        const RMS_MAKEUP = 3.5
+        // Pink-noise filter state (Paul Kellet) per channel
+        let lb0 = 0, lb1 = 0, lb2 = 0, lb3 = 0, lb4 = 0, lb5 = 0, lb6 = 0
+        let rb0 = 0, rb1 = 0, rb2 = 0, rb3 = 0, rb4 = 0, rb5 = 0, rb6 = 0
+        // Damping LP state per channel
+        let lpL = 0, lpR = 0
         const CHUNK = 16384 // Process in chunks to avoid blocking the main thread
         let offset = 0
         const processChunk = () => {
@@ -316,8 +401,31 @@ export class VoiceEffectsEngine {
             const end = Math.min(offset + CHUNK, length)
             for (let i = offset; i < end; i++) {
                 const n = Math.pow(1 - i / length, decayRate)
-                left[i] = (Math.random() * 2 - 1) * n
-                right[i] = (Math.random() * 2 - 1) * n
+
+                const wL = Math.random() * 2 - 1
+                lb0 = 0.99886 * lb0 + wL * 0.0555179
+                lb1 = 0.99332 * lb1 + wL * 0.0750759
+                lb2 = 0.96900 * lb2 + wL * 0.1538520
+                lb3 = 0.86650 * lb3 + wL * 0.3104856
+                lb4 = 0.55000 * lb4 + wL * 0.5329522
+                lb5 = -0.7616 * lb5 - wL * 0.0168980
+                const pinkL = (lb0 + lb1 + lb2 + lb3 + lb4 + lb5 + lb6 + wL * 0.5362) * 0.11
+                lb6 = wL * 0.115926
+
+                const wR = Math.random() * 2 - 1
+                rb0 = 0.99886 * rb0 + wR * 0.0555179
+                rb1 = 0.99332 * rb1 + wR * 0.0750759
+                rb2 = 0.96900 * rb2 + wR * 0.1538520
+                rb3 = 0.86650 * rb3 + wR * 0.3104856
+                rb4 = 0.55000 * rb4 + wR * 0.5329522
+                rb5 = -0.7616 * rb5 - wR * 0.0168980
+                const pinkR = (rb0 + rb1 + rb2 + rb3 + rb4 + rb5 + rb6 + wR * 0.5362) * 0.11
+                rb6 = wR * 0.115926
+
+                lpL += lpAlpha * (pinkL - lpL)
+                lpR += lpAlpha * (pinkR - lpR)
+                left[i] = lpL * n * RMS_MAKEUP
+                right[i] = lpR * n * RMS_MAKEUP
             }
             offset = end
             if (offset < length) {
@@ -410,12 +518,13 @@ export class VoiceEffectsEngine {
             this.distortionWet.gain.setTargetAtTime(0, t, 0.05)
         }
 
-        // Noise Gate
-        if (fx.noiseGate?.enabled) {
-            this.startNoiseGate(fx.noiseGate.threshold)
-        } else {
-            this.stopNoiseGate()
-            this.gateGain.gain.setTargetAtTime(1, t, 0.05)
+        // Noise Gate (downward expander via AudioWorklet — port-driven)
+        if (this.noiseGateReady && this.noiseGateNode) {
+            this.noiseGateNode.port.postMessage({
+                type: 'params',
+                enabled: fx.noiseGate?.enabled ?? false,
+                threshold: fx.noiseGate?.threshold ?? -50,
+            })
         }
 
         // Apply mic level to master gain
@@ -432,39 +541,6 @@ export class VoiceEffectsEngine {
             curve[i] = ((Math.PI + amount) * x) / (Math.PI + amount * Math.abs(x))
         }
         return curve
-    }
-
-    private currentGateThreshold = -50
-    private startNoiseGate(threshold: number) {
-        this.currentGateThreshold = threshold
-        if (this.gateRunning) return // already running
-        this.gateRunning = true
-        const dataArray = new Uint8Array(this.gateAnalyser.frequencyBinCount)
-        let lastGateTime = 0
-        const GATE_INTERVAL = 33 // ~30Hz — sufficient for smooth gating with setTargetAtTime smoothing
-        const gateTick = (now: number) => {
-            if (!this.gateRunning) return
-            if (now - lastGateTime >= GATE_INTERVAL) {
-                lastGateTime = now
-                this.gateAnalyser.getByteFrequencyData(dataArray)
-                let sum = 0
-                for (let i = 0; i < dataArray.length; i++) sum += dataArray[i] * dataArray[i]
-                const rms = Math.sqrt(sum / dataArray.length) / 255
-                const db = rms > 0.0001 ? 20 * Math.log10(rms) : -100
-                const t = this.ctx.currentTime
-                if (db < this.currentGateThreshold) {
-                    this.gateGain.gain.setTargetAtTime(0, t, 0.01)
-                } else {
-                    this.gateGain.gain.setTargetAtTime(1, t, 0.01)
-                }
-            }
-            requestAnimationFrame(gateTick)
-        }
-        requestAnimationFrame(gateTick)
-    }
-
-    private stopNoiseGate() {
-        this.gateRunning = false
     }
 
     public async startLivePreview(deviceId: string, outputId?: string) {
@@ -1070,7 +1146,6 @@ export class VoiceEffectsEngine {
         this.stopPlayback()
         this.stopLivePreview()
         this.stopTestPreview()
-        this.stopNoiseGate()
         // Tear down any cached HTMLAudioElements + their media sources.
         for (const { audio, source } of this.vocalMediaCache.values()) {
             try { audio.pause() } catch { /* ignore */ }
@@ -1081,6 +1156,10 @@ export class VoiceEffectsEngine {
         if (this.pitchCorrectionNode) {
             try { this.pitchCorrectionNode.disconnect() } catch { /* ignore */ }
             this.pitchCorrectionNode = null
+        }
+        if (this.noiseGateNode) {
+            try { this.noiseGateNode.disconnect() } catch { /* ignore */ }
+            this.noiseGateNode = null
         }
         this.ctx.close()
     }

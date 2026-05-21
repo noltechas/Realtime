@@ -132,6 +132,23 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
         this._gateOpen = false;       // current gate state
         this._ABSOLUTE_PEAK_FLOOR = 0.01; // FFT bin magnitude floor (per frame, noise rejection)
 
+        // ─── Output low-pass ─────────────────────────────────────────
+        // Two-pole (cascaded one-pole) LP at 10 kHz on the worklet output.
+        // The phase-vocoder spectral-cleanup pass recomputes its threshold
+        // every FFT frame (HOP=512 → frame rate ~93 Hz at 48 kHz). Bins
+        // near the threshold get attenuated by a frame-rate-dependent gain,
+        // adding 93 Hz AM sidebands — broadband hiss / "static" that rides
+        // along with loud singing.
+        //
+        // 2-pole rolloff (~12 dB/oct above fc) is steep enough to meaningfully
+        // attenuate hash above 10 kHz: ~-2 dB at 5 kHz (sibilance preserved),
+        // ~-6 dB at 10 kHz, ~-15 dB at 20 kHz, ~-18 dB at Nyquist.
+        // Single mono signal to both L and R, so per-stage state is enough.
+        this._OUT_LP_FC = 10000;
+        this._outLpAlpha = 1 - Math.exp(-2 * Math.PI * this._OUT_LP_FC / sampleRate);
+        this._outLpState1 = 0;
+        this._outLpState2 = 0;
+
         // Diagnostic
         this._logCounter = 0;
         this._logInterval = Math.floor(sampleRate); // ~1 Hz
@@ -635,10 +652,14 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
         //    (L and R) so downstream nodes receive true stereo — this is
         //    the fix for "audio only in left AirPod".
         const obLen = this._outBufLen;
+        const lpA = this._outLpAlpha;
         if (outR) {
             for (let i = 0; i < len; i++) {
                 const idx = (this._outRead + i) % obLen;
-                const sample = this._outBuf[idx];
+                const raw = this._outBuf[idx];
+                this._outLpState1 += lpA * (raw - this._outLpState1);
+                this._outLpState2 += lpA * (this._outLpState1 - this._outLpState2);
+                const sample = this._outLpState2;
                 out[i] = sample;
                 outR[i] = sample;
                 this._outBuf[idx] = 0;
@@ -649,7 +670,10 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
             // the node is constructed with outputChannelCount: [2].
             for (let i = 0; i < len; i++) {
                 const idx = (this._outRead + i) % obLen;
-                out[i] = this._outBuf[idx];
+                const raw = this._outBuf[idx];
+                this._outLpState1 += lpA * (raw - this._outLpState1);
+                this._outLpState2 += lpA * (this._outLpState1 - this._outLpState2);
+                out[i] = this._outLpState2;
                 this._outBuf[idx] = 0;
             }
         }

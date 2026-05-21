@@ -5,6 +5,7 @@ import { useAudioSyncContext } from '../context/AudioSyncContext'
 import { getEngine } from '../audio/playback'
 import { VoiceEffects } from '../audio/VoiceEffectsTypes'
 import { useAudioDevices } from '../hooks/useAudioDevices'
+import { VocalOffsetCalibrator } from '../components/VocalOffsetCalibrator'
 
 function formatTime(ms: number): string {
     const s = Math.floor(ms / 1000)
@@ -306,6 +307,7 @@ function AudioMixPanel() {
     const { state, dispatch } = useApp()
     const theme = useTheme()
     const { inputs: audioInputs, outputs: audioOutputs } = useAudioDevices()
+    const [calibratorOpen, setCalibratorOpen] = useState(false)
 
     const np = state.nowPlaying
     const singers = np?.singers || []
@@ -489,7 +491,23 @@ function AudioMixPanel() {
                     }}>
                         {state.vocalOffsetMs === 0 ? 'Off' : `\u2212${(state.vocalOffsetMs / 1000).toFixed(3)}s`}
                     </span>
+                    <button
+                        onClick={() => setCalibratorOpen(o => !o)}
+                        title="Tap-along calibration"
+                        style={{
+                            ...theme.btnOutline,
+                            fontSize: 10,
+                            padding: '4px 10px',
+                            whiteSpace: 'nowrap',
+                        }}
+                    >
+                        {calibratorOpen ? 'Close' : 'Calibrate'}
+                    </button>
                 </div>
+
+                {calibratorOpen && (
+                    <VocalOffsetCalibrator onClose={() => setCalibratorOpen(false)} />
+                )}
             </div>
 
             {/* Mic Slots */}
