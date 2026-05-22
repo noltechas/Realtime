@@ -108,6 +108,39 @@ const GLOBAL_CSS = `
   z-index: -1;
   pointer-events: none;
 }
+
+/* ── Sketch per-syllable highlighting ───────────────────────────────────────
+   Past = pencil-shaded ink, settled
+   Now  = bold marker stroke with a hand-drawn highlighter swipe behind it
+   Future = light pencil sketch (thinner stroke, lower contrast)
+   The highlighter swipe lives on .k-syl__word so it only covers the visible
+   word, not the trailing whitespace that YRC syllables carry inline. */
+[data-theme="sketch"] .k-line--now .k-syl--past {
+  opacity: 1;
+  color: ` + BLACK + `;
+  text-shadow: 0.6px 0 0 ` + BLACK + `;
+}
+[data-theme="sketch"] .k-line--now .k-syl--now {
+  color: ` + BLACK + `;
+  font-weight: 900;
+  text-shadow: 0.6px 0 0 ` + BLACK + `, 0 0.6px 0 ` + BLACK + `;
+}
+[data-theme="sketch"] .k-line--now .k-syl--now .k-syl__word {
+  background: linear-gradient(180deg, transparent 0 6%, rgba(255, 226, 90, 0.85) 6% 96%, transparent 96%);
+  -webkit-background-clip: padding-box;
+          background-clip: padding-box;
+  filter: url(#sketch-rough-filter);
+  padding: 0.04em 0.08em;
+  border-radius: 4px;
+  -webkit-box-decoration-break: clone;
+          box-decoration-break: clone;
+}
+[data-theme="sketch"] .k-line--now .k-syl--future {
+  opacity: 1;
+  color: rgba(45, 45, 45, 0.45);
+  -webkit-text-stroke: 0.4px rgba(45, 45, 45, 0.45);
+  text-shadow: none;
+}
 `
 
 export const SKETCH: Theme = {

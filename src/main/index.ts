@@ -298,24 +298,87 @@ ipcMain.handle('spotify:artists', async (_event, artistIds: string[], token: str
     }
 })
 
-/** Parse LRC format (e.g. "[00:17.12] Line text") into { startTimeMs, words } */
-function parseLrcToLines(syncedLyrics: string): { startTimeMs: number; words: string }[] {
-    if (!syncedLyrics || typeof syncedLyrics !== 'string') return []
-    const lines: { startTimeMs: number; words: string }[] = []
-    const lrcLineRe = /\[(\d+):(\d+)(?:\.(\d+))?\]\s*(.*)/g
-    let m: RegExpExecArray | null
-    while ((m = lrcLineRe.exec(syncedLyrics)) !== null) {
-        const min = parseInt(m[1], 10)
-        const sec = parseInt(m[2], 10)
-        const centi = m[3] ? parseInt(m[3].padEnd(2, '0').slice(0, 2), 10) : 0
-        const words = (m[4] || '').trim()
-        if (words) lines.push({ startTimeMs: min * 60000 + sec * 1000 + centi * 10, words })
+import { parseLrc, parseYrc, hasSyllableTiming } from './lyrics/normalize'
+import type { LyricLine } from './audio/manager'
+
+const NETEASE_HEADERS = {
+    'Referer': 'https://music.163.com/',
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
+    'Cookie': 'appver=2.0.2; os=pc',
+}
+
+interface NetEaseSong {
+    id: number
+    name: string
+    artists: { name: string }[]
+    duration: number
+}
+
+function normalizeForMatch(s: string): string {
+    return (s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
+function scoreNeteaseHit(song: NetEaseSong, query: { trackName: string; artistName: string; durationMs: number }): number {
+    const sTrack = normalizeForMatch(song.name)
+    const sArtists = (song.artists || []).map(a => normalizeForMatch(a.name))
+    const nTrack = normalizeForMatch(query.trackName)
+    const nArtist = normalizeForMatch(query.artistName)
+    let score = 0
+    if (!sTrack || !nTrack) return -1
+    if (sTrack === nTrack) score += 3
+    else if (sTrack.includes(nTrack) || nTrack.includes(sTrack)) score += 1
+    if (nArtist) {
+        if (sArtists.some(a => a === nArtist)) score += 3
+        else if (sArtists.some(a => a.includes(nArtist) || nArtist.includes(a))) score += 1
     }
-    return lines.sort((a, b) => a.startTimeMs - b.startTimeMs)
+    if (query.durationMs > 0 && song.duration > 0) {
+        const delta = Math.abs(song.duration - query.durationMs)
+        if (delta < 3000) score += 2
+        else if (delta < 8000) score += 1
+    }
+    return score
+}
+
+/** Search NetEase + fetch YRC. Returns LyricLine[] with syllables if available, else null. */
+async function fetchLyricsNetease(query: { trackName: string; artistName: string; albumName: string; durationMs: number }): Promise<LyricLine[] | null> {
+    if (!query.trackName || !query.artistName) return null
+    try {
+        const q = `${query.trackName} ${query.artistName}`.trim()
+        // The /api/search/get/web endpoint now returns EAPI-encrypted blobs.
+        // POST /api/search/get with form body is the still-cleartext alternative.
+        const sRes = await fetch('https://music.163.com/api/search/get', {
+            method: 'POST',
+            headers: { ...NETEASE_HEADERS, 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `s=${encodeURIComponent(q)}&type=1&limit=8&offset=0`,
+        })
+        if (!sRes.ok) return null
+        const sData = await sRes.json() as { result?: { songs?: NetEaseSong[] } }
+        const songs = sData?.result?.songs || []
+        if (songs.length === 0) return null
+        let best: { id: number; score: number } | null = null
+        for (const s of songs) {
+            const score = scoreNeteaseHit(s, query)
+            if (best === null || score > best.score) best = { id: s.id, score }
+        }
+        // Require at least artist OR track match plus one duration band — score >= 4
+        if (!best || best.score < 4) return null
+        const lyricUrl = `https://music.163.com/api/song/lyric?id=${best.id}&lv=-1&kv=-1&tv=-1&yv=-1`
+        const lRes = await fetch(lyricUrl, { headers: NETEASE_HEADERS })
+        if (!lRes.ok) return null
+        const lData = await lRes.json() as { yrc?: { lyric?: string }; lrc?: { lyric?: string } }
+        const yrcText = lData?.yrc?.lyric
+        if (yrcText) {
+            const lines = parseYrc(yrcText)
+            if (hasSyllableTiming(lines)) return lines
+        }
+        return null
+    } catch {
+        return null
+    }
 }
 
 /** Fetch lyrics from LRCLIB (free, no rate limit). Requires track metadata. */
-async function fetchLyricsLrclib(trackName: string, artistName: string, albumName: string, durationMs: number): Promise<{ lines?: { startTimeMs: number; words: string }[]; error?: boolean; message?: string }> {
+async function fetchLyricsLrclib(trackName: string, artistName: string, albumName: string, durationMs: number): Promise<{ lines?: LyricLine[]; error?: boolean; message?: string }> {
     const durationSec = Math.round(durationMs / 1000)
     const params = new URLSearchParams({
         track_name: trackName,
@@ -334,7 +397,7 @@ async function fetchLyricsLrclib(trackName: string, artistName: string, albumNam
         if (!res.ok) return { error: true, message: data?.message || `HTTP ${res.status}` }
         const synced = data?.syncedLyrics
         if (!synced) return { error: true, message: 'No synced lyrics available' }
-        const lines = parseLrcToLines(synced)
+        const lines = parseLrc(synced)
         if (lines.length === 0) return { error: true, message: 'Could not parse lyrics' }
         return { lines }
     } catch (e) {
@@ -348,17 +411,52 @@ async function fetchLyricsSpotify(trackId: string): Promise<any> {
     return res.json()
 }
 
+// In-process cache to avoid double-fetches when Admin retries during an import session.
+const lyricsCache = new Map<string, { lines: LyricLine[]; source: string; ts: number }>()
+const LYRICS_CACHE_TTL_MS = 10 * 60 * 1000
+
 ipcMain.handle('lyrics:fetch', async (_event, payload: string | { trackId: string; trackName?: string; artistName?: string; albumName?: string; durationMs?: number }) => {
     const trackId = typeof payload === 'string' ? payload : payload.trackId
     const meta = typeof payload === 'object' ? payload : null
-    let spotifyResult: any = null
 
-    // Try Spotify proxy first (original API)
+    const cached = lyricsCache.get(trackId)
+    if (cached && Date.now() - cached.ts < LYRICS_CACHE_TTL_MS) {
+        console.debug('[lyrics:fetch] cache hit', { trackId, source: cached.source, lineCount: cached.lines.length })
+        return { lines: cached.lines, source: cached.source }
+    }
+
+    const remember = (lines: LyricLine[], source: string) => {
+        lyricsCache.set(trackId, { lines, source, ts: Date.now() })
+        return { lines, source }
+    }
+
+    // Tier 1: NetEase YRC (word-level for English/CJK)
+    if (meta?.trackName && meta?.artistName) {
+        const neteaseLines = await fetchLyricsNetease({
+            trackName: meta.trackName,
+            artistName: meta.artistName,
+            albumName: meta.albumName || '',
+            durationMs: meta.durationMs || 0,
+        })
+        if (neteaseLines && neteaseLines.length > 0) {
+            console.debug('[lyrics:fetch] NetEase YRC success', { trackId, lineCount: neteaseLines.length, withSyllables: neteaseLines.filter(l => l.syllables).length })
+            return remember(neteaseLines, 'netease-yrc')
+        }
+    }
+
+    // Tier 2: Musixmatch RichSync — reserved (would slot here once an API key is wired up).
+
+    // Tier 3: existing Spotify proxy (line-level)
+    let spotifyResult: any = null
     try {
         spotifyResult = await fetchLyricsSpotify(trackId)
         if (spotifyResult?.lines?.length) {
-            console.debug('[lyrics:fetch] Spotify success', { trackId, lineCount: spotifyResult.lines.length })
-            return spotifyResult
+            const lines: LyricLine[] = spotifyResult.lines.map((l: any) => ({
+                startTimeMs: typeof l.startTimeMs === 'string' ? parseInt(l.startTimeMs, 10) : l.startTimeMs,
+                words: l.words,
+            }))
+            console.debug('[lyrics:fetch] Spotify success', { trackId, lineCount: lines.length })
+            return remember(lines, 'spotify')
         }
         if (spotifyResult?.error) {
             console.debug('[lyrics:fetch] Spotify failed, trying LRCLIB', { trackId, error: spotifyResult?.message || spotifyResult?.error })
@@ -368,7 +466,7 @@ ipcMain.handle('lyrics:fetch', async (_event, payload: string | { trackId: strin
         spotifyResult = { error: String(error) }
     }
 
-    // Fall back to LRCLIB when we have metadata
+    // Tier 4: LRCLIB synced (line-level)
     if (meta?.trackName && meta?.artistName && typeof meta.durationMs === 'number') {
         const lrclib = await fetchLyricsLrclib(
             meta.trackName,
@@ -378,7 +476,7 @@ ipcMain.handle('lyrics:fetch', async (_event, payload: string | { trackId: strin
         )
         if (lrclib.lines && lrclib.lines.length > 0) {
             console.debug('[lyrics:fetch] LRCLIB success', { trackId, lineCount: lrclib.lines.length })
-            return { lines: lrclib.lines }
+            return remember(lrclib.lines, 'lrclib')
         }
         console.debug('[lyrics:fetch] LRCLIB no lyrics', { trackId, message: lrclib.message })
     }
@@ -437,7 +535,8 @@ async function pushLocalCatalog(sessionId: string): Promise<void> {
                     roles: meta.roles || [],
                     hasVocals: !!vocals,
                     spotifyData: meta.spotifyData || null,
-                    offensiveRoleIndices
+                    offensiveRoleIndices,
+                    genres: Array.isArray(meta.genres) ? meta.genres : []
                 })
             } catch { /* skip corrupted */ }
         }

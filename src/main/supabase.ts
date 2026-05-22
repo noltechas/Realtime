@@ -141,6 +141,7 @@ export interface CatalogItem {
     hasVocals: boolean
     spotifyData?: any
     offensiveRoleIndices?: number[]
+    genres?: string[]
 }
 
 export async function pushCatalog(sessionId: string, songs: CatalogItem[]): Promise<void> {
@@ -157,7 +158,8 @@ export async function pushCatalog(sessionId: string, songs: CatalogItem[]): Prom
             roles: s.roles || [],
             has_vocals: s.hasVocals,
             spotify_data: s.spotifyData || null,
-            offensive_role_indices: s.offensiveRoleIndices || []
+            offensive_role_indices: s.offensiveRoleIndices || [],
+            genres: s.genres || []
         }))
         const { error } = await supabase
             .from('karaoke_catalog')

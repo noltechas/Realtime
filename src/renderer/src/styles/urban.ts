@@ -136,6 +136,39 @@ const GLOBAL_CSS = `
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
 }
+
+/* ── Urban per-syllable highlighting ───────────────────────────────────────
+   The active line is a rough neon spray block with dark text on top. Past
+   and future words stay full-strength black — the user reads the line by
+   contrast against neon, not from grey-out.
+
+   The current word uses the classic hip-hop graphic-design "punch tag"
+   language: white fill + hard offset black shadow (no blur). It's the
+   visual vocabulary of Run-DMC / Public Enemy / modern rap covers,
+   readable on every neon singer color, and it doesn't fight the
+   Permanent Marker font the way a thick text-stroke does. */
+[data-theme="urban"] .k-line--urban-active .k-syl--past,
+[data-theme="urban"] .k-line--urban-active .k-syl--future {
+  opacity: 1;
+  color: ` + DARK_VOID + `;
+  text-shadow: none;
+  -webkit-text-stroke: 0;
+}
+[data-theme="urban"] .k-line--urban-active .k-syl--now {
+  /* Fill is a high-lightness tint of the singer color — stays in the
+     singer's hue family so it reads as their tag, but lightness contrast
+     against the saturated bg makes it pop. Black outline + hard offset
+     shadow are the hip-hop "punch tag" graphic vocabulary. */
+  color: color-mix(in srgb, var(--syl-singer, ` + PURE_WHITE + `), white 65%);
+  font-weight: 900;
+  letter-spacing: 0.015em;
+  text-shadow:
+     0.06em 0.06em 0 ` + DARK_VOID + `,
+    -1px 0 0 ` + DARK_VOID + `,
+     1px 0 0 ` + DARK_VOID + `,
+     0 -1px 0 ` + DARK_VOID + `,
+     0  1px 0 ` + DARK_VOID + `;
+}
 `
 
 export const URBAN: Theme = {

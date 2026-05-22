@@ -28,6 +28,7 @@ interface CatalogSong {
     voiceEffects?: VoiceEffects | VoiceEffects[]
     roles?: string[]
     lyrics?: any[]
+    genres?: string[]
     spotifyData?: { key?: number; mode?: number; tempo?: number; releaseDate?: string; instrumentalness?: number; popularity?: number }
 }
 
@@ -37,6 +38,7 @@ interface PendingSong {
     roles: string[]
     lyrics: any[]
     activeRoleTab: number
+    genres: string[]
     spotifyData?: {
         key?: number
         mode?: number
@@ -45,6 +47,30 @@ interface PendingSong {
         instrumentalness?: number
         popularity?: number
     }
+}
+
+const GENRE_BUCKETS = ['Hip Hop', 'R&B', 'Pop', 'Rock', 'Indie', 'Electronic', 'Country / Folk', 'Other'] as const
+
+function bucketSpotifyGenres(rawTags: string[] | null | undefined): string[] {
+    if (!rawTags || rawTags.length === 0) return []
+    const rules: { bucket: string; matches: string[] }[] = [
+        { bucket: 'Hip Hop', matches: ['hip hop', 'rap', 'trap', 'drill', 'grime'] },
+        { bucket: 'R&B', matches: ['r&b', 'rnb', 'soul', 'neo soul', 'quiet storm', 'new jack swing'] },
+        { bucket: 'Indie', matches: ['indie', 'dream pop', 'psychedelic', 'shoegaze', 'bedroom pop', 'art pop', 'lo-fi'] },
+        { bucket: 'Electronic', matches: ['electronic', 'edm', 'house', 'techno', 'dance', 'synth-pop', 'synthpop', 'vaporwave', 'electropop', 'trance', 'drum and bass', 'dnb'] },
+        { bucket: 'Rock', matches: ['rock', 'metal', 'punk', 'grunge', 'emo'] },
+        { bucket: 'Country / Folk', matches: ['country', 'folk', 'americana', 'bluegrass', 'singer-songwriter'] },
+        { bucket: 'Pop', matches: ['pop'] }
+    ]
+    const result = new Set<string>()
+    for (const raw of rawTags) {
+        if (!raw) continue
+        const tag = raw.toLowerCase()
+        for (const rule of rules) {
+            if (rule.matches.some(m => tag.includes(m))) { result.add(rule.bucket); break }
+        }
+    }
+    return Array.from(result)
 }
 
 export default function AdminPage() {
@@ -577,7 +603,8 @@ export default function AdminPage() {
             roles: song.roles || [],
             lyrics: song.lyrics || [],
             activeRoleTab: 0,
-            spotifyData: song.spotifyData
+            spotifyData: song.spotifyData,
+            genres: Array.isArray(song.genres) ? song.genres : []
         })
         setActivePresetIds(new Array(Math.max(1, editConfigs.length)).fill(null))
         setExistingInstrumental(true)
@@ -618,10 +645,15 @@ export default function AdminPage() {
         let spotifyData: { key?: number; mode?: number; tempo?: number; releaseDate?: string; instrumentalness?: number; popularity?: number } = {}
 
         const token = state.spotifyToken
+        let fetchedGenres: string[] = []
         if (token) {
-            const [audioFeatures, trackData] = await Promise.all([
+            const artistIds = (track.artists || []).map((a: any) => a?.id).filter(Boolean)
+            const [audioFeatures, trackData, artistsData] = await Promise.all([
                 window.electronAPI.spotifyAudioFeatures(track.id, token).catch((err: any) => { console.error('Audio features error:', err); return null }),
-                window.electronAPI.spotifyTrack(track.id, token).catch((err: any) => { console.error('Track data error:', err); return null })
+                window.electronAPI.spotifyTrack(track.id, token).catch((err: any) => { console.error('Track data error:', err); return null }),
+                artistIds.length > 0
+                    ? window.electronAPI.spotifyArtists(artistIds, token).catch((err: any) => { console.error('Artists error:', err); return null })
+                    : Promise.resolve(null)
             ])
             if (audioFeatures && typeof audioFeatures.key === 'number') {
                 defaultConfig.key = audioFeatures.key
@@ -636,6 +668,13 @@ export default function AdminPage() {
             }
             if (trackData?.album?.release_date) { spotifyData.releaseDate = trackData.album.release_date }
             if (typeof trackData?.popularity === 'number') { spotifyData.popularity = trackData.popularity }
+            if (artistsData?.artists) {
+                const allTags: string[] = []
+                for (const a of artistsData.artists) {
+                    if (a?.genres) allTags.push(...a.genres)
+                }
+                fetchedGenres = bucketSpotifyGenres(allTags)
+            }
         }
 
         if (isPlayingSnippet) stopSnippetPlayback()
@@ -647,6 +686,7 @@ export default function AdminPage() {
         let configs = [defaultConfig]
         let roles: string[] = []
         let lyrics: any[] = []
+        let genres: string[] = fetchedGenres
         const activeRoleTab = 0
 
         const existing = catalog.find(c => c.trackId === track.id)
@@ -657,6 +697,7 @@ export default function AdminPage() {
                 const raw = Array.isArray(existing.voiceEffects) ? existing.voiceEffects : [existing.voiceEffects]
                 configs = (normalizeMicLevel(raw) as VoiceEffects[]).slice()
             }
+            if (Array.isArray(existing.genres) && existing.genres.length > 0) genres = existing.genres
             while (configs.length < Math.max(1, roles.length)) configs.push(JSON.parse(JSON.stringify(configs[0])))
         }
 
@@ -672,7 +713,7 @@ export default function AdminPage() {
         }
 
         setLyricsError(null)
-        setPending({ track, configs, roles, lyrics, activeRoleTab, spotifyData })
+        setPending({ track, configs, roles, lyrics, activeRoleTab, spotifyData, genres })
         setActivePresetIds(new Array(Math.max(1, configs.length)).fill(null))
         setNewRoleName('')
         setExistingInstrumental(!!existing)
@@ -851,7 +892,13 @@ export default function AdminPage() {
         try {
             const data = await window.electronAPI.fetchLyrics({ trackId, trackName, artistName, albumName, durationMs })
             if (data && data.lines && data.lines.length > 0) {
-                setPending(p => p ? { ...p, lyrics: data.lines.map((l: any) => ({ startTimeMs: parseInt(l.startTimeMs), words: l.words, roleIndex: 0 })) } : p)
+                setPending(p => p ? { ...p, lyrics: data.lines.map((l: any) => ({
+                    startTimeMs: typeof l.startTimeMs === 'string' ? parseInt(l.startTimeMs, 10) : l.startTimeMs,
+                    endTimeMs: l.endTimeMs,
+                    words: l.words,
+                    syllables: Array.isArray(l.syllables) && l.syllables.length > 0 ? l.syllables : undefined,
+                    roleIndex: 0,
+                })) } : p)
                 setLyricsError(null)
             } else {
                 const errMsg = data?.message || (data?.error ? String(data.error) : null)
@@ -990,6 +1037,7 @@ export default function AdminPage() {
             lyrics: pending.lyrics.length > 0 ? pending.lyrics : undefined,
             voiceEffects: pending.roles.length > 0 ? pending.configs : pending.configs[0],
             youtubeUrl: youtubeUrl.trim() || undefined,
+            genres: pending.genres && pending.genres.length > 0 ? pending.genres : undefined,
             spotifyData: Object.keys(pending.spotifyData || {}).length > 0 ? pending.spotifyData : undefined
         })
 
@@ -1277,7 +1325,9 @@ export default function AdminPage() {
                                         if (!catalogFilter) return true
                                         const q = catalogFilter.toLowerCase()
                                         return song.name.toLowerCase().includes(q) || song.artist.toLowerCase().includes(q)
-                                    }).map(song => (
+                                    }).map(song => {
+                                        const hasSyllables = Array.isArray(song.lyrics) && song.lyrics.some((l: any) => Array.isArray(l?.syllables) && l.syllables.length > 0)
+                                        return (
                                         <div key={song.trackId} style={{
                                             display: 'flex', alignItems: 'center', gap: 12,
                                             padding: '10px 14px',
@@ -1290,6 +1340,21 @@ export default function AdminPage() {
                                                 <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 13, color: theme.black }}>{song.name}</div>
                                                 <div style={{ fontSize: 11, color: theme.faint, fontFamily: theme.fontBody }}>{song.artist}</div>
                                             </div>
+                                            {hasSyllables && (
+                                                <span
+                                                    title="Word-level karaoke timing"
+                                                    aria-label="Word-level karaoke timing"
+                                                    style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 18, color: theme.violet, flexShrink: 0, opacity: 0.85 }}
+                                                >
+                                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                                                        <line x1="3"  y1="12" x2="3"  y2="12" />
+                                                        <line x1="7"  y1="9"  x2="7"  y2="15" />
+                                                        <line x1="11" y1="5"  x2="11" y2="19" />
+                                                        <line x1="15" y1="8"  x2="15" y2="16" />
+                                                        <line x1="19" y1="11" x2="19" y2="13" />
+                                                    </svg>
+                                                </span>
+                                            )}
                                             <button
                                                 style={{ ...theme.iconBtn, width: 28, height: 28, fontSize: 12 }}
                                                 onClick={() => handleEditCatalogSong(song)}
@@ -1301,7 +1366,7 @@ export default function AdminPage() {
                                                 title="Delete Song"
                                             >✕</button>
                                         </div>
-                                    ))}
+                                    )})}
                                 </div>
                             )}
                         </section>
@@ -1364,6 +1429,37 @@ export default function AdminPage() {
                                 >
                                     ✕ Close
                                 </button>
+                            </div>
+
+                            {/* Genres */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+                                <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 11, color: theme.muted, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Genres</span>
+                                {GENRE_BUCKETS.map(g => {
+                                    const selected = (pending.genres || []).includes(g)
+                                    return (
+                                        <button
+                                            key={g}
+                                            onClick={() => setPending(p => {
+                                                if (!p) return p
+                                                const cur = p.genres || []
+                                                const next = cur.includes(g) ? cur.filter(x => x !== g) : [...cur, g]
+                                                return { ...p, genres: next }
+                                            })}
+                                            style={{
+                                                padding: '4px 10px',
+                                                borderRadius: 999,
+                                                fontSize: 11,
+                                                fontFamily: theme.fontDisplay,
+                                                fontWeight: 700,
+                                                cursor: 'pointer',
+                                                background: selected ? theme.softViolet : 'transparent',
+                                                color: selected ? theme.white : theme.muted,
+                                                border: selected ? `1.5px solid ${theme.softViolet}` : theme.borderThin,
+                                                transition: 'all 0.12s'
+                                            }}
+                                        >{g}</button>
+                                    )
+                                })}
                             </div>
 
                             {/* Roles & Lyrics */}

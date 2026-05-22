@@ -157,7 +157,11 @@ function ReactionsOverlay() {
                 const next = [...prev, r]
                 return next.length > 15 ? next.slice(-15) : next
             })
-            const duration = (reaction.reactionType === 'text' || reaction.reactionType === 'photo' || reaction.reactionType === 'meme') ? 7000 : 4500
+            // Text, photo, and meme reactions persist for twice as long as
+            // emoji reactions. The matching animation duration lives on
+            // .reaction-bubble--persistent so the bubble actually stays
+            // visible the whole time (not just sitting in the DOM at opacity 0).
+            const duration = (reaction.reactionType === 'text' || reaction.reactionType === 'photo' || reaction.reactionType === 'meme') ? 9000 : 4500
             setTimeout(() => {
                 setReactions(prev => prev.filter(item => item.id !== r.id))
             }, duration)
@@ -191,7 +195,7 @@ function ReactionsOverlay() {
                     const isRight = r.side === 'right'
                     return (
                         <div key={r.id}
-                            className={'reaction-bubble reaction-bubble--text' + (isRight ? ' reaction-bubble--right' : '')}
+                            className={'reaction-bubble reaction-bubble--text reaction-bubble--persistent' + (isRight ? ' reaction-bubble--right' : '')}
                             style={pos}
                         >
                             {isRight ? (
@@ -214,8 +218,9 @@ function ReactionsOverlay() {
                         </div>
                     )
                 }
+                const isPersistentMedia = r.reactionType === 'meme' || r.reactionType === 'photo'
                 return (
-                    <div key={r.id} className="reaction-bubble" style={pos}>
+                    <div key={r.id} className={'reaction-bubble' + (isPersistentMedia ? ' reaction-bubble--persistent' : '')} style={pos}>
                         {r.reactionType === 'emoji' && (
                             <span className="reaction-bubble__emoji">{r.content}</span>
                         )}
@@ -238,6 +243,8 @@ export default function KaraokePage() {
     const containerRef = useRef<HTMLDivElement>(null)
     const [lineIdx, setLineIdx] = useState(-1)
     const [elapsed, setElapsed] = useState(0)
+    const [activeSylIdx, setActiveSylIdx] = useState(-1)
+    const timeAnchorRef = useRef<{ eventMs: number; perfAt: number }>({ eventMs: 0, perfAt: 0 })
     const [showUI, setShowUI] = useState(true)
     const lyricsRef = useRef<HTMLDivElement>(null)
     const hideRef = useRef<NodeJS.Timeout | null>(null)
@@ -280,10 +287,12 @@ export default function KaraokePage() {
         const timeHandler = window.electronAPI.onPlaybackTime((timeMs: number) => {
             setElapsed(timeMs)
             audioTimeMsRef.current = timeMs
+            timeAnchorRef.current = { eventMs: timeMs, perfAt: performance.now() }
         })
         const seekHandler = window.electronAPI.onPlaybackSeek((timeMs: number) => {
             setElapsed(timeMs)
             audioTimeMsRef.current = timeMs
+            timeAnchorRef.current = { eventMs: timeMs, perfAt: performance.now() }
             if (ytReadyRef.current && ytPlayerRef.current) {
                 ytPlayerRef.current.seekTo(timeMs / 1000, true)
             }
@@ -455,6 +464,33 @@ export default function KaraokePage() {
             setLineIdx(idx)
         }
     }, [elapsed, lyrics, lineIdx])
+
+    // Track active syllable inside the active line — interpolated between IPC time events via rAF.
+    // Only runs when the active line actually has per-syllable timing data.
+    const activeLineSyllables = lineIdx >= 0 ? (lyrics[lineIdx] as any)?.syllables : undefined
+    useEffect(() => {
+        if (!activeLineSyllables || activeLineSyllables.length === 0) {
+            if (activeSylIdx !== -1) setActiveSylIdx(-1)
+            return
+        }
+        let raf = 0
+        let lastIdx = -2
+        const tick = () => {
+            const anchor = timeAnchorRef.current
+            const nowMs = anchor.eventMs + (performance.now() - anchor.perfAt)
+            let idx = -1
+            for (let i = 0; i < activeLineSyllables.length; i++) {
+                if (nowMs >= activeLineSyllables[i].startMs) idx = i; else break
+            }
+            if (idx !== lastIdx) {
+                lastIdx = idx
+                setActiveSylIdx(idx)
+            }
+            raf = requestAnimationFrame(tick)
+        }
+        raf = requestAnimationFrame(tick)
+        return () => cancelAnimationFrame(raf)
+    }, [activeLineSyllables, activeSylIdx])
 
     // Scroll active lyric into view
     useEffect(() => {
@@ -1995,6 +2031,13 @@ export default function KaraokePage() {
                                         inlineStyle.background = activeHighlight
                                         inlineStyle.color = ACTIVE_TEXT
                                         inlineStyle.padding = '0.12em 0.55em'
+                                        // Expose the active line's singer color as a CSS variable so
+                                        // each theme's per-syllable rules can derive lightened/darkened
+                                        // variants via color-mix(). Falls back to the first singer of a
+                                        // multi-singer line, then to theme.accentA via activeSingerColor.
+                                        const sylSinger = activeColors.length > 1 ? activeColors[0] : activeSingerColor
+                                        // @ts-ignore (CSS variables)
+                                        inlineStyle['--syl-singer'] = sylSinger
 
                                         if (theme.name === 'neo-brutal') {
                                             cls += ' k-line--neo-brutal-active'
@@ -2043,11 +2086,16 @@ export default function KaraokePage() {
                                             }
                                             inlineStyle.boxShadow = `0 0 28px ${activeSingerColor}, 0 0 60px ${activeSingerColor}80`
                                         } else if (theme.name === 'zen') {
+                                            // Sumi-e calligraphy: deep ink on warm washi paper, with the
+                                            // singer's color marking the line like a scroll signature stripe.
+                                            // Box-shadow / candlelight breath is handled by the CSS animation
+                                            // on .k-line--zen so we don't set it inline (animation needs to win).
                                             cls += ' k-line--zen k-line--zen-active'
-                                            inlineStyle.padding = '0.2em 0.85em'
-                                            inlineStyle.borderRadius = '6px'
-                                            inlineStyle.border = '1px solid #D4B85A'
-                                            inlineStyle.boxShadow = '0 0 18px rgba(212,184,90,0.45), inset 0 0 0 3px rgba(255,255,255,0.08)'
+                                            inlineStyle.background = 'rgba(240, 230, 211, 0.94)'
+                                            inlineStyle.color = '#1a1814'
+                                            inlineStyle.padding = '0.22em 1em 0.22em 0.85em'
+                                            inlineStyle.borderRadius = '4px'
+                                            inlineStyle.borderLeft = `4px solid ${activeSingerColor}`
                                         } else if (theme.name === 'space') {
                                             cls += ' k-line--space k-line--space-active'
                                             inlineStyle.padding = '0.18em 0.75em'
@@ -2063,10 +2111,19 @@ export default function KaraokePage() {
                                             cls += ' k-line--steampunk k-line--steampunk-active k-line--steampunk-plate'
                                             inlineStyle.padding = '0.22em 1.1em'
                                         } else if (theme.name === 'retrowave') {
+                                            // Override the singer-color line bg with a deep synthwave
+                                            // night gradient. Retrowave needs a dark void for the neon
+                                            // chrome + halo on the active word to actually glow — on a
+                                            // bright singer-color bg, the glow had nowhere to read.
+                                            // Singer identity moves to: thin border ring, outer halo,
+                                            // and the chrome letter gradient itself (all use --syl-singer).
                                             cls += ' k-line--retrowave k-line--retrowave-active'
-                                            inlineStyle.padding = '0.18em 0.75em'
+                                            inlineStyle.background = 'linear-gradient(180deg, #15082e 0%, #2a1054 50%, #15082e 100%)'
+                                            inlineStyle.color = 'rgba(245, 240, 255, 0.94)'
+                                            inlineStyle.padding = '0.22em 1em'
                                             inlineStyle.borderRadius = '4px'
-                                            inlineStyle.boxShadow = `0 0 18px ${activeSingerColor}, 0 0 38px ${activeSingerColor}, inset 0 0 0 2px rgba(255,255,255,0.6)`
+                                            inlineStyle.border = `1px solid ${activeSingerColor}`
+                                            inlineStyle.boxShadow = `0 0 18px ${activeSingerColor}, 0 0 42px color-mix(in srgb, ${activeSingerColor}, transparent 50%), inset 0 0 0 1px rgba(255, 255, 255, 0.08)`
                                         } else {
                                             inlineStyle.padding = '0.18em 0.75em'
                                             inlineStyle.borderRadius = '8px'
@@ -2100,7 +2157,36 @@ export default function KaraokePage() {
                                         });
                                     }
 
-                                    const content: React.ReactNode = displayWords
+                                    // Per-syllable render when timing data is available and sanitation isn't needed
+                                    // (sanitation regex can cross syllable boundaries, so fall back to whole-line in that case).
+                                    const syllables = line.syllables as Array<{ text: string; startMs: number; durMs: number }> | undefined
+                                    let content: React.ReactNode = displayWords
+                                    if (syllables && syllables.length > 0 && !needsSanitation) {
+                                        content = syllables.map((syl, k) => {
+                                            let sylCls = 'k-syl'
+                                            if (isActiveGroup) {
+                                                if (k < activeSylIdx) sylCls += ' k-syl--past'
+                                                else if (k === activeSylIdx) sylCls += ' k-syl--now'
+                                                else sylCls += ' k-syl--future'
+                                            } else if (isPastGroup) {
+                                                sylCls += ' k-syl--past'
+                                            } else {
+                                                sylCls += ' k-syl--future'
+                                            }
+                                            // YRC syllables include their trailing space (e.g. "wife ") so any
+                                            // background-based highlight would extend over the gap to the next word.
+                                            // Split the word from the trailing whitespace so themes can style the
+                                            // inner .k-syl__word (the visible glyphs) without coloring the space.
+                                            const trailMatch = syl.text.match(/\s+$/)
+                                            const trail = trailMatch ? trailMatch[0] : ''
+                                            const word = trail ? syl.text.slice(0, -trail.length) : syl.text
+                                            return (
+                                                <span key={k} className={sylCls}>
+                                                    <span className="k-syl__word">{word}</span>{trail}
+                                                </span>
+                                            )
+                                        })
+                                    }
 
                                     return <div key={j} className={cls} style={inlineStyle}>{content}</div>
                                 })}

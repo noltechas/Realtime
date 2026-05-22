@@ -119,9 +119,16 @@
 }
 
 .reaction-bubble--text {
-    animation: reaction-float-up-slow 7s ease-out forwards;
     flex-direction: row;
     align-items: flex-start;
+}
+
+/* Slow drift used by text, photo, and meme reactions — they linger on
+   screen twice as long as emoji reactions so people have time to read /
+   look at them. Applied via JS by adding .reaction-bubble--persistent
+   for any reaction type that should stay long. */
+.reaction-bubble--persistent {
+    animation: reaction-float-up-slow 9s ease-out forwards;
 }
 
 .reaction-bubble__avatar {
@@ -152,9 +159,9 @@
 
 .reaction-bubble--text .reaction-bubble__avatar,
 .reaction-bubble--text .reaction-bubble__avatar-initial {
-    width: 38px;
-    height: 38px;
-    font-size: 16px;
+    width: 76px;
+    height: 76px;
+    font-size: 32px;
     margin-top: 0;
     align-self: flex-end;
 }
@@ -169,18 +176,18 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    margin-left: 6px;
+    margin-left: 12px;
 }
 
 .reaction-bubble__text {
-    max-width: 320px;
-    padding: 12px 18px;
+    max-width: 640px;
+    padding: 24px 36px;
     background: rgba(0,0,0,0.75);
     backdrop-filter: blur(10px);
-    border-radius: 18px 18px 18px 4px;
+    border-radius: 22px 22px 22px 6px;
     color: #fff;
     font-family: var(--font-body);
-    font-size: 20px;
+    font-size: 40px;
     line-height: 1.35;
     word-break: break-word;
     box-shadow: 0 4px 20px rgba(0,0,0,0.4);
@@ -188,11 +195,11 @@
 
 .reaction-bubble__text-name {
     font-family: var(--font-display);
-    font-size: 11px;
+    font-size: 22px;
     font-weight: 700;
     color: rgba(255,255,255,0.6);
-    margin-top: 3px;
-    margin-left: 4px;
+    margin-top: 6px;
+    margin-left: 8px;
     text-shadow: 0 1px 4px rgba(0,0,0,0.6);
 }
 
@@ -203,17 +210,17 @@
 
 .reaction-bubble__text-wrap--right {
     margin-left: 0;
-    margin-right: 6px;
+    margin-right: 12px;
     align-items: flex-end;
 }
 
 .reaction-bubble__text-wrap--right .reaction-bubble__text {
-    border-radius: 18px 18px 4px 18px;
+    border-radius: 22px 22px 6px 22px;
 }
 
 .reaction-bubble__text-wrap--right .reaction-bubble__text-name {
     margin-left: 0;
-    margin-right: 4px;
+    margin-right: 8px;
 }
 
 .reaction-bubble__image {
@@ -298,6 +305,358 @@
     text-shadow: 0 0 40px rgba(255, 255, 255, 0.2);
 }
 
+/* ── Per-syllable highlighting (word-level karaoke timing) ─────────────────
+   Applied on lines that ship `syllables[]` from the lyrics fetcher.
+   The parent .k-line still drives color/background/theme. Each theme provides
+   its own past/now/future treatment further below; this section is the
+   neutral baseline that themes layer on top of.
+
+   We deliberately avoid `transform: scale()` here — scaling individual
+   syllables shifts neighbours mid-line and causes visible word-wrap jitter.
+   Themes that want emphasis use text-shadow, background-clip text, stroke,
+   weight and filter changes instead. */
+.k-syl {
+    display: inline-block;
+    /* YRC syllables carry their trailing space inside the span text (e.g. "nine ");
+       inline-block boxes strip whitespace adjacent to their edges with the default
+       `white-space: normal`, which mashes words together. pre-wrap preserves the
+       space while still allowing the parent line to wrap between syllables. */
+    white-space: pre-wrap;
+    transition: opacity 0.18s ease-out, color 0.18s ease-out,
+                text-shadow 0.18s ease-out, filter 0.18s ease-out,
+                font-weight 0.12s ease-out;
+}
+.k-syl--past {
+    opacity: 1;
+}
+.k-syl--now {
+    opacity: 1;
+    font-weight: 900;
+    letter-spacing: 0.005em;
+}
+.k-syl--future {
+    opacity: 0.55;
+}
+
+/* ── Per-theme syllable treatments ─────────────────────────────────────────
+   Scoped to `.k-line--now` so the styling only applies to the currently
+   active line. Past/future lines are dimmed wholesale by .k-line--past /
+   .k-line--future (defined above) — we don't want syllable colors fighting
+   that dim. The non-active lines simply use the base .k-syl--* rules.
+
+   Selector pattern:   [data-theme="X"] .k-line--now .k-syl--past/--now/--future
+   Sketch & urban have their syllable rules co-located in their theme .ts
+   files (sketch.ts / urban.ts) to match the existing convention there. */
+
+/* ── Neo Brutal — stamped inked block ─────────────────────────────────────
+   Background/box styling lives on .k-syl__word (the inner span around just
+   the visible glyphs) so the black stamp doesn't cover the trailing space. */
+[data-theme="neo-brutal"] .k-line--now .k-syl--past {
+    opacity: 1;
+    color: #0a0a0a;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+[data-theme="neo-brutal"] .k-line--now .k-syl--now {
+    /* The black stamp box (on .k-syl__word) guarantees contrast for any
+       singer color, so we can use the singer color directly as the fill —
+       the active word reads as the singer's brand color, stamped. */
+    color: var(--syl-singer, #fffce6);
+}
+[data-theme="neo-brutal"] .k-line--now .k-syl--now .k-syl__word {
+    background: #0a0a0a;
+    padding: 0 0.12em;
+    box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.92);
+    -webkit-box-decoration-break: clone;
+            box-decoration-break: clone;
+    border-radius: 2px;
+}
+[data-theme="neo-brutal"] .k-line--now .k-syl--future {
+    opacity: 1;
+    color: rgba(10, 10, 10, 0.42);
+}
+
+/* ── Cyberpunk — chromatic data-stream cursor ───────────────────────────── */
+@keyframes cyber-syl-jitter {
+    0%, 100% { transform: translate(0, 0); }
+    20%      { transform: translate(0.6px, -0.4px); }
+    40%      { transform: translate(-0.5px, 0.3px); }
+    60%      { transform: translate(0.3px, 0.5px); }
+    80%      { transform: translate(-0.4px, -0.3px); }
+}
+[data-theme="cyberpunk"] .k-line--now .k-syl--past {
+    opacity: 1;
+    color: #0a0a0a;
+    text-shadow: 1px 0 0 rgba(0, 229, 255, 0.45);
+}
+[data-theme="cyberpunk"] .k-line--now .k-syl--now {
+    /* Fill = lightened singer color (so the word visibly pops against the
+       same-color line bg via lightness contrast). The iconic cyberpunk
+       red+cyan chromatic split stays — it's the genre signature — but the
+       outer glow now matches the singer's color. */
+    color: color-mix(in srgb, var(--syl-singer, #fff), white 55%);
+    text-shadow:
+        -1.5px 0 0 #ff0055,
+         1.5px 0 0 #00e5ff,
+         0 0 6px var(--syl-singer, #fff),
+         0 0 18px color-mix(in srgb, var(--syl-singer, #fff), transparent 35%);
+    animation: cyber-syl-jitter 0.4s steps(5, end) infinite;
+}
+[data-theme="cyberpunk"] .k-line--now .k-syl--future {
+    opacity: 1;
+    color: rgba(10, 10, 10, 0.45);
+    text-shadow: 0 1px 0 rgba(0, 229, 255, 0.18);
+}
+
+/* ── Deep Sea — bioluminescent flash ────────────────────────────────────── */
+[data-theme="deep-sea"] .k-line--now .k-syl--past {
+    opacity: 1;
+    color: rgba(8, 24, 32, 0.78);
+    text-shadow: 0 0 6px rgba(0, 255, 200, 0.25);
+}
+[data-theme="deep-sea"] .k-line--now .k-syl--now {
+    /* Bioluminescence in the singer's own hue — like a different species
+       glowing its own color. The fill is a near-white tint of the singer
+       color so the letterforms read crisp; the multi-layer halo radiates
+       the saturated singer color outward. */
+    color: color-mix(in srgb, var(--syl-singer, #fff), white 55%);
+    text-shadow:
+        0 0 4px color-mix(in srgb, var(--syl-singer, #fff), white 65%),
+        0 0 10px var(--syl-singer, #fff),
+        0 0 22px color-mix(in srgb, var(--syl-singer, #fff), transparent 35%),
+        0 0 36px color-mix(in srgb, var(--syl-singer, #fff), transparent 65%);
+}
+[data-theme="deep-sea"] .k-line--now .k-syl--future {
+    opacity: 1;
+    color: rgba(6, 18, 36, 0.5);
+    text-shadow: 0 0 4px rgba(0, 255, 200, 0.12);
+}
+
+/* ── Psychedelic — Chromatic Vibration ─────────────────────────────────────
+   The active word reads at the SAME WEIGHT and color as past words —
+   no bold-up, no thicker letters, no heavier outline (those felt like
+   "the active word got fat" rather than "the active word got psychedelic").
+
+   What makes it pop is a pair of sharp 2px chromatic offset echoes
+   (magenta left, cyan right) plus a couple of soft rainbow halos, all
+   smoothly cycling through the full hue circle via filter: hue-rotate.
+   The text fill stays dark — it's immune to hue-rotate since black has
+   no hue — so only the colored shadows shift. The result is the
+   LSD-afterimage / chroma-aberration look from real psychedelic visual
+   design: the word itself is steady but appears to vibrate with
+   continuous rainbow color around its edges.
+
+   Why this is different from cyberpunk: cyberpunk uses a stepped jitter
+   in fixed red/cyan channels (a glitch). This is smooth continuous
+   hue rotation through ALL colors (a trip). */
+
+@keyframes psy-hue-cycle {
+    0%   { filter: hue-rotate(0deg); }
+    100% { filter: hue-rotate(360deg); }
+}
+
+[data-theme="psychedelic"] .k-line--now .k-syl--past {
+    opacity: 1;
+    color: #0a0a0a;
+    text-shadow: none;
+    background: none;
+    -webkit-background-clip: border-box;
+            background-clip: border-box;
+    -webkit-text-fill-color: currentColor;
+    animation: none;
+    filter: none;
+}
+[data-theme="psychedelic"] .k-line--now .k-syl--now {
+    color: #0a0a0a;
+    text-shadow:
+        -2px 0 0 #ff1493,
+         2px 0 0 #00d4d4,
+         0 0 14px #ff7700,
+         0 0 32px rgba(204, 68, 255, 0.55),
+         0 0 56px rgba(0, 238, 102, 0.32);
+    animation: psy-hue-cycle 4.5s linear infinite;
+}
+[data-theme="psychedelic"] .k-line--now .k-syl--future {
+    opacity: 1;
+    color: rgba(10, 10, 10, 0.45);
+    text-shadow: none;
+    background: none;
+    -webkit-background-clip: border-box;
+            background-clip: border-box;
+    -webkit-text-fill-color: currentColor;
+    animation: none;
+    filter: none;
+}
+
+/* ── Zen — sumi-e calligraphy on washi paper ──────────────────────────────
+   The active line is a warm cream card with deep ink. Past syllables are
+   solid ink (settled). The current syllable is set in VERMILLION — the
+   calligrapher's red seal stamp, placed at the focal point of the brush.
+   Future syllables fade to soft charcoal so the eye is drawn to the seal,
+   not to a wall of identical ink. Singer identity is shown by a thin
+   colored stripe on the active line's left edge (JSX inline style). */
+[data-theme="zen"] .k-line--now .k-syl--past {
+    opacity: 1;
+    color: #1a1814;
+    text-shadow: none;
+}
+[data-theme="zen"] .k-line--now .k-syl--now {
+    color: #D4442A;
+    font-weight: 900;
+    text-shadow:
+        0 0 1px rgba(212, 68, 42, 0.55),
+        0 0 10px rgba(212, 68, 42, 0.28);
+}
+[data-theme="zen"] .k-line--now .k-syl--future {
+    opacity: 1;
+    color: rgba(26, 24, 20, 0.48);
+    text-shadow: none;
+}
+
+/* ── Space — pulsar burst (in the singer's color) ───────────────────────── */
+@keyframes space-syl-twinkle {
+    0%, 100% { text-shadow:
+        0 0 4px color-mix(in srgb, var(--syl-singer, #fff), white 60%),
+        0 0 14px var(--syl-singer, #fff),
+        0 0 28px color-mix(in srgb, var(--syl-singer, #fff), transparent 50%); }
+    50%      { text-shadow:
+        0 0 6px color-mix(in srgb, var(--syl-singer, #fff), white 75%),
+        0 0 22px var(--syl-singer, #fff),
+        0 0 42px color-mix(in srgb, var(--syl-singer, #fff), transparent 25%),
+        0 0 70px color-mix(in srgb, var(--syl-singer, #fff), transparent 65%); }
+}
+[data-theme="space"] .k-line--now .k-syl--past {
+    opacity: 1;
+    color: rgba(245, 245, 255, 0.55);
+    text-shadow: 0 0 4px rgba(255, 255, 255, 0.3);
+}
+[data-theme="space"] .k-line--now .k-syl--now {
+    /* The "active star" twinkles in the singer's own color — like each
+       singer's line is their constellation. Fill is a starlight-bright
+       tint of the singer color; the pulsar burst halo uses the singer's
+       hue directly. */
+    color: color-mix(in srgb, var(--syl-singer, #fff), white 70%);
+    animation: space-syl-twinkle 1.8s ease-in-out infinite;
+}
+[data-theme="space"] .k-line--now .k-syl--future {
+    opacity: 1;
+    color: rgba(190, 200, 235, 0.45);
+}
+
+/* ── Steampunk — engraved → glowing brass ───────────────────────────────── */
+[data-theme="steampunk"] .k-line--now .k-syl--past {
+    opacity: 1;
+    color: #2a1a08;
+    text-shadow:
+        0 1px 0 rgba(255, 220, 150, 0.35),
+        0 -1px 0 rgba(0, 0, 0, 0.25);
+}
+[data-theme="steampunk"] .k-line--now .k-syl--now {
+    color: transparent;
+    background: linear-gradient(180deg, #ffeab0 0%, #f3c266 30%, #c8973e 60%, #7a5418 100%);
+    -webkit-background-clip: text;
+            background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter:
+        drop-shadow(0 1px 0 rgba(255, 240, 200, 0.7))
+        drop-shadow(0 -1px 0 rgba(0, 0, 0, 0.5))
+        drop-shadow(0 0 8px rgba(224, 112, 64, 0.55))
+        drop-shadow(0 0 18px rgba(200, 151, 62, 0.4));
+}
+[data-theme="steampunk"] .k-line--now .k-syl--future {
+    opacity: 1;
+    color: rgba(42, 26, 8, 0.48);
+    text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.2);
+}
+
+/* ── Retrowave — Chrome Synthwave on the Dark Void ──────────────────────────
+   The active line for retrowave is a deep purple/navy synthwave card (set
+   inline in JSX), so the neon chrome + halo on the active word finally
+   has somewhere to glow. The active syllable stack:
+
+     1. CHROME GRADIENT FILL — vertical highlight→vivid→shadow in the
+        singer's hue. Tuned so the bottom shadow is mid-tone (NOT near-
+        black) — on the deep purple bg, a near-black bottom would blend in.
+     2. HORIZONTAL SCAN-LINES — thin dark raster baked into the chrome
+        (both layers clipped to text shape via background-clip: text).
+     3. VHS CHROMATIC SPLIT — fixed retrowave magenta right + cyan left,
+        1.5px offsets. These stay fixed because "misaligned color channels"
+        is the retrowave metaphor; shifting per singer would break it.
+     4. NEON HALO — three concentric singer-color glow layers, expanding
+        outward into the dark synthwave void.
+
+   No black outline this time — on a dark bg it would be invisible.
+   The chrome's own shadowed bottom stops define the letterforms.
+
+   Past + future syllables on the active line are pale lavender-white —
+   readable against the synthwave navy bg. A subtle dark drop shadow
+   under each gives them depth on the card without competing with the
+   chrome treatment on the active word. */
+
+@keyframes retrowave-vhs-flicker {
+    0%, 91%, 100% { transform: translateX(0); }
+    92%           { transform: translateX(0.45px); }
+    93%           { transform: translateX(-0.35px); }
+    94%           { transform: translateX(0.25px); }
+    95%           { transform: translateX(0); }
+}
+
+[data-theme="retrowave"] .k-line--now .k-syl--past {
+    opacity: 1;
+    color: rgba(245, 240, 255, 0.94);
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+    background: none;
+    -webkit-background-clip: border-box;
+            background-clip: border-box;
+    -webkit-text-fill-color: currentColor;
+    filter: none;
+    animation: none;
+}
+[data-theme="retrowave"] .k-line--now .k-syl--now {
+    font-weight: 900;
+    letter-spacing: 0.03em;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    /* Backgrounds stack — scan-lines on top of chrome — both clipped to text.
+       Scan-lines are 1px every 5px so they read as raster, not stripes. */
+    background:
+        repeating-linear-gradient(
+            0deg,
+            rgba(0, 0, 0, 0.45) 0 1px,
+            transparent 1px 5px
+        ),
+        linear-gradient(
+            180deg,
+            color-mix(in srgb, var(--syl-singer, #ffd1ec), white 85%) 0%,
+            color-mix(in srgb, var(--syl-singer, #ffd1ec), white 40%) 22%,
+            var(--syl-singer, #ffd1ec) 50%,
+            color-mix(in srgb, var(--syl-singer, #ffd1ec), black 15%) 65%,
+            color-mix(in srgb, var(--syl-singer, #ffd1ec), black 30%) 100%
+        );
+    -webkit-background-clip: text;
+            background-clip: text;
+    text-shadow:
+        /* VHS chromatic split — 1.5px offsets, less aggressive than before
+           so the chrome reads instead of being eaten by colored fringes. */
+         1.5px 0 0 rgba(255, 27, 141, 0.85),
+        -1.5px 0 0 rgba(0, 240, 255, 0.85),
+        /* Singer-color neon halo, three layers, expanding into the void. */
+         0 0 8px  var(--syl-singer, #ffd1ec),
+         0 0 22px var(--syl-singer, #ffd1ec),
+         0 0 44px color-mix(in srgb, var(--syl-singer, #ffd1ec), transparent 40%);
+    animation: retrowave-vhs-flicker 5s steps(40, end) infinite;
+}
+[data-theme="retrowave"] .k-line--now .k-syl--future {
+    opacity: 1;
+    color: rgba(220, 200, 240, 0.5);
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
+    background: none;
+    -webkit-background-clip: border-box;
+            background-clip: border-box;
+    -webkit-text-fill-color: currentColor;
+    filter: none;
+    animation: none;
+}
+
 @keyframes cyber-glitch {
     0%, 10%, 100% { transform: translate(0); text-shadow: inherit; }
     2% { transform: translate(-2px, 1px); text-shadow: -2px 0 red, 2px 0 cyan; }
@@ -354,17 +713,22 @@
     animation: psy-word-breathe 3s ease-in-out infinite;
 }
 
-/* ── Zen: warm candlelight text-shadow pulse ────────────────────────────── */
-@keyframes zen-glow-pulse {
-    0%, 100% { text-shadow: 0 0 8px rgba(201,168,76,0.15), 0 0 30px rgba(201,168,76,0.05); }
-    50%      { text-shadow: 0 0 14px rgba(201,168,76,0.3), 0 0 50px rgba(201,168,76,0.1); }
+/* ── Zen: candlelight breath — soft gold halo on the washi card ─────────── */
+@keyframes zen-card-breath {
+    0%, 100% {
+        box-shadow:
+            0 0 24px rgba(201, 168, 76, 0.20),
+            0 4px 18px rgba(0, 0, 0, 0.55);
+    }
+    50% {
+        box-shadow:
+            0 0 36px rgba(201, 168, 76, 0.34),
+            0 4px 22px rgba(0, 0, 0, 0.45);
+    }
 }
 
 .k-line--zen {
-    animation: zen-glow-pulse 4s ease-in-out infinite;
-    border-radius: 8px;
-    padding: 6px 20px;
-    background: radial-gradient(ellipse at center, rgba(201,168,76,0.04) 0%, transparent 70%);
+    animation: zen-card-breath 5s ease-in-out infinite;
 }
 
 /* ── Zen: ink brush stroke reveal ────────────────────────────────────────── */

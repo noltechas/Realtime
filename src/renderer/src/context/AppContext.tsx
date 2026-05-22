@@ -13,9 +13,17 @@ export interface SpotifyTrack {
     uri: string
 }
 
+export interface Syllable {
+    text: string
+    startMs: number
+    durMs: number
+}
+
 export interface LyricLine {
     startTimeMs: number
+    endTimeMs?: number
     words: string
+    syllables?: Syllable[]
     singerIndices?: number[] // Array of assigned singers (for multi-colored choruses)
     roleIndex?: number   // Maps to the defined roles (Admin authored)
 }

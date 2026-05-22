@@ -50,9 +50,17 @@ export interface VoiceEffects {
     reverb: { enabled: boolean, decay: number, preDelay: number, mix: number }
 }
 
+export interface Syllable {
+    text: string
+    startMs: number
+    durMs: number
+}
+
 export interface LyricLine {
     startTimeMs: number
+    endTimeMs?: number
     words: string
+    syllables?: Syllable[]
     singerIndex?: number
     roleIndex?: number
 }
@@ -68,6 +76,7 @@ export interface SongMeta {
     roles?: string[]
     lyrics?: LyricLine[]
     voiceEffects?: VoiceEffects | VoiceEffects[]
+    genres?: string[]
     spotifyData?: {               // Additional Spotify metadata
         key?: number              // Musical key (0-11)
         mode?: number             // Major (1) or Minor (0)
