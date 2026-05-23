@@ -32,6 +32,7 @@ export function useKaraokeSession() {
     const sessionChannelRef = useRef<RealtimeChannel | null>(null)
     const isRemotePlayRef = useRef(false)
     const lastSeenSkipAtRef = useRef<string | null>(null)
+    const reconcileTimerRef = useRef<NodeJS.Timeout | null>(null)
 
     // Load catalog for resolving remote additions
     useEffect(() => {
@@ -278,6 +279,56 @@ export function useKaraokeSession() {
                 if (res.error) console.error('[Karaoke] Failed to sync theme:', res.error)
             })
     }, [state.themeName, state.karaokeSessionId])
+
+    // Reconcile the remote queue with the host's local queue.
+    // Any karaoke_queue row that's still status='queued' but isn't in the
+    // host's local state (clearQueue, race, app-restart leftover, dropped
+    // pushLocalQueueItem) gets marked played so the companion site reflects
+    // the host's truth.
+    useEffect(() => {
+        if (window.electronAPI?.isStageWindow) return
+        const sessionId = state.karaokeSessionId
+        if (!sessionId) return
+
+        if (reconcileTimerRef.current) clearTimeout(reconcileTimerRef.current)
+        // Debounce so we don't race with pushLocalQueueItem setting
+        // remoteQueueId or the companion's INSERT broadcast reaching us.
+        reconcileTimerRef.current = setTimeout(() => {
+            const liveIds = new Set(
+                state.queue.map(q => q.remoteQueueId).filter(Boolean) as string[]
+            )
+            const liveTrackIds = new Set(state.queue.map(q => q.track.id))
+            const nowPlayingId = state.nowPlaying?.track.id
+            if (nowPlayingId) liveTrackIds.add(nowPlayingId)
+
+            supabase.from('karaoke_queue')
+                .select('id, track_id, source')
+                .eq('session_id', sessionId)
+                .eq('status', 'queued')
+                .then(({ data, error }) => {
+                    if (error) { console.warn('[Karaoke] Queue reconcile fetch failed:', error.message); return }
+                    if (!data || data.length === 0) return
+                    const orphans: string[] = []
+                    for (const row of data) {
+                        if (liveIds.has(row.id)) continue
+                        // Fallback for rows whose remoteQueueId hasn't been
+                        // wired up yet on the local side.
+                        if (liveTrackIds.has(row.track_id)) continue
+                        orphans.push(row.id)
+                    }
+                    if (orphans.length === 0) return
+                    console.log(`[Karaoke] Marking ${orphans.length} orphaned queue row(s) as played`)
+                    supabase.from('karaoke_queue')
+                        .update({ status: 'played' })
+                        .in('id', orphans)
+                        .then(res => {
+                            if (res.error) console.warn('[Karaoke] Failed to mark orphans played:', res.error.message)
+                        })
+                })
+        }, 2500)
+
+        return () => { if (reconcileTimerRef.current) clearTimeout(reconcileTimerRef.current) }
+    }, [state.karaokeSessionId, state.queue, state.nowPlaying?.track?.id])
 
     // Subscribe to session changes (remote play/pause from companion)
     useEffect(() => {

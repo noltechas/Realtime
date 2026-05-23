@@ -1441,19 +1441,9 @@ function filterGifs(query){
   var q=query.toLowerCase();
   return allGifs.filter(function(g){return g.title&&g.title.toLowerCase().indexOf(q)!==-1;});
 }
-function addedLabel(theme){
-  switch(theme){
-    case"cyberpunk":return"// INSTALLED";
-    case"sketch":return"got it!";
-    case"urban":return"TAGGED";
-    case"deep-sea":return"Surfaced";
-    case"psychedelic":return"Far Out";
-    case"zen":return"取 Found";
-    case"space":return"ACQUIRED";
-    case"steampunk":return"Catalogued";
-    case"retrowave":return"LOADED";
-    default:return"Already Added";
-  }
+function addedLabel(_theme){
+  // Uniform across themes; theme styling still gives it character.
+  return "Added";
 }
 function tokenIfFresh(token,expiresAt){
   if(!token)return null;
@@ -1528,7 +1518,9 @@ function submitSongRequest(item){
       }
     }else{
       S.requestConfirm={title:"Request sent!",sub:"Chas will add your song ASAP!"};
-      S.requestQuery="";S.requestResults=[];
+      S.requestQuery="";S.requestResults=[];S.requestSearching=false;
+      S.searchQuery="";S.selectedGenre="All Songs";
+      S.screen="songs";
     }
     render();scheduleConfirmDismiss();
   });
@@ -2625,11 +2617,14 @@ function renderWizardShell(step,body){
 }
 function renderWizardFooter(step){
   var cta=(step===4)?"Add to Queue":"Next";
-  var disabled=(step===4&&S.addingToQueue)?" disabled":"";
+  var needsTheme=(step===4&&!S.stage_theme);
+  var isDisabled=(step===4&&(S.addingToQueue||needsTheme));
+  var disabled=isDisabled?" disabled":"";
   var nextSvg=(step===4)?"":' <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-left:4px"><path d="M5 12h14M13 5l7 7-7 7"/></svg>';
+  var label=needsTheme?"Pick a theme to continue":cta;
   return '<div class="wiz-footer">'+
     '<button class="wiz-footer-back" id="wiz-footer-back" type="button">Back</button>'+
-    '<button class="add-queue-btn wiz-footer-next" id="wiz-next" type="button"'+disabled+'>'+esc(cta)+nextSvg+'</button>'+
+    '<button class="add-queue-btn wiz-footer-next" id="wiz-next" type="button"'+disabled+'>'+esc(label)+nextSvg+'</button>'+
   '</div>';
 }
 function renderWizardSingers(){
@@ -2720,8 +2715,7 @@ function renderWizardRoles(){
 }
 function renderWizardStage(){
   var tiles=[
-    {k:"none",label:"Session Default"},
-    {k:"neo-brutal",label:"Neo-Brutal",style:"background:#FFFDF5;color:#1A1A1A;border:3px solid #1A1A1A;border-radius:8px;font-family:'Space Grotesk',sans-serif;box-shadow:3px 3px 0 #1A1A1A;"},
+    {k:"neo-brutal",label:"Default",style:"background:#FFFDF5;color:#1A1A1A;border:3px solid #1A1A1A;border-radius:8px;font-family:'Space Grotesk',sans-serif;box-shadow:3px 3px 0 #1A1A1A;"},
     {k:"cyberpunk",label:"Cyberpunk",style:"background:#0a0a1a;color:#00ff88;border:1.5px solid #00ff88;border-radius:0;font-family:'Courier New',monospace;text-shadow:0 0 8px rgba(0,255,136,0.5);"},
     {k:"sketch",label:"Sketch",style:"background:#fdfbf7;color:#2d5da1;border:2px dashed #2d5da1;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px;font-family:'Patrick Hand',cursive;"},
     {k:"urban",label:"Urban",style:"background:#0a0a0a;color:#D4FF00;border:1.5px solid #D4FF00;border-radius:4px;font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:2px;"},
@@ -2733,27 +2727,23 @@ function renderWizardStage(){
     {k:"retrowave",label:"Retrowave",style:"background:#0a0614;color:#FF2D95;border:1px solid rgba(255,45,149,0.4);border-radius:4px;font-family:'Audiowide',sans-serif;text-shadow:0 0 8px rgba(255,45,149,0.4);font-size:11px;"}
   ];
   var grid=tiles.map(function(tt){
-    var sel=(tt.k==="none"?S.stage_theme==null:S.stage_theme===tt.k);
-    if(tt.k==="none"){
-      return '<button class="wiz-theme-tile-default'+(sel?" selected":"")+'" data-stage-theme="none" type="button">'+esc(tt.label)+'</button>';
-    }
+    var sel=(S.stage_theme===tt.k);
     return '<button class="theme-pick-btn'+(sel?" selected":"")+'" data-stage-theme="'+tt.k+'" type="button" style="'+tt.style+'">'+esc(tt.label)+'</button>';
   }).join("");
   return '<div class="wiz-hero">Finish up</div>'+
-    '<div class="wiz-hero-sub">Give the stage a vibe and decide whether the title stays a secret until it plays.</div>'+
+    '<div class="wiz-hero-sub">Pick a stage theme and decide whether the title stays a secret until it plays.</div>'+
     '<div class="config-section">'+
-      '<div class="config-label"><div class="config-label-icon" style="background:rgba(167,139,250,0.1)">&#127912;</div> Stage theme</div>'+
+      '<div class="config-label">Stage theme</div>'+
       '<div class="wiz-theme-grid">'+grid+'</div>'+
-      '<div class="wiz-stage-hint">Themes change how this song looks on the big screen. Session Default keeps the host\u2019s theme.</div>'+
+      '<div class="wiz-stage-hint">Themes change how this song looks on the big screen.</div>'+
     '</div>'+
     '<div class="config-section">'+
-      '<div class="config-label"><div class="config-label-icon" style="background:rgba(244,114,182,0.1)">&#128584;</div> Secret song</div>'+
-      '<button class="secret-toggle'+(S.hide_song?" is-checked":"")+'" id="hide-toggle-btn" role="checkbox" aria-checked="'+(S.hide_song?"true":"false")+'" type="button" style="width:100%;padding:12px 14px;border:1.5px solid var(--white-ghost);border-radius:12px;background:var(--surface-1);margin-top:4px">'+
+      '<button class="secret-toggle'+(S.hide_song?" is-checked":"")+'" id="hide-toggle-btn" role="checkbox" aria-checked="'+(S.hide_song?"true":"false")+'" type="button" style="width:100%;padding:12px 14px;border:1.5px solid var(--white-ghost);border-radius:12px;background:var(--surface-1)">'+
         '<span class="secret-toggle__box" aria-hidden="true">'+
           (S.hide_song?'<svg width="10" height="10" viewBox="0 0 14 14"><path d="M2.5 7.5 L5.5 10 L11 4" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>':'')+
         '</span>'+
         '<span class="secret-toggle__text">'+
-          '<span class="secret-toggle__label">Keep the title hidden</span>'+
+          '<span class="secret-toggle__label">Keep the song title hidden until I start</span>'+
           '<span class="secret-toggle__hint">'+(S.hide_song?"Other guests won\u2019t see the song name until it plays":"Surprise everyone \u2014 the song name shows up only when it plays")+'</span>'+
         '</span>'+
       '</button>'+
@@ -3234,10 +3224,9 @@ function bindEvents(){
     var spc=document.getElementById("singer-picker-cancel");
     if(spc)spc.addEventListener("click",function(){S.singerPickerOpen=false;render();});
   }
-  document.querySelectorAll(".theme-pick-btn,.wiz-theme-tile-default").forEach(function(btn){
+  document.querySelectorAll(".theme-pick-btn").forEach(function(btn){
     btn.addEventListener("click",function(){
-      var v=btn.dataset.stageTheme;
-      S.stage_theme=(v==="none"?null:v);
+      S.stage_theme=btn.dataset.stageTheme;
       render();
     });
   });

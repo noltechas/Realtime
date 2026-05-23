@@ -652,7 +652,13 @@ export default function QueuePage() {
 
     const clearQueue = () => {
         if (confirm('Are you sure you want to clear the entire queue?')) {
+            const remoteIds = state.queue
+                .map(q => q.remoteQueueId)
+                .filter(Boolean) as string[]
             dispatch({ type: 'CLEAR_QUEUE' })
+            for (const id of remoteIds) {
+                window.electronAPI?.removeQueueItem?.(id).catch(() => { })
+            }
         }
     }
 
