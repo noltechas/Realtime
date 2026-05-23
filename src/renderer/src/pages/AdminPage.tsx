@@ -20,6 +20,21 @@ interface AdminGuest {
     profilePicture: string | null
 }
 
+interface SongRequest {
+    id: string
+    requestedByName: string
+    requestedByProfilePicture: string | null
+    trackId: string
+    trackName: string
+    trackArtist: string
+    trackArtUrl: string | null
+    trackAlbum: string | null
+    trackDurationMs: number | null
+    spotifyData: any | null
+    status: 'pending' | 'added' | 'dismissed'
+    createdAt: string
+}
+
 interface CatalogSong {
     trackId: string; name: string; artist: string; artUrl: string
     albumName: string; durationMs: number; instrumentalPath: string
@@ -116,8 +131,10 @@ export default function AdminPage() {
     const [presetImages, setPresetImages] = useState<Record<string, string>>({})
     const [presetImageErrors, setPresetImageErrors] = useState<Set<string>>(new Set())
 
-    const [adminTab, setAdminTab] = useState<'songs' | 'guests'>('songs')
+    const [adminTab, setAdminTab] = useState<'songs' | 'guests' | 'requests'>('songs')
     const [guests, setGuests] = useState<AdminGuest[]>([])
+    const [songRequests, setSongRequests] = useState<SongRequest[]>([])
+    const requestChannelRef = useRef<RealtimeChannel | null>(null)
     const [editingGuestId, setEditingGuestId] = useState<string | null>(null)
     const [editName, setEditName] = useState('')
     const [editPicture, setEditPicture] = useState('')
@@ -158,11 +175,33 @@ export default function AdminPage() {
     const debounceRef = useRef<NodeJS.Timeout | null>(null)
 
     useEffect(() => {
-        if (state.spotifyToken || !state.spotifyClientId || !state.spotifyClientSecret) return
-        window.electronAPI.spotifyAuth(state.spotifyClientId, state.spotifyClientSecret).then((auth: any) => {
-            if (auth?.access_token) dispatch({ type: 'SET_TOKEN', payload: auth.access_token })
-        }).catch(() => { })
-    }, [state.spotifyToken, state.spotifyClientId, state.spotifyClientSecret, dispatch])
+        if (!state.spotifyClientId || !state.spotifyClientSecret) return
+        let cancelled = false
+        const refresh = () => {
+            window.electronAPI.spotifyAuth(state.spotifyClientId!, state.spotifyClientSecret!).then((auth: any) => {
+                if (cancelled) return
+                if (auth?.access_token) dispatch({ type: 'SET_TOKEN', payload: auth.access_token })
+            }).catch(() => { })
+        }
+        if (!state.spotifyToken) refresh()
+        // Client-credentials tokens expire in 1h; refresh every 50min so the
+        // companion site always has a working token.
+        const id = window.setInterval(refresh, 50 * 60 * 1000)
+        return () => { cancelled = true; window.clearInterval(id) }
+    }, [state.spotifyClientId, state.spotifyClientSecret, dispatch])
+
+    // Share the Spotify token with the companion site (via the session row) so
+    // guests can search Spotify for songs we don't have in the catalog yet.
+    useEffect(() => {
+        const sessionId = state.karaokeSessionId
+        const token = state.spotifyToken
+        if (!sessionId || !token) return
+        const expires = new Date(Date.now() + 55 * 60 * 1000).toISOString()
+        supabase.from('karaoke_sessions')
+            .update({ spotify_token: token, spotify_token_expires_at: expires })
+            .eq('id', sessionId)
+            .then(({ error }) => { if (error) console.warn('Failed to publish Spotify token:', error.message) })
+    }, [state.karaokeSessionId, state.spotifyToken])
 
     useEffect(() => {
         const token = state.spotifyToken
@@ -238,6 +277,7 @@ export default function AdminPage() {
             reverb: fx.reverb,
             distortion: fx.distortion,
             noiseGate: fx.noiseGate,
+            vocoder: fx.vocoder,
         }
     }
 
@@ -258,6 +298,7 @@ export default function AdminPage() {
         if (fx.reverb?.enabled) parts.push(`reverb ${fx.reverb.decay.toFixed(1)}s/${fx.reverb.mix}%`)
         if (fx.delay?.enabled) parts.push(`delay ${fx.delay.time}ms/${fx.delay.mix}%`)
         if (fx.chorus?.enabled) parts.push(`chorus ${fx.chorus.mix}%`)
+        if (fx.vocoder?.enabled) parts.push(`vocoder ${fx.vocoder.voicing}/${fx.vocoder.mix}%`)
         if (fx.distortion?.enabled) parts.push(`drive ${fx.distortion.drive}/${fx.distortion.mix}`)
         if (fx.eq?.enabled) parts.push(`eq ${fx.eq.lowGain >= 0 ? '+' : ''}${fx.eq.lowGain}/${fx.eq.midGain >= 0 ? '+' : ''}${fx.eq.midGain}/${fx.eq.highGain >= 0 ? '+' : ''}${fx.eq.highGain}`)
         return parts.length ? parts.join(' · ') : 'all effects disabled'
@@ -546,6 +587,104 @@ export default function AdminPage() {
             guestChannelRef.current = null
         }
     }, [state.karaokeSessionId])
+
+    // Song-request realtime subscription
+    useEffect(() => {
+        const sessionId = state.karaokeSessionId
+        if (!sessionId) { setSongRequests([]); return }
+
+        let cancelled = false
+        const mapRow = (r: any): SongRequest => ({
+            id: r.id,
+            requestedByName: r.requested_by_name,
+            requestedByProfilePicture: r.requested_by_profile_picture,
+            trackId: r.track_id,
+            trackName: r.track_name,
+            trackArtist: r.track_artist,
+            trackArtUrl: r.track_art_url,
+            trackAlbum: r.track_album,
+            trackDurationMs: r.track_duration_ms,
+            spotifyData: r.spotify_data,
+            status: r.status,
+            createdAt: r.created_at,
+        })
+
+        supabase.from('karaoke_song_requests')
+            .select('*')
+            .eq('session_id', sessionId)
+            .order('created_at', { ascending: false })
+            .then(({ data }) => {
+                if (!cancelled) setSongRequests((data || []).map(mapRow))
+            })
+
+        const channel = supabase
+            .channel(`admin-requests-${sessionId}`)
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'karaoke_song_requests', filter: `session_id=eq.${sessionId}` },
+                (payload) => {
+                    const row = mapRow(payload.new as any)
+                    setSongRequests(prev => prev.some(r => r.id === row.id) ? prev : [row, ...prev])
+                })
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'karaoke_song_requests', filter: `session_id=eq.${sessionId}` },
+                (payload) => {
+                    const row = mapRow(payload.new as any)
+                    setSongRequests(prev => prev.map(r => r.id === row.id ? row : r))
+                })
+            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'karaoke_song_requests', filter: `session_id=eq.${sessionId}` },
+                (payload) => {
+                    const id = (payload.old as any).id
+                    setSongRequests(prev => prev.filter(r => r.id !== id))
+                })
+            .subscribe()
+
+        requestChannelRef.current = channel
+
+        return () => {
+            cancelled = true
+            supabase.removeChannel(channel)
+            requestChannelRef.current = null
+        }
+    }, [state.karaokeSessionId])
+
+    const dismissSongRequest = async (id: string) => {
+        const { error } = await supabase
+            .from('karaoke_song_requests')
+            .update({ status: 'dismissed', resolved_at: new Date().toISOString() })
+            .eq('id', id)
+        if (error) console.warn('Dismiss request failed:', error.message)
+    }
+
+    // When a requested song lands in the catalog, mark the request resolved
+    // so it doesn't keep showing up as pending.
+    useEffect(() => {
+        if (!state.karaokeSessionId) return
+        const catalogIds = new Set(catalog.map(c => c.trackId))
+        const newlyAdded = songRequests.filter(r => r.status === 'pending' && catalogIds.has(r.trackId))
+        if (newlyAdded.length === 0) return
+        const now = new Date().toISOString()
+        supabase.from('karaoke_song_requests')
+            .update({ status: 'added', resolved_at: now })
+            .in('id', newlyAdded.map(r => r.id))
+            .then(({ error }) => { if (error) console.warn('Auto-resolve request failed:', error.message) })
+    }, [catalog, songRequests, state.karaokeSessionId])
+
+    const openSongRequest = (req: SongRequest) => {
+        const track = req.spotifyData && req.spotifyData.id ? req.spotifyData : {
+            id: req.trackId,
+            name: req.trackName,
+            artists: req.trackArtist.split(',').map(n => ({ name: n.trim() })),
+            album: {
+                images: req.trackArtUrl ? [{ url: req.trackArtUrl }] : [],
+                name: req.trackAlbum || ''
+            },
+            duration_ms: req.trackDurationMs || 0
+        }
+        setAdminTab('songs')
+        setQuery(req.trackName + ' ' + req.trackArtist)
+        setResults([track])
+        selectTrack(track)
+    }
+
+    const pendingRequestCount = songRequests.filter(r => r.status === 'pending').length
 
     const startEditGuest = (guest: AdminGuest) => {
         setEditingGuestId(guest.id)
@@ -864,6 +1003,10 @@ export default function AdminPage() {
             draft.reverb = { ...preset.effects.reverb }
             draft.distortion = { ...preset.effects.distortion }
             draft.noiseGate = { ...preset.effects.noiseGate }
+            // Vocoder is optional on presets (added after other effects);
+            // skip the copy when absent so existing presets don't force-disable
+            // a vocoder block the user already configured manually.
+            if (preset.effects.vocoder) draft.vocoder = { ...preset.effects.vocoder }
             draft.micLevel = 1.0
             draft.key = savedKey
             draft.mode = savedMode
@@ -1147,7 +1290,9 @@ export default function AdminPage() {
                     Admin
                 </h1>
                 <p style={{ color: theme.muted, fontSize: 14, fontFamily: theme.fontBody }}>
-                    {adminTab === 'songs' ? 'Add songs, sculpt effects rack, and manage the catalog' : 'View and manage guests in the current session'}
+                    {adminTab === 'songs' && 'Add songs, sculpt effects rack, and manage the catalog'}
+                    {adminTab === 'guests' && 'View and manage guests in the current session'}
+                    {adminTab === 'requests' && 'Songs guests are asking you to add to the library'}
                 </p>
             </div>
 
@@ -1194,27 +1339,34 @@ export default function AdminPage() {
 
             {/* Tab pills */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
-                {(['songs', 'guests'] as const).map(tab => (
-                    <button
-                        key={tab}
-                        onClick={() => setAdminTab(tab)}
-                        style={{
-                            padding: '8px 20px',
-                            borderRadius: theme.radius,
-                            fontSize: 14,
-                            fontWeight: 700,
-                            fontFamily: theme.fontDisplay,
-                            cursor: 'pointer',
-                            border: theme.border,
-                            background: adminTab === tab ? theme.softViolet : theme.cream,
-                            color: theme.black,
-                            boxShadow: adminTab === tab ? theme.shadow : 'none',
-                            transition: 'all 0.15s',
-                        }}
-                    >
-                        {tab === 'songs' ? 'Songs' : `Guests${guests.length ? ` (${guests.length})` : ''}`}
-                    </button>
-                ))}
+                {(['songs', 'guests', 'requests'] as const).map(tab => {
+                    const label = tab === 'songs'
+                        ? 'Songs'
+                        : tab === 'guests'
+                            ? `Guests${guests.length ? ` (${guests.length})` : ''}`
+                            : `Requests${pendingRequestCount ? ` (${pendingRequestCount})` : ''}`
+                    return (
+                        <button
+                            key={tab}
+                            onClick={() => setAdminTab(tab)}
+                            style={{
+                                padding: '8px 20px',
+                                borderRadius: theme.radius,
+                                fontSize: 14,
+                                fontWeight: 700,
+                                fontFamily: theme.fontDisplay,
+                                cursor: 'pointer',
+                                border: theme.border,
+                                background: adminTab === tab ? theme.softViolet : theme.cream,
+                                color: theme.black,
+                                boxShadow: adminTab === tab ? theme.shadow : 'none',
+                                transition: 'all 0.15s',
+                            }}
+                        >
+                            {label}
+                        </button>
+                    )
+                })}
             </div>
 
             {adminTab === 'songs' && <><div style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
@@ -1887,6 +2039,54 @@ export default function AdminPage() {
                                         <Slider label="Threshold" val={pending.configs[pending.activeRoleTab].noiseGate?.threshold ?? -50} min={-100} max={0} unit="dB" onChange={v => updateActiveConfig(c => { if (!c.noiseGate) c.noiseGate = { enabled: true, threshold: -50 }; c.noiseGate.threshold = v })} />
                                     </div>
                                 </div>
+
+                                {/* Vocoder / Talkbox — channel vocoder that replaces the singer's
+                                    sound source with a synth chord shaped by their vowels. Built
+                                    from the role's key/mode (shared with pitch correction). */}
+                                <div style={fxModule(pending.configs[pending.activeRoleTab].vocoder?.enabled ?? false)}>
+                                    <Toggle on={pending.configs[pending.activeRoleTab].vocoder?.enabled ?? false} label="Vocoder / Talkbox" onClick={() => updateActiveConfig(c => { if (!c.vocoder) c.vocoder = { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' }; c.vocoder.enabled = !c.vocoder.enabled })} />
+                                    <div style={{ marginTop: 14, pointerEvents: pending.configs[pending.activeRoleTab].vocoder?.enabled ? 'auto' : 'none' }}>
+                                        <Slider label="Mix" val={pending.configs[pending.activeRoleTab].vocoder?.mix ?? 100} min={0} max={100} unit="%" onChange={v => updateActiveConfig(c => { if (!c.vocoder) c.vocoder = { enabled: true, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' }; c.vocoder.mix = v })} />
+                                        <Slider label="Brightness" val={pending.configs[pending.activeRoleTab].vocoder?.brightness ?? 70} min={0} max={100} unit="" onChange={v => updateActiveConfig(c => { if (!c.vocoder) c.vocoder = { enabled: true, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' }; c.vocoder.brightness = v })} />
+                                        <Slider label="Sibilance" val={pending.configs[pending.activeRoleTab].vocoder?.sibilance ?? 0} min={0} max={100} unit="" onChange={v => updateActiveConfig(c => { if (!c.vocoder) c.vocoder = { enabled: true, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' }; c.vocoder.sibilance = v })} />
+
+                                        {/* Voicing — chord shape the synth carrier plays */}
+                                        <div style={{ marginTop: 4 }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 6, color: theme.muted, fontFamily: theme.fontDisplay, fontWeight: 600 }}>
+                                                <span>Voicing</span>
+                                                <span style={{ color: theme.black, textTransform: 'capitalize' }}>{pending.configs[pending.activeRoleTab].vocoder?.voicing ?? 'triad'}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: 6 }}>
+                                                {(['triad', 'power', 'octaves'] as const).map(v => {
+                                                    const active = (pending.configs[pending.activeRoleTab].vocoder?.voicing ?? 'triad') === v
+                                                    return (
+                                                        <button
+                                                            key={v}
+                                                            onClick={() => updateActiveConfig(c => { if (!c.vocoder) c.vocoder = { enabled: true, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' }; c.vocoder.voicing = v })}
+                                                            style={{
+                                                                flex: 1,
+                                                                padding: '8px 0',
+                                                                fontFamily: theme.fontDisplay,
+                                                                fontSize: 10,
+                                                                fontWeight: 700,
+                                                                border: theme.borderThin,
+                                                                borderRadius: theme.radius,
+                                                                background: active ? theme.softViolet : 'transparent',
+                                                                color: active ? theme.black : theme.muted,
+                                                                cursor: 'pointer',
+                                                                textTransform: 'uppercase',
+                                                                letterSpacing: '0.5px',
+                                                                transition: 'background 0.15s, color 0.15s',
+                                                            }}
+                                                        >
+                                                            {v}
+                                                        </button>
+                                                    )
+                                                })}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             {/* File Upload Areas */}
@@ -2207,6 +2407,164 @@ export default function AdminPage() {
                                                 </>
                                             )}
                                         </div>
+                                    </section>
+                                )
+                            })}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* ═══ Requests Tab ═══ */}
+            {adminTab === 'requests' && (
+                <div>
+                    {!state.karaokeSessionId ? (
+                        <section style={sectionCard}>
+                            <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                                <div style={{ fontSize: 36, marginBottom: 12 }}>📡</div>
+                                <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 16, color: theme.black, marginBottom: 6 }}>
+                                    No Active Session
+                                </div>
+                                <div style={{ color: theme.muted, fontSize: 13, fontFamily: theme.fontBody }}>
+                                    Start a karaoke session from the Search page to receive song requests
+                                </div>
+                            </div>
+                        </section>
+                    ) : songRequests.length === 0 ? (
+                        <section style={sectionCard}>
+                            <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                                <div style={{ fontSize: 36, marginBottom: 12 }}>📝</div>
+                                <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 16, color: theme.black, marginBottom: 6 }}>
+                                    No Requests Yet
+                                </div>
+                                <div style={{ color: theme.muted, fontSize: 13, fontFamily: theme.fontBody }}>
+                                    When a guest can&apos;t find a song, they can ask you to add it here
+                                </div>
+                            </div>
+                        </section>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            {songRequests.map(req => {
+                                const isPending = req.status === 'pending'
+                                const initial = req.requestedByName.charAt(0).toUpperCase()
+                                const hue = req.requestedByName.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 360
+                                const inCatalog = catalog.some(c => c.trackId === req.trackId)
+                                const statusBadge = req.status === 'added'
+                                    ? { label: 'Added', bg: '#dcfce7', fg: '#166534' }
+                                    : req.status === 'dismissed'
+                                        ? { label: 'Dismissed', bg: '#fee2e2', fg: '#991b1b' }
+                                        : null
+                                return (
+                                    <section key={req.id} style={{
+                                        ...sectionCard,
+                                        opacity: isPending ? 1 : 0.65,
+                                        display: 'flex', flexDirection: 'column', gap: 12,
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                                            {req.trackArtUrl ? (
+                                                <img src={req.trackArtUrl} alt="" style={{
+                                                    width: 64, height: 64, borderRadius: theme.radiusSmall,
+                                                    objectFit: 'cover', border: theme.border, flexShrink: 0,
+                                                }} />
+                                            ) : (
+                                                <div style={{
+                                                    width: 64, height: 64, borderRadius: theme.radiusSmall,
+                                                    background: theme.cream, border: theme.border,
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    fontSize: 28, flexShrink: 0,
+                                                }}>🎵</div>
+                                            )}
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{
+                                                    fontFamily: theme.fontDisplay, fontWeight: 800,
+                                                    fontSize: 16, color: theme.black, lineHeight: 1.2,
+                                                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                                }}>
+                                                    {req.trackName}
+                                                </div>
+                                                <div style={{
+                                                    fontSize: 13, color: theme.muted, marginTop: 2,
+                                                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                                }}>
+                                                    {req.trackArtist}
+                                                </div>
+                                                {req.trackAlbum && (
+                                                    <div style={{
+                                                        fontSize: 11, color: theme.faint, marginTop: 2,
+                                                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                                    }}>
+                                                        {req.trackAlbum}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {statusBadge && (
+                                                <div style={{
+                                                    padding: '4px 10px', borderRadius: 999, fontSize: 11,
+                                                    fontFamily: theme.fontDisplay, fontWeight: 700,
+                                                    background: statusBadge.bg, color: statusBadge.fg,
+                                                    letterSpacing: '0.5px', textTransform: 'uppercase',
+                                                    flexShrink: 0,
+                                                }}>{statusBadge.label}</div>
+                                            )}
+                                        </div>
+
+                                        <div style={{
+                                            display: 'flex', alignItems: 'center', gap: 10,
+                                            paddingTop: 10, borderTop: `1px solid ${theme.softViolet}`,
+                                        }}>
+                                            {req.requestedByProfilePicture ? (
+                                                <img src={req.requestedByProfilePicture} alt="" style={{
+                                                    width: 28, height: 28, borderRadius: '50%',
+                                                    objectFit: 'cover', flexShrink: 0,
+                                                }} />
+                                            ) : (
+                                                <div style={{
+                                                    width: 28, height: 28, borderRadius: '50%',
+                                                    background: `hsl(${hue}, 65%, 55%)`, color: '#fff',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    fontFamily: theme.fontDisplay, fontWeight: 800, fontSize: 13,
+                                                    flexShrink: 0,
+                                                }}>{initial}</div>
+                                            )}
+                                            <div style={{ flex: 1, minWidth: 0, fontSize: 12, color: theme.muted, fontFamily: theme.fontBody }}>
+                                                Requested by <span style={{ color: theme.black, fontWeight: 600 }}>{req.requestedByName}</span>
+                                                <span style={{ color: theme.faint }}> · {new Date(req.createdAt).toLocaleString()}</span>
+                                            </div>
+                                        </div>
+
+                                        {isPending && (
+                                            <div style={{ display: 'flex', gap: 8 }}>
+                                                <button
+                                                    onClick={() => openSongRequest(req)}
+                                                    disabled={inCatalog}
+                                                    title={inCatalog ? 'Already in catalog' : 'Open in Add Song flow'}
+                                                    style={{
+                                                        flex: 1, padding: '10px 14px', fontSize: 13, fontWeight: 700,
+                                                        fontFamily: theme.fontDisplay,
+                                                        cursor: inCatalog ? 'not-allowed' : 'pointer',
+                                                        border: theme.border, borderRadius: theme.radius,
+                                                        background: inCatalog ? theme.cream : theme.softViolet,
+                                                        color: theme.black,
+                                                        opacity: inCatalog ? 0.6 : 1,
+                                                    }}
+                                                >
+                                                    {inCatalog ? 'Already in catalog' : 'Add to library'}
+                                                </button>
+                                                <button
+                                                    onClick={() => dismissSongRequest(req.id)}
+                                                    style={{
+                                                        padding: '10px 14px', fontSize: 13, fontWeight: 700,
+                                                        fontFamily: theme.fontDisplay, cursor: 'pointer',
+                                                        border: theme.border, borderRadius: theme.radius,
+                                                        background: theme.cream, color: theme.black,
+                                                    }}
+                                                    onMouseEnter={e => { e.currentTarget.style.background = '#fee'; e.currentTarget.style.color = '#c33' }}
+                                                    onMouseLeave={e => { e.currentTarget.style.background = theme.cream; e.currentTarget.style.color = theme.black }}
+                                                >
+                                                    Dismiss
+                                                </button>
+                                            </div>
+                                        )}
                                     </section>
                                 )
                             })}

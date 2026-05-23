@@ -64,6 +64,21 @@ export interface VoiceEffects {
         enabled: boolean
         threshold: number // -100 to 0 dB
     }
+
+    // Vocoder / Talkbox — replaces the singer's sound source with a synth
+    // chord shaped by the voice's spectral envelope. The chord is built
+    // from this block's `key` and `mode` (shared with pitch correction).
+    // Optional for backwards-compat with meta.json files that predate the
+    // feature — the engine treats a missing block as disabled.
+    vocoder?: {
+        enabled: boolean
+        mix: number        // 0-100% wet (0 = dry voice, 100 = pure vocoded output)
+        brightness: number // 0-100 (0 = pure sine carrier, 100 = pure saw)
+        sibilance: number  // 0-100 — noise-carrier blend on unvoiced phonemes (s/sh/t/f).
+                           // Off by default; bumping it adds breath/consonant intelligibility
+                           // at the cost of a small amount of noise on every frame.
+        voicing: 'triad' | 'power' | 'octaves'
+    }
 }
 
 /** Normalize micLevel: treat 0.5 as legacy default, use 1.0 (full volume) */
@@ -84,5 +99,6 @@ export const DEFAULT_VOICE_EFFECTS: VoiceEffects = {
     delay: { enabled: false, time: 250, feedback: 25, mix: 20 },
     reverb: { enabled: true, decay: 2.5, preDelay: 20, mix: 35 },
     distortion: { enabled: false, drive: 0, mix: 0 },
-    noiseGate: { enabled: false, threshold: -50 }
+    noiseGate: { enabled: false, threshold: -50 },
+    vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' }
 }

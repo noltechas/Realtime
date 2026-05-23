@@ -38,6 +38,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             reverb: { enabled: false, decay: 2.5, preDelay: 20, mix: 0 },
             distortion: { enabled: false, drive: 0, mix: 0 },
             noiseGate: { enabled: false, threshold: -50 },
+            vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
         }
     },
     {
@@ -54,6 +55,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             reverb: { enabled: true, decay: 2.0, preDelay: 25, mix: 30 },
             distortion: { enabled: false, drive: 0, mix: 0 },
             noiseGate: { enabled: true, threshold: -55 },
+            vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
         }
     },
 
@@ -73,6 +75,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             reverb: { enabled: true, decay: 1.2, preDelay: 15, mix: 18 },
             distortion: { enabled: true, drive: 8, mix: 6 },
             noiseGate: { enabled: false, threshold: -50 },
+            vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
         }
     },
     {
@@ -90,6 +93,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             reverb: { enabled: true, decay: 4.0, preDelay: 35, mix: 45 },
             distortion: { enabled: true, drive: 18, mix: 18 },
             noiseGate: { enabled: false, threshold: -50 },
+            vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
         }
     },
     {
@@ -107,6 +111,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             reverb: { enabled: true, decay: 3.8, preDelay: 45, mix: 40 },
             distortion: { enabled: false, drive: 0, mix: 0 },
             noiseGate: { enabled: false, threshold: -50 },
+            vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
         }
     },
     {
@@ -124,6 +129,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             reverb: { enabled: true, decay: 1.0, preDelay: 10, mix: 10 },
             distortion: { enabled: false, drive: 0, mix: 0 },
             noiseGate: { enabled: true, threshold: -45 },
+            vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
         }
     },
     {
@@ -141,6 +147,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             reverb: { enabled: true, decay: 2.5, preDelay: 12, mix: 30 },
             distortion: { enabled: true, drive: 38, mix: 28 },
             noiseGate: { enabled: false, threshold: -50 },
+            vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
         }
     },
     {
@@ -158,6 +165,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             reverb: { enabled: true, decay: 0.8, preDelay: 5, mix: 15 },
             distortion: { enabled: true, drive: 22, mix: 18 },
             noiseGate: { enabled: false, threshold: -50 },
+            vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
         }
     },
 
@@ -176,6 +184,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             reverb: { enabled: true, decay: 2.5, preDelay: 18, mix: 25 },
             distortion: { enabled: true, drive: 4, mix: 4 },
             noiseGate: { enabled: false, threshold: -50 },
+            vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
         }
     },
     {
@@ -193,6 +202,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             reverb: { enabled: true, decay: 1.5, preDelay: 12, mix: 18 },
             distortion: { enabled: true, drive: 5, mix: 5 },
             noiseGate: { enabled: true, threshold: -45 },
+            vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
         }
     },
     {
@@ -210,6 +220,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             reverb: { enabled: true, decay: 3.8, preDelay: 20, mix: 38 },
             distortion: { enabled: false, drive: 0, mix: 0 },
             noiseGate: { enabled: false, threshold: -50 },
+            vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
         }
     },
     {
@@ -227,6 +238,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             reverb: { enabled: true, decay: 1.4, preDelay: 12, mix: 16 },
             distortion: { enabled: true, drive: 3, mix: 4 },
             noiseGate: { enabled: true, threshold: -48 },
+            vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
         }
     },
     {
@@ -244,6 +256,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             reverb: { enabled: true, decay: 2.0, preDelay: 15, mix: 24 },
             distortion: { enabled: false, drive: 0, mix: 0 },
             noiseGate: { enabled: false, threshold: -50 },
+            vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
         }
     },
     {
@@ -261,6 +274,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             reverb: { enabled: true, decay: 2.8, preDelay: 18, mix: 32 },
             distortion: { enabled: true, drive: 6, mix: 6 },
             noiseGate: { enabled: false, threshold: -50 },
+            vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
         }
     },
     {
@@ -278,6 +292,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             reverb: { enabled: true, decay: 1.8, preDelay: 12, mix: 28 },
             distortion: { enabled: false, drive: 0, mix: 0 },
             noiseGate: { enabled: false, threshold: -50 },
+            vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
         }
     },
     {
@@ -295,6 +310,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             reverb: { enabled: true, decay: 1.8, preDelay: 10, mix: 22 },
             distortion: { enabled: true, drive: 18, mix: 14 },
             noiseGate: { enabled: true, threshold: -42 },
+            vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
         }
     },
 
@@ -314,6 +330,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             reverb: { enabled: true, decay: 2.0, preDelay: 20, mix: 22 },
             distortion: { enabled: false, drive: 0, mix: 0 },
             noiseGate: { enabled: false, threshold: -50 },
+            vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
         }
     },
     {
@@ -331,6 +348,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             reverb: { enabled: true, decay: 2.8, preDelay: 22, mix: 28 },
             distortion: { enabled: false, drive: 0, mix: 0 },
             noiseGate: { enabled: false, threshold: -50 },
+            vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
         }
     },
     {
@@ -348,6 +366,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             reverb: { enabled: true, decay: 2.5, preDelay: 18, mix: 30 },
             distortion: { enabled: false, drive: 0, mix: 0 },
             noiseGate: { enabled: false, threshold: -50 },
+            vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
         }
     },
 
@@ -366,6 +385,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             reverb: { enabled: true, decay: 2.2, preDelay: 20, mix: 26 },
             distortion: { enabled: false, drive: 0, mix: 0 },
             noiseGate: { enabled: false, threshold: -50 },
+            vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
         }
     },
 
@@ -385,6 +405,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             reverb: { enabled: true, decay: 1.0, preDelay: 8, mix: 12 },
             distortion: { enabled: false, drive: 0, mix: 0 },
             noiseGate: { enabled: false, threshold: -50 },
+            vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
         }
     },
     {
@@ -402,6 +423,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             reverb: { enabled: true, decay: 2.2, preDelay: 18, mix: 25 },
             distortion: { enabled: false, drive: 0, mix: 0 },
             noiseGate: { enabled: false, threshold: -50 },
+            vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
         }
     },
 
@@ -420,6 +442,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             reverb: { enabled: true, decay: 2.0, preDelay: 15, mix: 24 },
             distortion: { enabled: false, drive: 0, mix: 0 },
             noiseGate: { enabled: false, threshold: -50 },
+            vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
         }
     },
     {
@@ -437,6 +460,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             reverb: { enabled: true, decay: 2.0, preDelay: 15, mix: 22 },
             distortion: { enabled: false, drive: 0, mix: 0 },
             noiseGate: { enabled: false, threshold: -50 },
+            vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
         }
     },
     {
@@ -454,6 +478,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             reverb: { enabled: true, decay: 2.2, preDelay: 18, mix: 26 },
             distortion: { enabled: false, drive: 0, mix: 0 },
             noiseGate: { enabled: false, threshold: -50 },
+            vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
         }
     },
     {
@@ -471,6 +496,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             reverb: { enabled: true, decay: 1.8, preDelay: 12, mix: 22 },
             distortion: { enabled: false, drive: 0, mix: 0 },
             noiseGate: { enabled: false, threshold: -50 },
+            vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
         }
     },
     {
@@ -488,6 +514,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             reverb: { enabled: true, decay: 1.8, preDelay: 12, mix: 26 },
             distortion: { enabled: false, drive: 0, mix: 0 },
             noiseGate: { enabled: false, threshold: -50 },
+            vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
         }
     },
 
@@ -507,6 +534,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             reverb: { enabled: true, decay: 5.0, preDelay: 30, mix: 50 },
             distortion: { enabled: false, drive: 0, mix: 0 },
             noiseGate: { enabled: false, threshold: -50 },
+            vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
         }
     },
     {
@@ -524,6 +552,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             reverb: { enabled: true, decay: 4.5, preDelay: 25, mix: 48 },
             distortion: { enabled: true, drive: 14, mix: 10 },
             noiseGate: { enabled: false, threshold: -50 },
+            vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
         }
     },
     {
@@ -541,6 +570,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             reverb: { enabled: true, decay: 3.5, preDelay: 25, mix: 30 },
             distortion: { enabled: false, drive: 0, mix: 0 },
             noiseGate: { enabled: false, threshold: -50 },
+            vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
         }
     },
 
@@ -549,17 +579,33 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
         id: 'daft-punk',
         name: 'Daft Punk',
         category: 'electronic',
-        description: 'Vocoder/robotic: max pitch lock, vocoder formant curve, heavy harmonizer, digital grit',
+        description: 'True channel vocoder — voice replaces a synth chord with its vowels, talkbox formant character, tight room',
         artistId: '4tZwfgrHOc3mvqYlEYSvVi',
         effects: {
+            // pitchCorrection stays on so the singer's note is locked to scale
+            // BEFORE the vocoder analyzes the modulator — the vocoder itself
+            // doesn't care about pitch (only spectral envelope), but locking
+            // helps the analysis filters land on harmonic peaks more cleanly.
             pitchCorrection: { enabled: true, strength: 100 },
             compressor: { enabled: true, threshold: -22, ratio: 10, attack: 0.001, release: 0.05 },
-            eq: { enabled: true, lowGain: -8, midGain: 7, highGain: 1 },
-            chorus: { enabled: true, rate: 2.2, depth: 0.3, mix: 48 },
-            delay: { enabled: true, time: 130, feedback: 25, mix: 15 },
-            reverb: { enabled: true, decay: 1.2, preDelay: 5, mix: 20 },
-            distortion: { enabled: true, drive: 32, mix: 22 },
+            // EQ shapes the MODULATOR going into the vocoder. Mid-emphasis
+            // = vowel-formant emphasis = stronger talkbox character.
+            eq: { enabled: true, lowGain: -3, midGain: 6, highGain: 4 },
+            // Chorus widens the (otherwise mono) vocoder output across the
+            // stereo field. Lighter than before — the vocoder itself supplies
+            // the "synthetic" character; chorus just adds width.
+            chorus: { enabled: true, rate: 1.5, depth: 0.4, mix: 30 },
+            delay: { enabled: true, time: 175, feedback: 22, mix: 12 },
+            // Tight room, not washy — 24K Magic talkbox intro is intimate.
+            reverb: { enabled: true, decay: 0.9, preDelay: 6, mix: 12 },
+            // Subtle saturation = real talkbox's tube/diaphragm warmth.
+            // NOT the old "drive 32" grit which fights the vocoder character.
+            distortion: { enabled: true, drive: 8, mix: 6 },
             noiseGate: { enabled: false, threshold: -50 },
+            // The headline effect — mix 100 = the voice is replaced entirely
+            // by the vocoder output. Triad voicing gives the fullest chord.
+            // Sibilance off: a tonal-only carrier is the 24K Magic intro feel.
+            vocoder: { enabled: true, mix: 100, brightness: 75, sibilance: 0, voicing: 'triad' },
         }
     },
     {
@@ -577,6 +623,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             reverb: { enabled: true, decay: 4.8, preDelay: 35, mix: 48 },
             distortion: { enabled: false, drive: 0, mix: 0 },
             noiseGate: { enabled: false, threshold: -50 },
+            vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
         }
     },
 ]

@@ -254,6 +254,10 @@ export default function KaraokePage() {
     const ytReadyRef = useRef(false)
     const audioTimeMsRef = useRef(0)
     const [ytReady, setYtReady] = useState(false)
+    // Tracks the YouTube iframe API PlayerState: -1 unstarted, 0 ended, 1 playing,
+    // 2 paused, 3 buffering, 5 cued. We only reveal the iframe when state === 1
+    // (actually playing) so the YT center "play" overlay never shows to the user.
+    const [ytPlayState, setYtPlayState] = useState<number>(-1)
     const [previewSlices, setPreviewSlices] = useState<number[]>([])
 
     // Crossfade: remember previous album art to avoid black flash on transition
@@ -359,6 +363,7 @@ export default function KaraokePage() {
                         }
                     },
                     onStateChange: (e: any) => {
+                        setYtPlayState(e.data)
                         // When video ends but song is still playing, loop the video
                         if (e.data === 0) {
                             ytPlayerRef.current?.seekTo(0, true)
@@ -1780,7 +1785,15 @@ export default function KaraokePage() {
                     <div
                         className="k-bg__yt-wrap"
                         style={{
-                            opacity: 1,
+                            // Hidden until YouTube confirms it's actually playing (state 1).
+                            // -1 unstarted / 2 paused / 3 buffering / 5 cued all show the
+                            // YT center play-button overlay; we hide the iframe entirely
+                            // during those states so the user never sees it. Album art
+                            // (rendered just below) shows through instead.
+                            opacity: state.isPlaying && ytPlayState === 1 ? 1 : 0,
+                            transition: 'opacity 0.4s ease',
+                            // pointer-events: none so user clicks can't summon YT's UI overlay
+                            pointerEvents: 'none',
                             // Keep the element in the DOM so YT.Player can attach; just hide it visually for secret songs in ready state.
                             visibility: (np?.isHidden && state.stageMode === 'ready') ? 'hidden' : 'visible',
                         }}
@@ -2143,25 +2156,27 @@ export default function KaraokePage() {
                                         inlineStyle.opacity = 1
                                     }
 
-                                    let displayWords = line.words;
                                     const needsSanitation = line.singerIndices?.some((idx: number) => singers[idx]?.whitePersonCheck) ||
                                         (line.singerIndex !== undefined && singers[line.singerIndex]?.whitePersonCheck);
 
-                                    if (needsSanitation) {
-                                        displayWords = displayWords.replace(/nigg(?:a|er)s?/gi, (match: string) => {
-                                            const isPlural = match.toLowerCase().endsWith('s');
-                                            const isUpper = match[0] === match[0].toUpperCase();
-                                            let replacement = isPlural ? 'fellas' : 'fella';
-                                            if (isUpper) replacement = replacement.charAt(0).toUpperCase() + replacement.slice(1);
-                                            return replacement;
-                                        });
-                                    }
+                                    const sanitize = (s: string) => s.replace(/nigg(?:a|er)s?/gi, (match: string) => {
+                                        const isPlural = match.toLowerCase().endsWith('s');
+                                        const isUpper = match[0] === match[0].toUpperCase();
+                                        let replacement = isPlural ? 'fellas' : 'fella';
+                                        if (isUpper) replacement = replacement.charAt(0).toUpperCase() + replacement.slice(1);
+                                        return replacement;
+                                    });
 
-                                    // Per-syllable render when timing data is available and sanitation isn't needed
-                                    // (sanitation regex can cross syllable boundaries, so fall back to whole-line in that case).
+                                    let displayWords = line.words;
+                                    if (needsSanitation) displayWords = sanitize(displayWords);
+
+                                    // Per-syllable render. Sanitation runs per-syllable so the word-level
+                                    // highlight still fires for assigned singers (NetEase YRC keeps English
+                                    // words intact within a single syllable, so the n-word regex doesn't
+                                    // need to cross syllable boundaries).
                                     const syllables = line.syllables as Array<{ text: string; startMs: number; durMs: number }> | undefined
                                     let content: React.ReactNode = displayWords
-                                    if (syllables && syllables.length > 0 && !needsSanitation) {
+                                    if (syllables && syllables.length > 0) {
                                         content = syllables.map((syl, k) => {
                                             let sylCls = 'k-syl'
                                             if (isActiveGroup) {
@@ -2177,9 +2192,10 @@ export default function KaraokePage() {
                                             // background-based highlight would extend over the gap to the next word.
                                             // Split the word from the trailing whitespace so themes can style the
                                             // inner .k-syl__word (the visible glyphs) without coloring the space.
-                                            const trailMatch = syl.text.match(/\s+$/)
+                                            const sylText = needsSanitation ? sanitize(syl.text) : syl.text
+                                            const trailMatch = sylText.match(/\s+$/)
                                             const trail = trailMatch ? trailMatch[0] : ''
-                                            const word = trail ? syl.text.slice(0, -trail.length) : syl.text
+                                            const word = trail ? sylText.slice(0, -trail.length) : sylText
                                             return (
                                                 <span key={k} className={sylCls}>
                                                     <span className="k-syl__word">{word}</span>{trail}

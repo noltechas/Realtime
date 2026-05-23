@@ -42,3 +42,6 @@ npm-debug.log*
 
 # Claude
 .claude/
+
+# Local one-off / per-artist scripts (not part of the app build)
+scripts/

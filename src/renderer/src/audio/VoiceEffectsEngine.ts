@@ -1,6 +1,7 @@
 import { VoiceEffects, DEFAULT_VOICE_EFFECTS } from './VoiceEffectsTypes'
 import { PITCH_CORRECTION_PROCESSOR_CODE } from './pitch-correction-worklet'
 import { NOISE_GATE_PROCESSOR_CODE } from './noise-gate-worklet'
+import { VOCODER_PROCESSOR_CODE } from './vocoder-worklet'
 import { parseDeviceId } from '../hooks/useAudioDevices'
 
 /**
@@ -68,6 +69,14 @@ export class VoiceEffectsEngine {
     private reverbDry: GainNode
     private reverbWet: GainNode
     private reverbNode: ConvolverNode
+
+    // Vocoder (channel vocoder / talkbox, AudioWorklet). vocoderBypass
+    // carries the signal at unity gain until the worklet is ready; if it
+    // fails to load the chain stays functional with the vocoder effectively
+    // disabled.
+    private vocoderNode: AudioWorkletNode | null = null
+    private vocoderReady = false
+    private vocoderBypass: GainNode
 
     // Distortion block
     private distortionIn: GainNode
@@ -192,6 +201,9 @@ export class VoiceEffectsEngine {
         this.reverbIn.connect(this.reverbNode)
         this.reverbNode.connect(this.reverbWet)
 
+        // 6.5. Vocoder bypass (replaced by worklet once it loads)
+        this.vocoderBypass = this.ctx.createGain()
+
         // 7. Distortion (WaveShaperNode with dry/wet mix)
         this.distortionIn = this.ctx.createGain()
         this.distortionDry = this.ctx.createGain()
@@ -219,20 +231,28 @@ export class VoiceEffectsEngine {
         // peak tracking robustness and keeps the shifter from amplifying
         // quantization noise through makeup gain):
         //
-        // input -> comp -> [pitchCorrection OR bypass] -> eqLow -> eqMid -> eqHigh -> distortionIn
+        // input -> comp -> [pitchCorrection OR bypass] -> eqLow -> eqMid -> eqHigh
+        //                                                                    |
+        //                                                                    v
+        //         [vocoder OR vocoderBypass] -> distortionIn
         // distortionDry & distortionWet -> chorusIn
         // chorusDry & chorusWet -> delayIn
         // delayDry & delayWet -> reverbIn
         // reverbDry & reverbWet -> gateGain -> masterGain -> analyser -> destination
+        //
+        // The vocoder sits AFTER EQ so the EQ shapes the voice that becomes
+        // the vocoder's modulator (boosting mids = more formant character),
+        // and BEFORE distortion so saturation can grit up the carrier output.
 
-        // Initially route through bypass; initPitchCorrection() will reroute through the worklet
+        // Initially route through bypasses; init*() will reroute through the worklets
         this.inputGain.connect(this.inputHighPass)
         this.inputHighPass.connect(this.comp)
         this.comp.connect(this.pitchCorrectionBypass)
         this.pitchCorrectionBypass.connect(this.eqLow)
         this.eqLow.connect(this.eqMid)
         this.eqMid.connect(this.eqHigh)
-        this.eqHigh.connect(this.distortionIn)
+        this.eqHigh.connect(this.vocoderBypass)
+        this.vocoderBypass.connect(this.distortionIn)
 
         this.distortionDry.connect(this.chorusIn)
         this.distortionWet.connect(this.chorusIn)
@@ -265,6 +285,7 @@ export class VoiceEffectsEngine {
         }
 
         this.initNoiseGate()
+        this.initVocoder()
     }
 
     /**
@@ -277,6 +298,11 @@ export class VoiceEffectsEngine {
             const url = URL.createObjectURL(blob)
             await this.ctx.audioWorklet.addModule(url)
             URL.revokeObjectURL(url)
+
+            // The engine may have been destroyed while addModule was in flight
+            // (e.g. React strict-mode mount/unmount/mount). Bail silently
+            // before trying to construct a node on a closed context.
+            if (this.ctx.state === 'closed') return
 
             this.pitchCorrectionNode = new AudioWorkletNode(this.ctx, 'pitch-correction-processor', {
                 numberOfInputs: 1,
@@ -313,7 +339,14 @@ export class VoiceEffectsEngine {
                 })
             }
         } catch (err) {
-            console.warn('Pitch correction worklet failed to load, using bypass:', err)
+            const e = err as DOMException
+            console.warn(
+                '[VoiceEffectsEngine] Pitch correction worklet failed to load:',
+                'name=', e?.name,
+                'message=', e?.message,
+                'ctxState=', this.ctx.state,
+                'fullError=', err,
+            )
             // Bypass remains connected, pitch correction just won't work
         }
     }
@@ -330,6 +363,9 @@ export class VoiceEffectsEngine {
             const url = URL.createObjectURL(blob)
             await this.ctx.audioWorklet.addModule(url)
             URL.revokeObjectURL(url)
+
+            // See initPitchCorrection — silent shutdown bail.
+            if (this.ctx.state === 'closed') return
 
             this.noiseGateNode = new AudioWorkletNode(this.ctx, 'noise-gate-processor', {
                 numberOfInputs: 1,
@@ -359,8 +395,94 @@ export class VoiceEffectsEngine {
                 })
             }
         } catch (err) {
-            console.warn('Noise gate worklet failed to load, using bypass:', err)
+            const e = err as DOMException
+            console.warn(
+                '[VoiceEffectsEngine] Noise gate worklet failed to load:',
+                'name=', e?.name,
+                'message=', e?.message,
+                'ctxState=', this.ctx.state,
+                'fullError=', err,
+            )
             // Bypass remains connected, gate is effectively disabled
+        }
+    }
+
+    /**
+     * Load the vocoder AudioWorklet and splice it in between the EQ output
+     * (eqHigh) and the distortion block (distortionIn). Until this resolves,
+     * vocoderBypass passes the signal at unity gain. If the worklet fails
+     * to load the chain keeps working with the vocoder effectively disabled.
+     *
+     * Channel config matches the pitch-correction worklet: mono input
+     * (downmixed by Web Audio before reaching the worklet), explicit
+     * 2-channel output so downstream nodes receive true stereo and we
+     * avoid the AirPods-only-left-ear bug on macOS.
+     */
+    private async initVocoder() {
+        try {
+            const blob = new Blob([VOCODER_PROCESSOR_CODE], { type: 'application/javascript' })
+            const url = URL.createObjectURL(blob)
+            await this.ctx.audioWorklet.addModule(url)
+            URL.revokeObjectURL(url)
+
+            // See initPitchCorrection — silent shutdown bail.
+            if (this.ctx.state === 'closed') return
+
+            this.vocoderNode = new AudioWorkletNode(this.ctx, 'vocoder-processor', {
+                numberOfInputs: 1,
+                numberOfOutputs: 1,
+                // Force input to mono — the vocoder collapses to a single
+                // modulator channel internally, so downmixing up front saves
+                // bandpass-filter work per band.
+                channelCount: 1,
+                channelCountMode: 'explicit',
+                channelInterpretation: 'speakers',
+                // Output exactly 2 channels — the processor writes the same
+                // mono vocoded signal to both L and R to avoid downstream
+                // up-mix failures (observed with AirPods on macOS).
+                outputChannelCount: [2],
+            })
+
+            // Listen for diagnostic dumps from the worklet so we can verify
+            // what samples it's actually producing.
+            this.vocoderNode.port.onmessage = (e) => {
+                if (e.data?.type === 'sample-dump') {
+                    console.log(`[Vocoder dump] sample ${e.data.index}: value=${e.data.value?.toFixed(5)}`)
+                }
+            }
+
+            // Reroute: eqHigh -> vocoder -> distortionIn (replacing bypass)
+            this.eqHigh.disconnect(this.vocoderBypass)
+            this.vocoderBypass.disconnect(this.distortionIn)
+            this.eqHigh.connect(this.vocoderNode)
+            this.vocoderNode.connect(this.distortionIn)
+
+            this.vocoderReady = true
+
+            // Re-send params that were applied before the worklet was ready
+            if (this.lastAppliedFx) {
+                const v = this.lastAppliedFx.vocoder
+                this.vocoderNode.port.postMessage({
+                    type: 'params',
+                    enabled: v?.enabled ?? false,
+                    mix: v?.mix ?? 100,
+                    brightness: v?.brightness ?? 70,
+                    sibilance: v?.sibilance ?? 0,
+                    voicing: v?.voicing ?? 'triad',
+                    key: this.lastAppliedFx.key ?? -1,
+                    mode: this.lastAppliedFx.mode ?? 1,
+                })
+            }
+        } catch (err) {
+            const e = err as DOMException
+            console.warn(
+                '[VoiceEffectsEngine] Vocoder worklet failed to load:',
+                'name=', e?.name,
+                'message=', e?.message,
+                'ctxState=', this.ctx.state,
+                'fullError=', err,
+            )
+            // Bypass remains connected, vocoder just won't work
         }
     }
 
@@ -516,6 +638,22 @@ export class VoiceEffectsEngine {
         } else {
             this.distortionDry.gain.setTargetAtTime(1, t, 0.05)
             this.distortionWet.gain.setTargetAtTime(0, t, 0.05)
+        }
+
+        // Vocoder (channel vocoder via AudioWorklet — port-driven). The
+        // worklet builds its synth carrier chord from { key, mode, voicing },
+        // so we forward those alongside enabled/mix/brightness every apply().
+        if (this.vocoderReady && this.vocoderNode) {
+            this.vocoderNode.port.postMessage({
+                type: 'params',
+                enabled: fx.vocoder?.enabled ?? false,
+                mix: fx.vocoder?.mix ?? 100,
+                brightness: fx.vocoder?.brightness ?? 70,
+                sibilance: fx.vocoder?.sibilance ?? 0,
+                voicing: fx.vocoder?.voicing ?? 'triad',
+                key: fx.key ?? -1,
+                mode: fx.mode ?? 1,
+            })
         }
 
         // Noise Gate (downward expander via AudioWorklet — port-driven)
@@ -1160,6 +1298,10 @@ export class VoiceEffectsEngine {
         if (this.noiseGateNode) {
             try { this.noiseGateNode.disconnect() } catch { /* ignore */ }
             this.noiseGateNode = null
+        }
+        if (this.vocoderNode) {
+            try { this.vocoderNode.disconnect() } catch { /* ignore */ }
+            this.vocoderNode = null
         }
         this.ctx.close()
     }
