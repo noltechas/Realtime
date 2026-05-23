@@ -644,6 +644,15 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
   border: 1px solid var(--voted-pill-border, rgba(255,255,255,0.15));
   letter-spacing: 0.5px; text-transform: uppercase;
 }
+.queue-singing-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px; border-radius: 99px; font-size: 9px;
+  font-family: var(--font-display); font-weight: 700;
+  background: var(--singing-pill-bg, rgba(167,139,250,0.16));
+  color: var(--singing-pill-text, #c4b5fd);
+  border: 1px solid var(--singing-pill-border, rgba(167,139,250,0.5));
+  letter-spacing: 0.5px; text-transform: uppercase;
+}
 .queue-lock-badge {
   display: flex; flex-direction: column; align-items: center; gap: 2px;
   padding: 6px 8px; border-radius: var(--vote-btn-radius, 8px);
@@ -1228,6 +1237,10 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
   background: #FFD60A !important; color: #1A1A1A !important;
   border: 2px solid #1A1A1A !important; box-shadow: 1px 1px 0 #1A1A1A !important;
 }
+.queue-item[data-stage-theme="neo-brutal"] .queue-singing-pill {
+  background: #B388FF !important; color: #1A1A1A !important;
+  border: 2px solid #1A1A1A !important; box-shadow: 1px 1px 0 #1A1A1A !important;
+}
 .queue-item[data-stage-theme="neo-brutal"] .queue-lock-badge {
   background: #FFD60A !important; color: #1A1A1A !important;
   border: 2.5px solid #1A1A1A !important; box-shadow: 2px 2px 0 #1A1A1A !important;
@@ -1251,6 +1264,13 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
   background: rgba(0,255,136,0.08) !important; color: #00ff88 !important;
   border: 1px solid rgba(0,255,136,0.45) !important; border-radius: 0 !important;
   font-family: 'Share Tech Mono', monospace !important;
+}
+.queue-item[data-stage-theme="cyberpunk"] .queue-singing-pill {
+  background: rgba(255,0,170,0.1) !important; color: #ff00aa !important;
+  border: 1px solid #ff00aa !important; border-radius: 0 !important;
+  font-family: 'Share Tech Mono', monospace !important;
+  box-shadow: 0 0 8px rgba(255,0,170,0.4) !important;
+  text-shadow: 0 0 4px rgba(255,0,170,0.6) !important;
 }
 .queue-item[data-stage-theme="cyberpunk"] .queue-lock-badge {
   background: rgba(255,204,0,0.08) !important; color: #ffcc00 !important;
@@ -1283,6 +1303,14 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
   border: 2px dashed #2d2d2d !important; border-radius: 99px !important;
   font-family: 'Kalam', cursive !important;
 }
+.queue-item[data-stage-theme="sketch"] .queue-singing-pill {
+  background: #ffffff !important; color: #2d5da1 !important;
+  border: 2px solid #2d5da1 !important;
+  border-radius: 120px 18px 100px 14px / 14px 100px 18px 120px !important;
+  font-family: 'Kalam', cursive !important;
+  text-transform: none !important; letter-spacing: 0.2px !important;
+  font-size: 11px !important;
+}
 .queue-item[data-stage-theme="sketch"] .queue-lock-badge {
   background: #fff9c4 !important; color: #2d2d2d !important;
   border: 2.5px solid #2d2d2d !important;
@@ -1314,6 +1342,15 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
   border: 1px solid #D4FF00 !important; border-radius: 0 !important;
   font-family: 'Oswald', sans-serif !important; letter-spacing: 1.5px !important;
 }
+.queue-item[data-stage-theme="urban"] .queue-singing-pill {
+  background: linear-gradient(135deg, #FF1E1E, #b81515) !important;
+  color: #ffffff !important;
+  border: none !important; border-radius: 0 !important;
+  clip-path: polygon(6% 0%, 100% 0%, 94% 100%, 0% 100%) !important;
+  font-family: 'Oswald', sans-serif !important;
+  letter-spacing: 1.5px !important; font-weight: 700 !important;
+  box-shadow: 0 0 10px rgba(255,30,30,0.45) !important;
+}
 .queue-item[data-stage-theme="urban"] .queue-lock-badge {
   background: rgba(212,255,0,0.15) !important; color: #D4FF00 !important;
   border: 1px solid #D4FF00 !important; border-radius: 0 !important;
@@ -1343,6 +1380,13 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
 .queue-item[data-stage-theme="deep-sea"] .queue-voted-pill {
   background: rgba(0,255,200,0.1) !important; color: #00ffc8 !important;
   border: 1px solid rgba(0,255,200,0.45) !important; border-radius: 99px !important;
+}
+.queue-item[data-stage-theme="deep-sea"] .queue-singing-pill {
+  background: rgba(180,77,255,0.14) !important; color: #b44dff !important;
+  border: 1px solid rgba(180,77,255,0.6) !important; border-radius: 99px !important;
+  backdrop-filter: blur(6px) !important; -webkit-backdrop-filter: blur(6px) !important;
+  box-shadow: 0 0 10px rgba(180,77,255,0.35) !important;
+  text-shadow: 0 0 6px rgba(180,77,255,0.45) !important;
 }
 .queue-item[data-stage-theme="deep-sea"] .queue-lock-badge {
   background: rgba(255,200,87,0.14) !important; color: #ffc857 !important;
@@ -1382,6 +1426,16 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
   border: 1px solid rgba(182,255,45,0.5) !important; border-radius: 99px !important;
   font-family: 'Chicle', cursive !important;
 }
+.queue-item[data-stage-theme="psychedelic"] .queue-singing-pill {
+  background: linear-gradient(90deg, #ff2d95, #ff8c2d, #b6ff2d, #ff2d95) !important;
+  background-size: 200% 100% !important;
+  animation: psy-vote-swirl 5s linear infinite !important;
+  color: #1a0a2e !important;
+  border: 1px solid rgba(255,255,255,0.55) !important; border-radius: 99px !important;
+  font-family: 'Chicle', cursive !important; font-weight: 900 !important;
+  text-transform: none !important; font-size: 11px !important;
+  box-shadow: 0 0 12px rgba(255,45,149,0.45) !important;
+}
 .queue-item[data-stage-theme="psychedelic"] .queue-lock-badge {
   background: linear-gradient(90deg, #ff2d95, #b6ff2d, #ff8c2d, #ff2d95) !important;
   background-size: 200% 100% !important;
@@ -1409,6 +1463,14 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
   background: rgba(212,184,90,0.14) !important; color: #D4B85A !important;
   border: 1px solid rgba(212,184,90,0.45) !important; border-radius: 99px !important;
   font-family: 'Cormorant Garamond', serif !important;
+}
+.queue-item[data-stage-theme="zen"] .queue-singing-pill {
+  background: rgba(212,68,42,0.14) !important; color: #D4442A !important;
+  border: 1px solid rgba(212,68,42,0.5) !important; border-radius: 99px !important;
+  font-family: 'Cormorant Garamond', serif !important;
+  font-style: italic !important; text-transform: none !important;
+  letter-spacing: 0.6px !important; font-size: 11px !important;
+  text-shadow: 0 0 6px rgba(212,68,42,0.35) !important;
 }
 .queue-item[data-stage-theme="zen"] .queue-lock-badge {
   background: rgba(212,184,90,0.18) !important; color: #D4B85A !important;
@@ -1438,6 +1500,14 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
   border: 1px solid rgba(224,64,251,0.5) !important; border-radius: 99px !important;
   font-family: 'Orbitron', sans-serif !important;
 }
+.queue-item[data-stage-theme="space"] .queue-singing-pill {
+  background: rgba(0,228,255,0.12) !important; color: #00E4FF !important;
+  border: 1px solid #00E4FF !important; border-radius: 8px !important;
+  font-family: 'Orbitron', sans-serif !important;
+  letter-spacing: 1.5px !important;
+  box-shadow: 0 0 10px rgba(0,228,255,0.4) !important;
+  text-shadow: 0 0 6px rgba(0,228,255,0.5) !important;
+}
 .queue-item[data-stage-theme="space"] .queue-lock-badge {
   background: rgba(255,221,87,0.14) !important; color: #FFDD57 !important;
   border: 1px solid #FFDD57 !important; border-radius: 8px !important;
@@ -1465,6 +1535,14 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
   background: rgba(200,151,62,0.16) !important; color: #C8973E !important;
   border: 1px solid rgba(200,151,62,0.55) !important; border-radius: 99px !important;
   font-family: 'Cinzel Decorative', serif !important;
+}
+.queue-item[data-stage-theme="steampunk"] .queue-singing-pill {
+  background: linear-gradient(180deg, #E07040, #8c3a18) !important;
+  color: #14110F !important;
+  border: 1px solid #5a1c08 !important; border-radius: 4px !important;
+  box-shadow: inset 0 1px 2px rgba(255,180,130,0.5), 0 1px 3px rgba(0,0,0,0.5) !important;
+  font-family: 'Cinzel Decorative', serif !important;
+  letter-spacing: 1.2px !important; font-weight: 700 !important;
 }
 .queue-item[data-stage-theme="steampunk"] .queue-lock-badge {
   background: linear-gradient(180deg, #d4a14a, #8c6420) !important;
@@ -1498,6 +1576,15 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
   background: rgba(255,215,0,0.12) !important; color: #FFD700 !important;
   border: 1px solid #FFD700 !important; border-radius: 4px !important;
   font-family: 'Audiowide', sans-serif !important; letter-spacing: 1px !important;
+}
+.queue-item[data-stage-theme="retrowave"] .queue-singing-pill {
+  background: linear-gradient(180deg, #00BFFF, #053a55) !important;
+  color: #FFD700 !important;
+  border: 1px solid #FF2D95 !important; border-radius: 4px !important;
+  font-family: 'Audiowide', sans-serif !important;
+  letter-spacing: 1.5px !important; font-weight: 700 !important;
+  text-shadow: 1px 0 0 #FF2D95, -1px 0 0 #FFD700 !important;
+  box-shadow: 0 0 12px rgba(0,191,255,0.5) !important;
 }
 .queue-item[data-stage-theme="retrowave"] .queue-lock-badge {
   background: linear-gradient(180deg, #FF2D95, #00BFFF) !important;
@@ -2428,6 +2515,16 @@ async function castVote(queueRowId,value){
   if(!S.guestId||!queueRowId)return;
   var voted=loadVotedMap();
   if(voted[queueRowId])return;
+  // Defensive: never vote on a song you’re in (the UI hides the buttons,
+  // but a stale-DOM click could slip through).
+  var row=S.queue.find(function(q){return q.id===queueRowId;});
+  if(row&&row.singer_configs&&S.guestName){
+    var gn=(S.guestName||"").toLowerCase();
+    for(var si=0;si<row.singer_configs.length;si++){
+      var n=((row.singer_configs[si]&&row.singer_configs[si].name)||"").toLowerCase();
+      if(n===gn)return;
+    }
+  }
   voted[queueRowId]=value;
   saveVotedMap(voted);
   // Optimistically re-render so the user sees the "Voted" pill immediately.
@@ -3720,6 +3817,14 @@ function renderQueue(){
     var isLocked=!!q.locked&&i===0;
     var total=(q.score||0)+(q.bonus_points||0);
     var voted=votedMap[q.id];
+    // Is this guest one of the singers on this track? No self-voting.
+    var inSong=false;
+    if(S.guestName){
+      var gn=(S.guestName||"").toLowerCase();
+      for(var ssi=0;ssi<cs.length;ssi++){
+        if(((cs[ssi]&&cs[ssi].name)||"").toLowerCase()===gn){inSong=true;break;}
+      }
+    }
     var singerPills="";
     if(cs.length>0){
       singerPills='<div class="queue-singer-pills">'+cs.map(function(s){
@@ -3747,6 +3852,15 @@ function renderQueue(){
           '<div class="queue-lock-badge" title="Locked in \u2014 next to play">'+
             '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>'+
             '<span class="queue-lock-label">Next Up<br>Locked</span>'+
+          '</div>'+
+        '</div>';
+    }else if(inSong){
+      voteCol=
+        '<div class="queue-vote-col'+(total===0?" queue-vote-col--no-score":"")+'">'+
+          scoreLine+
+          '<div class="queue-singing-pill" title="You\u2019re singing this one \u2014 can\u2019t vote on your own track">'+
+            '<svg width="12" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>'+
+            '<span>You\u2019re Singing</span>'+
           '</div>'+
         '</div>';
     }else if(voted){

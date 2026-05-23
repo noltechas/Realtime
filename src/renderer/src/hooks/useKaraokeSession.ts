@@ -194,14 +194,17 @@ export function useKaraokeSession() {
                 (payload) => {
                     const row = payload.new as any
                     if (!row?.id) return
-                    // Vote/bonus/lock changes — re-sort the local queue.
+                    // Score/bonus changes from companion votes — re-sort.
+                    // Deliberately omit `locked` here: the desktop host is
+                    // authoritative for lock state. A stale DB value (set
+                    // before the host's lockQueueItem RPC completes) must
+                    // never overwrite locally-locked top of queue.
                     dispatch({
                         type: 'UPDATE_QUEUE_ITEM_SCORE',
                         payload: {
                             remoteQueueId: row.id,
                             score: row.score ?? 0,
                             bonusPoints: row.bonus_points ?? 0,
-                            locked: !!row.locked,
                         }
                     })
                 }
@@ -314,7 +317,8 @@ export function useKaraokeSession() {
 
     // Whenever a new song settles into the Next-Up slot (position 0), lock it
     // in Supabase so the companion site reflects the guaranteed-next status.
-    // Triggers on initial enqueue, after advance, and after host drag-reorder.
+    // Triggers on initial enqueue, after advance, after host drag-reorder, and
+    // after the existing-queue fetch on session resume.
     const lockedRemoteIdRef = useRef<string | null>(null)
     useEffect(() => {
         if (window.electronAPI?.isStageWindow) return
@@ -324,13 +328,21 @@ export function useKaraokeSession() {
             lockedRemoteIdRef.current = null
             return
         }
+        // Already pushed a lock for this row — don't spam Supabase.
         if (lockedRemoteIdRef.current === top.remoteQueueId) return
         lockedRemoteIdRef.current = top.remoteQueueId
+        // Always update local state to locked (no-op if already true).
         if (!top.locked) {
             dispatch({ type: 'LOCK_NEXT_UP' })
-            window.electronAPI?.lockQueueItem?.(top.remoteQueueId).catch(err =>
-                console.warn('[Karaoke] lockQueueItem failed:', err))
         }
+        // ALWAYS push to Supabase. NEXT_SONG and REORDER_QUEUE set locked
+        // locally without persisting — if we only pushed when local was
+        // unlocked, the DB would silently stay locked=false and a vote on
+        // any song could overtake the next-up.
+        console.log('[Karaoke] Locking next-up:', top.track.name, '(', top.remoteQueueId, ')')
+        window.electronAPI?.lockQueueItem?.(top.remoteQueueId)
+            .then(() => console.log('[Karaoke] Lock pushed to Supabase'))
+            .catch(err => console.warn('[Karaoke] lockQueueItem failed:', err))
     }, [state.queue, state.karaokeSessionId, dispatch])
 
     // Sync theme changes to Supabase
