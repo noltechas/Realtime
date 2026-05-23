@@ -1498,7 +1498,7 @@ function submitSongRequest(item){
         S.requestConfirm={title:"Couldn't send request",sub:res.error.message||"Try again in a moment."};
       }
     }else{
-      S.requestConfirm={title:"Request sent!",sub:"Chas will see this on the admin page."};
+      S.requestConfirm={title:"Request sent!",sub:"Chas will add your song ASAP!"};
       S.requestQuery="";S.requestResults=[];
     }
     render();scheduleConfirmDismiss();
