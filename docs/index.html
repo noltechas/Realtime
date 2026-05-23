@@ -815,6 +815,61 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
   background: rgba(167,139,250,0.18); color: var(--violet);
   font-size: 16px; font-weight: 700; line-height: 1;
 }
+
+/* ── Per-singer color picker (renders inline under the singer row) ────────── */
+.wiz-color-block {
+  margin-top: 10px; padding: 10px 12px 12px;
+  background: var(--surface-1);
+  border: 1px solid var(--white-ghost);
+  border-radius: 12px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.wiz-color-eyebrow {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-display); font-weight: 700;
+  font-size: 10px; letter-spacing: 0.8px; text-transform: uppercase;
+  color: var(--white-muted); line-height: 1;
+}
+.wiz-color-eyebrow svg { opacity: 0.85; }
+.wiz-color-picker {
+  display: flex; flex-wrap: wrap; gap: 8px;
+}
+.wiz-color-swatch {
+  position: relative; width: 30px; height: 30px;
+  padding: 0; cursor: pointer; appearance: none; -webkit-appearance: none;
+  background: var(--swatch-color);
+  border: 2px solid rgba(255,255,255,0.15);
+  border-radius: 50%;
+  transition: transform 0.12s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  flex-shrink: 0;
+}
+.wiz-color-swatch:hover { transform: scale(1.08); }
+.wiz-color-swatch:active { transform: scale(0.92); }
+.wiz-color-swatch.is-selected {
+  border-color: #FFFFFF;
+  box-shadow: 0 0 0 2px var(--swatch-color), 0 0 14px var(--swatch-glow);
+  transform: scale(1.18);
+}
+.wiz-color-swatch.is-taken::before {
+  content: ''; position: absolute; inset: -5px;
+  border: 1px dashed rgba(255,255,255,0.35);
+  border-radius: 50%; pointer-events: none;
+}
+.wiz-color-swatch.is-taken:not(.is-selected) { opacity: 0.75; }
+.wiz-color-swatch-ring {
+  position: absolute; inset: -2px;
+  border-radius: 50%; pointer-events: none;
+}
+.wiz-color-swatch-check {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none; opacity: 0; transition: opacity 0.15s;
+  color: #FFFFFF;
+}
+.wiz-color-swatch.is-selected .wiz-color-swatch-check { opacity: 1; }
+.wiz-color-swatch-check svg { width: 60%; height: 60%; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.35)); }
+
 .wiz-role-list { display: flex; flex-direction: column; gap: 14px; margin-bottom: 12px; }
 .wiz-role-row {
   padding: 16px; background: var(--surface-1);
@@ -1445,6 +1500,325 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
   box-shadow: 0 0 14px rgba(255,45,149,0.6) !important;
   text-shadow: 1px 0 0 #FF2D95, -1px 0 0 #00BFFF !important;
 }
+
+/* ── Per-theme singer color picker (Who's Singing wizard step) ──────────── */
+/* Each theme gives the picker distinct character — shape, motion, materials. */
+
+/* neo-brutal: square swatches with hard offset shadow + thick black border */
+body[data-theme="neo-brutal"] .wiz-color-block {
+  background: #FFFFFF !important; border: 3px solid #1A1A1A !important;
+  border-radius: 8px !important; box-shadow: 3px 3px 0 #1A1A1A !important;
+  padding: 12px 14px 14px !important;
+}
+body[data-theme="neo-brutal"] .wiz-color-eyebrow {
+  color: #1A1A1A !important; font-family: 'Space Grotesk', sans-serif !important;
+  font-weight: 800 !important; letter-spacing: 1.2px !important;
+}
+body[data-theme="neo-brutal"] .wiz-color-swatch {
+  width: 30px; height: 30px;
+  border: 2.5px solid #1A1A1A !important; border-radius: 6px !important;
+  box-shadow: 2px 2px 0 #1A1A1A !important;
+}
+body[data-theme="neo-brutal"] .wiz-color-swatch:active {
+  box-shadow: 0 0 0 #1A1A1A !important; transform: translate(2px,2px) !important;
+}
+body[data-theme="neo-brutal"] .wiz-color-swatch.is-selected {
+  border-color: #1A1A1A !important; transform: translate(-1px,-1px) scale(1.12) !important;
+  box-shadow: 4px 4px 0 #1A1A1A, 0 0 0 1.5px var(--swatch-color) !important;
+}
+body[data-theme="neo-brutal"] .wiz-color-swatch.is-taken::before {
+  inset: -6px !important; border: 2px solid #1A1A1A !important; border-radius: 6px !important;
+  border-style: dashed !important;
+}
+body[data-theme="neo-brutal"] .wiz-color-swatch-check { color: #1A1A1A !important; }
+
+/* cyberpunk: razor-sharp squares, neon ring scan on selected */
+@keyframes cyb-swatch-scan {
+  0%,100% { box-shadow: 0 0 0 1px var(--swatch-color), 0 0 6px var(--swatch-glow); }
+  50% { box-shadow: 0 0 0 1px var(--swatch-color), 0 0 16px var(--swatch-color); }
+}
+body[data-theme="cyberpunk"] .wiz-color-block {
+  background: rgba(0,255,136,0.04) !important; border: 1px solid rgba(0,255,136,0.25) !important;
+  border-radius: 0 !important; box-shadow: 0 0 8px rgba(0,255,136,0.12) inset !important;
+}
+body[data-theme="cyberpunk"] .wiz-color-eyebrow {
+  color: #00ff88 !important; font-family: 'Share Tech Mono', monospace !important;
+  text-shadow: 0 0 6px rgba(0,255,136,0.5) !important; letter-spacing: 1.5px !important;
+}
+body[data-theme="cyberpunk"] .wiz-color-swatch {
+  width: 28px; height: 28px;
+  border: 1px solid rgba(0,255,136,0.6) !important; border-radius: 0 !important;
+  box-shadow: 0 0 4px rgba(0,255,136,0.25) !important;
+}
+body[data-theme="cyberpunk"] .wiz-color-swatch.is-selected {
+  border-color: #00ff88 !important; border-radius: 0 !important;
+  transform: scale(1.2) !important;
+  animation: cyb-swatch-scan 1.4s ease-in-out infinite;
+}
+body[data-theme="cyberpunk"] .wiz-color-swatch.is-taken::before {
+  border-radius: 0 !important; border: 1px dashed #00ff88 !important; inset: -4px !important;
+}
+body[data-theme="cyberpunk"] .wiz-color-swatch-check { color: #060610 !important; }
+
+/* sketch: hand-drawn wobbly circles, dashed pencil border, doodle check */
+body[data-theme="sketch"] .wiz-color-block {
+  background: #ffffff !important; border: 2.5px solid #2d2d2d !important;
+  border-radius: 220px 18px 200px 18px / 18px 200px 18px 220px !important;
+  box-shadow: 3px 3px 0 #2d2d2d !important;
+}
+body[data-theme="sketch"] .wiz-color-eyebrow {
+  color: #2d2d2d !important; font-family: 'Kalam', cursive !important;
+  font-weight: 700 !important; text-transform: none !important;
+  font-size: 13px !important; letter-spacing: 0.2px !important;
+}
+body[data-theme="sketch"] .wiz-color-swatch {
+  width: 30px; height: 30px;
+  border: 2.5px solid #2d2d2d !important;
+  border-radius: 70% 30% 75% 25% / 30% 75% 25% 70% !important;
+  box-shadow: 2px 2px 0 #2d2d2d !important;
+}
+body[data-theme="sketch"] .wiz-color-swatch:nth-of-type(odd) {
+  border-radius: 30% 70% 25% 75% / 70% 25% 75% 30% !important;
+}
+body[data-theme="sketch"] .wiz-color-swatch:nth-of-type(3n) {
+  border-radius: 60% 40% 70% 30% / 40% 70% 30% 60% !important;
+}
+body[data-theme="sketch"] .wiz-color-swatch.is-selected {
+  border-style: solid !important; border-color: #2d2d2d !important;
+  transform: rotate(-3deg) scale(1.15) !important;
+  box-shadow: 3px 3px 0 #2d2d2d, 0 0 0 2px var(--swatch-color) !important;
+}
+body[data-theme="sketch"] .wiz-color-swatch.is-taken::before {
+  border-style: dashed !important; border-color: #2d2d2d !important;
+  border-radius: 70% 30% 75% 25% / 30% 75% 25% 70% !important; inset: -5px !important;
+}
+body[data-theme="sketch"] .wiz-color-swatch-check { color: #2d2d2d !important; }
+
+/* urban: angular parallelograms, neon yellow accent, uppercase chrome */
+body[data-theme="urban"] .wiz-color-block {
+  background: rgba(212,255,0,0.06) !important; border: none !important;
+  border-radius: 0 !important;
+  clip-path: polygon(2% 0%, 100% 0%, 98% 100%, 0% 100%) !important;
+  padding: 12px 16px 14px !important;
+}
+body[data-theme="urban"] .wiz-color-eyebrow {
+  color: #D4FF00 !important; font-family: 'Oswald', sans-serif !important;
+  font-weight: 700 !important; letter-spacing: 2.5px !important;
+}
+body[data-theme="urban"] .wiz-color-swatch {
+  width: 32px; height: 30px;
+  border: none !important; border-radius: 0 !important;
+  clip-path: polygon(15% 0%, 100% 0%, 85% 100%, 0% 100%) !important;
+  box-shadow: 0 0 6px var(--swatch-glow) !important;
+}
+body[data-theme="urban"] .wiz-color-swatch.is-selected {
+  transform: scale(1.18) !important;
+  box-shadow: 0 0 14px var(--swatch-color), 0 0 24px var(--swatch-glow) !important;
+}
+body[data-theme="urban"] .wiz-color-swatch.is-selected::after {
+  content:''; position:absolute; inset:-3px;
+  border:1.5px solid #D4FF00;
+  clip-path: polygon(15% 0%, 100% 0%, 85% 100%, 0% 100%);
+}
+body[data-theme="urban"] .wiz-color-swatch.is-taken::before {
+  border: 1px dashed #D4FF00 !important; border-radius: 0 !important;
+  clip-path: polygon(15% 0%, 100% 0%, 85% 100%, 0% 100%);
+}
+body[data-theme="urban"] .wiz-color-swatch-check { color: #050505 !important; }
+
+/* deep-sea: glass orbs with bioluminescent ring on selected */
+@keyframes ds-swatch-pulse {
+  0%,100% { box-shadow: 0 0 0 2px var(--swatch-color), 0 0 18px var(--swatch-glow); }
+  50% { box-shadow: 0 0 0 2px var(--swatch-color), 0 0 28px var(--swatch-color); }
+}
+body[data-theme="deep-sea"] .wiz-color-block {
+  background: rgba(12,29,66,0.55) !important; border: 1px solid rgba(0,255,200,0.2) !important;
+  border-radius: 14px !important; backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  box-shadow: 0 0 12px rgba(0,255,200,0.1) !important;
+}
+body[data-theme="deep-sea"] .wiz-color-eyebrow {
+  color: #00ffc8 !important; font-family: 'Quicksand', sans-serif !important;
+  text-shadow: 0 0 8px rgba(0,255,200,0.5) !important;
+}
+body[data-theme="deep-sea"] .wiz-color-swatch {
+  width: 30px; height: 30px; border-radius: 50% !important;
+  border: 1px solid rgba(255,255,255,0.35) !important;
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  background: radial-gradient(circle at 30% 25%, rgba(255,255,255,0.4), var(--swatch-color) 55%) !important;
+  box-shadow: 0 0 8px var(--swatch-glow), inset 0 -3px 6px rgba(0,0,0,0.25) !important;
+}
+body[data-theme="deep-sea"] .wiz-color-swatch.is-selected {
+  border-color: #FFFFFF !important; transform: scale(1.2) !important;
+  animation: ds-swatch-pulse 2s ease-in-out infinite;
+}
+body[data-theme="deep-sea"] .wiz-color-swatch.is-taken::before {
+  border: 1px dashed rgba(0,255,200,0.55) !important; border-radius: 50% !important;
+}
+body[data-theme="deep-sea"] .wiz-color-swatch-check { color: #040918 !important; }
+
+/* psychedelic: animated swirling halo orbits the selected swatch */
+@keyframes psy-swatch-orbit {
+  to { transform: rotate(360deg); }
+}
+body[data-theme="psychedelic"] .wiz-color-block {
+  background: rgba(42,20,80,0.6) !important; border: 1px solid rgba(255,45,149,0.3) !important;
+  border-radius: 18px !important;
+  backdrop-filter: blur(8px) !important; -webkit-backdrop-filter: blur(8px) !important;
+  box-shadow: 0 0 14px rgba(255,45,149,0.15) !important;
+}
+body[data-theme="psychedelic"] .wiz-color-eyebrow {
+  color: #ff2d95 !important; font-family: 'Chicle', cursive !important;
+  text-transform: none !important; font-size: 13px !important;
+  text-shadow: 0 0 6px rgba(255,45,149,0.5) !important; letter-spacing: 0.5px !important;
+}
+body[data-theme="psychedelic"] .wiz-color-swatch {
+  width: 32px; height: 32px;
+  border: 2px solid rgba(255,255,255,0.55) !important; border-radius: 50% !important;
+}
+body[data-theme="psychedelic"] .wiz-color-swatch.is-selected {
+  border-color: rgba(255,255,255,0.9) !important; transform: scale(1.2) !important;
+  box-shadow: 0 0 0 2px var(--swatch-color), 0 0 18px var(--swatch-color) !important;
+}
+body[data-theme="psychedelic"] .wiz-color-swatch.is-selected .wiz-color-swatch-ring {
+  inset: -7px !important; border: 2px dashed rgba(255,255,255,0.55);
+  border-radius: 50%;
+  animation: psy-swatch-orbit 4s linear infinite;
+}
+body[data-theme="psychedelic"] .wiz-color-swatch.is-taken::before {
+  border: 1px dotted rgba(255,255,255,0.45) !important; border-radius: 50% !important;
+}
+body[data-theme="psychedelic"] .wiz-color-swatch-check { color: #1a0a2e !important; }
+
+/* zen: pebble-like dots with subtle gold ring */
+body[data-theme="zen"] .wiz-color-block {
+  background: rgba(46,40,32,0.65) !important; border: 1px solid rgba(212,184,90,0.25) !important;
+  border-radius: 10px !important;
+  backdrop-filter: blur(6px) !important; -webkit-backdrop-filter: blur(6px) !important;
+  box-shadow: 0 0 10px rgba(212,184,90,0.1) !important;
+}
+body[data-theme="zen"] .wiz-color-eyebrow {
+  color: #D4B85A !important; font-family: 'Cormorant Garamond', serif !important;
+  font-style: italic !important; text-transform: none !important;
+  font-size: 13px !important; letter-spacing: 0.5px !important;
+  text-shadow: 0 0 6px rgba(212,184,90,0.3) !important;
+}
+body[data-theme="zen"] .wiz-color-swatch {
+  width: 28px; height: 28px; border-radius: 50% !important;
+  border: 1px solid rgba(232,220,200,0.25) !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4), inset 0 -2px 4px rgba(0,0,0,0.2) !important;
+}
+body[data-theme="zen"] .wiz-color-swatch.is-selected {
+  border-color: #D4B85A !important;
+  box-shadow: 0 0 0 1.5px #D4B85A, 0 0 14px rgba(212,184,90,0.5),
+              inset 0 -2px 4px rgba(0,0,0,0.2) !important;
+  transform: scale(1.15) !important;
+}
+body[data-theme="zen"] .wiz-color-swatch.is-taken::before {
+  border: 1px dotted rgba(212,184,90,0.55) !important; border-radius: 50% !important;
+}
+body[data-theme="zen"] .wiz-color-swatch-check { color: #1a1814 !important; }
+
+/* space: tiny orbital ring around selected, Orbitron eyebrow */
+@keyframes space-swatch-twinkle {
+  0%,100% { box-shadow: 0 0 0 1.5px #E040FB, 0 0 14px rgba(224,64,251,0.6); }
+  50% { box-shadow: 0 0 0 1.5px #00E4FF, 0 0 14px rgba(0,228,255,0.6); }
+}
+body[data-theme="space"] .wiz-color-block {
+  background: rgba(8,8,15,0.7) !important;
+  border: 1px solid rgba(224,64,251,0.3) !important; border-radius: 4px !important;
+  box-shadow: 0 0 12px rgba(224,64,251,0.15) !important;
+}
+body[data-theme="space"] .wiz-color-eyebrow {
+  color: #E040FB !important; font-family: 'Orbitron', sans-serif !important;
+  letter-spacing: 2px !important;
+  text-shadow: 0 0 6px rgba(224,64,251,0.5) !important;
+}
+body[data-theme="space"] .wiz-color-swatch {
+  width: 28px; height: 28px; border-radius: 50% !important;
+  border: 1px solid rgba(255,255,255,0.3) !important;
+  box-shadow: 0 0 6px var(--swatch-glow) !important;
+}
+body[data-theme="space"] .wiz-color-swatch.is-selected {
+  border-color: #FFFFFF !important; transform: scale(1.2) !important;
+  animation: space-swatch-twinkle 2.4s ease-in-out infinite;
+}
+body[data-theme="space"] .wiz-color-swatch.is-selected .wiz-color-swatch-ring {
+  inset: -6px !important;
+  border: 1px solid rgba(224,64,251,0.55); border-radius: 50%;
+  box-shadow: 0 0 8px rgba(0,228,255,0.4);
+}
+body[data-theme="space"] .wiz-color-swatch.is-taken::before {
+  border: 1px dotted rgba(224,64,251,0.55) !important; border-radius: 50% !important;
+}
+body[data-theme="space"] .wiz-color-swatch-check { color: #08080F !important; }
+
+/* steampunk: brass-rimmed gears with inset bevel */
+body[data-theme="steampunk"] .wiz-color-block {
+  background: rgba(20,17,15,0.85) !important;
+  border: 1px solid rgba(200,151,62,0.35) !important; border-radius: 6px !important;
+  box-shadow: inset 0 0 14px rgba(200,151,62,0.08) !important;
+}
+body[data-theme="steampunk"] .wiz-color-eyebrow {
+  color: #C8973E !important; font-family: 'Cinzel Decorative', serif !important;
+  letter-spacing: 1.8px !important;
+  text-shadow: 0 0 6px rgba(200,151,62,0.4) !important;
+}
+body[data-theme="steampunk"] .wiz-color-swatch {
+  width: 32px; height: 32px; border-radius: 50% !important;
+  border: 2px solid #5a3a10 !important;
+  box-shadow:
+    inset 0 1px 2px rgba(255,220,150,0.55),
+    inset 0 -2px 3px rgba(0,0,0,0.5),
+    0 2px 4px rgba(0,0,0,0.5),
+    0 0 0 1.5px rgba(212,161,74,0.4) !important;
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255,220,150,0.5) 0%, transparent 35%),
+    var(--swatch-color) !important;
+}
+body[data-theme="steampunk"] .wiz-color-swatch.is-selected {
+  transform: scale(1.18) !important;
+  box-shadow:
+    inset 0 1px 2px rgba(255,220,150,0.7),
+    inset 0 -2px 3px rgba(0,0,0,0.5),
+    0 2px 5px rgba(0,0,0,0.5),
+    0 0 0 2.5px #C8973E !important;
+}
+body[data-theme="steampunk"] .wiz-color-swatch.is-taken::before {
+  border: 1px solid rgba(200,151,62,0.6) !important; border-radius: 50% !important;
+  border-style: dashed !important;
+}
+body[data-theme="steampunk"] .wiz-color-swatch-check { color: #14110F !important; }
+
+/* retrowave: chromatic-shift outline on selected, glowing synthwave gradient */
+body[data-theme="retrowave"] .wiz-color-block {
+  background: rgba(10,6,20,0.85) !important;
+  border: 1px solid rgba(255,45,149,0.35) !important; border-radius: 4px !important;
+  background-image: repeating-linear-gradient(180deg, transparent 0 6px, rgba(255,45,149,0.06) 6px 7px) !important;
+  box-shadow: 0 0 14px rgba(255,45,149,0.15) !important;
+}
+body[data-theme="retrowave"] .wiz-color-eyebrow {
+  color: #FF2D95 !important; font-family: 'Audiowide', sans-serif !important;
+  letter-spacing: 1.5px !important;
+  text-shadow: 1px 0 0 #00BFFF, -1px 0 0 #FFD700 !important;
+}
+body[data-theme="retrowave"] .wiz-color-swatch {
+  width: 30px; height: 30px; border-radius: 4px !important;
+  border: 1px solid rgba(255,255,255,0.3) !important;
+  box-shadow: 0 0 6px var(--swatch-glow) !important;
+}
+body[data-theme="retrowave"] .wiz-color-swatch.is-selected {
+  border-color: transparent !important; transform: scale(1.18) !important;
+  box-shadow:
+    1px 0 0 #00BFFF,
+    -1px 0 0 #FFD700,
+    0 0 0 2px var(--swatch-color),
+    0 0 16px var(--swatch-color) !important;
+}
+body[data-theme="retrowave"] .wiz-color-swatch.is-taken::before {
+  border: 1px dashed #FF2D95 !important; border-radius: 4px !important;
+}
+body[data-theme="retrowave"] .wiz-color-swatch-check { color: #0a0614 !important; }
 
 .theme-picker { margin-top: 16px; margin-bottom: 8px; }
 .theme-picker-label {
@@ -2188,6 +2562,12 @@ function removeSinger(i){
   if(i>=S.singers.length)return;
   S.singers.splice(i,1);
 }
+function setSingerColor(idx,colorIdx){
+  if(idx<0||idx>=S.singers.length)return;
+  var c=NC[colorIdx];if(!c)return;
+  S.singers[idx].color=c.c;
+  S.singers[idx].colorGlow=c.g;
+}
 function alreadyHasSinger(name,guestId){
   if(!name)return false;
   var lc=name.toLowerCase();
@@ -2303,6 +2683,8 @@ function applyTheme(){
   var css="";
   // Use stage theme when a song is playing, fall back to session theme
   var activeTheme=S.nowPlayingStageTheme||S.theme_name;
+  // Surface the active theme on <body> so static CSS can target it by attribute.
+  if(document.body)document.body.setAttribute("data-theme",activeTheme||"neo-brutal");
   if(activeTheme==="neo-brutal"){
     css=":root{--black:#FFF8EE;--surface-1:rgba(26,26,26,0.04);--surface-2:#FFFFFF;--surface-3:rgba(26,26,26,0.12);--white:#1A1A1A;--white-muted:rgba(26,26,26,0.7);--white-faint:rgba(26,26,26,0.4);--white-ghost:rgba(26,26,26,0.15);--violet:#B388FF;--pink:#FF3B30;--cyan:#00E676;--emerald:#00E676;--amber:#FFD60A;--red:#FF3B30;--grad-hero:linear-gradient(135deg, #FF3B30, #B388FF);--grad-text:linear-gradient(135deg, #FF3B30, #B388FF);--font-display:'Space Grotesk', system-ui, sans-serif;--font-body:'DM Sans', system-ui, sans-serif;}" +
     " .mesh-bg{background:none !important;animation:none !important;}" +
@@ -3041,6 +3423,8 @@ function renderWizardFooter(step){
 }
 function renderWizardSingers(){
   var ori=(S.selectedTrack&&S.selectedTrack.offensive_role_indices)||[];
+  var takenColors={};
+  for(var ti=0;ti<S.singers.length;ti++){takenColors[(S.singers[ti].color||"").toLowerCase()]=ti;}
   var rows="";
   for(var i=0;i<S.singers.length;i++){
     var s=S.singers[i];
@@ -3068,6 +3452,31 @@ function renderWizardSingers(){
         '</span>'+
       '</button>';
     }
+    // Color picker \u2014 themed swatches per singer
+    var swatches="";
+    for(var ci=0;ci<NC.length;ci++){
+      var nc=NC[ci];
+      var lc=nc.c.toLowerCase();
+      var sel=(s.color||"").toLowerCase()===lc;
+      var takenByOther=(takenColors[lc]!==undefined&&takenColors[lc]!==i);
+      var cls="wiz-color-swatch"+(sel?" is-selected":"")+(takenByOther?" is-taken":"");
+      swatches+='<button type="button" class="'+cls+'" '+
+        'data-singer-idx="'+i+'" data-color-idx="'+ci+'" '+
+        'style="--swatch-color:'+nc.c+';--swatch-glow:'+nc.g+'" '+
+        'aria-label="Color '+(ci+1)+(sel?" (selected)":"")+'" aria-pressed="'+(sel?"true":"false")+'">'+
+        '<span class="wiz-color-swatch-ring" aria-hidden="true"></span>'+
+        '<span class="wiz-color-swatch-check" aria-hidden="true">'+
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'+
+        '</span>'+
+      '</button>';
+    }
+    var colorBlock='<div class="wiz-color-block" data-singer="'+i+'">'+
+      '<div class="wiz-color-eyebrow">'+
+        '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c3.31 0 6-2.69 6-6 0-5.52-4.5-10-10-10z"/></svg>'+
+        '<span>Pick '+(i===0?"your":esc(s.name||"singer\u2019s"))+' color</span>'+
+      '</div>'+
+      '<div class="wiz-color-picker">'+swatches+'</div>'+
+    '</div>';
     rows+='<div class="wiz-singer-slot">'+
       '<div class="wiz-singer-row" style="border-color:'+s.color+'">'+
         av+
@@ -3077,6 +3486,7 @@ function renderWizardSingers(){
         '</div>'+
         removeBtn+
       '</div>'+
+      colorBlock+
       wpcRow+
     '</div>';
   }
@@ -3614,6 +4024,14 @@ function bindEvents(){
     btn.addEventListener("click",function(){
       var idx=parseInt(btn.dataset.remove);
       removeSinger(idx);render();
+    });
+  });
+  document.querySelectorAll(".wiz-color-swatch").forEach(function(sw){
+    sw.addEventListener("click",function(){
+      var si=parseInt(sw.dataset.singerIdx);
+      var ci=parseInt(sw.dataset.colorIdx);
+      setSingerColor(si,ci);
+      render();
     });
   });
   document.querySelectorAll(".wiz-step[data-go]").forEach(function(stepBtn){
