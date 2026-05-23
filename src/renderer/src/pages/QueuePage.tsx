@@ -53,6 +53,13 @@ const IconGrip = () => (
     </svg>
 )
 
+const IconLock = ({ size = 16, color = 'currentColor' }: { size?: number; color?: string }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="4" y="11" width="16" height="10" rx="2" />
+        <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </svg>
+)
+
 // ---- Singer Avatar (colored initial circle) ----
 function SingerAvatar({ name, color, size = 26, profilePicture }: { name: string; color: string; size?: number; profilePicture?: string }) {
     const theme = useTheme()
@@ -592,17 +599,36 @@ export default function QueuePage() {
     const handleDrop = (e: React.DragEvent, dropIndex: number) => {
         e.preventDefault()
         if (draggedIndex === null) return
+        // Locked top-of-queue can't be the source or target of a drop.
+        const sourceLocked = !!state.queue[draggedIndex]?.locked
+        const targetLocked = !!state.queue[dropIndex]?.locked
+        if (sourceLocked || targetLocked) {
+            setDraggedIndex(null)
+            setDragOverIndex(null)
+            return
+        }
 
         const newQueue = [...state.queue]
         const [removed] = newQueue.splice(draggedIndex, 1)
         newQueue.splice(dropIndex, 0, removed)
 
-        dispatch({ type: 'REORDER_QUEUE', payload: newQueue })
+        // Mirror the score-gap scheme used by main/supabase.reorderQueue so the
+        // local view matches what Supabase persists. Reset bonus_points so a
+        // host override truly resets the playing field for the dragged item.
+        const STEP = 1000
+        const rescored = newQueue.map((q, i) => ({
+            ...q,
+            score: (newQueue.length - i) * STEP,
+            bonusPoints: 0,
+            locked: i === 0,
+        }))
+
+        dispatch({ type: 'REORDER_QUEUE', payload: rescored })
         setDraggedIndex(null)
         setDragOverIndex(null)
 
         if (state.karaokeSessionId && window.electronAPI?.reorderQueue) {
-            const ids = newQueue.map(q => q.remoteQueueId).filter(Boolean) as string[]
+            const ids = rescored.map(q => q.remoteQueueId).filter(Boolean) as string[]
             if (ids.length > 0) {
                 window.electronAPI.reorderQueue(ids)
                     .catch(err => console.error('Failed to sync queue order to Supabase:', err))
@@ -763,12 +789,14 @@ export default function QueuePage() {
                         const isDragging = draggedIndex === index
                         const isDropTarget = dragOverIndex === index
                         const singers = item.singers || []
+                        const isLocked = !!item.locked && index === 0
+                        const total = (item.score ?? 0) + (item.bonusPoints ?? 0)
 
                         return (
                             <div
                                 key={item.id}
-                                draggable
-                                onDragStart={() => handleDragStart(index)}
+                                draggable={!isLocked}
+                                onDragStart={() => !isLocked && handleDragStart(index)}
                                 onDragOver={(e) => handleDragOver(e, index)}
                                 onDrop={(e) => handleDrop(e, index)}
                                 onDragEnd={handleDragEnd}
@@ -778,39 +806,59 @@ export default function QueuePage() {
                                     gap: 14,
                                     padding: 16,
                                     background: isDropTarget ? theme.creamDark : theme.white,
-                                    border: isDropTarget ? `3px solid ${theme.softViolet}` : theme.border,
+                                    border: isLocked
+                                        ? `3px solid ${theme.accentB}`
+                                        : (isDropTarget ? `3px solid ${theme.softViolet}` : theme.border),
                                     borderRadius: theme.radius,
-                                    boxShadow: isDragging ? '8px 8px 0px ' + theme.black : theme.shadow,
+                                    boxShadow: isDragging
+                                        ? '8px 8px 0px ' + theme.black
+                                        : (isLocked ? '4px 4px 0px ' + theme.accentB : theme.shadow),
                                     opacity: isDragging ? 0.4 : 1,
                                     transform: isDragging ? 'rotate(2deg) scale(0.98)' : 'none',
-                                    cursor: 'grab',
+                                    cursor: isLocked ? 'default' : 'grab',
                                     transition: 'transform 0.15s, box-shadow 0.15s, opacity 0.15s',
                                 }}
                                 onMouseEnter={e => {
-                                    if (!isDragging) {
+                                    if (!isDragging && !isLocked) {
                                         e.currentTarget.style.transform = 'translate(-1px, -1px)'
                                         e.currentTarget.style.boxShadow = '5px 5px 0px ' + theme.black
                                     }
                                 }}
                                 onMouseLeave={e => {
-                                    if (!isDragging) {
+                                    if (!isDragging && !isLocked) {
                                         e.currentTarget.style.transform = 'none'
                                         e.currentTarget.style.boxShadow = theme.shadow
                                     }
                                 }}
                             >
-                                {/* Drag handle */}
-                                <div style={{ padding: '0 4px', cursor: 'grab' }}>
+                                {/* Drag handle — hidden when locked */}
+                                <div style={{ padding: '0 4px', cursor: isLocked ? 'default' : 'grab', visibility: isLocked ? 'hidden' : 'visible' }}>
                                     <IconGrip />
                                 </div>
 
-                                {/* Position */}
-                                <div style={{
-                                    fontFamily: theme.fontDisplay, fontSize: 18, fontWeight: 700,
-                                    color: theme.black, opacity: 0.2, minWidth: 28, textAlign: 'center',
-                                }}>
-                                    {index + 1}
-                                </div>
+                                {/* Position — replaced by lock badge when this is the Next-Up locked card */}
+                                {isLocked ? (
+                                    <div style={{
+                                        display: 'flex', flexDirection: 'column', alignItems: 'center',
+                                        gap: 2, minWidth: 56,
+                                    }}>
+                                        <IconLock size={18} color={theme.black} />
+                                        <span style={{
+                                            fontFamily: theme.fontDisplay, fontWeight: 800,
+                                            fontSize: 9, letterSpacing: 0.5, color: theme.black,
+                                            textTransform: 'uppercase',
+                                        }}>
+                                            Next Up
+                                        </span>
+                                    </div>
+                                ) : (
+                                    <div style={{
+                                        fontFamily: theme.fontDisplay, fontSize: 18, fontWeight: 700,
+                                        color: theme.black, opacity: 0.2, minWidth: 28, textAlign: 'center',
+                                    }}>
+                                        {index + 1}
+                                    </div>
+                                )}
 
                                 {/* Art + track info — or themed Hidden placeholder when isHidden */}
                                 {item.isHidden ? (
@@ -894,6 +942,23 @@ export default function QueuePage() {
                                     color: theme.black, opacity: 0.4,
                                 }}>
                                     {formatTime(item.track.duration_ms)}
+                                </div>
+
+                                {/* Vote score badge — live total of (score + bonusPoints) */}
+                                <div
+                                    title={`Score: ${item.score ?? 0}  |  Bonus: ${item.bonusPoints ?? 0}`}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        minWidth: 34, height: 30, padding: '0 8px',
+                                        borderRadius: theme.radiusSmall,
+                                        border: theme.borderThin,
+                                        background: total > 0 ? theme.accentC : (total < 0 ? theme.hotRed : theme.creamDark),
+                                        color: total === 0 ? theme.black : theme.white,
+                                        fontFamily: theme.fontDisplay, fontWeight: 800, fontSize: 13,
+                                        boxShadow: '2px 2px 0px ' + theme.black,
+                                    }}
+                                >
+                                    {total > 0 ? '+' : ''}{total}
                                 </div>
 
                                 {/* Actions — Edit is suppressed for hidden songs so the host can't reveal them */}

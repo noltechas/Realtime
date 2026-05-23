@@ -287,12 +287,44 @@ export async function removeQueueItem(queueRowId: string): Promise<void> {
 }
 
 export async function reorderQueue(sessionId: string, orderedIds: string[]): Promise<void> {
+    // Drag-reorder is the host's manual override of vote-based ordering.
+    // Write descending `score` values with large gaps so subsequent ±1 votes
+    // don't shuffle the host's intent. `position` is kept in sync for
+    // backwards compatibility with anything that still reads it.
+    const STEP = 1000
     for (let i = 0; i < orderedIds.length; i++) {
+        const score = (orderedIds.length - i) * STEP
         await supabase
             .from('karaoke_queue')
-            .update({ position: i })
+            .update({ position: i, score, bonus_points: 0, locked: i === 0 })
             .eq('id', orderedIds[i])
     }
+}
+
+export async function bumpBonusPointsForRemaining(sessionId: string): Promise<void> {
+    const { data: rows, error: readErr } = await supabase
+        .from('karaoke_queue')
+        .select('id, bonus_points')
+        .eq('session_id', sessionId)
+        .eq('status', 'queued')
+    if (readErr) {
+        console.error('Failed to read queued items for bonus bump:', readErr.message)
+        return
+    }
+    await Promise.all((rows || []).map((r: any) =>
+        supabase
+            .from('karaoke_queue')
+            .update({ bonus_points: (r.bonus_points ?? 0) + 1 })
+            .eq('id', r.id)
+    ))
+}
+
+export async function lockQueueItem(queueRowId: string): Promise<void> {
+    const { error } = await supabase
+        .from('karaoke_queue')
+        .update({ locked: true })
+        .eq('id', queueRowId)
+    if (error) console.error('Failed to lock queue item:', error.message)
 }
 
 export interface Guest {

@@ -77,6 +77,26 @@ export interface QueueItem {
     remoteQueueId?: string | null
     stageTheme?: string | null
     isHidden?: boolean
+    score?: number
+    bonusPoints?: number
+    locked?: boolean
+    createdAt?: string
+}
+
+// Vote-weighted sort: locked items pinned to top, then by (score + bonus)
+// desc, with insertion-order (createdAt asc) as the tiebreaker.
+export function sortQueueByScore(queue: QueueItem[]): QueueItem[] {
+    return [...queue].sort((a, b) => {
+        const aLocked = a.locked ? 1 : 0
+        const bLocked = b.locked ? 1 : 0
+        if (aLocked !== bLocked) return bLocked - aLocked
+        const aTotal = (a.score ?? 0) + (a.bonusPoints ?? 0)
+        const bTotal = (b.score ?? 0) + (b.bonusPoints ?? 0)
+        if (aTotal !== bTotal) return bTotal - aTotal
+        const aTime = a.createdAt ? Date.parse(a.createdAt) : 0
+        const bTime = b.createdAt ? Date.parse(b.createdAt) : 0
+        return aTime - bTime
+    })
 }
 
 export type StageMode = 'idle' | 'ready' | 'playing'
@@ -243,6 +263,9 @@ type Action =
     | { type: 'REPLACE_QUEUE_ITEM'; payload: { index: number; item: QueueItem } }
     | { type: 'SET_QUEUE_ITEM_REMOTE_ID'; payload: { itemId: string; remoteQueueId: string } }
     | { type: 'REORDER_QUEUE'; payload: QueueItem[] }
+    | { type: 'UPDATE_QUEUE_ITEM_SCORE'; payload: { remoteQueueId: string; score?: number; bonusPoints?: number; locked?: boolean } }
+    | { type: 'LOCK_NEXT_UP' }
+    | { type: 'BUMP_BONUS_POINTS' }
     | { type: 'SET_EDITING_QUEUE_INDEX'; payload: number | null }
     | { type: 'UPDATE_NOW_PLAYING_EFFECTS'; payload: { singerIndex: number; effects: VoiceEffects } }
     | { type: 'UPDATE_NOW_PLAYING_SINGER'; payload: { singerId: number; updates: Partial<Singer> } }
@@ -401,8 +424,20 @@ function reducer(state: AppState, action: Action): AppState {
             return { ...state, voiceEffects: action.payload }
         case 'SET_STAGE_MODE':
             return { ...state, stageMode: action.payload }
-        case 'ENQUEUE_SONG':
-            return { ...state, queue: [...state.queue, action.payload], currentTrack: null }
+        case 'ENQUEUE_SONG': {
+            const incoming: QueueItem = {
+                ...action.payload,
+                score: action.payload.score ?? 0,
+                bonusPoints: action.payload.bonusPoints ?? 0,
+                locked: action.payload.locked ?? false,
+                createdAt: action.payload.createdAt ?? new Date().toISOString(),
+            }
+            return {
+                ...state,
+                queue: sortQueueByScore([...state.queue, incoming]),
+                currentTrack: null
+            }
+        }
         case 'REPLACE_QUEUE_ITEM': {
             const { index, item } = action.payload
             const newQueue = [...state.queue]
@@ -433,10 +468,21 @@ function reducer(state: AppState, action: Action): AppState {
             if (state.queue.length === 0) {
                 return { ...state, isPlaying: false, nowPlaying: null, stageMode: 'idle', history: newHistory, micSlots: savedSlots }
             }
-            const nextItem = mergeMicSlotsIntoItem(state.queue[0], savedSlots)
+            const sorted = sortQueueByScore(state.queue)
+            const nextItem = mergeMicSlotsIntoItem(sorted[0], savedSlots)
+            // Award +1 bonus point to every remaining song so long-waiting tracks
+            // eventually surface, then re-sort and lock the new position-0.
+            const remaining = sorted.slice(1).map(item => ({
+                ...item,
+                bonusPoints: (item.bonusPoints ?? 0) + 1
+            }))
+            const resorted = sortQueueByScore(remaining)
+            if (resorted.length > 0) {
+                resorted[0] = { ...resorted[0], locked: true }
+            }
             return {
                 ...state,
-                queue: state.queue.slice(1),
+                queue: resorted,
                 nowPlaying: nextItem,
                 history: newHistory,
                 isPlaying: false,
@@ -482,6 +528,33 @@ function reducer(state: AppState, action: Action): AppState {
         }
         case 'REORDER_QUEUE':
             return { ...state, queue: action.payload, editingQueueIndex: null }
+        case 'UPDATE_QUEUE_ITEM_SCORE': {
+            const { remoteQueueId, score, bonusPoints, locked } = action.payload
+            const updated = state.queue.map(q => {
+                if (q.remoteQueueId !== remoteQueueId) return q
+                return {
+                    ...q,
+                    score: score !== undefined ? score : q.score,
+                    bonusPoints: bonusPoints !== undefined ? bonusPoints : q.bonusPoints,
+                    locked: locked !== undefined ? locked : q.locked,
+                }
+            })
+            return { ...state, queue: sortQueueByScore(updated) }
+        }
+        case 'LOCK_NEXT_UP': {
+            if (state.queue.length === 0) return state
+            if (state.queue[0].locked) return state
+            const newQueue = [...state.queue]
+            newQueue[0] = { ...newQueue[0], locked: true }
+            return { ...state, queue: newQueue }
+        }
+        case 'BUMP_BONUS_POINTS': {
+            const bumped = state.queue.map(q => ({
+                ...q,
+                bonusPoints: (q.bonusPoints ?? 0) + 1
+            }))
+            return { ...state, queue: sortQueueByScore(bumped) }
+        }
         case 'UPDATE_NOW_PLAYING_EFFECTS': {
             if (!state.nowPlaying) return state
             const currentEffects = state.nowPlaying.voiceEffects

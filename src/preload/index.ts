@@ -61,6 +61,8 @@ export type ElectronAPI = {
     pushLocalQueueItem: (item: any) => Promise<{ id?: string; error?: string }>
     removeQueueItem: (id: string) => Promise<void>
     reorderQueue: (ids: string[]) => Promise<void>
+    bumpBonusPoints: () => Promise<void>
+    lockQueueItem: (id: string) => Promise<void>
     onRemoteQueueAdd: (callback: (row: any) => void) => any
     offRemoteQueueAdd: (handler: any) => void
     onRemoteQueueRemove: (callback: (row: any) => void) => any
@@ -156,6 +158,8 @@ const api: ElectronAPI = {
     pushLocalQueueItem: (item) => ipcRenderer.invoke('karaoke:push-local-queue-item', item),
     removeQueueItem: (id) => ipcRenderer.invoke('karaoke:remove-queue-item', id),
     reorderQueue: (ids) => ipcRenderer.invoke('karaoke:reorder-queue', ids),
+    bumpBonusPoints: () => ipcRenderer.invoke('karaoke:bump-bonus-points'),
+    lockQueueItem: (id) => ipcRenderer.invoke('karaoke:lock-queue-item', id),
     onRemoteQueueAdd: (callback) => {
         const handler = (_e: any, row: any) => callback(row)
         ipcRenderer.on('karaoke:remote-queue-add', handler)

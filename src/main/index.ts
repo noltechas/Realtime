@@ -12,6 +12,7 @@ import {
     listGuests, updateGuest, removeGuest,
     listRecentSessions, getSession, deleteSession,
     fetchAndStoreTrendingGifs,
+    bumpBonusPointsForRemaining, lockQueueItem,
     CatalogItem
 } from './supabase'
 
@@ -675,6 +676,16 @@ ipcMain.handle('karaoke:remove-queue-item', async (_event, queueRowId: string) =
 ipcMain.handle('karaoke:reorder-queue', async (_event, orderedIds: string[]) => {
     if (!activeSession) return
     await reorderQueue(activeSession.id, orderedIds)
+})
+
+ipcMain.handle('karaoke:bump-bonus-points', async () => {
+    if (!activeSession) return
+    await bumpBonusPointsForRemaining(activeSession.id)
+})
+
+ipcMain.handle('karaoke:lock-queue-item', async (_event, queueRowId: string) => {
+    if (!activeSession || !queueRowId) return
+    await lockQueueItem(queueRowId)
 })
 
 // ----- Guest Management IPC Handlers -----

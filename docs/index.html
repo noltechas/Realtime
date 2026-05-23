@@ -597,6 +597,69 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
 .queue-singer-dot img { width: 100%; height: 100%; object-fit: cover; }
 .queue-singer-role { font-size: 9px; color: var(--white-muted); font-weight: 400; }
 
+/* ── Queue voting controls (sit on the right of each row) ────────────────── */
+.queue-vote-col {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; flex-shrink: 0; margin-left: 4px;
+}
+.queue-vote-col--locked { gap: 0; }
+.queue-vote-score {
+  font-family: var(--font-display); font-weight: 800; font-size: 14px;
+  min-width: 28px; text-align: center; line-height: 1;
+  color: var(--white);
+}
+.queue-vote-score--pos { color: var(--vote-score-pos, #34d399); }
+.queue-vote-score--neg { color: var(--vote-score-neg, #ef4444); }
+.queue-vote-score--zero { color: var(--white-muted); }
+.queue-vote-buttons {
+  display: flex; flex-direction: row; align-items: center; gap: 4px;
+}
+.queue-vote-btn {
+  appearance: none; -webkit-appearance: none;
+  width: 30px; height: 30px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--vote-btn-radius, 8px);
+  cursor: pointer; transition: transform 0.08s, box-shadow 0.1s, background 0.1s;
+  font-family: inherit;
+  background: var(--vote-up-bg, rgba(167,139,250,0.16));
+  border: var(--vote-up-border, 1px solid rgba(167,139,250,0.45));
+  color: var(--vote-up-text, #c4b5fd);
+  box-shadow: var(--vote-up-shadow, none);
+}
+.queue-vote-btn--down {
+  background: var(--vote-down-bg, rgba(244,114,182,0.16));
+  border: var(--vote-down-border, 1px solid rgba(244,114,182,0.45));
+  color: var(--vote-down-text, #f9a8d4);
+  box-shadow: var(--vote-down-shadow, none);
+}
+.queue-vote-btn:active { transform: scale(0.92); }
+.queue-vote-btn:hover { filter: brightness(1.15); }
+.queue-voted-pill {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 3px 8px; border-radius: 99px; font-size: 9px;
+  font-family: var(--font-display); font-weight: 700;
+  background: var(--voted-pill-bg, rgba(255,255,255,0.08));
+  color: var(--voted-pill-text, var(--white-muted));
+  border: 1px solid var(--voted-pill-border, rgba(255,255,255,0.15));
+  letter-spacing: 0.5px; text-transform: uppercase;
+}
+.queue-lock-badge {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 6px 8px; border-radius: var(--vote-btn-radius, 8px);
+  font-family: var(--font-display); font-weight: 800;
+  color: var(--vote-lock-color, #fbbf24);
+  background: var(--vote-lock-bg, rgba(251,191,36,0.12));
+  border: 1px solid var(--vote-lock-border, rgba(251,191,36,0.5));
+}
+.queue-lock-label {
+  font-size: 8px; letter-spacing: 0.6px; text-transform: uppercase; line-height: 1.1;
+  text-align: center;
+}
+.queue-item--locked {
+  position: relative;
+  box-shadow: 0 0 0 1.5px var(--vote-lock-color, #fbbf24), 0 4px 14px rgba(0,0,0,0.25) !important;
+}
+
 /* ── Hidden-art tile (replaces 44x44 album art) ──────────────────────────── */
 .q-hidden-art {
   width: 44px; height: 44px; border-radius: 10px; flex-shrink: 0;
@@ -1079,6 +1142,310 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
 .queue-item[data-stage-theme="sketch"].queue-item--hidden .queue-item-title { font-family: 'Patrick Hand', cursive !important; font-size: 18px; }
 .queue-item[data-stage-theme="zen"].queue-item--hidden .queue-item-title { font-size: 22px; letter-spacing: 2px; }
 .queue-item[data-stage-theme="psychedelic"].queue-item--hidden .queue-item-title { font-size: 18px; }
+
+/* ── Per-stage-theme vote buttons (sit on the right of each queue row) ───── */
+
+/* neo-brutal: hard offset shadow, vivid yellow upvote / hot pink downvote */
+.queue-item[data-stage-theme="neo-brutal"] .queue-vote-btn--up {
+  background: #FFD60A !important; color: #1A1A1A !important;
+  border: 2.5px solid #1A1A1A !important; border-radius: 6px !important;
+  box-shadow: 2px 2px 0 #1A1A1A !important;
+}
+.queue-item[data-stage-theme="neo-brutal"] .queue-vote-btn--down {
+  background: #FF3B30 !important; color: #FFFFFF !important;
+  border: 2.5px solid #1A1A1A !important; border-radius: 6px !important;
+  box-shadow: 2px 2px 0 #1A1A1A !important;
+}
+.queue-item[data-stage-theme="neo-brutal"] .queue-vote-btn:active {
+  box-shadow: 0 0 0 #1A1A1A !important; transform: translate(2px,2px) !important;
+}
+.queue-item[data-stage-theme="neo-brutal"] .queue-vote-score--pos { color: #00E676 !important; }
+.queue-item[data-stage-theme="neo-brutal"] .queue-vote-score--neg { color: #FF3B30 !important; }
+.queue-item[data-stage-theme="neo-brutal"] .queue-vote-score--zero { color: #1A1A1A !important; }
+.queue-item[data-stage-theme="neo-brutal"] .queue-voted-pill {
+  background: #FFD60A !important; color: #1A1A1A !important;
+  border: 2px solid #1A1A1A !important; box-shadow: 1px 1px 0 #1A1A1A !important;
+}
+.queue-item[data-stage-theme="neo-brutal"] .queue-lock-badge {
+  background: #FFD60A !important; color: #1A1A1A !important;
+  border: 2.5px solid #1A1A1A !important; box-shadow: 2px 2px 0 #1A1A1A !important;
+}
+
+/* cyberpunk: neon outline with glow, no border-radius */
+.queue-item[data-stage-theme="cyberpunk"] .queue-vote-btn--up {
+  background: rgba(0,255,136,0.08) !important; color: #00ff88 !important;
+  border: 1px solid #00ff88 !important; border-radius: 0 !important;
+  box-shadow: 0 0 8px rgba(0,255,136,0.4), inset 0 0 4px rgba(0,255,136,0.2) !important;
+}
+.queue-item[data-stage-theme="cyberpunk"] .queue-vote-btn--down {
+  background: rgba(255,0,170,0.08) !important; color: #ff00aa !important;
+  border: 1px solid #ff00aa !important; border-radius: 0 !important;
+  box-shadow: 0 0 8px rgba(255,0,170,0.4), inset 0 0 4px rgba(255,0,170,0.2) !important;
+}
+.queue-item[data-stage-theme="cyberpunk"] .queue-vote-score--pos { color: #00ff88 !important; text-shadow: 0 0 6px rgba(0,255,136,0.6); }
+.queue-item[data-stage-theme="cyberpunk"] .queue-vote-score--neg { color: #ff00aa !important; text-shadow: 0 0 6px rgba(255,0,170,0.6); }
+.queue-item[data-stage-theme="cyberpunk"] .queue-vote-score--zero { color: rgba(208,255,232,0.6) !important; font-family: 'Share Tech Mono', monospace !important; }
+.queue-item[data-stage-theme="cyberpunk"] .queue-voted-pill {
+  background: rgba(0,255,136,0.08) !important; color: #00ff88 !important;
+  border: 1px solid rgba(0,255,136,0.45) !important; border-radius: 0 !important;
+  font-family: 'Share Tech Mono', monospace !important;
+}
+.queue-item[data-stage-theme="cyberpunk"] .queue-lock-badge {
+  background: rgba(255,204,0,0.08) !important; color: #ffcc00 !important;
+  border: 1px solid #ffcc00 !important; border-radius: 0 !important;
+  box-shadow: 0 0 10px rgba(255,204,0,0.5) !important;
+  font-family: 'Share Tech Mono', monospace !important;
+}
+
+/* sketch: hand-drawn wobble + dashed border, graphite ink */
+.queue-item[data-stage-theme="sketch"] .queue-vote-btn--up {
+  background: #fff9c4 !important; color: #2d5da1 !important;
+  border: 2.5px solid #2d2d2d !important;
+  border-radius: 80% 20% 75% 25% / 25% 80% 20% 75% !important;
+  box-shadow: 2px 2px 0 #2d2d2d !important;
+}
+.queue-item[data-stage-theme="sketch"] .queue-vote-btn--down {
+  background: #ffffff !important; color: #ff4d4d !important;
+  border: 2.5px dashed #2d2d2d !important;
+  border-radius: 75% 25% 80% 20% / 80% 20% 75% 25% !important;
+  box-shadow: 2px 2px 0 #2d2d2d !important;
+}
+.queue-item[data-stage-theme="sketch"] .queue-vote-btn:active {
+  box-shadow: 0 0 0 #2d2d2d !important; transform: translate(1px,1px) rotate(2deg) !important;
+}
+.queue-item[data-stage-theme="sketch"] .queue-vote-score--pos { color: #4caf50 !important; font-family: 'Kalam', cursive !important; }
+.queue-item[data-stage-theme="sketch"] .queue-vote-score--neg { color: #ff4d4d !important; font-family: 'Kalam', cursive !important; }
+.queue-item[data-stage-theme="sketch"] .queue-vote-score--zero { color: #2d2d2d !important; font-family: 'Kalam', cursive !important; }
+.queue-item[data-stage-theme="sketch"] .queue-voted-pill {
+  background: #fff9c4 !important; color: #2d2d2d !important;
+  border: 2px dashed #2d2d2d !important; border-radius: 99px !important;
+  font-family: 'Kalam', cursive !important;
+}
+.queue-item[data-stage-theme="sketch"] .queue-lock-badge {
+  background: #fff9c4 !important; color: #2d2d2d !important;
+  border: 2.5px solid #2d2d2d !important;
+  border-radius: 80% 20% 75% 25% / 25% 80% 20% 75% !important;
+  box-shadow: 2px 2px 0 #2d2d2d !important;
+  font-family: 'Kalam', cursive !important;
+}
+
+/* urban (hip-hop): chrome bevel with diagonal slice */
+.queue-item[data-stage-theme="urban"] .queue-vote-btn--up {
+  background: linear-gradient(135deg, #D4FF00, #a8cc00) !important; color: #050505 !important;
+  border: none !important; border-radius: 0 !important;
+  clip-path: polygon(15% 0%, 100% 0%, 85% 100%, 0% 100%) !important;
+  box-shadow: 0 0 10px rgba(212,255,0,0.5) !important;
+  font-weight: 900 !important;
+}
+.queue-item[data-stage-theme="urban"] .queue-vote-btn--down {
+  background: linear-gradient(135deg, #FF1E1E, #b81515) !important; color: #ffffff !important;
+  border: none !important; border-radius: 0 !important;
+  clip-path: polygon(15% 0%, 100% 0%, 85% 100%, 0% 100%) !important;
+  box-shadow: 0 0 10px rgba(255,30,30,0.5) !important;
+  font-weight: 900 !important;
+}
+.queue-item[data-stage-theme="urban"] .queue-vote-score--pos { color: #D4FF00 !important; font-family: 'Oswald', sans-serif !important; }
+.queue-item[data-stage-theme="urban"] .queue-vote-score--neg { color: #FF1E1E !important; font-family: 'Oswald', sans-serif !important; }
+.queue-item[data-stage-theme="urban"] .queue-vote-score--zero { color: #B0B0B0 !important; font-family: 'Oswald', sans-serif !important; }
+.queue-item[data-stage-theme="urban"] .queue-voted-pill {
+  background: rgba(212,255,0,0.12) !important; color: #D4FF00 !important;
+  border: 1px solid #D4FF00 !important; border-radius: 0 !important;
+  font-family: 'Oswald', sans-serif !important; letter-spacing: 1.5px !important;
+}
+.queue-item[data-stage-theme="urban"] .queue-lock-badge {
+  background: rgba(212,255,0,0.15) !important; color: #D4FF00 !important;
+  border: 1px solid #D4FF00 !important; border-radius: 0 !important;
+  clip-path: polygon(8% 0%, 100% 0%, 92% 100%, 0% 100%) !important;
+  font-family: 'Oswald', sans-serif !important;
+  box-shadow: 0 0 12px rgba(212,255,0,0.5) !important;
+}
+
+/* deep-sea: glass-morphism with luminescent edge */
+.queue-item[data-stage-theme="deep-sea"] .queue-vote-btn--up {
+  background: rgba(0,255,200,0.14) !important; color: #00ffc8 !important;
+  border: 1px solid rgba(0,255,200,0.55) !important; border-radius: 10px !important;
+  backdrop-filter: blur(6px) !important; -webkit-backdrop-filter: blur(6px) !important;
+  box-shadow: 0 0 12px rgba(0,255,200,0.4) !important;
+  text-shadow: 0 0 6px rgba(0,255,200,0.6) !important;
+}
+.queue-item[data-stage-theme="deep-sea"] .queue-vote-btn--down {
+  background: rgba(180,77,255,0.14) !important; color: #b44dff !important;
+  border: 1px solid rgba(180,77,255,0.55) !important; border-radius: 10px !important;
+  backdrop-filter: blur(6px) !important; -webkit-backdrop-filter: blur(6px) !important;
+  box-shadow: 0 0 12px rgba(180,77,255,0.4) !important;
+  text-shadow: 0 0 6px rgba(180,77,255,0.6) !important;
+}
+.queue-item[data-stage-theme="deep-sea"] .queue-vote-score--pos { color: #00ffc8 !important; text-shadow: 0 0 6px rgba(0,255,200,0.5); }
+.queue-item[data-stage-theme="deep-sea"] .queue-vote-score--neg { color: #ff6b8a !important; text-shadow: 0 0 6px rgba(255,107,138,0.5); }
+.queue-item[data-stage-theme="deep-sea"] .queue-vote-score--zero { color: #8ecfc2 !important; }
+.queue-item[data-stage-theme="deep-sea"] .queue-voted-pill {
+  background: rgba(0,255,200,0.1) !important; color: #00ffc8 !important;
+  border: 1px solid rgba(0,255,200,0.45) !important; border-radius: 99px !important;
+}
+.queue-item[data-stage-theme="deep-sea"] .queue-lock-badge {
+  background: rgba(255,200,87,0.14) !important; color: #ffc857 !important;
+  border: 1px solid rgba(255,200,87,0.55) !important; border-radius: 10px !important;
+  backdrop-filter: blur(6px) !important; -webkit-backdrop-filter: blur(6px) !important;
+  box-shadow: 0 0 14px rgba(255,200,87,0.45) !important;
+}
+
+/* psychedelic: gradient fill, animated swirling colors */
+@keyframes psy-vote-swirl {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+.queue-item[data-stage-theme="psychedelic"] .queue-vote-btn--up {
+  background: linear-gradient(90deg, #ff2d95, #ff8c2d, #b6ff2d, #ff2d95) !important;
+  background-size: 200% 100% !important;
+  animation: psy-vote-swirl 4s linear infinite !important;
+  color: #1a0a2e !important;
+  border: 1px solid rgba(255,255,255,0.55) !important; border-radius: 16px !important;
+  box-shadow: 0 0 12px rgba(255,45,149,0.45) !important;
+  font-weight: 900 !important;
+}
+.queue-item[data-stage-theme="psychedelic"] .queue-vote-btn--down {
+  background: linear-gradient(90deg, #6f15c2, #1a0a2e, #ff2d95, #6f15c2) !important;
+  background-size: 200% 100% !important;
+  animation: psy-vote-swirl 5s linear infinite reverse !important;
+  color: #f5ecff !important;
+  border: 1px solid rgba(255,255,255,0.4) !important; border-radius: 16px !important;
+  box-shadow: 0 0 12px rgba(180,77,255,0.45) !important;
+  font-weight: 900 !important;
+}
+.queue-item[data-stage-theme="psychedelic"] .queue-vote-score--pos { color: #b6ff2d !important; text-shadow: 0 0 6px rgba(182,255,45,0.65); }
+.queue-item[data-stage-theme="psychedelic"] .queue-vote-score--neg { color: #ff2d95 !important; text-shadow: 0 0 6px rgba(255,45,149,0.65); }
+.queue-item[data-stage-theme="psychedelic"] .queue-vote-score--zero { color: #c8a8e8 !important; }
+.queue-item[data-stage-theme="psychedelic"] .queue-voted-pill {
+  background: rgba(182,255,45,0.15) !important; color: #b6ff2d !important;
+  border: 1px solid rgba(182,255,45,0.5) !important; border-radius: 99px !important;
+  font-family: 'Chicle', cursive !important;
+}
+.queue-item[data-stage-theme="psychedelic"] .queue-lock-badge {
+  background: linear-gradient(90deg, #ff2d95, #b6ff2d, #ff8c2d, #ff2d95) !important;
+  background-size: 200% 100% !important;
+  animation: psy-vote-swirl 6s linear infinite !important;
+  color: #1a0a2e !important;
+  border: 1px solid rgba(255,255,255,0.6) !important; border-radius: 16px !important;
+  font-family: 'Chicle', cursive !important; font-weight: 900 !important;
+}
+
+/* zen: muted earthy tones, soft glow */
+.queue-item[data-stage-theme="zen"] .queue-vote-btn--up {
+  background: rgba(123,160,91,0.16) !important; color: #7BA05B !important;
+  border: 1px solid rgba(123,160,91,0.6) !important; border-radius: 6px !important;
+  box-shadow: 0 0 8px rgba(123,160,91,0.25) !important;
+}
+.queue-item[data-stage-theme="zen"] .queue-vote-btn--down {
+  background: rgba(212,68,42,0.14) !important; color: #D4442A !important;
+  border: 1px solid rgba(212,68,42,0.55) !important; border-radius: 6px !important;
+  box-shadow: 0 0 8px rgba(212,68,42,0.25) !important;
+}
+.queue-item[data-stage-theme="zen"] .queue-vote-score--pos { color: #7BA05B !important; font-family: 'Cormorant Garamond', serif !important; }
+.queue-item[data-stage-theme="zen"] .queue-vote-score--neg { color: #D4442A !important; font-family: 'Cormorant Garamond', serif !important; }
+.queue-item[data-stage-theme="zen"] .queue-vote-score--zero { color: #B8A898 !important; font-family: 'Cormorant Garamond', serif !important; }
+.queue-item[data-stage-theme="zen"] .queue-voted-pill {
+  background: rgba(212,184,90,0.14) !important; color: #D4B85A !important;
+  border: 1px solid rgba(212,184,90,0.45) !important; border-radius: 99px !important;
+  font-family: 'Cormorant Garamond', serif !important;
+}
+.queue-item[data-stage-theme="zen"] .queue-lock-badge {
+  background: rgba(212,184,90,0.18) !important; color: #D4B85A !important;
+  border: 1px solid rgba(212,184,90,0.55) !important; border-radius: 6px !important;
+  font-family: 'Cormorant Garamond', serif !important;
+  box-shadow: 0 0 12px rgba(212,184,90,0.3) !important;
+}
+
+/* space: starfield purple/cyan with subtle glow */
+.queue-item[data-stage-theme="space"] .queue-vote-btn--up {
+  background: rgba(0,228,255,0.14) !important; color: #00E4FF !important;
+  border: 1px solid #00E4FF !important; border-radius: 8px !important;
+  box-shadow: 0 0 10px rgba(0,228,255,0.5) !important;
+  text-shadow: 0 0 6px rgba(0,228,255,0.5) !important;
+}
+.queue-item[data-stage-theme="space"] .queue-vote-btn--down {
+  background: rgba(224,64,251,0.14) !important; color: #E040FB !important;
+  border: 1px solid #E040FB !important; border-radius: 8px !important;
+  box-shadow: 0 0 10px rgba(224,64,251,0.5) !important;
+  text-shadow: 0 0 6px rgba(224,64,251,0.5) !important;
+}
+.queue-item[data-stage-theme="space"] .queue-vote-score--pos { color: #00E4FF !important; font-family: 'Orbitron', sans-serif !important; text-shadow: 0 0 6px rgba(0,228,255,0.6); }
+.queue-item[data-stage-theme="space"] .queue-vote-score--neg { color: #E040FB !important; font-family: 'Orbitron', sans-serif !important; text-shadow: 0 0 6px rgba(224,64,251,0.6); }
+.queue-item[data-stage-theme="space"] .queue-vote-score--zero { color: rgba(255,255,255,0.6) !important; font-family: 'Orbitron', sans-serif !important; }
+.queue-item[data-stage-theme="space"] .queue-voted-pill {
+  background: rgba(224,64,251,0.12) !important; color: #E040FB !important;
+  border: 1px solid rgba(224,64,251,0.5) !important; border-radius: 99px !important;
+  font-family: 'Orbitron', sans-serif !important;
+}
+.queue-item[data-stage-theme="space"] .queue-lock-badge {
+  background: rgba(255,221,87,0.14) !important; color: #FFDD57 !important;
+  border: 1px solid #FFDD57 !important; border-radius: 8px !important;
+  font-family: 'Orbitron', sans-serif !important;
+  box-shadow: 0 0 14px rgba(255,221,87,0.5) !important;
+}
+
+/* steampunk: aged brass + copper, Victorian serif */
+.queue-item[data-stage-theme="steampunk"] .queue-vote-btn--up {
+  background: linear-gradient(180deg, #d4a14a, #8c6420) !important;
+  color: #14110F !important;
+  border: 1px solid #5a3a10 !important; border-radius: 50% !important;
+  box-shadow: inset 0 1px 2px rgba(255,220,150,0.6), 0 2px 4px rgba(0,0,0,0.5) !important;
+}
+.queue-item[data-stage-theme="steampunk"] .queue-vote-btn--down {
+  background: linear-gradient(180deg, #E07040, #8c3a18) !important;
+  color: #14110F !important;
+  border: 1px solid #4a1c08 !important; border-radius: 50% !important;
+  box-shadow: inset 0 1px 2px rgba(255,180,130,0.5), 0 2px 4px rgba(0,0,0,0.5) !important;
+}
+.queue-item[data-stage-theme="steampunk"] .queue-vote-score--pos { color: #C8973E !important; font-family: 'Cinzel Decorative', serif !important; }
+.queue-item[data-stage-theme="steampunk"] .queue-vote-score--neg { color: #E07040 !important; font-family: 'Cinzel Decorative', serif !important; }
+.queue-item[data-stage-theme="steampunk"] .queue-vote-score--zero { color: rgba(232,220,200,0.6) !important; font-family: 'Cinzel Decorative', serif !important; }
+.queue-item[data-stage-theme="steampunk"] .queue-voted-pill {
+  background: rgba(200,151,62,0.16) !important; color: #C8973E !important;
+  border: 1px solid rgba(200,151,62,0.55) !important; border-radius: 99px !important;
+  font-family: 'Cinzel Decorative', serif !important;
+}
+.queue-item[data-stage-theme="steampunk"] .queue-lock-badge {
+  background: linear-gradient(180deg, #d4a14a, #8c6420) !important;
+  color: #14110F !important;
+  border: 1px solid #5a3a10 !important; border-radius: 6px !important;
+  box-shadow: inset 0 1px 2px rgba(255,220,150,0.6), 0 2px 4px rgba(0,0,0,0.5) !important;
+  font-family: 'Cinzel Decorative', serif !important;
+}
+
+/* retrowave: chromatic shift + 80s grid */
+.queue-item[data-stage-theme="retrowave"] .queue-vote-btn--up {
+  background: linear-gradient(180deg, #FF2D95, #6e0e44) !important;
+  color: #FFD700 !important;
+  border: 1px solid #FFD700 !important; border-radius: 4px !important;
+  box-shadow: 0 0 12px rgba(255,45,149,0.6), inset 0 -2px 4px rgba(255,215,0,0.4) !important;
+  text-shadow: 1px 0 0 #00BFFF, -1px 0 0 #FFD700 !important;
+  font-weight: 900 !important;
+}
+.queue-item[data-stage-theme="retrowave"] .queue-vote-btn--down {
+  background: linear-gradient(180deg, #00BFFF, #053a55) !important;
+  color: #FF2D95 !important;
+  border: 1px solid #FF2D95 !important; border-radius: 4px !important;
+  box-shadow: 0 0 12px rgba(0,191,255,0.6), inset 0 -2px 4px rgba(255,45,149,0.4) !important;
+  text-shadow: 1px 0 0 #FFD700, -1px 0 0 #FF2D95 !important;
+  font-weight: 900 !important;
+}
+.queue-item[data-stage-theme="retrowave"] .queue-vote-score--pos { color: #FFD700 !important; font-family: 'Audiowide', sans-serif !important; text-shadow: 1px 0 0 #00BFFF, -1px 0 0 #FF2D95; }
+.queue-item[data-stage-theme="retrowave"] .queue-vote-score--neg { color: #FF2D95 !important; font-family: 'Audiowide', sans-serif !important; text-shadow: 1px 0 0 #00BFFF, -1px 0 0 #FFD700; }
+.queue-item[data-stage-theme="retrowave"] .queue-vote-score--zero { color: rgba(240,230,255,0.7) !important; font-family: 'Audiowide', sans-serif !important; }
+.queue-item[data-stage-theme="retrowave"] .queue-voted-pill {
+  background: rgba(255,215,0,0.12) !important; color: #FFD700 !important;
+  border: 1px solid #FFD700 !important; border-radius: 4px !important;
+  font-family: 'Audiowide', sans-serif !important; letter-spacing: 1px !important;
+}
+.queue-item[data-stage-theme="retrowave"] .queue-lock-badge {
+  background: linear-gradient(180deg, #FF2D95, #00BFFF) !important;
+  color: #FFD700 !important;
+  border: 1px solid #FFD700 !important; border-radius: 4px !important;
+  font-family: 'Audiowide', sans-serif !important;
+  box-shadow: 0 0 14px rgba(255,45,149,0.6) !important;
+  text-shadow: 1px 0 0 #FF2D95, -1px 0 0 #00BFFF !important;
+}
+
 .theme-picker { margin-top: 16px; margin-bottom: 8px; }
 .theme-picker-label {
   font-family: var(--font-display); font-weight: 600; font-size: 14px;
@@ -1645,8 +2012,53 @@ async function loadCatalog(){
   S.catalog=(r.data||[]).map(function(v){return{v:v,s:Math.random()}}).sort(function(a,b){return a.s-b.s}).map(function(o){return o.v});
 }
 async function loadQueue(){
-  var r=await sb.from("karaoke_queue").select("*").eq("session_id",S.sessionId).eq("status","queued").order("position");
-  S.queue=r.data||[];
+  var r=await sb.from("karaoke_queue").select("*").eq("session_id",S.sessionId).eq("status","queued");
+  var rows=r.data||[];
+  rows.sort(function(a,b){
+    var al=a.locked?1:0, bl=b.locked?1:0;
+    if(al!==bl)return bl-al;
+    var at=(a.score||0)+(a.bonus_points||0);
+    var bt=(b.score||0)+(b.bonus_points||0);
+    if(at!==bt)return bt-at;
+    var ai=a.created_at?Date.parse(a.created_at):0;
+    var bi=b.created_at?Date.parse(b.created_at):0;
+    return ai-bi;
+  });
+  S.queue=rows;
+}
+function loadVotedMap(){
+  if(!S.sessionCode)return{};
+  try{var raw=localStorage.getItem("karaoke_votes_"+S.sessionCode);return raw?JSON.parse(raw):{};}catch(e){return{};}
+}
+function saveVotedMap(m){
+  if(!S.sessionCode)return;
+  try{localStorage.setItem("karaoke_votes_"+S.sessionCode,JSON.stringify(m));}catch(e){}
+}
+async function castVote(queueRowId,value){
+  if(!S.guestId||!queueRowId)return;
+  var voted=loadVotedMap();
+  if(voted[queueRowId])return;
+  voted[queueRowId]=value;
+  saveVotedMap(voted);
+  // Optimistically re-render so the user sees the "Voted" pill immediately.
+  var local=S.queue.find(function(q){return q.id===queueRowId;});
+  if(local){local.score=(local.score||0)+value;}
+  render();
+  var ins=await sb.from("karaoke_votes").insert({queue_row_id:queueRowId,guest_id:S.guestId,value:value});
+  if(ins.error){
+    // 23505 = UNIQUE violation (guest already voted on this row).
+    // Treat as success — keep the optimistic local state.
+    if(ins.error.code!=="23505"){console.error("[vote]",ins.error);}
+    return;
+  }
+  var rpc=await sb.rpc("increment_queue_score",{row_id:queueRowId,delta:value});
+  if(rpc.error){
+    console.warn("[vote] RPC failed, falling back to read-modify-write:",rpc.error.message);
+    var rd=await sb.from("karaoke_queue").select("score").eq("id",queueRowId).single();
+    if(!rd.error){
+      await sb.from("karaoke_queue").update({score:(rd.data.score||0)+value}).eq("id",queueRowId);
+    }
+  }
 }
 async function loadGuests(){
   var r=await sb.from("karaoke_guests").select("id,name,profile_picture").eq("session_id",S.sessionId);
@@ -2849,6 +3261,7 @@ function renderQueue(){
   var npH="";
   if(S.nowPlaying){var np=S.nowPlaying;npH='<div class="now-playing-card">'+(np.artUrl?'<img src="'+np.artUrl+'" alt="">':"")+'<div style="flex:1;min-width:0"><div class="now-playing-badge">Now Playing</div><div class="now-playing-title">'+esc(np.name)+'</div><div class="now-playing-artist">'+esc(np.artist||"")+'</div></div></div>';}
   var upNext=S.queue.filter(function(q){return !playedTrackIds[q.track_id];});
+  var votedMap=loadVotedMap();
   var ih="";
   if(upNext.length===0){ih='<div class="queue-empty">Queue is empty. Add some songs!</div>';}
   else{ih=upNext.map(function(q,i){
@@ -2857,6 +3270,9 @@ function renderQueue(){
     var roles=cat&&cat.roles?cat.roles:[];
     var hidden=!!q.is_hidden;
     var rowTheme=q.stage_theme||"neo-brutal";
+    var isLocked=!!q.locked&&i===0;
+    var total=(q.score||0)+(q.bonus_points||0);
+    var voted=votedMap[q.id];
     var singerPills="";
     if(cs.length>0){
       singerPills='<div class="queue-singer-pills">'+cs.map(function(s){
@@ -2866,19 +3282,53 @@ function renderQueue(){
         return '<div class="queue-singer-pill"><div class="queue-singer-dot" style="background:'+s.color+'">'+dotContent+'</div>'+esc(s.name||"Singer")+(rn.length>0?'<span class="queue-singer-role"> \u00B7 '+esc(rn.join(", "))+'</span>':"")+'</div>';
       }).join("")+'</div>';
     }
-    var classes='queue-item'+(hidden?' queue-item--hidden':'');
+    var classes='queue-item'+(hidden?' queue-item--hidden':'')+(isLocked?' queue-item--locked':'');
     var artOrIcon=hidden
       ? '<div class="q-hidden-art">'+hiddenArtInner(rowTheme)+'</div>'
       : (q.track_art_url?'<img src="'+q.track_art_url+'" alt="">':"");
     var titleHtml=hidden?esc(hiddenLabel(rowTheme)):esc(q.track_name);
     var artistHtml=hidden?esc(hiddenSubtitle(rowTheme)):esc(q.track_artist);
+    var voteCol="";
+    if(isLocked){
+      voteCol=
+        '<div class="queue-vote-col queue-vote-col--locked">'+
+          '<div class="queue-lock-badge" title="Locked in \u2014 next to play">'+
+            '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>'+
+            '<span class="queue-lock-label">Next Up<br>Locked</span>'+
+          '</div>'+
+        '</div>';
+    }else if(voted){
+      voteCol=
+        '<div class="queue-vote-col">'+
+          '<div class="queue-vote-score queue-vote-score--'+(total>0?"pos":(total<0?"neg":"zero"))+'">'+(total>0?"+":"")+total+'</div>'+
+          '<div class="queue-voted-pill">'+
+            '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'+
+            '<span>Voted '+(voted>0?"up":"down")+'</span>'+
+          '</div>'+
+        '</div>';
+    }else{
+      voteCol=
+        '<div class="queue-vote-col">'+
+          '<div class="queue-vote-score queue-vote-score--'+(total>0?"pos":(total<0?"neg":"zero"))+'">'+(total>0?"+":"")+total+'</div>'+
+          '<div class="queue-vote-buttons">'+
+            '<button type="button" class="queue-vote-btn queue-vote-btn--up" data-q-vote-up="'+esc(q.id)+'" aria-label="Upvote">'+
+              '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>'+
+            '</button>'+
+            '<button type="button" class="queue-vote-btn queue-vote-btn--down" data-q-vote-down="'+esc(q.id)+'" aria-label="Downvote">'+
+              '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>'+
+            '</button>'+
+          '</div>'+
+        '</div>';
+    }
     return '<div class="'+classes+'" data-stage-theme="'+esc(rowTheme)+'">'+
       '<div class="queue-pos">'+(i+1)+'</div>'+
       artOrIcon+
       '<div class="queue-item-info"><div class="queue-item-title">'+titleHtml+'</div><div class="queue-item-artist">'+artistHtml+'</div>'+
       (q.added_by_name?'<div class="queue-item-added">Added by '+esc(q.added_by_name)+'</div>':"")+
       singerPills+
-    '</div></div>';
+      '</div>'+
+      voteCol+
+    '</div>';
   }).join("");}
   return '<div class="queue-screen screen"><div class="queue-title">Queue</div>'+npH+
     '<div class="queue-section-label">Up Next \u00B7 '+upNext.length+' song'+(upNext.length!==1?"s":"")+'</div>'+ih+'</div>';
@@ -3394,6 +3844,18 @@ function bindEvents(){
     tab.addEventListener("click",function(){
       S.screen=tab.dataset.nav;
       if(tab.dataset.nav==="queue")loadQueue().then(render);else render();
+    });
+  });
+  document.querySelectorAll("[data-q-vote-up]").forEach(function(btn){
+    btn.addEventListener("click",function(){
+      var id=btn.getAttribute("data-q-vote-up");
+      castVote(id,1);
+    });
+  });
+  document.querySelectorAll("[data-q-vote-down]").forEach(function(btn){
+    btn.addEventListener("click",function(){
+      var id=btn.getAttribute("data-q-vote-down");
+      castVote(id,-1);
     });
   });
   var reqBack=document.getElementById("req-back");

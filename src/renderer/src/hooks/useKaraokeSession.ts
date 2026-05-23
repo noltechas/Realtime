@@ -116,7 +116,11 @@ export function useKaraokeSession() {
             songPath: null,
             backgroundVideoPath: catalogEntry.youtubeUrl || null,
             addedBy: row.added_by_name || null,
-            remoteQueueId: row.id
+            remoteQueueId: row.id,
+            score: row.score ?? 0,
+            bonusPoints: row.bonus_points ?? 0,
+            locked: !!row.locked,
+            createdAt: row.created_at || new Date().toISOString()
         }
     }
 
@@ -177,6 +181,29 @@ export function useKaraokeSession() {
                         console.log('[Karaoke] Remote song added by', row.added_by_name, ':', item.track.name)
                         dispatch({ type: 'ENQUEUE_SONG', payload: item })
                     }
+                }
+            )
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'karaoke_queue',
+                    filter: 'session_id=eq.' + state.karaokeSessionId
+                },
+                (payload) => {
+                    const row = payload.new as any
+                    if (!row?.id) return
+                    // Vote/bonus/lock changes — re-sort the local queue.
+                    dispatch({
+                        type: 'UPDATE_QUEUE_ITEM_SCORE',
+                        payload: {
+                            remoteQueueId: row.id,
+                            score: row.score ?? 0,
+                            bonusPoints: row.bonus_points ?? 0,
+                            locked: !!row.locked,
+                        }
+                    })
                 }
             )
             .subscribe((status) => {
@@ -266,6 +293,45 @@ export function useKaraokeSession() {
             window.electronAPI?.syncNowPlaying(null)
         }
     }, [state.nowPlaying?.track?.id, state.karaokeSessionId])
+
+    // When the host advances to a new song, bump bonus_points on every
+    // remaining queued row so long-waiting songs eventually surface.
+    // Edge-triggered on nowPlaying.track.id change.
+    const advanceTriggerRef = useRef<string | null>(null)
+    useEffect(() => {
+        if (window.electronAPI?.isStageWindow) return
+        if (!state.karaokeSessionId) return
+        const id = state.nowPlaying?.track?.id ?? null
+        if (advanceTriggerRef.current === null) {
+            advanceTriggerRef.current = id
+            return
+        }
+        if (id === advanceTriggerRef.current) return
+        advanceTriggerRef.current = id
+        window.electronAPI?.bumpBonusPoints?.().catch(err =>
+            console.warn('[Karaoke] bumpBonusPoints failed:', err))
+    }, [state.nowPlaying?.track?.id, state.karaokeSessionId])
+
+    // Whenever a new song settles into the Next-Up slot (position 0), lock it
+    // in Supabase so the companion site reflects the guaranteed-next status.
+    // Triggers on initial enqueue, after advance, and after host drag-reorder.
+    const lockedRemoteIdRef = useRef<string | null>(null)
+    useEffect(() => {
+        if (window.electronAPI?.isStageWindow) return
+        if (!state.karaokeSessionId) return
+        const top = state.queue[0]
+        if (!top?.remoteQueueId) {
+            lockedRemoteIdRef.current = null
+            return
+        }
+        if (lockedRemoteIdRef.current === top.remoteQueueId) return
+        lockedRemoteIdRef.current = top.remoteQueueId
+        if (!top.locked) {
+            dispatch({ type: 'LOCK_NEXT_UP' })
+            window.electronAPI?.lockQueueItem?.(top.remoteQueueId).catch(err =>
+                console.warn('[Karaoke] lockQueueItem failed:', err))
+        }
+    }, [state.queue, state.karaokeSessionId, dispatch])
 
     // Sync theme changes to Supabase
     useEffect(() => {
