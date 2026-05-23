@@ -944,22 +944,24 @@ export default function QueuePage() {
                                     {formatTime(item.track.duration_ms)}
                                 </div>
 
-                                {/* Vote score badge — live total of (score + bonusPoints) */}
-                                <div
-                                    title={`Score: ${item.score ?? 0}  |  Bonus: ${item.bonusPoints ?? 0}`}
-                                    style={{
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        minWidth: 34, height: 30, padding: '0 8px',
-                                        borderRadius: theme.radiusSmall,
-                                        border: theme.borderThin,
-                                        background: total > 0 ? theme.accentC : (total < 0 ? theme.hotRed : theme.creamDark),
-                                        color: total === 0 ? theme.black : theme.white,
-                                        fontFamily: theme.fontDisplay, fontWeight: 800, fontSize: 13,
-                                        boxShadow: '2px 2px 0px ' + theme.black,
-                                    }}
-                                >
-                                    {total > 0 ? '+' : ''}{total}
-                                </div>
+                                {/* Vote score badge — live total of (score + bonusPoints). Hidden at 0. */}
+                                {total !== 0 && (
+                                    <div
+                                        title={`Score: ${item.score ?? 0}  |  Bonus: ${item.bonusPoints ?? 0}`}
+                                        style={{
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            minWidth: 34, height: 30, padding: '0 8px',
+                                            borderRadius: theme.radiusSmall,
+                                            border: theme.borderThin,
+                                            background: total > 0 ? theme.accentC : theme.hotRed,
+                                            color: theme.white,
+                                            fontFamily: theme.fontDisplay, fontWeight: 800, fontSize: 13,
+                                            boxShadow: '2px 2px 0px ' + theme.black,
+                                        }}
+                                    >
+                                        {total}
+                                    </div>
+                                )}
 
                                 {/* Actions — Edit is suppressed for hidden songs so the host can't reveal them */}
                                 <div style={{ display: 'flex', gap: 6 }}>

@@ -600,9 +600,10 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
 /* ── Queue voting controls (sit on the right of each row) ────────────────── */
 .queue-vote-col {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 4px; flex-shrink: 0; margin-left: 4px;
+  gap: 4px; flex-shrink: 0; margin-left: 4px; align-self: center;
 }
 .queue-vote-col--locked { gap: 0; }
+.queue-vote-col--no-score { gap: 0; }
 .queue-vote-score {
   font-family: var(--font-display); font-weight: 800; font-size: 14px;
   min-width: 28px; text-align: center; line-height: 1;
@@ -851,12 +852,10 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
   box-shadow: 0 0 0 2px var(--swatch-color), 0 0 14px var(--swatch-glow);
   transform: scale(1.18);
 }
-.wiz-color-swatch.is-taken::before {
-  content: ''; position: absolute; inset: -5px;
-  border: 1px dashed rgba(255,255,255,0.35);
-  border-radius: 50%; pointer-events: none;
+.wiz-color-swatch.is-taken:not(.is-selected) {
+  filter: grayscale(1);
+  opacity: 0.42;
 }
-.wiz-color-swatch.is-taken:not(.is-selected) { opacity: 0.75; }
 .wiz-color-swatch-ring {
   position: absolute; inset: -2px;
   border-radius: 50%; pointer-events: none;
@@ -869,6 +868,14 @@ body { min-height: 100dvh; position: relative; overflow-x: hidden; }
 }
 .wiz-color-swatch.is-selected .wiz-color-swatch-check { opacity: 1; }
 .wiz-color-swatch-check svg { width: 60%; height: 60%; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.35)); }
+.wiz-color-swatch-x {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none; opacity: 0;
+  color: rgba(0,0,0,0.6);
+}
+.wiz-color-swatch.is-taken:not(.is-selected) .wiz-color-swatch-x { opacity: 1; }
+.wiz-color-swatch-x svg { width: 70%; height: 70%; }
 
 .wiz-role-list { display: flex; flex-direction: column; gap: 14px; margin-bottom: 12px; }
 .wiz-role-row {
@@ -1526,10 +1533,6 @@ body[data-theme="neo-brutal"] .wiz-color-swatch.is-selected {
   border-color: #1A1A1A !important; transform: translate(-1px,-1px) scale(1.12) !important;
   box-shadow: 4px 4px 0 #1A1A1A, 0 0 0 1.5px var(--swatch-color) !important;
 }
-body[data-theme="neo-brutal"] .wiz-color-swatch.is-taken::before {
-  inset: -6px !important; border: 2px solid #1A1A1A !important; border-radius: 6px !important;
-  border-style: dashed !important;
-}
 body[data-theme="neo-brutal"] .wiz-color-swatch-check { color: #1A1A1A !important; }
 
 /* cyberpunk: razor-sharp squares, neon ring scan on selected */
@@ -1554,9 +1557,6 @@ body[data-theme="cyberpunk"] .wiz-color-swatch.is-selected {
   border-color: #00ff88 !important; border-radius: 0 !important;
   transform: scale(1.2) !important;
   animation: cyb-swatch-scan 1.4s ease-in-out infinite;
-}
-body[data-theme="cyberpunk"] .wiz-color-swatch.is-taken::before {
-  border-radius: 0 !important; border: 1px dashed #00ff88 !important; inset: -4px !important;
 }
 body[data-theme="cyberpunk"] .wiz-color-swatch-check { color: #060610 !important; }
 
@@ -1588,10 +1588,6 @@ body[data-theme="sketch"] .wiz-color-swatch.is-selected {
   transform: rotate(-3deg) scale(1.15) !important;
   box-shadow: 3px 3px 0 #2d2d2d, 0 0 0 2px var(--swatch-color) !important;
 }
-body[data-theme="sketch"] .wiz-color-swatch.is-taken::before {
-  border-style: dashed !important; border-color: #2d2d2d !important;
-  border-radius: 70% 30% 75% 25% / 30% 75% 25% 70% !important; inset: -5px !important;
-}
 body[data-theme="sketch"] .wiz-color-swatch-check { color: #2d2d2d !important; }
 
 /* urban: angular parallelograms, neon yellow accent, uppercase chrome */
@@ -1618,10 +1614,6 @@ body[data-theme="urban"] .wiz-color-swatch.is-selected {
 body[data-theme="urban"] .wiz-color-swatch.is-selected::after {
   content:''; position:absolute; inset:-3px;
   border:1.5px solid #D4FF00;
-  clip-path: polygon(15% 0%, 100% 0%, 85% 100%, 0% 100%);
-}
-body[data-theme="urban"] .wiz-color-swatch.is-taken::before {
-  border: 1px dashed #D4FF00 !important; border-radius: 0 !important;
   clip-path: polygon(15% 0%, 100% 0%, 85% 100%, 0% 100%);
 }
 body[data-theme="urban"] .wiz-color-swatch-check { color: #050505 !important; }
@@ -1651,9 +1643,6 @@ body[data-theme="deep-sea"] .wiz-color-swatch {
 body[data-theme="deep-sea"] .wiz-color-swatch.is-selected {
   border-color: #FFFFFF !important; transform: scale(1.2) !important;
   animation: ds-swatch-pulse 2s ease-in-out infinite;
-}
-body[data-theme="deep-sea"] .wiz-color-swatch.is-taken::before {
-  border: 1px dashed rgba(0,255,200,0.55) !important; border-radius: 50% !important;
 }
 body[data-theme="deep-sea"] .wiz-color-swatch-check { color: #040918 !important; }
 
@@ -1685,9 +1674,6 @@ body[data-theme="psychedelic"] .wiz-color-swatch.is-selected .wiz-color-swatch-r
   border-radius: 50%;
   animation: psy-swatch-orbit 4s linear infinite;
 }
-body[data-theme="psychedelic"] .wiz-color-swatch.is-taken::before {
-  border: 1px dotted rgba(255,255,255,0.45) !important; border-radius: 50% !important;
-}
 body[data-theme="psychedelic"] .wiz-color-swatch-check { color: #1a0a2e !important; }
 
 /* zen: pebble-like dots with subtle gold ring */
@@ -1713,9 +1699,6 @@ body[data-theme="zen"] .wiz-color-swatch.is-selected {
   box-shadow: 0 0 0 1.5px #D4B85A, 0 0 14px rgba(212,184,90,0.5),
               inset 0 -2px 4px rgba(0,0,0,0.2) !important;
   transform: scale(1.15) !important;
-}
-body[data-theme="zen"] .wiz-color-swatch.is-taken::before {
-  border: 1px dotted rgba(212,184,90,0.55) !important; border-radius: 50% !important;
 }
 body[data-theme="zen"] .wiz-color-swatch-check { color: #1a1814 !important; }
 
@@ -1747,9 +1730,6 @@ body[data-theme="space"] .wiz-color-swatch.is-selected .wiz-color-swatch-ring {
   inset: -6px !important;
   border: 1px solid rgba(224,64,251,0.55); border-radius: 50%;
   box-shadow: 0 0 8px rgba(0,228,255,0.4);
-}
-body[data-theme="space"] .wiz-color-swatch.is-taken::before {
-  border: 1px dotted rgba(224,64,251,0.55) !important; border-radius: 50% !important;
 }
 body[data-theme="space"] .wiz-color-swatch-check { color: #08080F !important; }
 
@@ -1784,10 +1764,6 @@ body[data-theme="steampunk"] .wiz-color-swatch.is-selected {
     0 2px 5px rgba(0,0,0,0.5),
     0 0 0 2.5px #C8973E !important;
 }
-body[data-theme="steampunk"] .wiz-color-swatch.is-taken::before {
-  border: 1px solid rgba(200,151,62,0.6) !important; border-radius: 50% !important;
-  border-style: dashed !important;
-}
 body[data-theme="steampunk"] .wiz-color-swatch-check { color: #14110F !important; }
 
 /* retrowave: chromatic-shift outline on selected, glowing synthwave gradient */
@@ -1814,9 +1790,6 @@ body[data-theme="retrowave"] .wiz-color-swatch.is-selected {
     -1px 0 0 #FFD700,
     0 0 0 2px var(--swatch-color),
     0 0 16px var(--swatch-color) !important;
-}
-body[data-theme="retrowave"] .wiz-color-swatch.is-taken::before {
-  border: 1px dashed #FF2D95 !important; border-radius: 4px !important;
 }
 body[data-theme="retrowave"] .wiz-color-swatch-check { color: #0a0614 !important; }
 
@@ -2404,6 +2377,49 @@ function loadVotedMap(){
   if(!S.sessionCode)return{};
   try{var raw=localStorage.getItem("karaoke_votes_"+S.sessionCode);return raw?JSON.parse(raw):{};}catch(e){return{};}
 }
+// FLIP-style reorder animation for the queue list.
+// Capture old positions by data-q-id, then on the next frame apply a
+// translate-from-old-to-new transform that animates back to identity.
+function captureQueueRects(){
+  var rects={};
+  document.querySelectorAll(".queue-item[data-q-id]").forEach(function(el){
+    rects[el.getAttribute("data-q-id")]=el.getBoundingClientRect();
+  });
+  return rects;
+}
+function flipQueueAnimation(oldRects){
+  if(!oldRects)return;
+  var nodes=document.querySelectorAll(".queue-item[data-q-id]");
+  if(!nodes.length)return;
+  // Phase 1: position every surviving item at its OLD location (no transition).
+  nodes.forEach(function(el){
+    var id=el.getAttribute("data-q-id");
+    var oldR=oldRects[id];if(!oldR)return;
+    var newR=el.getBoundingClientRect();
+    var dx=oldR.left-newR.left, dy=oldR.top-newR.top;
+    if(Math.abs(dx)<1&&Math.abs(dy)<1)return;
+    el.style.transition="none";
+    el.style.transform="translate("+dx+"px,"+dy+"px)";
+    el.style.willChange="transform";
+  });
+  // Phase 2: on the next frame, transition them back to identity.
+  requestAnimationFrame(function(){
+    nodes.forEach(function(el){
+      if(!el.style.transform)return;
+      el.style.transition="transform 0.45s cubic-bezier(0.22,1,0.36,1)";
+      el.style.transform="";
+    });
+    // Clean up will-change once the transition is done.
+    setTimeout(function(){
+      nodes.forEach(function(el){el.style.willChange="";el.style.transition="";});
+    },500);
+  });
+}
+function renderWithQueueFlip(){
+  var oldRects=captureQueueRects();
+  render();
+  flipQueueAnimation(oldRects);
+}
 function saveVotedMap(m){
   if(!S.sessionCode)return;
   try{localStorage.setItem("karaoke_votes_"+S.sessionCode,JSON.stringify(m));}catch(e){}
@@ -2417,7 +2433,18 @@ async function castVote(queueRowId,value){
   // Optimistically re-render so the user sees the "Voted" pill immediately.
   var local=S.queue.find(function(q){return q.id===queueRowId;});
   if(local){local.score=(local.score||0)+value;}
-  render();
+  // Re-sort the local queue so the row visually shifts to its new spot under FLIP.
+  S.queue.sort(function(a,b){
+    var al=a.locked?1:0, bl=b.locked?1:0;
+    if(al!==bl)return bl-al;
+    var at=(a.score||0)+(a.bonus_points||0);
+    var bt=(b.score||0)+(b.bonus_points||0);
+    if(at!==bt)return bt-at;
+    var ai=a.created_at?Date.parse(a.created_at):0;
+    var bi=b.created_at?Date.parse(b.created_at):0;
+    return ai-bi;
+  });
+  renderWithQueueFlip();
   var ins=await sb.from("karaoke_votes").insert({queue_row_id:queueRowId,guest_id:S.guestId,value:value});
   if(ins.error){
     // 23505 = UNIQUE violation (guest already voted on this row).
@@ -2459,7 +2486,14 @@ function checkYoureUp(){
 }
 function subRT(){
   if(qCh)sb.removeChannel(qCh);
-  qCh=sb.channel("cq-"+S.sessionId).on("postgres_changes",{event:"*",schema:"public",table:"karaoke_queue",filter:"session_id=eq."+S.sessionId},function(pl){if(pl.eventType==="INSERT")showQueueNotification(pl);loadQueue().then(render);}).subscribe();
+  qCh=sb.channel("cq-"+S.sessionId).on("postgres_changes",{event:"*",schema:"public",table:"karaoke_queue",filter:"session_id=eq."+S.sessionId},function(pl){
+    if(pl.eventType==="INSERT")showQueueNotification(pl);
+    var oldRects=captureQueueRects();
+    loadQueue().then(function(){
+      render();
+      flipQueueAnimation(oldRects);
+    });
+  }).subscribe();
   if(sCh)sb.removeChannel(sCh);
   sCh=sb.channel("cs-"+S.sessionId).on("postgres_changes",{event:"UPDATE",schema:"public",table:"karaoke_sessions",filter:"id=eq."+S.sessionId},function(pl){
     var d=pl.new;if(!d.is_active){S.screen="error";S.errorMessage="This session has ended.";render();return;}
@@ -3463,17 +3497,20 @@ function renderWizardSingers(){
       swatches+='<button type="button" class="'+cls+'" '+
         'data-singer-idx="'+i+'" data-color-idx="'+ci+'" '+
         'style="--swatch-color:'+nc.c+';--swatch-glow:'+nc.g+'" '+
-        'aria-label="Color '+(ci+1)+(sel?" (selected)":"")+'" aria-pressed="'+(sel?"true":"false")+'">'+
+        'aria-label="Color '+(ci+1)+(sel?" (selected)":"")+(takenByOther?" (used by another singer)":"")+'" aria-pressed="'+(sel?"true":"false")+'">'+
         '<span class="wiz-color-swatch-ring" aria-hidden="true"></span>'+
         '<span class="wiz-color-swatch-check" aria-hidden="true">'+
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'+
+        '</span>'+
+        '<span class="wiz-color-swatch-x" aria-hidden="true">'+
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 5L19 19M19 5L5 19"/></svg>'+
         '</span>'+
       '</button>';
     }
     var colorBlock='<div class="wiz-color-block" data-singer="'+i+'">'+
       '<div class="wiz-color-eyebrow">'+
         '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c3.31 0 6-2.69 6-6 0-5.52-4.5-10-10-10z"/></svg>'+
-        '<span>Pick '+(i===0?"your":esc(s.name||"singer\u2019s"))+' color</span>'+
+        '<span>Pick '+(i===0?"your":esc(s.name||"singer")+"\u2019s")+' color</span>'+
       '</div>'+
       '<div class="wiz-color-picker">'+swatches+'</div>'+
     '</div>';
@@ -3699,6 +3736,11 @@ function renderQueue(){
     var titleHtml=hidden?esc(hiddenLabel(rowTheme)):esc(q.track_name);
     var artistHtml=hidden?esc(hiddenSubtitle(rowTheme)):esc(q.track_artist);
     var voteCol="";
+    var scoreCls="queue-vote-score--"+(total>0?"pos":(total<0?"neg":"zero"));
+    // Bare number \u2014 color (green/red) carries the sign. Suppress entirely when 0.
+    var scoreLine=(total!==0)
+      ? '<div class="queue-vote-score '+scoreCls+'">'+total+'</div>'
+      : '';
     if(isLocked){
       voteCol=
         '<div class="queue-vote-col queue-vote-col--locked">'+
@@ -3710,16 +3752,16 @@ function renderQueue(){
     }else if(voted){
       voteCol=
         '<div class="queue-vote-col">'+
-          '<div class="queue-vote-score queue-vote-score--'+(total>0?"pos":(total<0?"neg":"zero"))+'">'+(total>0?"+":"")+total+'</div>'+
+          scoreLine+
           '<div class="queue-voted-pill">'+
             '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'+
-            '<span>Voted '+(voted>0?"up":"down")+'</span>'+
+            '<span>Voted '+(voted>0?"Up":"Down")+'</span>'+
           '</div>'+
         '</div>';
     }else{
       voteCol=
-        '<div class="queue-vote-col">'+
-          '<div class="queue-vote-score queue-vote-score--'+(total>0?"pos":(total<0?"neg":"zero"))+'">'+(total>0?"+":"")+total+'</div>'+
+        '<div class="queue-vote-col'+(total===0?" queue-vote-col--no-score":"")+'">'+
+          scoreLine+
           '<div class="queue-vote-buttons">'+
             '<button type="button" class="queue-vote-btn queue-vote-btn--up" data-q-vote-up="'+esc(q.id)+'" aria-label="Upvote">'+
               '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>'+
@@ -3730,7 +3772,7 @@ function renderQueue(){
           '</div>'+
         '</div>';
     }
-    return '<div class="'+classes+'" data-stage-theme="'+esc(rowTheme)+'">'+
+    return '<div class="'+classes+'" data-q-id="'+esc(q.id)+'" data-stage-theme="'+esc(rowTheme)+'">'+
       '<div class="queue-pos">'+(i+1)+'</div>'+
       artOrIcon+
       '<div class="queue-item-info"><div class="queue-item-title">'+titleHtml+'</div><div class="queue-item-artist">'+artistHtml+'</div>'+
