@@ -8,7 +8,7 @@ export function renderJoin(){
     '<div class="join-title">Karaoke</div>'+
     '<p class="join-sub">Set up your profile to join</p>'+
     '<div class="avatar-upload'+(S.profilePicture?" has-image":"")+'" id="avatar-upload">'+avInner+'</div>'+
-    '<input type="file" id="avatar-input" accept="image/*" style="display:none">'+
+    '<input type="file" id="avatar-input" accept="image/*" style="position:absolute;opacity:0;width:1px;height:1px;left:-9999px">'+
     '<div class="avatar-upload-hint">Tap to add a photo (optional)</div>'+
     '<input class="join-input" id="name-input" placeholder="Your name" maxlength="30" autocomplete="off" value="'+esc(S.joinName||"")+'">'+
     '<button class="join-btn" id="join-btn" disabled>Join Session</button>'+
@@ -52,7 +52,7 @@ export function renderProfile(){
     '<div class="profile-title">Your Profile</div>'+
     '<div class="profile-avatar-wrap">'+
       '<div class="profile-avatar'+(S.profilePicture?" has-image":"")+'" id="profile-avatar">'+avInner+'</div>'+
-      '<input type="file" id="profile-avatar-input" accept="image/*" style="display:none">'+
+      '<input type="file" id="profile-avatar-input" accept="image/*" style="position:absolute;opacity:0;width:1px;height:1px;left:-9999px">'+
       '<div class="profile-avatar-label">Tap to change photo</div>'+
     '</div>'+
     '<div class="profile-field">'+

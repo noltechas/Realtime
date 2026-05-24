@@ -78,7 +78,16 @@ export function bindEvents(){
   if(au&&ai){
     au.addEventListener("click",function(){ai.click();});
     ai.addEventListener("change",function(){
-      if(ai.files&&ai.files[0]){var ni2=document.getElementById("name-input");if(ni2)S.joinName=ni2.value;resizeImage(ai.files[0],128,0.8,function(url){S.profilePicture=url;render();});}
+      if(window.__logErr)window.__logErr('join avatar change: files='+(ai.files?ai.files.length:'null'));
+      if(ai.files&&ai.files[0]){
+        var f=ai.files[0];
+        if(window.__logErr)window.__logErr('join avatar file: '+f.name+' ('+f.type+', '+f.size+' bytes)');
+        var ni2=document.getElementById("name-input");if(ni2)S.joinName=ni2.value;
+        resizeImage(f,128,0.8,function(url){
+          if(window.__logErr)window.__logErr('join avatar resize done: url='+(url?'data:image ('+url.length+' chars)':'NULL'));
+          S.profilePicture=url;render();
+        });
+      }
     });
   }
   var ro=document.getElementById("rejoin-open");
@@ -99,7 +108,15 @@ export function bindEvents(){
   if(pa&&pai){
     pa.addEventListener("click",function(){pai.click();});
     pai.addEventListener("change",function(){
-      if(pai.files&&pai.files[0]){resizeImage(pai.files[0],128,0.8,function(url){S.profilePicture=url;render();});}
+      if(window.__logErr)window.__logErr('profile avatar change: files='+(pai.files?pai.files.length:'null'));
+      if(pai.files&&pai.files[0]){
+        var f=pai.files[0];
+        if(window.__logErr)window.__logErr('profile avatar file: '+f.name+' ('+f.type+', '+f.size+' bytes)');
+        resizeImage(f,128,0.8,function(url){
+          if(window.__logErr)window.__logErr('profile avatar resize done: url='+(url?'data:image ('+url.length+' chars)':'NULL'));
+          S.profilePicture=url;render();
+        });
+      }
     });
   }
   var ps=document.getElementById("profile-save"),pn=document.getElementById("profile-name");

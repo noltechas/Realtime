@@ -18,7 +18,7 @@ export function renderStage(){
       '<div class="reaction-cell" id="react-meme"><div class="reaction-cell-icon"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div><span class="reaction-cell-label">Memes</span></div>'+
       '<div class="reaction-cell" id="react-camera"><div class="reaction-cell-icon"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div><span class="reaction-cell-label">Photo</span></div>'+
     '</div>'+
-    '<input type="file" id="react-camera-input" accept="image/*" style="display:none">'+
+    '<input type="file" id="react-camera-input" accept="image/*" style="position:absolute;opacity:0;width:1px;height:1px;left:-9999px">'+
   '</div>';
 }
 export function renderEmojiPicker(){
