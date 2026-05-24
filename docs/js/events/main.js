@@ -1,7 +1,7 @@
-import { S, caches } from '../state.js';
+import { sb, S, caches } from '../state.js';
 import { filterGifs, restoreMemeSearch, resizeImage } from '../utils.js';
 import { clearDeviceProfile, saveDeviceProfile } from '../persistence.js';
-import { initWizardFromTrack, addSinger, removeSinger, setSingerColor, wizardHasAnyChanges } from '../wizard.js';
+import { initWizardFromTrack, addSinger, removeSinger, setSingerColor, wizardHasAnyChanges, wizardBack, nextWizardStep } from '../wizard.js';
 import { castVote, sendReaction, joinSession, rejoinAsGuest, updateProfile, runRequestSearch, submitSongRequest, loadAwards, loadGuests, loadQueue } from '../supabase.js';
 import { render } from '../render/main.js';
 import { filterCatalog, renderGenreTabs, renderRequest, renderSongCards } from '../render/songs.js';
