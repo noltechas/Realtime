@@ -1,5 +1,12 @@
 import { S } from './state.js';
 
+// Memo: skip the (large) CSS regeneration when the active theme hasn't
+// actually changed since the last call. render() invokes applyTheme on
+// every cycle, so without memoization we re-inject ~70KB of CSS string
+// on every Supabase Realtime tick — a real memory pressure source on
+// iOS Safari.
+var _lastAppliedTheme=null;
+
 export function applyTheme(){
   var tg=document.getElementById("theme-global");
   if(!tg){tg=document.createElement("style");tg.id="theme-global";document.head.appendChild(tg);}
@@ -8,6 +15,11 @@ export function applyTheme(){
   var activeTheme=S.nowPlayingStageTheme||S.theme_name;
   // Surface the active theme on <body> so static CSS can target it by attribute.
   if(document.body)document.body.setAttribute("data-theme",activeTheme||"neo-brutal");
+  if(activeTheme===_lastAppliedTheme && tg.textContent){
+    // Theme unchanged and style already injected — nothing to do.
+    return;
+  }
+  _lastAppliedTheme=activeTheme;
   if(activeTheme==="neo-brutal"){
     css=":root{--black:#FFF8EE;--surface-1:rgba(26,26,26,0.04);--surface-2:#FFFFFF;--surface-3:rgba(26,26,26,0.12);--white:#1A1A1A;--white-muted:rgba(26,26,26,0.7);--white-faint:rgba(26,26,26,0.4);--white-ghost:rgba(26,26,26,0.15);--violet:#B388FF;--pink:#FF3B30;--cyan:#00E676;--emerald:#00E676;--amber:#FFD60A;--red:#FF3B30;--grad-hero:linear-gradient(135deg, #FF3B30, #B388FF);--grad-text:linear-gradient(135deg, #FF3B30, #B388FF);--font-display:'Space Grotesk', system-ui, sans-serif;--font-body:'DM Sans', system-ui, sans-serif;}" +
     " .mesh-bg{background:none !important;animation:none !important;}" +

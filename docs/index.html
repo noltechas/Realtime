@@ -60,12 +60,28 @@
       }else{
         diag='previous load reached "'+last.stage+'" then died silently — likely iOS memory kill or main-thread hang';
       }
-      pushErr({time:new Date().toISOString(),message:'[diag] '+diag,source:'',line:0,col:0,stack:'lifecycle (last '+lc.length+'): '+stages.join(' → ')});
+      // Augment with heartbeat info if available
+      var aliveDetail='';
+      try{
+        var lhb=localStorage.getItem('karaoke_last_hb');
+        if(lhb){
+          var hb=JSON.parse(lhb);
+          aliveDetail=' (last heartbeat '+(Date.now()-hb.t)+'ms ago, '+(hb.t-(last.t||0))+'ms past last marker)';
+        }
+      }catch(e){}
+      pushErr({time:new Date().toISOString(),message:'[diag] '+diag+aliveDetail,source:'',line:0,col:0,stack:'lifecycle (last '+lc.length+'): '+stages.join(' → ')});
     }
   }
   mark('page-loaded');
   window.__mark=mark;
   window.__pushErr=pushErr;
+  // Heartbeat: overwrites a single localStorage key every 500ms. On the next
+  // page load we can read the "last seen alive" timestamp and compute how
+  // long the page was alive past the last lifecycle marker. Doesn't pollute
+  // the lifecycle history (which is capped at 30 entries).
+  setInterval(function(){
+    try{localStorage.setItem('karaoke_last_hb',JSON.stringify({t:Date.now(),stage:read(LM).slice(-1)[0]||{}}));}catch(e){}
+  },500);
   window.addEventListener('error',function(ev){
     pushErr({time:new Date().toISOString(),message:(ev.error&&ev.error.message)||ev.message||'Unknown',source:ev.filename||'',line:ev.lineno||0,col:ev.colno||0,stack:(ev.error&&ev.error.stack)||''});
   },true);
