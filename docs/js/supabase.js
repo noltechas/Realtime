@@ -2,7 +2,7 @@ import { sb, S, caches } from './state.js';
 import { tokenIfFresh, showQueueNotification } from './utils.js';
 import { applyTheme } from './themes.js';
 import { render } from './render/main.js';
-import { captureQueueRects, flipQueueAnimation } from './animation.js';
+import { captureQueueRects, flipQueueAnimation, renderWithQueueFlip } from './animation.js';
 import { saveLocal, saveDeviceProfile, loadVotedMap, saveVotedMap } from './persistence.js';
 
 // Channels — module-local; only this file subscribes/sends.

@@ -129,7 +129,15 @@ export function AdminAwardsTab() {
 
     const handleDeleteAward = async (award: Award) => {
         if (!confirm(`Permanently delete "${award.title}"?\nThis removes all votes for this award.`)) return
-        await window.electronAPI?.deleteAward(award.id)
+        const result = await window.electronAPI?.deleteAward(award.id)
+        if (result?.error) {
+            alert(`Failed to delete award: ${result.error}`)
+            return
+        }
+        // Optimistically remove from local state. Postgres realtime DELETE
+        // events are unreliable (REPLICA IDENTITY default + RLS), so we can't
+        // count on the subscription to update state.awards.
+        dispatch({ type: 'REMOVE_AWARD', payload: award.id })
         refresh()
     }
 
