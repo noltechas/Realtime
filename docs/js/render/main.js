@@ -10,6 +10,18 @@ import { renderAwardsScreen, renderVoteConfirmOverlay, renderRevealOverlay } fro
 import { bindEvents } from '../events/main.js';
 
 export function render(){
+  // Defensive: if a click handler somewhere mis-sets S.screen to an
+  // unknown value, log and bail rather than silently leaving the page
+  // stuck on a stale DOM with an empty bottom nav.
+  var VALID_SCREENS={
+    loading:1,join:1,rejoin:1,joining:1,songs:1,request:1,
+    "wizard-singers":1,"wizard-roles":1,"wizard-stage":1,
+    queue:1,stage:1,profile:1,youreup:1,awards:1,error:1
+  };
+  if(!VALID_SCREENS[S.screen]){
+    if(window.__pushErr)window.__pushErr({time:new Date().toISOString(),message:'render: unknown screen '+JSON.stringify(S.screen)+' — bailing',source:'',line:0,col:0,stack:''});
+    return;
+  }
   var a=document.getElementById("app");
   // Apply song's stage theme on You're Up screen, restore global theme otherwise
   if(S.screen==="youreup"&&S.nowPlayingStageTheme){
@@ -52,7 +64,6 @@ export function render(){
   }
   if(S.screen==="awards"){overlayHtml+=renderVoteConfirmOverlay();}
   if(overlayMount){overlayMount.innerHTML=overlayHtml;}
-  if(window.__logErr)window.__logErr('render: screen='+S.screen+' calling bindEvents');
   try{ bindEvents(); }
   catch(e){
     // Don't let a stray event-handler binding crash the whole app —

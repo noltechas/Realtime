@@ -58,7 +58,7 @@ export function renderBN(act){
     middleBtn+
     '<button class="nav-tab'+(act==="queue"?" active":"")+'" data-nav="queue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Queue</button>'+
     '<button class="nav-tab'+(act==="awards"?" active":"")+'" data-nav="awards"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h2"/><path d="M18 9h2a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-2"/><path d="M6 3h12v6a6 6 0 0 1-12 0V3z"/><path d="M9 21h6"/><path d="M12 15v6"/></svg>Awards</button>'+
-    '<button class="nav-tab nav-tab--profile'+(act==="profile"?" active":"")+'" id="nav-profile" aria-label="'+esc(S.guestName||"Profile")+'" title="'+esc(S.guestName||"Profile")+'">'+navAv+'Profile</button>'+
+    '<button class="nav-tab nav-tab--profile'+(act==="profile"?" active":"")+'" data-nav="profile" id="nav-profile" aria-label="'+esc(S.guestName||"Profile")+'" title="'+esc(S.guestName||"Profile")+'">'+navAv+'Profile</button>'+
   '</div>';
 }
 export function renderYoureUp(){

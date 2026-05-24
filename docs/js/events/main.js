@@ -78,7 +78,6 @@ export function bindEvents(){
   var _app=document.getElementById("app");
   var _fc=_app?_app.firstElementChild:null;
   if(_fc && _fc===_lastBoundFirstChild){
-    if(window.__logErr)window.__logErr('bindEvents: skipped (same DOM as last call)');
     return;
   }
   _lastBoundFirstChild=_fc;
@@ -137,8 +136,13 @@ export function bindEvents(){
     S.guestId=null;S.guestName="";S.profilePicture=null;S.joinName="";
     S.screen="join";render();
   });}
-  var np2=document.getElementById("nav-profile");
-  if(np2){np2.addEventListener("click",function(){S.screen="profile";render();});}
+  // (The #nav-profile click handler was removed — the profile button now
+  // has data-nav="profile" so the generic .nav-tab handler below handles
+  // it. Having both attached meant one tap fired two renders, the second
+  // one setting S.screen=undefined because the .nav-tab handler read a
+  // missing data-nav attribute. With S.screen=undefined every subsequent
+  // render() — including post-photo-upload — fell through the switch and
+  // left the DOM frozen on the previously-rendered screen.)
   // Append the next batch of song cards before the sentinel. Called by the
   // IntersectionObserver when the sentinel scrolls into view.
   function loadMoreSongs(){
