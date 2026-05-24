@@ -4,6 +4,10 @@
 // localStorage. This module just provides the visible UI for debugging.
 
 const LS_KEY = 'karaoke_error_log';
+// Update both places when bumping cache-bust. Surfaced in the bug button
+// label and the state dump so we can confirm at a glance which version of
+// the JS the phone is actually running.
+const VERSION = '20260524e';
 // The 🐞 button is always shown until we close out diagnosing the
 // remaining mobile-only bugs. To hide it later, gate this on a URL param.
 const DEBUG = true;
@@ -39,14 +43,17 @@ function refreshBadge() {
   const btn = document.getElementById('err-bug-btn');
   if (!btn) return;
   const n = readLog().length;
+  // Always show the last char of VERSION so the user can confirm their
+  // phone actually loaded the latest deploy. E.g. "🐞d" on v…d.
+  const vTag = VERSION.slice(-1);
   if (n > 0) {
     btn.style.background = '#c2185b';
     btn.style.boxShadow = '0 0 10px rgba(244,67,108,0.55)';
-    btn.textContent = n > 9 ? '9+' : String(n);
+    btn.textContent = (n > 9 ? '9+' : String(n)) + '·' + vTag;
   } else {
     btn.style.background = 'rgba(0,0,0,0.55)';
     btn.style.boxShadow = 'none';
-    btn.textContent = '🐞';
+    btn.textContent = '🐞' + vTag;
   }
 }
 
@@ -84,7 +91,7 @@ async function showFullLog() {
     const S = sMod.S;
     stateDump = JSON.stringify({
       now: now.toISOString(),
-      cacheBust: '20260524d',  // bump when you redeploy so we know the page is fresh
+      cacheBust: VERSION,
       screen: S.screen,
       theme_name: S.theme_name,
       nowPlayingStageTheme: S.nowPlayingStageTheme,

@@ -1,4 +1,4 @@
-import { S } from './state.js?v=20260524d';
+import { S } from './state.js?v=20260524e';
 
 // Memo: skip the (large) CSS regeneration when the active theme hasn't
 // actually changed since the last call. render() invokes applyTheme on

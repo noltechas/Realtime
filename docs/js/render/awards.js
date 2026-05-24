@@ -1,5 +1,5 @@
-import { S, AWARDS_FALLBACK_SVG, AWARDS_ICON_PAGE_SIZE } from '../state.js?v=20260524d';
-import { esc, avatarHTML } from '../utils.js?v=20260524d';
+import { S, AWARDS_FALLBACK_SVG, AWARDS_ICON_PAGE_SIZE } from '../state.js?v=20260524e';
+import { esc, avatarHTML } from '../utils.js?v=20260524e';
 
 // ============================================================
 //  AWARDS — companion-site implementation

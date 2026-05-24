@@ -5,9 +5,9 @@
 // the now-detached input — so the file never reaches us. Routing every
 // avatar/photo flow through a single input parked in <body> fixes that.
 
-import { S } from './state.js?v=20260524d';
-import { resizeImage } from './utils.js?v=20260524d';
-import { render } from './render/main.js?v=20260524d';
+import { S } from './state.js?v=20260524e';
+import { resizeImage } from './utils.js?v=20260524e';
+import { render } from './render/main.js?v=20260524e';
 
 let _pendingCallback = null;
 let _input = null;

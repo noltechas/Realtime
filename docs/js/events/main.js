@@ -1,13 +1,13 @@
-import { sb, S, caches } from '../state.js?v=20260524d';
-import { filterGifs, restoreMemeSearch, resizeImage } from '../utils.js?v=20260524d';
-import { clearDeviceProfile, saveDeviceProfile } from '../persistence.js?v=20260524d';
-import { initWizardFromTrack, addSinger, removeSinger, setSingerColor, wizardHasAnyChanges, wizardBack, nextWizardStep } from '../wizard.js?v=20260524d';
-import { castVote, sendReaction, joinSession, rejoinAsGuest, updateProfile, runRequestSearch, submitSongRequest, loadAwards, loadGuests, loadQueue } from '../supabase.js?v=20260524d';
-import { render } from '../render/main.js?v=20260524d';
-import { filterCatalog, renderGenreTabs, renderRequest, renderSongCards, songCardHtml, SONGS_BATCH_SIZE } from '../render/songs.js?v=20260524d';
-import { bindAwardsEvents } from './awards.js?v=20260524d';
-import { ensureAwardsManifest } from '../awards-manifest.js?v=20260524d';
-import { pickProfilePhoto } from '../photo-upload.js?v=20260524d';
+import { sb, S, caches } from '../state.js?v=20260524e';
+import { filterGifs, restoreMemeSearch, resizeImage } from '../utils.js?v=20260524e';
+import { clearDeviceProfile, saveDeviceProfile } from '../persistence.js?v=20260524e';
+import { initWizardFromTrack, addSinger, removeSinger, setSingerColor, wizardHasAnyChanges, wizardBack, nextWizardStep } from '../wizard.js?v=20260524e';
+import { castVote, sendReaction, joinSession, rejoinAsGuest, updateProfile, runRequestSearch, submitSongRequest, loadAwards, loadGuests, loadQueue } from '../supabase.js?v=20260524e';
+import { render } from '../render/main.js?v=20260524e';
+import { filterCatalog, renderGenreTabs, renderRequest, renderSongCards, songCardHtml, SONGS_BATCH_SIZE } from '../render/songs.js?v=20260524e';
+import { bindAwardsEvents } from './awards.js?v=20260524e';
+import { ensureAwardsManifest } from '../awards-manifest.js?v=20260524e';
+import { pickProfilePhoto } from '../photo-upload.js?v=20260524e';
 
 // Timer vars — module-local to event handlers.
 var gifSearchTimer=null;
