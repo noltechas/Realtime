@@ -1,4 +1,4 @@
-import { S, caches } from './state.js';
+import { S, caches } from './state.js?v=20260524b';
 
 export function filterGifs(query){
   if(!query)return caches.allGifs;

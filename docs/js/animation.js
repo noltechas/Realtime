@@ -1,4 +1,4 @@
-import { render } from './render/main.js';
+import { render } from './render/main.js?v=20260524b';
 
 export function captureQueueRects(){
   var rects={};

@@ -5,9 +5,9 @@
 // the now-detached input — so the file never reaches us. Routing every
 // avatar/photo flow through a single input parked in <body> fixes that.
 
-import { S } from './state.js';
-import { resizeImage } from './utils.js';
-import { render } from './render/main.js';
+import { S } from './state.js?v=20260524b';
+import { resizeImage } from './utils.js?v=20260524b';
+import { render } from './render/main.js?v=20260524b';
 
 let _pendingCallback = null;
 let _input = null;
@@ -20,7 +20,9 @@ function ensureInput() {
     _input.type = 'file';
     _input.accept = 'image/*';
     _input.id = 'global-photo-input';
-    _input.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0;pointer-events:none;';
+    // No pointer-events:none — iOS Safari can refuse to surface a file
+    // picker for an input that's been declared non-interactive.
+    _input.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0;';
     document.body.appendChild(_input);
   }
   if (!_input._wired) {
@@ -35,8 +37,6 @@ function ensureInput() {
       if (window.__logErr) window.__logErr('global photo-upload: file picked ' + file.name + ' (' + file.type + ', ' + file.size + ' bytes)');
       const cb = _pendingCallback;
       _pendingCallback = null;
-      // Clear so the same file can be re-picked later
-      _input.value = '';
       if (!cb) {
         if (window.__logErr) window.__logErr('global photo-upload: file picked but no pending callback — ignoring');
         return;
@@ -46,6 +46,10 @@ function ensureInput() {
         try { cb(url); } catch (e) {
           if (window.__logErr) window.__logErr('global photo-upload: callback threw ' + (e && e.message || e));
         }
+        // Clear AFTER reading. Some iOS Safari builds invalidate the file
+        // blob the moment you clear input.value, which can race the
+        // FileReader read in resizeImage.
+        try { _input.value = ''; } catch (e) {}
       });
     });
   }

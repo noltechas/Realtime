@@ -1,13 +1,13 @@
-import { sb, S, caches } from '../state.js';
-import { filterGifs, restoreMemeSearch, resizeImage } from '../utils.js';
-import { clearDeviceProfile, saveDeviceProfile } from '../persistence.js';
-import { initWizardFromTrack, addSinger, removeSinger, setSingerColor, wizardHasAnyChanges, wizardBack, nextWizardStep } from '../wizard.js';
-import { castVote, sendReaction, joinSession, rejoinAsGuest, updateProfile, runRequestSearch, submitSongRequest, loadAwards, loadGuests, loadQueue } from '../supabase.js';
-import { render } from '../render/main.js';
-import { filterCatalog, renderGenreTabs, renderRequest, renderSongCards, songCardHtml, SONGS_BATCH_SIZE } from '../render/songs.js';
-import { bindAwardsEvents } from './awards.js';
-import { ensureAwardsManifest } from '../awards-manifest.js';
-import { pickProfilePhoto } from '../photo-upload.js';
+import { sb, S, caches } from '../state.js?v=20260524b';
+import { filterGifs, restoreMemeSearch, resizeImage } from '../utils.js?v=20260524b';
+import { clearDeviceProfile, saveDeviceProfile } from '../persistence.js?v=20260524b';
+import { initWizardFromTrack, addSinger, removeSinger, setSingerColor, wizardHasAnyChanges, wizardBack, nextWizardStep } from '../wizard.js?v=20260524b';
+import { castVote, sendReaction, joinSession, rejoinAsGuest, updateProfile, runRequestSearch, submitSongRequest, loadAwards, loadGuests, loadQueue } from '../supabase.js?v=20260524b';
+import { render } from '../render/main.js?v=20260524b';
+import { filterCatalog, renderGenreTabs, renderRequest, renderSongCards, songCardHtml, SONGS_BATCH_SIZE } from '../render/songs.js?v=20260524b';
+import { bindAwardsEvents } from './awards.js?v=20260524b';
+import { ensureAwardsManifest } from '../awards-manifest.js?v=20260524b';
+import { pickProfilePhoto } from '../photo-upload.js?v=20260524b';
 
 // Timer vars — module-local to event handlers.
 var gifSearchTimer=null;

@@ -1,13 +1,13 @@
-import { S } from '../state.js';
-import { esc } from '../utils.js';
-import { applyTheme } from '../themes.js';
-import { renderJoin, renderRejoin, renderJoining, renderProfile } from './auth.js';
-import { renderSongs, renderRequest } from './songs.js';
-import { renderWizardShell, renderWizardSingers, renderWizardRoles, renderWizardStage, renderWizardFooter, renderSingerPickerOverlay } from './wizard.js';
-import { renderQueue } from './queue.js';
-import { renderStage, renderEmojiPicker, renderTextInput, renderMemePicker, renderYoureUp, renderBN } from './stage.js';
-import { renderAwardsScreen, renderVoteConfirmOverlay, renderRevealOverlay } from './awards.js';
-import { bindEvents } from '../events/main.js';
+import { S } from '../state.js?v=20260524b';
+import { esc } from '../utils.js?v=20260524b';
+import { applyTheme } from '../themes.js?v=20260524b';
+import { renderJoin, renderRejoin, renderJoining, renderProfile } from './auth.js?v=20260524b';
+import { renderSongs, renderRequest } from './songs.js?v=20260524b';
+import { renderWizardShell, renderWizardSingers, renderWizardRoles, renderWizardStage, renderWizardFooter, renderSingerPickerOverlay } from './wizard.js?v=20260524b';
+import { renderQueue } from './queue.js?v=20260524b';
+import { renderStage, renderEmojiPicker, renderTextInput, renderMemePicker, renderYoureUp, renderBN } from './stage.js?v=20260524b';
+import { renderAwardsScreen, renderVoteConfirmOverlay, renderRevealOverlay } from './awards.js?v=20260524b';
+import { bindEvents } from '../events/main.js?v=20260524b';
 
 export function render(){
   var a=document.getElementById("app");
