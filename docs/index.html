@@ -2519,25 +2519,42 @@ body[data-theme="retrowave"] .wiz-color-swatch-check { color: #0a0614 !important
 }
 .awards-icon-grid {
   display: grid;
-  /* 5 columns at 1fr ensures every column fits the available width on
-     phones (no horizontal scroll). min-width:0 on the children stops icon
-     content from pushing columns wider than their cell. */
+  /* 5 equal columns. grid-auto-rows pins every row to the same height as
+     the column width so cells are perfect squares without relying on
+     aspect-ratio in the children (iOS Safari < 14.4 + a few quirks). */
   grid-template-columns: repeat(5, 1fr);
-  gap: 6px;
+  grid-auto-rows: 60px;
+  gap: 8px;
   max-height: 360px; overflow-y: auto; overflow-x: hidden;
   width: 100%;
-  padding: 6px;
-  border-radius: 14px; background: var(--surface-1); border: 1px solid var(--white-ghost);
+  padding: 8px;
+  border-radius: 14px;
+  background: var(--surface-1);
+  border: 1px solid var(--white-ghost);
   scrollbar-width: thin;
   box-sizing: border-box;
 }
 .awards-icon-grid button {
-  aspect-ratio: 1 / 1; padding: 7px; border: 1.5px solid transparent;
-  border-radius: 10px; background: var(--surface-2); cursor: pointer;
-  color: var(--white-muted); display: flex; align-items: center; justify-content: center;
-  transition: border-color 0.12s, color 0.12s, transform 0.12s;
+  /* Each cell fills its grid track exactly — no aspect-ratio, no overflow
+     creep, every icon sits in its own rounded square. */
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+  border: 1.5px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  /* More visible background so cells read as distinct tiles on every theme. */
+  background: rgba(255,255,255,0.07);
+  cursor: pointer;
+  color: var(--white-muted);
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color 0.12s, color 0.12s, transform 0.12s, background 0.12s;
   min-width: 0;
   overflow: hidden;
+}
+[data-theme="neo-brutal"] .awards-icon-grid button,
+[data-theme="sketch"]     .awards-icon-grid button {
+  background: #fff;
+  border-color: rgba(0,0,0,0.12);
 }
 .awards-icon-grid button:hover { color: var(--white); }
 .awards-icon-grid button:active { transform: scale(0.93); }
@@ -2546,8 +2563,11 @@ body[data-theme="retrowave"] .wiz-color-swatch-check { color: #0a0614 !important
   background: rgba(167,139,250,0.14);
   box-shadow: inset 0 0 12px rgba(167,139,250,0.18);
 }
-.awards-icon-grid button svg { width: 100%; height: 100%; fill: currentColor; }
-.awards-icon-grid button .awards-icon-mask { width: 100%; height: 100%; }
+.awards-icon-grid button svg { width: 100%; height: 100%; fill: currentColor; display: block; }
+.awards-icon-grid button .awards-icon-mask {
+  width: 100%; height: 100%;
+  display: block;
+}
 .awards-icon-pager {
   display: flex; justify-content: center; align-items: center; gap: 12px;
   margin-top: 10px;
