@@ -41,30 +41,17 @@ export function awardsPickerThumb(ic){
   if(!url)return AWARDS_FALLBACK_SVG;
   return '<span class="awards-icon-mask" style="width:100%;height:100%;-webkit-mask-image:url('+esc(url)+');mask-image:url('+esc(url)+')"></span>';
 }
-export function awardsIconCategories(){
-  var counts={};
-  var list=window.AWARDS_ICONS||[];
-  for(var i=0;i<list.length;i++){
-    var c=list[i].category||"Misc";
-    counts[c]=(counts[c]||0)+1;
-  }
-  // Sort by descending count, but put Featured first
-  var keys=Object.keys(counts).sort(function(a,b){return counts[b]-counts[a];});
-  // Prepend Featured + All
-  return ["Featured","All"].concat(keys);
-}
-export function awardsFilteredIcons(category,searchQ){
+export function awardsFilteredIcons(searchQ){
   // Use the shuffled view if present (populated on each Create-page visit) so
   // every guest sees a fresh, randomized browse order. Same Schwartzian
   // shuffle pattern used by the song catalog load.
   var list=(S.awardIconShuffled&&S.awardIconShuffled.length)?S.awardIconShuffled:(window.AWARDS_ICONS||[]);
   var q=(searchQ||"").trim().toLowerCase();
+  if(!q)return list.slice();
   var out=[];
   for(var i=0;i<list.length;i++){
     var ic=list[i];
-    if(category==="Featured"&&!ic.featured)continue;
-    if(category!=="All"&&category!=="Featured"&&ic.category!==category)continue;
-    if(q&&ic.label.toLowerCase().indexOf(q)===-1&&ic.id.toLowerCase().indexOf(q)===-1)continue;
+    if(ic.label.toLowerCase().indexOf(q)===-1&&ic.id.toLowerCase().indexOf(q)===-1)continue;
     out.push(ic);
   }
   return out;
@@ -246,11 +233,8 @@ export function renderCandidateAvatarBlock(c){
 export function renderAwardCreateScreen(){
   var draft=S.awardCreateDraft||{title:"",subjectType:"performance",iconId:null,iconDataUrl:null};
   var isEdit=S.awardScreen==="edit"&&!!S.awardEditingId;
-  var categories=awardsIconCategories();
-  var category=S.awardIconCategory||"Featured";
-  if(categories.indexOf(category)===-1)category="Featured";
   var searchQ=S.awardIconSearch||"";
-  var filtered=awardsFilteredIcons(category,searchQ);
+  var filtered=awardsFilteredIcons(searchQ);
   // Infinite-scroll: keep growing `awardIconVisibleCount` as the user scrolls.
   // 0 means "first paint" — show the initial batch. Clamp to filtered length
   // so a stale count from a previous (larger) filter doesn't overshoot.
@@ -277,7 +261,6 @@ export function renderAwardCreateScreen(){
     '</div>'+
 
     '<div class="awards-field">'+
-      '<div class="awards-field-label">What is it for?</div>'+
       '<div class="awards-segmented">'+
         '<button data-subject="performance"'+(draft.subjectType==="performance"?' class="active"':"")+'>A performance</button>'+
         '<button data-subject="singer"'+(draft.subjectType==="singer"?' class="active"':"")+'>A singer</button>'+
@@ -285,8 +268,7 @@ export function renderAwardCreateScreen(){
       '</div>'+
     '</div>'+
 
-    '<div class="awards-field">'+
-      '<div class="awards-field-label">Visual</div>'+
+    '<div class="awards-field awards-field--visual">'+
       '<div class="awards-visual-toggle">'+
         '<button data-visual="icon"'+(usingPhoto?"":' class="active"')+'>Pick an icon</button>'+
         '<span class="awards-or">OR</span>'+
@@ -300,12 +282,6 @@ export function renderAwardCreateScreen(){
     '</label>';
   }else{
     html+='<input class="awards-picker-search" id="awards-search-input" placeholder="Search '+(window.AWARDS_ICONS||[]).length+' icons…" value="'+esc(searchQ)+'">';
-    html+='<div class="awards-icon-categories">';
-    for(var k=0;k<categories.length;k++){
-      html+='<button data-cat="'+esc(categories[k])+'"'+(category===categories[k]?' class="active"':"")+'>'+esc(categories[k])+'</button>';
-    }
-    html+='</div>';
-    html+='<div class="awards-icon-picker-info"><span id="awards-icon-info-count">Showing '+pageIcons.length+' of '+filtered.length+'</span><span>'+filtered.length+' icon'+(filtered.length===1?"":"s")+'</span></div>';
     html+='<div class="awards-icon-grid" id="awards-icon-grid">';
     if(pageIcons.length===0){
       html+='<div style="grid-column:1/-1;padding:24px;text-align:center;color:var(--white-faint);font-size:13px">No icons match. Try a different word.</div>';

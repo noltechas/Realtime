@@ -13,7 +13,7 @@ function loadMoreAwardIcons(){
   var grid=document.getElementById("awards-icon-grid");
   var sentinel=document.getElementById("awards-icon-sentinel");
   if(!grid||!sentinel)return;
-  var filtered=awardsFilteredIcons(S.awardIconCategory||"Featured",S.awardIconSearch||"");
+  var filtered=awardsFilteredIcons(S.awardIconSearch||"");
   var have=S.awardIconVisibleCount||AWARDS_ICON_PAGE_SIZE;
   if(have>=filtered.length){
     sentinel.remove();
@@ -30,9 +30,6 @@ function loadMoreAwardIcons(){
   }
   sentinel.insertAdjacentHTML("beforebegin",html);
   S.awardIconVisibleCount=have+nextBatch.length;
-  // Update the "Showing X of Y" counter without re-rendering the page.
-  var info=document.getElementById("awards-icon-info-count");
-  if(info)info.textContent="Showing "+S.awardIconVisibleCount+" of "+filtered.length;
   if(S.awardIconVisibleCount>=filtered.length){
     sentinel.remove();
     if(awardIconSentinelObserver){awardIconSentinelObserver.disconnect();awardIconSentinelObserver=null;}
@@ -88,7 +85,7 @@ export function bindAwardsEvents(){
         S.awardScreen="create";S.awardEditingId=null;
         S.awardCreateDraft={title:"",subjectType:"performance",iconId:null,iconDataUrl:null,visualMode:"icon"};
       }
-      S.awardIconCategory="Featured";S.awardIconSearch="";S.awardIconVisibleCount=0;
+      S.awardIconSearch="";S.awardIconVisibleCount=0;
       // Make sure the icon catalog is loaded before shuffleAwardIcons runs —
       // it reads window.AWARDS_ICONS. If it isn't here yet (user hasn't been
       // on Awards tab), inject the script now then render once it lands.
@@ -174,17 +171,10 @@ export function bindAwardsEvents(){
       }
     });
   });
-  document.querySelectorAll("[data-cat]").forEach(function(b){
-    b.addEventListener("click",function(){S.awardIconCategory=b.getAttribute("data-cat");S.awardIconVisibleCount=0;render();});
-  });
   var iconSearch=document.getElementById("awards-search-input");
   if(iconSearch){
     iconSearch.addEventListener("input",function(){
       S.awardIconSearch=iconSearch.value;
-      // Searches always span the full library — a query typed while on a
-      // narrower chip like "Featured" should reveal matches from every
-      // category, not silently hide them.
-      if((S.awardIconSearch||"").trim().length>0){S.awardIconCategory="All";}
       S.awardIconVisibleCount=0;
       render();
       var s=document.getElementById("awards-search-input");

@@ -275,7 +275,26 @@
 }
 
 /* Create / edit screen */
-.awards-create-shell { padding: 20px 16px 100px; }
+.awards-create-shell {
+  padding: 20px 16px 24px;
+  /* Size to the viewport above the fixed bottom nav so the Cancel /
+     Create-Award row always sits above the fold. The icon grid below
+     absorbs whatever vertical space remains (see .awards-icon-grid). */
+  display: flex; flex-direction: column;
+  min-height: calc(100dvh - 80px - env(safe-area-inset-bottom));
+  max-height: calc(100dvh - 80px - env(safe-area-inset-bottom));
+}
+/* The "Visual" field wraps the icon/photo toggle, search input, and the
+   icon grid. Make it a flex column that absorbs remaining vertical space
+   so its inner icon grid (also flex: 1) actually has somewhere to grow.
+   Drop the 18px margin-bottom that .awards-field defaults to — the submit
+   row supplies its own top spacing so we don't double up. */
+.awards-field.awards-field--visual {
+  display: flex; flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  margin-bottom: 0;
+}
 .awards-field { margin-bottom: 18px; }
 .awards-field-label {
   font-size: 11px; color: var(--white-faint); font-weight: 700;
@@ -360,7 +379,12 @@
   grid-template-columns: repeat(5, 1fr);
   grid-auto-rows: 60px;
   gap: 8px;
-  max-height: 360px; overflow-y: auto; overflow-x: hidden;
+  /* flex: 1 lets this absorb the leftover vertical space below the form
+     controls; min-height 0 allows it to shrink on tiny screens so the
+     submit row never gets pushed out. Internal scroll handles overflow. */
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto; overflow-x: hidden;
   width: 100%;
   padding: 8px;
   border-radius: 14px;
@@ -423,7 +447,15 @@
 .awards-photo-upload img { width: 96px; height: 96px; border-radius: 12px; object-fit: cover; }
 .awards-photo-upload svg { width: 36px; height: 36px; color: var(--white-muted); fill: currentColor; }
 .awards-photo-upload span { font-size: 12px; color: var(--white-muted); font-weight: 600; }
-.awards-submit-row { display: flex; gap: 10px; margin-top: 20px; }
+.awards-submit-row {
+  display: flex; gap: 10px;
+  /* margin-top:auto pins the row to the bottom of the flex column shell
+     even when there's no icon grid (photo-upload mode). The padding-top
+     matches the shell's padding-bottom so the gap above the buttons mirrors
+     the gap below them (between the buttons and the bottom nav). */
+  margin-top: auto; padding-top: 24px;
+  flex: 0 0 auto;
+}
 .awards-btn {
   flex: 1; padding: 14px; border-radius: 12px; border: 1.5px solid var(--white-faint);
   background: transparent; color: var(--white-muted);
