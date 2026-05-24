@@ -1875,26 +1875,23 @@ body[data-theme="retrowave"] .wiz-color-swatch-check { color: #0a0614 !important
   transition: transform 0.15s, font-weight 0.15s;
   font-family: var(--font-display); font-weight: 600; font-size: 11px;
   position: relative;
-  color: var(--white-muted);
+  /* Inactive tabs use the theme's primary text color at full opacity — same
+     across every tab so the active one is the only one that stands out. */
+  color: var(--white);
 }
-/* Each tab keeps its own accent color always — active state distinguished by
-   a colored pill indicator + heavier weight + slight icon scale-up. */
-.nav-tab[data-nav="songs"]    { color: var(--cyan); }
-.nav-tab[data-nav="stage"]    { color: var(--pink); }
-.nav-tab[data-nav="youreup"]  { color: var(--violet); }
-.nav-tab[data-nav="queue"]    { color: var(--amber); }
-.nav-tab[data-nav="awards"]   { color: var(--emerald); }
-.nav-tab--profile             { color: var(--violet); }
+.nav-tab.active {
+  color: var(--violet);
+  font-weight: 800;
+}
 .nav-tab svg {
   width: 22px; height: 22px;
   transition: transform 0.2s ease-out, filter 0.2s;
 }
-.nav-tab.active { font-weight: 800; }
 .nav-tab.active svg {
   transform: scale(1.12);
   filter: drop-shadow(0 0 8px currentColor);
 }
-/* Indicator pill under the active tab — uses currentColor so it matches the tab's accent */
+/* Indicator pill under the active tab */
 .nav-tab.active::after {
   content: "";
   position: absolute;
@@ -4800,7 +4797,9 @@ function renderAwardCreateScreen(){
   var pageStart=page*pageSize;
   var pageEnd=Math.min(filtered.length,pageStart+pageSize);
   var pageIcons=filtered.slice(pageStart,pageEnd);
-  var usingPhoto=!!draft.iconDataUrl;
+  // visualMode is the source of truth for which UI to show. Fall back to
+  // iconDataUrl presence for backwards-compat with legacy drafts.
+  var usingPhoto=draft.visualMode?draft.visualMode==="photo":!!draft.iconDataUrl;
   var html='<div class="awards-create-shell screen">'+
     '<div class="awards-detail-header">'+
       '<button class="awards-detail-back" id="awards-back-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>'+
@@ -5066,10 +5065,14 @@ function bindAwardsEvents(){
       var existing=null;for(var i=0;i<S.awards.length;i++)if(S.awards[i].created_by_guest_id===S.guestId){existing=S.awards[i];break;}
       if(existing){
         S.awardScreen="edit";S.awardEditingId=existing.id;
-        S.awardCreateDraft={title:existing.title,subjectType:existing.subject_type,iconId:existing.icon_id||null,iconDataUrl:existing.icon_data_url||null};
+        S.awardCreateDraft={
+          title:existing.title,subjectType:existing.subject_type,
+          iconId:existing.icon_id||null,iconDataUrl:existing.icon_data_url||null,
+          visualMode: existing.icon_data_url ? "photo" : "icon"
+        };
       } else {
         S.awardScreen="create";S.awardEditingId=null;
-        S.awardCreateDraft={title:"",subjectType:"performance",iconId:null,iconDataUrl:null};
+        S.awardCreateDraft={title:"",subjectType:"performance",iconId:null,iconDataUrl:null,visualMode:"icon"};
       }
       S.awardIconCategory="Featured";S.awardIconSearch="";S.awardIconPage=0;
       shuffleAwardIcons();
@@ -5140,9 +5143,18 @@ function bindAwardsEvents(){
     b.addEventListener("click",function(){
       if(!S.awardCreateDraft)return;
       var v=b.getAttribute("data-visual");
+      S.awardCreateDraft.visualMode=v;
       if(v==="icon"){S.awardCreateDraft.iconDataUrl=null;if(!S.awardCreateDraft.iconId)S.awardCreateDraft.iconId=(window.AWARDS_ICONS||[])[0]?(window.AWARDS_ICONS[0].id):null;}
       else {S.awardCreateDraft.iconId=null;}
       render();
+      // After the upload area mounts, programmatically open the file picker
+      // so the "Upload a photo" button feels actionable on one click.
+      if(v==="photo"){
+        setTimeout(function(){
+          var pui=document.getElementById("awards-photo-input");
+          if(pui)pui.click();
+        },0);
+      }
     });
   });
   document.querySelectorAll("[data-cat]").forEach(function(b){
