@@ -181,14 +181,18 @@ export function renderSongs(){
     ? '<div class="song-empty" style="grid-column:1/-1;padding:32px 16px;line-height:1.5;">Safe mode — song grid skipped. Use the bottom nav to reach other screens, then remove <code>?safemode</code> from the URL to restore.</div>'
     : renderSongCards(fl);
   return '<div class="screen">'+
-    '<div class="songs-header">'+
-      (S.sessionName?'<div style="font-size:11px;opacity:0.5;letter-spacing:1px;text-transform:uppercase;margin-bottom:2px;">'+esc(S.sessionName)+'</div>':'')+
-      '<div class="songs-title">Songs'+(safe?' (safe mode)':'')+'</div>'+
-      (safe?'':'<div class="search-bar">'+
-        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'+
-        '<input class="search-input" id="search-input" placeholder="Search songs or artists..." value="'+esc(S.searchQuery)+'">'+
+    '<div class="songs-header" id="songs-header">'+
+      '<div class="songs-header-top">'+
+        '<div class="songs-header-top-inner">'+
+          (S.sessionName?'<div style="font-size:11px;opacity:0.5;letter-spacing:1px;text-transform:uppercase;margin-bottom:2px;">'+esc(S.sessionName)+'</div>':'')+
+          '<div class="songs-title">Songs'+(safe?' (safe mode)':'')+'</div>'+
+          (safe?'':'<div class="search-bar">'+
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'+
+            '<input class="search-input" id="search-input" placeholder="Search songs or artists..." value="'+esc(S.searchQuery)+'">'+
+          '</div>')+
+        '</div>'+
       '</div>'+
-      renderGenreTabs())+
+      (safe?'':renderGenreTabs())+
     '</div>'+
     '<div class="song-grid" id="song-grid">'+cards+'</div>'+
   '</div>';

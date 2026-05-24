@@ -168,6 +168,20 @@
   z-index: 10; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
   background: rgba(5,5,8,0.85);
 }
+.songs-header-top {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.28s cubic-bezier(0.22,1,0.36,1), opacity 0.2s ease;
+}
+.songs-header-top-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+.songs-header.is-collapsed .songs-header-top {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  pointer-events: none;
+}
 .songs-title {
   font-family: var(--font-display); font-weight: 700; font-size: 28px;
   letter-spacing: -0.5px; margin-bottom: 14px;

@@ -14,6 +14,56 @@ var requestSearchTimer=null;
 // Holds the most recent infinite-scroll sentinel observer so we can
 // disconnect it before binding a new one on the next render.
 var songsSentinelObserver=null;
+// Songs header auto-hide on scroll: when the user scrolls down past a small
+// threshold the title + search bar collapse so just the genre tabs stay
+// pinned at the top. Scrolling up restores the full header.
+var songsScrollAttached=false;
+var songsScrollTicking=false;
+var lastSongsScrollY=0;
+var songsScrollDelta=0;
+var songsHeaderEl=null;
+function handleSongsScroll(){
+  songsScrollTicking=false;
+  var hdr=document.getElementById("songs-header");
+  if(!hdr){songsHeaderEl=null;return;}
+  var y=window.scrollY||document.documentElement.scrollTop||0;
+  var dy=y-lastSongsScrollY;
+  lastSongsScrollY=y;
+  if(y<24){
+    hdr.classList.remove("is-collapsed");
+    songsScrollDelta=0;
+    return;
+  }
+  // Accumulate delta in the current direction; reset on direction flip so
+  // tiny rubber-band wiggles can't flip the collapsed state.
+  if((dy>0)===(songsScrollDelta>0)){songsScrollDelta+=dy;}
+  else{songsScrollDelta=dy;}
+  if(songsScrollDelta>24){hdr.classList.add("is-collapsed");}
+  else if(songsScrollDelta<-24){hdr.classList.remove("is-collapsed");}
+}
+function onSongsScroll(){
+  if(!songsScrollTicking){
+    songsScrollTicking=true;
+    requestAnimationFrame(handleSongsScroll);
+  }
+}
+function setupSongsScrollListener(){
+  if(!songsScrollAttached){
+    window.addEventListener("scroll",onSongsScroll,{passive:true});
+    songsScrollAttached=true;
+  }
+  var hdr=document.getElementById("songs-header");
+  if(hdr&&hdr!==songsHeaderEl){
+    // Songs page just (re)rendered — reset tracking so we don't carry over
+    // a stale delta from a previous screen's scroll position.
+    songsHeaderEl=hdr;
+    lastSongsScrollY=window.scrollY||document.documentElement.scrollTop||0;
+    songsScrollDelta=0;
+    hdr.classList.remove("is-collapsed");
+  } else if(!hdr){
+    songsHeaderEl=null;
+  }
+}
 
 export function bindEvents(){
   var ni=document.getElementById("name-input"),jb=document.getElementById("join-btn");
@@ -190,6 +240,7 @@ export function bindEvents(){
   });}
   bindGenreTabs();
   bindSongCards();
+  setupSongsScrollListener();
   var wizBack=document.getElementById("wiz-back");
   if(wizBack)wizBack.addEventListener("click",wizardBack);
   var wizCancel=document.getElementById("wiz-cancel");
