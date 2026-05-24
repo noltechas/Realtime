@@ -1,9 +1,70 @@
-import { S } from '../state.js';
-import { resizeImage } from '../utils.js';
+import { S, AWARDS_ICON_PAGE_SIZE } from '../state.js';
+import { resizeImage, esc } from '../utils.js';
 import { render } from '../render/main.js';
-import { shuffleAwardIcons, buildAwardCandidates, awardCandidateBanned, awardOwnVote, matchCandidateByVote } from '../render/awards.js';
+import { shuffleAwardIcons, buildAwardCandidates, awardCandidateBanned, awardOwnVote, matchCandidateByVote, awardsFilteredIcons, awardsPickerThumb } from '../render/awards.js';
 import { ensureAwardsManifest } from '../awards-manifest.js';
 import { castAwardVote, createCustomAward, updateMyAward, deleteMyAward, loadAwards } from '../supabase.js';
+
+// Holds the most recent infinite-scroll sentinel observer for the icon
+// picker, so we can disconnect it before binding a new one on re-render.
+var awardIconSentinelObserver=null;
+function loadMoreAwardIcons(){
+  if(!S.awardCreateDraft)return;
+  var grid=document.getElementById("awards-icon-grid");
+  var sentinel=document.getElementById("awards-icon-sentinel");
+  if(!grid||!sentinel)return;
+  var filtered=awardsFilteredIcons(S.awardIconCategory||"Featured",S.awardIconSearch||"");
+  var have=S.awardIconVisibleCount||AWARDS_ICON_PAGE_SIZE;
+  if(have>=filtered.length){
+    sentinel.remove();
+    if(awardIconSentinelObserver){awardIconSentinelObserver.disconnect();awardIconSentinelObserver=null;}
+    return;
+  }
+  var nextBatch=filtered.slice(have,have+AWARDS_ICON_PAGE_SIZE);
+  if(nextBatch.length===0)return;
+  var draft=S.awardCreateDraft;
+  var html="";
+  for(var i=0;i<nextBatch.length;i++){
+    var ic=nextBatch[i];
+    html+='<button data-icon-id="'+esc(ic.id)+'"'+(draft.iconId===ic.id?' class="active"':"")+' title="'+esc(ic.label)+'">'+awardsPickerThumb(ic)+'</button>';
+  }
+  sentinel.insertAdjacentHTML("beforebegin",html);
+  S.awardIconVisibleCount=have+nextBatch.length;
+  // Update the "Showing X of Y" counter without re-rendering the page.
+  var info=document.getElementById("awards-icon-info-count");
+  if(info)info.textContent="Showing "+S.awardIconVisibleCount+" of "+filtered.length;
+  if(S.awardIconVisibleCount>=filtered.length){
+    sentinel.remove();
+    if(awardIconSentinelObserver){awardIconSentinelObserver.disconnect();awardIconSentinelObserver=null;}
+  }
+}
+function setupAwardIconSentinel(){
+  if(awardIconSentinelObserver){awardIconSentinelObserver.disconnect();awardIconSentinelObserver=null;}
+  var sentinel=document.getElementById("awards-icon-sentinel");
+  if(!sentinel||!("IntersectionObserver" in window))return;
+  awardIconSentinelObserver=new IntersectionObserver(function(entries){
+    for(var i=0;i<entries.length;i++){
+      if(entries[i].isIntersecting){loadMoreAwardIcons();}
+    }
+  },{rootMargin:"400px 0px"});
+  awardIconSentinelObserver.observe(sentinel);
+}
+function bindAwardIconGrid(){
+  // Event delegation so icon buttons appended later by loadMoreAwardIcons()
+  // are covered without re-binding.
+  var grid=document.getElementById("awards-icon-grid");
+  if(grid && !grid.dataset.delegated){
+    grid.dataset.delegated="1";
+    grid.addEventListener("click",function(e){
+      var btn=e.target.closest&&e.target.closest("[data-icon-id]");
+      if(!btn||!grid.contains(btn))return;
+      if(!S.awardCreateDraft)return;
+      S.awardCreateDraft.iconId=btn.getAttribute("data-icon-id");
+      S.awardCreateDraft.iconDataUrl=null;
+      render();
+    });
+  }
+}
 
 export function resolveSubjectFromCandidate(award,c){
   if(award.subject_type==="singer")return {guestId:c.key,queueRowId:null};
@@ -27,7 +88,7 @@ export function bindAwardsEvents(){
         S.awardScreen="create";S.awardEditingId=null;
         S.awardCreateDraft={title:"",subjectType:"performance",iconId:null,iconDataUrl:null,visualMode:"icon"};
       }
-      S.awardIconCategory="Featured";S.awardIconSearch="";S.awardIconPage=0;
+      S.awardIconCategory="Featured";S.awardIconSearch="";S.awardIconVisibleCount=0;
       // Make sure the icon catalog is loaded before shuffleAwardIcons runs —
       // it reads window.AWARDS_ICONS. If it isn't here yet (user hasn't been
       // on Awards tab), inject the script now then render once it lands.
@@ -114,30 +175,24 @@ export function bindAwardsEvents(){
     });
   });
   document.querySelectorAll("[data-cat]").forEach(function(b){
-    b.addEventListener("click",function(){S.awardIconCategory=b.getAttribute("data-cat");S.awardIconPage=0;render();});
+    b.addEventListener("click",function(){S.awardIconCategory=b.getAttribute("data-cat");S.awardIconVisibleCount=0;render();});
   });
   var iconSearch=document.getElementById("awards-search-input");
   if(iconSearch){
     iconSearch.addEventListener("input",function(){
       S.awardIconSearch=iconSearch.value;
-      S.awardIconPage=0;
+      // Searches always span the full library — a query typed while on a
+      // narrower chip like "Featured" should reveal matches from every
+      // category, not silently hide them.
+      if((S.awardIconSearch||"").trim().length>0){S.awardIconCategory="All";}
+      S.awardIconVisibleCount=0;
       render();
       var s=document.getElementById("awards-search-input");
       if(s){s.focus();s.setSelectionRange(s.value.length,s.value.length);}
     });
   }
-  document.querySelectorAll("[data-icon-id]").forEach(function(b){
-    b.addEventListener("click",function(){
-      if(!S.awardCreateDraft)return;
-      S.awardCreateDraft.iconId=b.getAttribute("data-icon-id");
-      S.awardCreateDraft.iconDataUrl=null;
-      render();
-    });
-  });
-  var prevBtn=document.getElementById("awards-page-prev");
-  if(prevBtn)prevBtn.addEventListener("click",function(){S.awardIconPage=Math.max(0,(S.awardIconPage||0)-1);render();});
-  var nextBtn=document.getElementById("awards-page-next");
-  if(nextBtn)nextBtn.addEventListener("click",function(){S.awardIconPage=(S.awardIconPage||0)+1;render();});
+  bindAwardIconGrid();
+  setupAwardIconSentinel();
   // Photo input: the native label > input pairing handles the click for us.
   // Don't add a JS click handler on the label — doing so double-fires the
   // picker on iOS Safari and cancels the first instance, which is why the

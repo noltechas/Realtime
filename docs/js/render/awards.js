@@ -251,13 +251,14 @@ export function renderAwardCreateScreen(){
   if(categories.indexOf(category)===-1)category="Featured";
   var searchQ=S.awardIconSearch||"";
   var filtered=awardsFilteredIcons(category,searchQ);
-  var page=S.awardIconPage||0;
-  var pageSize=AWARDS_ICON_PAGE_SIZE;
-  var pageCount=Math.max(1,Math.ceil(filtered.length/pageSize));
-  if(page>=pageCount)page=pageCount-1;
-  var pageStart=page*pageSize;
-  var pageEnd=Math.min(filtered.length,pageStart+pageSize);
-  var pageIcons=filtered.slice(pageStart,pageEnd);
+  // Infinite-scroll: keep growing `awardIconVisibleCount` as the user scrolls.
+  // 0 means "first paint" — show the initial batch. Clamp to filtered length
+  // so a stale count from a previous (larger) filter doesn't overshoot.
+  var visibleCount=S.awardIconVisibleCount||AWARDS_ICON_PAGE_SIZE;
+  if(visibleCount>filtered.length)visibleCount=filtered.length;
+  if(visibleCount<AWARDS_ICON_PAGE_SIZE)visibleCount=Math.min(AWARDS_ICON_PAGE_SIZE,filtered.length);
+  var pageIcons=filtered.slice(0,visibleCount);
+  var hasMore=visibleCount<filtered.length;
   // visualMode is the source of truth for which UI to show. Fall back to
   // iconDataUrl presence for backwards-compat with legacy drafts.
   var usingPhoto=draft.visualMode?draft.visualMode==="photo":!!draft.iconDataUrl;
@@ -304,8 +305,8 @@ export function renderAwardCreateScreen(){
       html+='<button data-cat="'+esc(categories[k])+'"'+(category===categories[k]?' class="active"':"")+'>'+esc(categories[k])+'</button>';
     }
     html+='</div>';
-    html+='<div class="awards-icon-picker-info"><span>'+filtered.length+' icon'+(filtered.length===1?"":"s")+'</span><span>Page '+(page+1)+' / '+pageCount+'</span></div>';
-    html+='<div class="awards-icon-grid">';
+    html+='<div class="awards-icon-picker-info"><span id="awards-icon-info-count">Showing '+pageIcons.length+' of '+filtered.length+'</span><span>'+filtered.length+' icon'+(filtered.length===1?"":"s")+'</span></div>';
+    html+='<div class="awards-icon-grid" id="awards-icon-grid">';
     if(pageIcons.length===0){
       html+='<div style="grid-column:1/-1;padding:24px;text-align:center;color:var(--white-faint);font-size:13px">No icons match. Try a different word.</div>';
     } else {
@@ -313,15 +314,14 @@ export function renderAwardCreateScreen(){
         var ic=pageIcons[i];
         html+='<button data-icon-id="'+esc(ic.id)+'"'+(draft.iconId===ic.id?' class="active"':"")+' title="'+esc(ic.label)+'">'+awardsPickerThumb(ic)+'</button>';
       }
+      if(hasMore){
+        // Sentinel observed by IntersectionObserver — when it scrolls into
+        // view, the events layer appends the next batch and updates this
+        // element. Removed once we've shown every match.
+        html+='<div id="awards-icon-sentinel" style="grid-column:1/-1;padding:18px 12px;font-size:12px;text-align:center;color:var(--white-faint)">Loading more icons…</div>';
+      }
     }
     html+='</div>';
-    if(pageCount>1){
-      html+='<div class="awards-icon-pager">'+
-        '<button id="awards-page-prev"'+(page<=0?' disabled':"")+'>← Prev</button>'+
-        '<span class="awards-icon-pager-info">'+(pageStart+1)+'–'+pageEnd+' of '+filtered.length+'</span>'+
-        '<button id="awards-page-next"'+(page>=pageCount-1?' disabled':"")+'>Next →</button>'+
-      '</div>';
-    }
   }
   html+='</div>'+
     '<div class="awards-submit-row">';
