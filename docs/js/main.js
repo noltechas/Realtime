@@ -1,4 +1,3 @@
-import './error-logger.js';
 import { S } from './state.js';
 import { loadDeviceProfile } from './persistence.js';
 import { render } from './render/main.js';
