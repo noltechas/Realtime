@@ -21,25 +21,30 @@ export function restoreMemeSearch(){
   if(si){si.value=S.memeSearchQuery||"";si.focus();var len=si.value.length;si.setSelectionRange(len,len);}
 }
 export function resizeImage(file,maxSize,quality,cb){
-  var reader=new FileReader();
-  reader.onload=function(e){
-    var img=new Image();
-    img.onload=function(){
-      try{
-        var c=document.createElement("canvas");
-        c.width=maxSize;c.height=maxSize;
-        var ctx=c.getContext("2d");
-        var sz=Math.min(img.width,img.height);
-        var sx=(img.width-sz)/2,sy=(img.height-sz)/2;
-        ctx.drawImage(img,sx,sy,sz,sz,0,0,maxSize,maxSize);
-        cb(c.toDataURL("image/jpeg",quality));
-      }catch(err){console.error("resizeImage canvas error:",err);cb(null);}
-    };
-    img.onerror=function(){console.error("resizeImage image load failed");cb(null);};
-    img.src=e.target.result;
+  // Skip FileReader/base64. On a 5MB iPhone photo, readAsDataURL takes
+  // 200–500ms because it has to base64-encode the whole file synchronously
+  // before we can even start loading the image. URL.createObjectURL is
+  // O(1) — the browser just hands back a reference to the blob — so the
+  // image starts decoding immediately.
+  var url=URL.createObjectURL(file);
+  var img=new Image();
+  function done(result){
+    try{URL.revokeObjectURL(url);}catch(e){}
+    cb(result);
+  }
+  img.onload=function(){
+    try{
+      var c=document.createElement("canvas");
+      c.width=maxSize;c.height=maxSize;
+      var ctx=c.getContext("2d");
+      var sz=Math.min(img.width,img.height);
+      var sx=(img.width-sz)/2,sy=(img.height-sz)/2;
+      ctx.drawImage(img,sx,sy,sz,sz,0,0,maxSize,maxSize);
+      done(c.toDataURL("image/jpeg",quality));
+    }catch(err){console.error("resizeImage canvas error:",err);done(null);}
   };
-  reader.onerror=function(){console.error("resizeImage FileReader failed");cb(null);};
-  reader.readAsDataURL(file);
+  img.onerror=function(){console.error("resizeImage image load failed");done(null);};
+  img.src=url;
 }
 export function fmtD(ms){var s=Math.floor(ms/1000);return Math.floor(s/60)+":"+String(s%60).padStart(2,"0");}
 export function esc(s){if(!s)return"";var d=document.createElement("div");d.textContent=s;return d.innerHTML;}
