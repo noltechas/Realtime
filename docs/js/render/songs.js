@@ -62,6 +62,12 @@ export function renderRequestCta(){
     '</span>'+
   '</button>';
 }
+// Cap visible cards. iOS Safari was killing the page when this render emitted
+// hundreds of <img>-bearing cards (memory pressure from image-load queueing).
+// User can still search/filter to find specific songs — the filter applies
+// to the full catalog, the cap only limits what's painted.
+var SONGS_RENDER_LIMIT=60;
+
 export function renderSongCards(fl){
   var q=(S.searchQuery||"").toLowerCase();
   var empty="";
@@ -71,7 +77,9 @@ export function renderSongCards(fl){
     else empty='<div class="song-empty">No songs in the catalog yet</div>';
     return empty+renderRequestCta();
   }
-  var cards=fl.map(function(s){
+  var truncated=fl.length>SONGS_RENDER_LIMIT;
+  var visible=truncated?fl.slice(0,SONGS_RENDER_LIMIT):fl;
+  var cards=visible.map(function(s){
     return '<div class="song-card" data-track="'+s.track_id+'">'+
       (s.art_url?'<img src="'+s.art_url+'" alt="" loading="lazy">':'<div class="song-card-placeholder">&#127925;</div>')+
       '<div class="song-card-info">'+
@@ -80,7 +88,10 @@ export function renderSongCards(fl){
         '<div class="song-card-dur">'+fmtD(s.duration_ms)+'</div>'+
       '</div></div>';
   }).join("");
-  return cards+renderRequestCta();
+  var moreNote=truncated
+    ? '<div class="song-empty" style="grid-column:1/-1;padding:20px 12px;font-size:13px;">'+(fl.length-SONGS_RENDER_LIMIT)+' more songs — use the search bar to find them.</div>'
+    : '';
+  return cards+moreNote+renderRequestCta();
 }
 export function renderRequest(){
   var disabled=!S.spotifyToken;
@@ -146,18 +157,29 @@ export function renderRequest(){
     confirm+
   '</div>';
 }
+// Safe mode: append "?safemode" (or "&safemode") to the URL to skip the
+// song-grid render entirely. Lets you reach Queue/Stage/Profile/Awards from
+// the bottom nav while you're stuck in a Songs-render crash loop.
+function isSafeMode(){
+  try{ return new URLSearchParams(window.location.search).has('safemode'); }
+  catch(e){ return false; }
+}
+
 export function renderSongs(){
-  var fl=filterCatalog();
-  var cards=renderSongCards(fl);
+  var safe=isSafeMode();
+  var fl=safe?[]:filterCatalog();
+  var cards=safe
+    ? '<div class="song-empty" style="grid-column:1/-1;padding:32px 16px;line-height:1.5;">Safe mode — song grid skipped. Use the bottom nav to reach other screens, then remove <code>?safemode</code> from the URL to restore.</div>'
+    : renderSongCards(fl);
   return '<div class="screen">'+
     '<div class="songs-header">'+
       (S.sessionName?'<div style="font-size:11px;opacity:0.5;letter-spacing:1px;text-transform:uppercase;margin-bottom:2px;">'+esc(S.sessionName)+'</div>':'')+
-      '<div class="songs-title">Songs</div>'+
-      '<div class="search-bar">'+
+      '<div class="songs-title">Songs'+(safe?' (safe mode)':'')+'</div>'+
+      (safe?'':'<div class="search-bar">'+
         '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'+
         '<input class="search-input" id="search-input" placeholder="Search songs or artists..." value="'+esc(S.searchQuery)+'">'+
       '</div>'+
-      renderGenreTabs()+
+      renderGenreTabs())+
     '</div>'+
     '<div class="song-grid" id="song-grid">'+cards+'</div>'+
   '</div>';
