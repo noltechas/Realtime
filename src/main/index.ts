@@ -23,6 +23,10 @@ import {
 
 const COMPANION_BASE_URL = 'https://noltechas.github.io/Realtime'
 
+// Resolves to {projectRoot}/build/icon.png in dev (out/main/index.js → ../../build/icon.png)
+// and lines up with electron-builder's default icon lookup for future packaging.
+const APP_ICON_PATH = join(__dirname, '../../build/icon.png')
+
 let mainWindow: BrowserWindow | null = null
 let stageWindow: BrowserWindow | null = null
 
@@ -38,6 +42,7 @@ function createWindow(): void {
         vibrancy: 'under-window',
         visualEffectState: 'active',
         backgroundColor: '#0a0a1a',
+        icon: APP_ICON_PATH,
         webPreferences: {
             preload: join(__dirname, '../preload/index.js'),
             sandbox: false,
@@ -120,6 +125,7 @@ function createStageWindow(): BrowserWindow {
         fullscreen: false,
         fullscreenable: true,
         backgroundColor: '#050508',
+        icon: APP_ICON_PATH,
         webPreferences: {
             preload: join(__dirname, '../preload/index.js'),
             sandbox: false,
@@ -807,6 +813,13 @@ ipcMain.handle('audio:get-system-volume', async () => {
 // ----- App Lifecycle -----
 app.whenReady().then(() => {
     electronApp.setAppUserModelId('com.realtime-karaoke')
+
+    // BrowserWindow.icon is a no-op on macOS — the dock uses the bundle icon
+    // (or whatever app.dock.setIcon overrides it with). Set it explicitly so
+    // dev runs show our icon instead of the default Electron diamond.
+    if (process.platform === 'darwin' && app.dock) {
+        try { app.dock.setIcon(APP_ICON_PATH) } catch { /* icon optional */ }
+    }
 
     app.on('browser-window-created', (_, window) => {
         optimizer.watchWindowShortcuts(window)
