@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { createClient, RealtimeChannel } from '@supabase/supabase-js'
 import { useApp, NEON_COLORS } from '../context/AppContext'
+import { AdminAwardsTab } from '../awards/AdminAwardsTab'
 import { useTheme } from '../context/ThemeContext'
 import { VoiceEffects, DEFAULT_VOICE_EFFECTS, normalizeMicLevel } from '../audio/VoiceEffectsTypes'
 import { VoiceEffectsEngine } from '../audio/VoiceEffectsEngine'
@@ -131,7 +132,7 @@ export default function AdminPage() {
     const [presetImages, setPresetImages] = useState<Record<string, string>>({})
     const [presetImageErrors, setPresetImageErrors] = useState<Set<string>>(new Set())
 
-    const [adminTab, setAdminTab] = useState<'songs' | 'guests' | 'requests'>('songs')
+    const [adminTab, setAdminTab] = useState<'songs' | 'guests' | 'requests' | 'awards'>('songs')
     const [guests, setGuests] = useState<AdminGuest[]>([])
     const [songRequests, setSongRequests] = useState<SongRequest[]>([])
     const requestChannelRef = useRef<RealtimeChannel | null>(null)
@@ -1293,6 +1294,7 @@ export default function AdminPage() {
                     {adminTab === 'songs' && 'Add songs, sculpt effects rack, and manage the catalog'}
                     {adminTab === 'guests' && 'View and manage guests in the current session'}
                     {adminTab === 'requests' && 'Songs guests are asking you to add to the library'}
+                    {adminTab === 'awards' && 'Review live vote tallies and reveal winners on the stage'}
                 </p>
             </div>
 
@@ -1338,13 +1340,15 @@ export default function AdminPage() {
             </div>
 
             {/* Tab pills */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
-                {(['songs', 'guests', 'requests'] as const).map(tab => {
+            <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
+                {(['songs', 'guests', 'requests', 'awards'] as const).map(tab => {
                     const label = tab === 'songs'
                         ? 'Songs'
                         : tab === 'guests'
                             ? `Guests${guests.length ? ` (${guests.length})` : ''}`
-                            : `Requests${pendingRequestCount ? ` (${pendingRequestCount})` : ''}`
+                            : tab === 'requests'
+                                ? `Requests${pendingRequestCount ? ` (${pendingRequestCount})` : ''}`
+                                : `Awards${state.awards.length ? ` (${state.awards.length})` : ''}`
                     return (
                         <button
                             key={tab}
@@ -2572,6 +2576,8 @@ export default function AdminPage() {
                     )}
                 </div>
             )}
+
+            {adminTab === 'awards' && <AdminAwardsTab />}
 
             {/* ── Voice Audition Booth ── */}
             <div style={{ marginTop: 32, ...theme.card, border: theme.border, padding: '16px 20px' }}>

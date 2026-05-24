@@ -99,7 +99,12 @@ export function sortQueueByScore(queue: QueueItem[]): QueueItem[] {
     })
 }
 
-export type StageMode = 'idle' | 'ready' | 'playing'
+export type StageMode = 'idle' | 'ready' | 'playing' | 'awards'
+
+// Awards types re-exported from awards/types so AppState references don't pull
+// the whole awards subsystem in.
+import type { Award, AwardResult, RevealStep } from '../awards/types'
+export type { Award, AwardResult, RevealStep }
 
 export interface AppState {
     // Auth
@@ -155,6 +160,10 @@ export interface AppState {
     themeName: string
     remotePlayCommand: 'play' | 'pause' | null
     remoteSkipCommand: boolean
+    // Awards
+    awards: Award[]
+    awardResults: AwardResult[]
+    awardsRevealStep: RevealStep | null
 }
 
 export const NEON_COLORS = [
@@ -229,7 +238,10 @@ const initialState: AppState = {
     karaokeQrDataUrl: null,
     themeName: 'neo-brutal',
     remotePlayCommand: null,
-    remoteSkipCommand: false
+    remoteSkipCommand: false,
+    awards: [],
+    awardResults: [],
+    awardsRevealStep: null
 }
 
 // ---- Actions ----
@@ -278,6 +290,11 @@ type Action =
     | { type: 'SET_THEME_NAME'; payload: string }
     | { type: 'SET_REMOTE_PLAY_COMMAND'; payload: 'play' | 'pause' | null }
     | { type: 'SET_REMOTE_SKIP_COMMAND'; payload: boolean }
+    | { type: 'SET_AWARDS'; payload: Award[] }
+    | { type: 'UPSERT_AWARD'; payload: Award }
+    | { type: 'REMOVE_AWARD'; payload: string }
+    | { type: 'SET_AWARD_RESULTS'; payload: AwardResult[] }
+    | { type: 'SET_REVEAL_STEP'; payload: RevealStep | null }
 
 // Helper: extract mic assignments from current nowPlaying into micSlots
 function saveMicSlots(state: AppState): MicSlotConfig[] {
@@ -636,6 +653,26 @@ function reducer(state: AppState, action: Action): AppState {
             return { ...state, remotePlayCommand: action.payload }
         case 'SET_REMOTE_SKIP_COMMAND':
             return { ...state, remoteSkipCommand: action.payload }
+        case 'SET_AWARDS':
+            return { ...state, awards: action.payload }
+        case 'UPSERT_AWARD': {
+            const exists = state.awards.some(a => a.id === action.payload.id)
+            const awards = exists
+                ? state.awards.map(a => a.id === action.payload.id ? action.payload : a)
+                : [...state.awards, action.payload]
+            return { ...state, awards }
+        }
+        case 'REMOVE_AWARD':
+            return { ...state, awards: state.awards.filter(a => a.id !== action.payload) }
+        case 'SET_AWARD_RESULTS':
+            return { ...state, awardResults: action.payload }
+        case 'SET_REVEAL_STEP': {
+            const step = action.payload
+            const stageMode: StageMode = step && step.phase !== 'done' && step.phase !== 'idle'
+                ? 'awards'
+                : (state.stageMode === 'awards' ? 'idle' : state.stageMode)
+            return { ...state, awardsRevealStep: step, stageMode }
+        }
         default:
             return state
     }

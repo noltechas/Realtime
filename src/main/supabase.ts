@@ -387,10 +387,299 @@ export async function closeSession(sessionId: string): Promise<void> {
 }
 
 export async function deleteSession(sessionId: string): Promise<void> {
-    // Delete dependents first (queue, guests, catalog), then session
+    // Delete dependents first (queue, guests, catalog), then session.
+    // karaoke_award_results retains a denormalized snapshot — it does NOT
+    // cascade-delete with the session so the audit trail survives. Award
+    // and award-vote rows reference guests/queue which DO get deleted, so
+    // we clear them explicitly here to avoid dangling FKs on those tables.
+    const { data: sessionAwards } = await supabase
+        .from('karaoke_awards')
+        .select('id')
+        .eq('session_id', sessionId)
+    const awardIds = (sessionAwards || []).map((a: any) => a.id)
+    if (awardIds.length) {
+        await supabase.from('karaoke_award_votes').delete().in('award_id', awardIds)
+    }
+    await supabase.from('karaoke_awards').delete().eq('session_id', sessionId)
     await supabase.from('karaoke_queue').delete().eq('session_id', sessionId)
     await supabase.from('karaoke_guests').delete().eq('session_id', sessionId)
     await supabase.from('karaoke_catalog').delete().eq('session_id', sessionId)
     const { error } = await supabase.from('karaoke_sessions').delete().eq('id', sessionId)
     if (error) console.error('Failed to delete session:', error.message)
+}
+
+// ============================================================================
+// Awards
+// ============================================================================
+
+export interface AwardRow {
+    id: string
+    sessionId: string
+    slug: string | null
+    title: string
+    subjectType: 'performance' | 'singer' | 'group'
+    iconId: string | null
+    iconDataUrl: string | null
+    isDefault: boolean
+    createdByGuestId: string | null
+    finalizedAt: string | null
+    createdAt: string
+    updatedAt: string
+}
+
+export interface AwardVoteRow {
+    id: string
+    awardId: string
+    voterGuestId: string
+    subjectQueueRowId: string | null
+    subjectGuestId: string | null
+    createdAt: string
+    updatedAt: string
+}
+
+function mapAward(r: any): AwardRow {
+    return {
+        id: r.id,
+        sessionId: r.session_id,
+        slug: r.slug,
+        title: r.title,
+        subjectType: r.subject_type,
+        iconId: r.icon_id,
+        iconDataUrl: r.icon_data_url,
+        isDefault: !!r.is_default,
+        createdByGuestId: r.created_by_guest_id,
+        finalizedAt: r.finalized_at,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at
+    }
+}
+
+function mapVote(r: any): AwardVoteRow {
+    return {
+        id: r.id,
+        awardId: r.award_id,
+        voterGuestId: r.voter_guest_id,
+        subjectQueueRowId: r.subject_queue_row_id,
+        subjectGuestId: r.subject_guest_id,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at
+    }
+}
+
+// Stable seed list (must match DEFAULT_AWARD_ICONS keys in icons/manifest.ts).
+const DEFAULT_AWARD_SEEDS: Array<{
+    slug: string
+    title: string
+    subject_type: 'performance' | 'singer' | 'group'
+    icon_id: string
+}> = [
+    { slug: 'best-performance', title: 'Best Performance', subject_type: 'performance', icon_id: 'game-icons__trophy-cup' },
+    { slug: 'singer-of-the-night', title: 'Singer of the Night', subject_type: 'singer', icon_id: 'game-icons__microphone' },
+    { slug: 'best-duo-group', title: 'Best Duo / Group', subject_type: 'group', icon_id: 'game-icons__high-five' }
+]
+
+export async function ensureDefaultAwards(sessionId: string): Promise<void> {
+    // Idempotent — relies on uniq_karaoke_award_default_slug index.
+    const { data: existing } = await supabase
+        .from('karaoke_awards')
+        .select('slug')
+        .eq('session_id', sessionId)
+        .eq('is_default', true)
+    const have = new Set((existing || []).map((r: any) => r.slug))
+    const toInsert = DEFAULT_AWARD_SEEDS.filter(s => !have.has(s.slug)).map(s => ({
+        session_id: sessionId,
+        slug: s.slug,
+        title: s.title,
+        subject_type: s.subject_type,
+        icon_id: s.icon_id,
+        is_default: true
+    }))
+    if (toInsert.length === 0) return
+    const { error } = await supabase.from('karaoke_awards').insert(toInsert)
+    if (error) console.error('Failed to seed default awards:', error.message)
+}
+
+export async function listAwards(sessionId: string): Promise<AwardRow[]> {
+    const { data, error } = await supabase
+        .from('karaoke_awards')
+        .select('*')
+        .eq('session_id', sessionId)
+        .order('is_default', { ascending: false })
+        .order('created_at', { ascending: true })
+    if (error) {
+        console.error('Failed to list awards:', error.message)
+        return []
+    }
+    return (data || []).map(mapAward)
+}
+
+export async function listAwardVotes(sessionId: string): Promise<AwardVoteRow[]> {
+    // Fetch all votes for a session by joining through awards.
+    const { data: awards } = await supabase
+        .from('karaoke_awards')
+        .select('id')
+        .eq('session_id', sessionId)
+    const ids = (awards || []).map((a: any) => a.id)
+    if (ids.length === 0) return []
+    const { data, error } = await supabase
+        .from('karaoke_award_votes')
+        .select('*')
+        .in('award_id', ids)
+    if (error) {
+        console.error('Failed to list award votes:', error.message)
+        return []
+    }
+    return (data || []).map(mapVote)
+}
+
+export interface CreateCustomAwardInput {
+    sessionId: string
+    title: string
+    subjectType: 'performance' | 'singer' | 'group'
+    iconId: string | null
+    iconDataUrl: string | null
+    createdByGuestId: string
+}
+
+export async function createCustomAward(input: CreateCustomAwardInput): Promise<{ id?: string; error?: string }> {
+    const row: any = {
+        session_id: input.sessionId,
+        slug: null,
+        title: input.title,
+        subject_type: input.subjectType,
+        icon_id: input.iconId,
+        icon_data_url: input.iconDataUrl,
+        is_default: false,
+        created_by_guest_id: input.createdByGuestId
+    }
+    const { data, error } = await supabase
+        .from('karaoke_awards')
+        .insert(row)
+        .select('id')
+        .single()
+    if (error) return { error: error.message }
+    return { id: data.id }
+}
+
+export async function updateAward(awardId: string, fields: { title?: string; iconId?: string | null; iconDataUrl?: string | null }): Promise<{ error?: string }> {
+    const upd: any = { updated_at: new Date().toISOString() }
+    if (fields.title !== undefined) upd.title = fields.title
+    if (fields.iconId !== undefined) upd.icon_id = fields.iconId
+    if (fields.iconDataUrl !== undefined) upd.icon_data_url = fields.iconDataUrl
+    const { error } = await supabase.from('karaoke_awards').update(upd).eq('id', awardId)
+    return error ? { error: error.message } : {}
+}
+
+export async function deleteAward(awardId: string): Promise<{ error?: string }> {
+    // Delete any votes first (FK is non-cascading).
+    await supabase.from('karaoke_award_votes').delete().eq('award_id', awardId)
+    const { error } = await supabase.from('karaoke_awards').delete().eq('id', awardId)
+    return error ? { error: error.message } : {}
+}
+
+export interface CastVoteInput {
+    awardId: string
+    voterGuestId: string
+    subjectQueueRowId: string | null
+    subjectGuestId: string | null
+}
+
+export async function castAwardVote(input: CastVoteInput): Promise<{ error?: string }> {
+    // Upsert on (award_id, voter_guest_id) unique constraint.
+    const row: any = {
+        award_id: input.awardId,
+        voter_guest_id: input.voterGuestId,
+        subject_queue_row_id: input.subjectQueueRowId,
+        subject_guest_id: input.subjectGuestId,
+        updated_at: new Date().toISOString()
+    }
+    const { error } = await supabase
+        .from('karaoke_award_votes')
+        .upsert(row, { onConflict: 'award_id,voter_guest_id' })
+    return error ? { error: error.message } : {}
+}
+
+export async function clearAwardVote(awardId: string, voterGuestId: string): Promise<void> {
+    const { error } = await supabase
+        .from('karaoke_award_votes')
+        .delete()
+        .eq('award_id', awardId)
+        .eq('voter_guest_id', voterGuestId)
+    if (error) console.error('Failed to clear vote:', error.message)
+}
+
+export interface PersistedAwardResult {
+    awardId: string
+    sessionId: string
+    sessionCode: string
+    rank: number
+    winnerLabel: string
+    winnerSubtitle: string | null
+    winnerAvatarUrl: string | null
+    winnerMeta: Record<string, unknown> | null
+    voteCount: number
+}
+
+export async function persistAwardResults(results: PersistedAwardResult[]): Promise<void> {
+    if (results.length === 0) return
+    const awardIds = Array.from(new Set(results.map(r => r.awardId)))
+    await supabase.from('karaoke_award_results').delete().in('award_id', awardIds)
+    const rows = results.map(r => ({
+        award_id: r.awardId,
+        session_id: r.sessionId,
+        session_code: r.sessionCode,
+        rank: r.rank,
+        winner_label: r.winnerLabel,
+        winner_subtitle: r.winnerSubtitle,
+        winner_avatar_url: r.winnerAvatarUrl,
+        winner_meta: r.winnerMeta,
+        vote_count: r.voteCount
+    }))
+    const { error } = await supabase.from('karaoke_award_results').insert(rows)
+    if (error) console.error('Failed to persist award results:', error.message)
+
+    // Mark awards as finalized so voting locks
+    const finalizedAt = new Date().toISOString()
+    await supabase
+        .from('karaoke_awards')
+        .update({ finalized_at: finalizedAt, updated_at: finalizedAt })
+        .in('id', awardIds)
+}
+
+// Clear finalized state and winner snapshot — used when admin wants to
+// reopen voting for an award (or for the whole session).
+export async function unfinalizeAwards(awardIds: string[]): Promise<void> {
+    if (awardIds.length === 0) return
+    await supabase.from('karaoke_award_results').delete().in('award_id', awardIds)
+    await supabase
+        .from('karaoke_awards')
+        .update({ finalized_at: null, updated_at: new Date().toISOString() })
+        .in('id', awardIds)
+}
+
+export async function listAwardResults(sessionId: string): Promise<any[]> {
+    const { data, error } = await supabase
+        .from('karaoke_award_results')
+        .select('*')
+        .eq('session_id', sessionId)
+        .order('award_id', { ascending: true })
+        .order('rank', { ascending: true })
+    if (error) {
+        console.error('Failed to list award results:', error.message)
+        return []
+    }
+    return data || []
+}
+
+// Broadcast the reveal step on the per-session awards channel. Returns the
+// channel so the caller can keep a reference if needed.
+export async function broadcastRevealStep(sessionId: string, step: unknown): Promise<void> {
+    const ch = supabase.channel('ar-' + sessionId)
+    await new Promise<void>((resolve) => {
+        ch.subscribe(status => {
+            if (status === 'SUBSCRIBED') resolve()
+        })
+    })
+    await ch.send({ type: 'broadcast', event: 'reveal-step', payload: { step } })
+    // Channel left open; supabase reuses sockets.
 }

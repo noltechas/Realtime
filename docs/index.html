@@ -10,6 +10,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&family=Patrick+Hand&family=Kalam:wght@700&family=Oswald:wght@400;500;600;700&family=Share+Tech+Mono&family=Permanent+Marker&family=Quicksand:wght@400;500;600;700&family=Nunito:wght@400;500;600;700&family=Chicle&family=Spicy+Rice&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Orbitron:wght@400;500;600;700;800;900&family=Exo+2:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400;500;600;700&family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Audiowide&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="awards-icons/awards-reveal.css">
+<script src="awards-icons/manifest.js"></script>
 <style>
 :root {
   --black: #050508;
@@ -2113,12 +2115,452 @@ body[data-theme="retrowave"] .wiz-color-swatch-check { color: #0a0614 !important
   from { opacity: 1; transform: translateY(0); }
   to { opacity: 0; transform: translateY(-100%); }
 }
+
+/* ============================================================
+   AWARDS — companion-site screens
+   ============================================================ */
+/* Defensive: bottom nav lives outside #app, so nothing inside can break
+   its position. But pin it explicitly anyway as belt-and-suspenders. */
+#bn-mount .bottom-nav, #overlay-mount > .awards-reveal-companion {
+  position: fixed !important;
+}
+
+.awards-screen {
+  padding: 28px 16px calc(110px + env(safe-area-inset-bottom, 0px));
+}
+.awards-screen-header {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 12px; margin-bottom: 20px;
+}
+.awards-screen-header-text { flex: 1; min-width: 0; }
+.awards-title {
+  font-family: var(--font-display); font-weight: 800;
+  font-size: 30px; letter-spacing: -0.8px; line-height: 1; margin-bottom: 6px;
+  background: var(--grad-text); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.awards-sub { font-size: 13px; color: var(--white-muted); line-height: 1.4; }
+.awards-create-cta {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  width: 100%; padding: 16px 18px; margin-bottom: 22px;
+  border-radius: 16px;
+  border: 1.5px dashed var(--white-faint);
+  background:
+    linear-gradient(135deg, rgba(167,139,250,0.04), rgba(244,114,182,0.04));
+  color: var(--white-muted);
+  font-family: var(--font-display); font-weight: 700; font-size: 14px;
+  cursor: pointer; letter-spacing: 0.3px;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.15s;
+}
+.awards-create-cta:active { background: var(--surface-2); border-color: var(--violet); color: var(--white); transform: scale(0.99); }
+.awards-create-cta--owned {
+  border-style: solid;
+  border-color: var(--violet);
+  color: var(--violet);
+  background:
+    linear-gradient(135deg, rgba(167,139,250,0.15), rgba(244,114,182,0.08));
+}
+
+/* Award medallion card — feels physical: glass surface, glint, gradient pedestal */
+.awards-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.awards-card {
+  position: relative;
+  display: flex; flex-direction: column;
+  align-items: center; text-align: center;
+  padding: 26px 14px 18px;
+  min-height: 184px;
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.01)),
+    var(--surface-1);
+  border: 1px solid rgba(255,255,255,0.08);
+  cursor: pointer; overflow: hidden;
+  isolation: isolate;
+  transition: transform 0.18s ease-out, border-color 0.2s, box-shadow 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+/* Top spotlight glow — directs the eye to the icon */
+.awards-card::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 50%; transform: translateX(-50%);
+  width: 75%; height: 70%;
+  background: radial-gradient(ellipse at top, rgba(167,139,250,0.20), transparent 65%);
+  pointer-events: none;
+  z-index: -1;
+}
+/* Subtle gold edge ribbon at top */
+.awards-card::after {
+  content: "";
+  position: absolute;
+  top: 0; left: 12%; right: 12%;
+  height: 1.5px;
+  background: linear-gradient(90deg, transparent, rgba(253,230,138,0.5), transparent);
+  pointer-events: none;
+}
+.awards-card:active { transform: scale(0.97); }
+.awards-card--voted {
+  border-color: rgba(167,139,250,0.5);
+  background:
+    linear-gradient(180deg, rgba(167,139,250,0.10), rgba(244,114,182,0.04)),
+    var(--surface-1);
+  box-shadow: 0 0 24px rgba(167,139,250,0.15), inset 0 1px 0 rgba(255,255,255,0.06);
+}
+.awards-card--voted::before {
+  background: radial-gradient(ellipse at top, rgba(167,139,250,0.32), transparent 65%);
+}
+.awards-card--voted::after {
+  background: linear-gradient(90deg, transparent, var(--violet), transparent);
+  height: 2px;
+}
+.awards-card--finalized { opacity: 0.85; }
+.awards-card__icon {
+  position: relative;
+  width: 68px; height: 68px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255,255,255,0.25), rgba(255,255,255,0.02) 55%),
+    linear-gradient(140deg, rgba(167,139,250,0.32) 0%, rgba(244,114,182,0.22) 100%);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--violet);
+  box-shadow:
+    0 6px 18px rgba(167,139,250,0.25),
+    inset 0 1px 0 rgba(255,255,255,0.25),
+    inset 0 -10px 14px rgba(0,0,0,0.18);
+  margin-bottom: 16px;
+}
+.awards-card__icon::before { /* glint */
+  content: "";
+  position: absolute;
+  top: 6px; left: 12px;
+  width: 22px; height: 10px;
+  background: rgba(255,255,255,0.55);
+  border-radius: 50%;
+  filter: blur(3px);
+  pointer-events: none;
+}
+.awards-card--voted .awards-card__icon {
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255,255,255,0.32), rgba(255,255,255,0.05) 55%),
+    linear-gradient(140deg, var(--violet) 0%, var(--pink) 100%);
+  color: #fff;
+  box-shadow:
+    0 8px 26px rgba(167,139,250,0.45),
+    inset 0 1px 0 rgba(255,255,255,0.35),
+    inset 0 -10px 14px rgba(0,0,0,0.2);
+}
+.awards-card__icon-shape {
+  display: block;
+  width: 40px; height: 40px;
+}
+.awards-card__icon-shape svg { width: 100%; height: 100%; fill: currentColor; }
+.awards-card__icon img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+/* Mask-rendered icons (non-featured): color-themable, lazy-loaded SVG file */
+.awards-icon-mask {
+  display: inline-block;
+  background: currentColor;
+  -webkit-mask-size: contain;
+          mask-size: contain;
+  -webkit-mask-position: center;
+          mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+}
+
+.awards-card__title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--white);
+  line-height: 1.2;
+  letter-spacing: -0.2px;
+  padding: 0 4px;
+}
+.awards-card__sub {
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--white-muted);
+  text-transform: uppercase;
+  letter-spacing: 1.8px;
+  font-weight: 700;
+}
+.awards-card__voted-badge, .awards-card__finalized-badge {
+  position: absolute;
+  top: 10px; right: 10px;
+  font-size: 9px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  letter-spacing: 1.2px;
+  font-weight: 800;
+  text-transform: uppercase;
+  z-index: 2;
+}
+.awards-card__voted-badge {
+  color: #fff;
+  background: linear-gradient(135deg, var(--violet), var(--pink));
+  box-shadow: 0 2px 12px rgba(167,139,250,0.4);
+}
+.awards-card__finalized-badge {
+  color: #1A1A1A;
+  background: linear-gradient(135deg, #fde68a, var(--amber));
+}
+
+/* Detail screen */
+.awards-detail-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 18px; }
+.awards-detail-back {
+  width: 36px; height: 36px; border-radius: 12px;
+  background: var(--surface-1); border: 1px solid var(--white-ghost);
+  display: flex; align-items: center; justify-content: center; color: var(--white-muted);
+  cursor: pointer; flex-shrink: 0;
+}
+.awards-detail-back svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; }
+.awards-detail-icon {
+  width: 56px; height: 56px; border-radius: 14px;
+  background: var(--surface-2); color: var(--violet);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.awards-detail-icon svg { width: 36px; height: 36px; fill: currentColor; }
+.awards-detail-icon img { width: 100%; height: 100%; object-fit: cover; border-radius: 14px; }
+.awards-detail-info { flex: 1; min-width: 0; }
+.awards-detail-info h2 {
+  font-family: var(--font-display); font-weight: 700; font-size: 22px; color: var(--white);
+  margin-bottom: 4px; line-height: 1.15; letter-spacing: -0.3px;
+}
+.awards-detail-info p { font-size: 12px; color: var(--white-muted); }
+.awards-section-label {
+  font-size: 11px; color: var(--white-faint); font-weight: 700;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  margin: 18px 0 10px;
+}
+.awards-your-vote-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px; border-radius: 14px;
+  background: linear-gradient(135deg, rgba(167,139,250,0.18), rgba(244,114,182,0.18));
+  border: 1.5px solid var(--violet);
+}
+.awards-candidate {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px; border-radius: 12px;
+  background: var(--surface-1); border: 1px solid var(--white-ghost);
+  margin-bottom: 8px; cursor: pointer;
+  transition: transform 0.15s, background 0.15s;
+}
+.awards-candidate:active { transform: scale(0.98); background: var(--surface-2); }
+.awards-candidate--disabled { opacity: 0.5; cursor: not-allowed; }
+.awards-candidate--disabled:active { transform: none; background: var(--surface-1); }
+.awards-candidate__avatar {
+  width: 44px; height: 44px; border-radius: 50%; overflow: hidden;
+  background: var(--grad-hero); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-weight: 800; color: #fff;
+}
+.awards-candidate__avatar img { width: 100%; height: 100%; object-fit: cover; }
+.awards-candidate__info { flex: 1; min-width: 0; }
+.awards-candidate__label {
+  font-family: var(--font-display); font-weight: 700; font-size: 14px; color: var(--white);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.awards-candidate__sub { font-size: 12px; color: var(--white-muted); margin-top: 2px; }
+.awards-candidate__hint { font-size: 11px; color: var(--white-faint); }
+.awards-empty-state {
+  padding: 32px 16px; text-align: center; color: var(--white-muted);
+  background: var(--surface-1); border: 1px solid var(--white-ghost); border-radius: 14px;
+  font-size: 14px;
+}
+
+/* Create / edit screen */
+.awards-create-shell { padding: 20px 16px 100px; }
+.awards-field { margin-bottom: 18px; }
+.awards-field-label {
+  font-size: 11px; color: var(--white-faint); font-weight: 700;
+  letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px;
+}
+.awards-text-input {
+  width: 100%; padding: 12px 14px; border: 1.5px solid var(--white-faint);
+  border-radius: 12px; background: var(--surface-1); color: var(--white);
+  font-family: var(--font-body); font-size: 15px; outline: none;
+}
+.awards-text-input:focus { border-color: var(--violet); }
+.awards-segmented {
+  display: flex; padding: 4px;
+  background: var(--surface-1); border: 1px solid var(--white-ghost);
+  border-radius: 12px;
+}
+.awards-segmented button {
+  flex: 1; padding: 10px 8px; border: none; background: transparent;
+  font-family: var(--font-display); font-weight: 600; font-size: 12px;
+  color: var(--white-muted); border-radius: 8px; cursor: pointer;
+}
+.awards-segmented button.active { background: var(--violet); color: #fff; }
+.awards-visual-toggle {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.awards-visual-toggle button {
+  padding: 12px; border-radius: 12px;
+  background: var(--surface-1); border: 1.5px solid var(--white-ghost);
+  color: var(--white-muted); font-family: var(--font-display); font-weight: 700; font-size: 13px;
+  cursor: pointer; letter-spacing: 0.3px;
+  transition: border-color 0.15s, color 0.15s, background 0.15s, transform 0.15s;
+}
+.awards-visual-toggle button:active { transform: scale(0.97); }
+.awards-visual-toggle button.active {
+  color: var(--violet);
+  border-color: var(--violet);
+  background: rgba(167,139,250,0.08);
+  box-shadow: 0 0 0 3px rgba(167,139,250,0.10);
+}
+/* The OR separator */
+.awards-visual-toggle .awards-or {
+  font-family: var(--font-display); font-weight: 800; font-size: 11px;
+  letter-spacing: 2px; color: var(--white-faint);
+  position: relative;
+  padding: 0 6px;
+}
+.awards-visual-toggle .awards-or::before,
+.awards-visual-toggle .awards-or::after {
+  content: "";
+  position: absolute; top: 50%;
+  width: 14px; height: 1px;
+  background: var(--white-ghost);
+}
+.awards-visual-toggle .awards-or::before { right: 100%; }
+.awards-visual-toggle .awards-or::after { left: 100%; }
+
+/* Icon picker — searchable + paginated + lazy SVG via mask */
+.awards-picker-search {
+  width: 100%; padding: 11px 14px; margin-bottom: 10px;
+  border: 1.5px solid var(--white-faint); border-radius: 12px;
+  background: var(--surface-1); color: var(--white);
+  font-family: var(--font-body); font-size: 14px; outline: none;
+}
+.awards-picker-search:focus { border-color: var(--violet); }
+.awards-icon-categories {
+  display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 10px;
+  scrollbar-width: none;
+}
+.awards-icon-categories::-webkit-scrollbar { display: none; }
+.awards-icon-categories button {
+  flex-shrink: 0; padding: 6px 13px;
+  background: var(--surface-1); border: 1px solid var(--white-ghost);
+  color: var(--white-muted); border-radius: 999px;
+  font-family: var(--font-display); font-weight: 700; font-size: 11px;
+  cursor: pointer; letter-spacing: 0.5px; text-transform: uppercase;
+}
+.awards-icon-categories button.active { background: var(--violet); color: #fff; border-color: var(--violet); }
+.awards-icon-picker-info {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 8px; font-size: 11px; color: var(--white-faint);
+  letter-spacing: 0.5px; text-transform: uppercase; font-weight: 700;
+}
+.awards-icon-grid {
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px;
+  max-height: 320px; overflow-y: auto;
+  padding: 6px;
+  border-radius: 14px; background: var(--surface-1); border: 1px solid var(--white-ghost);
+  scrollbar-width: thin;
+}
+.awards-icon-grid button {
+  aspect-ratio: 1 / 1; padding: 7px; border: 1.5px solid transparent;
+  border-radius: 10px; background: var(--surface-2); cursor: pointer;
+  color: var(--white-muted); display: flex; align-items: center; justify-content: center;
+  transition: border-color 0.12s, color 0.12s, transform 0.12s;
+}
+.awards-icon-grid button:hover { color: var(--white); }
+.awards-icon-grid button:active { transform: scale(0.93); }
+.awards-icon-grid button.active {
+  border-color: var(--violet); color: var(--violet);
+  background: rgba(167,139,250,0.14);
+  box-shadow: inset 0 0 12px rgba(167,139,250,0.18);
+}
+.awards-icon-grid button svg { width: 100%; height: 100%; fill: currentColor; }
+.awards-icon-grid button .awards-icon-mask { width: 100%; height: 100%; }
+.awards-icon-pager {
+  display: flex; justify-content: center; align-items: center; gap: 12px;
+  margin-top: 10px;
+}
+.awards-icon-pager button {
+  padding: 6px 14px; border-radius: 999px;
+  background: var(--surface-1); border: 1px solid var(--white-ghost);
+  color: var(--white-muted); font-family: var(--font-display); font-weight: 700; font-size: 11px;
+  cursor: pointer; letter-spacing: 0.5px; text-transform: uppercase;
+}
+.awards-icon-pager button:disabled { opacity: 0.4; cursor: not-allowed; }
+.awards-icon-pager-info { font-size: 11px; color: var(--white-muted); font-weight: 700; }
+.awards-photo-upload {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 22px; border: 1.5px dashed var(--white-faint); border-radius: 14px;
+  cursor: pointer; background: var(--surface-1);
+}
+.awards-photo-upload img { width: 96px; height: 96px; border-radius: 12px; object-fit: cover; }
+.awards-photo-upload svg { width: 36px; height: 36px; color: var(--white-muted); fill: currentColor; }
+.awards-photo-upload span { font-size: 12px; color: var(--white-muted); font-weight: 600; }
+.awards-submit-row { display: flex; gap: 10px; margin-top: 20px; }
+.awards-btn {
+  flex: 1; padding: 14px; border-radius: 12px; border: 1.5px solid var(--white-faint);
+  background: transparent; color: var(--white-muted);
+  font-family: var(--font-display); font-weight: 700; font-size: 14px;
+  cursor: pointer; letter-spacing: 0.4px;
+}
+.awards-btn--primary {
+  background: linear-gradient(135deg, var(--violet), var(--pink));
+  color: #fff; border-color: transparent;
+  box-shadow: 0 4px 24px rgba(167,139,250,0.3);
+}
+.awards-btn--danger { background: transparent; border-color: var(--red); color: var(--red); }
+
+/* Vote-change confirmation modal — reuses .skip-confirm-* shape */
+.vote-confirm-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 10000; padding: 24px;
+}
+.vote-confirm-card {
+  background: var(--surface-1, #17171f); border: 1px solid var(--white-faint);
+  border-radius: 20px; padding: 24px 20px; max-width: 380px; width: 100%;
+  text-align: center;
+}
+.vote-confirm-title { font-family: var(--font-display); font-weight: 700; font-size: 20px; color: var(--white); margin-bottom: 6px; }
+.vote-confirm-sub { font-size: 14px; color: var(--white-muted); margin-bottom: 14px; }
+.vote-confirm-summary {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-size: 13px; color: var(--white-muted); margin-bottom: 18px;
+  padding: 10px; background: var(--surface-2); border-radius: 10px;
+}
+.vote-confirm-summary strong { color: var(--white); font-weight: 700; }
+.vote-confirm-actions { display: flex; gap: 10px; }
+.vote-confirm-btn {
+  flex: 1; padding: 12px; border-radius: 10px; border: 1.5px solid var(--white-faint);
+  font-weight: 700; font-family: var(--font-display); font-size: 14px;
+  cursor: pointer; letter-spacing: 0.4px;
+}
+.vote-confirm-btn-ghost { background: transparent; color: var(--white-muted); }
+.vote-confirm-btn-yes { background: var(--violet); border-color: var(--violet); color: #fff; }
+.vote-confirm-btn:active { transform: scale(0.97); }
+
+/* Reveal overlay — companion mobile sees the same Oscars sequence */
+.awards-reveal-companion {
+  position: fixed; inset: 0; z-index: 10001;
+  background: radial-gradient(ellipse at center, rgba(20,12,36,0.97), rgba(2,2,6,1) 80%);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+  color: #fff; font-family: var(--font-display); text-align: center;
+  overflow: hidden;
+}
 </style>
 </head>
 <body>
 <div class="mesh-bg"></div>
 <div id="notif-container"></div>
 <div class="app" id="app"></div>
+<div id="bn-mount"></div>
+<div id="overlay-mount"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 (function(){
@@ -2141,8 +2583,9 @@ var NC=[
 {c:"#d946ef",g:"rgba(217,70,239,0.3)"},
 {c:"#e11d48",g:"rgba(225,29,72,0.3)"}
 ];
-var S={screen:"loading",sessionCode:null,sessionId:null,sessionName:null,guestId:null,guestName:"",profilePicture:null,guests:[],catalog:[],searchQuery:"",selectedGenre:"All Songs",selectedTrack:null,singers:[],wizardStep:2,singerPickerOpen:false,customSingerName:"",queue:[],nowPlaying:null,errorMessage:"",theme_name:"neo-brutal",stage_theme:null,hide_song:false,customEmoji:null,emojiPickerOpen:false,textInputOpen:false,memePickerOpen:false,memeSearchQuery:"",memeGifs:[],memeLoading:false,isPlaying:false,nowPlayingSingerConfigs:null,matchedSinger:null,nowPlayingStageTheme:null,joining:false,joinName:"",addingToQueue:false,vocalFxEnabled:true,autotuneEnabled:true,skipConfirmOpen:false,prefersSanitize:true,spotifyToken:null,requestQuery:"",requestResults:[],requestSearching:false,requestSubmittingId:null,requestConfirm:null};
-var qCh=null,sCh=null,gCh=null,rCh=null;
+var S={screen:"loading",sessionCode:null,sessionId:null,sessionName:null,guestId:null,guestName:"",profilePicture:null,guests:[],catalog:[],searchQuery:"",selectedGenre:"All Songs",selectedTrack:null,singers:[],wizardStep:2,singerPickerOpen:false,customSingerName:"",queue:[],nowPlaying:null,errorMessage:"",theme_name:"neo-brutal",stage_theme:null,hide_song:false,customEmoji:null,emojiPickerOpen:false,textInputOpen:false,memePickerOpen:false,memeSearchQuery:"",memeGifs:[],memeLoading:false,isPlaying:false,nowPlayingSingerConfigs:null,matchedSinger:null,nowPlayingStageTheme:null,joining:false,joinName:"",addingToQueue:false,vocalFxEnabled:true,autotuneEnabled:true,skipConfirmOpen:false,prefersSanitize:true,spotifyToken:null,requestQuery:"",requestResults:[],requestSearching:false,requestSubmittingId:null,requestConfirm:null,
+awards:[],awardVotes:{},awardResults:[],awardActiveId:null,awardScreen:"list",awardCreateDraft:null,awardEditingId:null,awardIconCategory:"Featured",awardIconSearch:"",awardIconPage:0,awardVoteConfirm:null,awardsRevealStep:null,awardsHistory:[],awardsGuestsCache:[]};
+var qCh=null,sCh=null,gCh=null,rCh=null,awCh=null,avCh=null,arCh=null;
 var playedTrackIds={};
 var allGifs=[];
 var gifSearchTimer=null;
@@ -2301,7 +2744,7 @@ async function validateSession(){
     var gr=await sb.from("karaoke_guests").select("id,profile_picture").eq("id",S.guestId).eq("session_id",S.sessionId).single();
     if(gr.data){
       if(gr.data.profile_picture&&!S.profilePicture){S.profilePicture=gr.data.profile_picture;saveLocal();}
-      await loadCatalog();await loadQueue();await loadGuests();subRT();
+      await loadCatalog();await loadQueue();await loadGuests();await loadAwards();subRT();
       S.screen="songs";
       checkYoureUp();
       render();return;
@@ -2332,7 +2775,7 @@ async function rejoinAsGuest(g){
   S.screen="joining";render();
   saveLocal();
   saveDeviceProfile();
-  await loadCatalog();await loadQueue();await loadGuests();subRT();
+  await loadCatalog();await loadQueue();await loadGuests();await loadAwards();subRT();
   S.joining=false;
   S.screen="songs";
   checkYoureUp();
@@ -2348,7 +2791,7 @@ async function joinSession(name){
   S.guestId=r.data.id;
   saveLocal();
   saveDeviceProfile();
-  await loadCatalog();await loadQueue();await loadGuests();subRT();S.joining=false;S.screen="songs";render();
+  await loadCatalog();await loadQueue();await loadGuests();await loadAwards();subRT();S.joining=false;S.screen="songs";render();
 }
 async function loadCatalog(){
   var r=await sb.from("karaoke_catalog").select("*").eq("session_id",S.sessionId);
@@ -2524,6 +2967,7 @@ function subRT(){
   if(rCh)sb.removeChannel(rCh);
   rCh=sb.channel("cr-"+S.sessionId);
   rCh.subscribe();
+  subAwardsRealtime();
 }
 async function addToQueue(){
   if(S.addingToQueue)return;
@@ -3156,22 +3600,38 @@ function render(){
   }else{
     applyTheme();
   }
+  // Bottom nav and overlays live OUTSIDE #app so no in-app styling, animation
+  // transform, or backdrop-filter context can break their `position: fixed`.
+  // Each render() pass populates them via their own mount nodes.
+  var navMount=document.getElementById("bn-mount");
+  var overlayMount=document.getElementById("overlay-mount");
+  var navActive=null;
   switch(S.screen){
     case"loading":a.innerHTML='<div class="loading-center"><div class="spinner"></div></div>';break;
     case"join":a.innerHTML=renderJoin();break;
     case"rejoin":a.innerHTML=renderRejoin();break;
     case"joining":a.innerHTML=renderJoining();break;
-    case"songs":a.innerHTML=renderSongs()+renderBN("songs");break;
-    case"request":a.innerHTML=renderRequest()+renderBN("songs");break;
-    case"wizard-singers":a.innerHTML=renderWizardShell(2,renderWizardSingers())+renderWizardFooter(2)+renderBN("songs")+renderSingerPickerOverlay();break;
-    case"wizard-roles":a.innerHTML=renderWizardShell(3,renderWizardRoles())+renderWizardFooter(3)+renderBN("songs");break;
-    case"wizard-stage":a.innerHTML=renderWizardShell(4,renderWizardStage())+renderWizardFooter(4)+renderBN("songs");break;
-    case"queue":a.innerHTML=renderQueue()+renderBN("queue");break;
-    case"stage":a.innerHTML=renderStage()+renderBN("stage")+renderEmojiPicker()+renderTextInput()+renderMemePicker();break;
-    case"profile":a.innerHTML=renderProfile()+renderBN("profile");break;
-    case"youreup":a.innerHTML=renderYoureUp()+renderBN("youreup");break;
+    case"songs":a.innerHTML=renderSongs();navActive="songs";break;
+    case"request":a.innerHTML=renderRequest();navActive="songs";break;
+    case"wizard-singers":a.innerHTML=renderWizardShell(2,renderWizardSingers())+renderWizardFooter(2)+renderSingerPickerOverlay();navActive="songs";break;
+    case"wizard-roles":a.innerHTML=renderWizardShell(3,renderWizardRoles())+renderWizardFooter(3);navActive="songs";break;
+    case"wizard-stage":a.innerHTML=renderWizardShell(4,renderWizardStage())+renderWizardFooter(4);navActive="songs";break;
+    case"queue":a.innerHTML=renderQueue();navActive="queue";break;
+    case"stage":a.innerHTML=renderStage()+renderEmojiPicker()+renderTextInput()+renderMemePicker();navActive="stage";break;
+    case"profile":a.innerHTML=renderProfile();navActive="profile";break;
+    case"youreup":a.innerHTML=renderYoureUp();navActive="youreup";break;
+    case"awards":a.innerHTML=renderAwardsScreen();navActive="awards";break;
     case"error":a.innerHTML=renderError();break;
   }
+  if(navMount){navMount.innerHTML=navActive?renderBN(navActive):"";}
+  // Reveal overlay + vote-confirm modal mount in body so nothing in #app can
+  // affect them (covers/blocks the whole viewport regardless of screen).
+  var overlayHtml="";
+  if(S.awardsRevealStep&&S.awardsRevealStep.phase&&S.awardsRevealStep.phase!=="idle"&&S.awardsRevealStep.phase!=="done"){
+    overlayHtml+=renderRevealOverlay();
+  }
+  if(S.screen==="awards"){overlayHtml+=renderVoteConfirmOverlay();}
+  if(overlayMount){overlayMount.innerHTML=overlayHtml;}
   bindEvents();
 }
 function renderJoin(){
@@ -3861,6 +4321,7 @@ function renderBN(act){
     '<button class="nav-tab'+(act==="songs"?" active":"")+'" data-nav="songs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Songs</button>'+
     middleBtn+
     '<button class="nav-tab'+(act==="queue"?" active":"")+'" data-nav="queue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Queue</button>'+
+    '<button class="nav-tab'+(act==="awards"?" active":"")+'" data-nav="awards"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h2"/><path d="M18 9h2a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-2"/><path d="M6 3h12v6a6 6 0 0 1-12 0V3z"/><path d="M9 21h6"/><path d="M12 15v6"/></svg>Awards</button>'+
     '<button class="nav-tab nav-tab--profile'+(act==="profile"?" active":"")+'" id="nav-profile" aria-label="'+esc(S.guestName||"Profile")+'" title="'+esc(S.guestName||"Profile")+'">'+navAv+'Profile</button>'+
   '</div>';
 }
@@ -3928,6 +4389,748 @@ function renderYoureUp(){
     skipConfirm+
   '</div>';
 }
+// ============================================================
+//  AWARDS — companion-site implementation
+// ============================================================
+
+// ---- Iconify lookup (from awards-icons/manifest.js)
+// AWARDS_ICONS         - all 7000+ icons (metadata only: id, label, category, prefix, featured)
+// AWARDS_FEATURED_SVGS - inlined SVG for ~30 curated icons (instant render)
+// Non-featured icons are rendered via mask-image, lazy-loaded as needed.
+function awardsIconById(id){
+  if(!id)return null;
+  var list=window.AWARDS_ICONS||[];
+  for(var i=0;i<list.length;i++){if(list[i].id===id)return list[i];}
+  return null;
+}
+var AWARDS_FALLBACK_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 9a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4H6Zm-3 0V3h2v6a4 4 0 0 0 4 4h6a4 4 0 0 0 4-4V3h2v6a6 6 0 0 1-6 6h-1v3h3v2H8v-2h3v-3h-1a6 6 0 0 1-6-6Z"/></svg>';
+// Render an icon body for an award. Returns themable HTML — inline SVG for
+// featured icons, mask-image for everything else (color follows currentColor).
+function awardsIconBody(award){
+  if(award.icon_data_url||award.iconDataUrl){
+    return '<img src="'+esc(award.icon_data_url||award.iconDataUrl)+'" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">';
+  }
+  var iconId=award.icon_id||award.iconId;
+  if(!iconId)return AWARDS_FALLBACK_SVG;
+  var inlined=(window.AWARDS_FEATURED_SVGS||{})[iconId];
+  if(inlined)return inlined;
+  // mask-image fallback — lazy-loads the SVG file, color follows currentColor
+  return '<span class="awards-icon-mask" style="width:100%;height:100%;-webkit-mask-image:url(awards-icons/'+esc(iconId)+'.svg);mask-image:url(awards-icons/'+esc(iconId)+'.svg)"></span>';
+}
+// Backwards-compat wrapper (callers used awardsIconHtmlFor)
+function awardsIconHtmlFor(award){ return awardsIconBody(award); }
+// Render a picker thumbnail for one icon manifest entry
+function awardsPickerThumb(ic){
+  var inlined=(window.AWARDS_FEATURED_SVGS||{})[ic.id];
+  if(inlined)return inlined;
+  return '<span class="awards-icon-mask" style="width:100%;height:100%;-webkit-mask-image:url(awards-icons/'+esc(ic.id)+'.svg);mask-image:url(awards-icons/'+esc(ic.id)+'.svg)"></span>';
+}
+function awardsIconCategories(){
+  var counts={};
+  var list=window.AWARDS_ICONS||[];
+  for(var i=0;i<list.length;i++){
+    var c=list[i].category||"Misc";
+    counts[c]=(counts[c]||0)+1;
+  }
+  // Sort by descending count, but put Featured first
+  var keys=Object.keys(counts).sort(function(a,b){return counts[b]-counts[a];});
+  // Prepend Featured + All
+  return ["Featured","All"].concat(keys);
+}
+function awardsFilteredIcons(category,searchQ){
+  var list=window.AWARDS_ICONS||[];
+  var q=(searchQ||"").trim().toLowerCase();
+  var out=[];
+  for(var i=0;i<list.length;i++){
+    var ic=list[i];
+    if(category==="Featured"&&!ic.featured)continue;
+    if(category!=="All"&&category!=="Featured"&&ic.category!==category)continue;
+    if(q&&ic.label.toLowerCase().indexOf(q)===-1&&ic.id.toLowerCase().indexOf(q)===-1)continue;
+    out.push(ic);
+  }
+  return out;
+}
+// Picker pagination (companion state)
+var AWARDS_ICON_PAGE_SIZE=60;
+
+// ---- Supabase ops
+async function loadAwards(){
+  if(!S.sessionId)return;
+  // Fetch awards, own votes, played history, and guest list in parallel.
+  var awP=sb.from("karaoke_awards").select("*").eq("session_id",S.sessionId).order("is_default",{ascending:false}).order("created_at",{ascending:true});
+  var hP=sb.from("karaoke_queue").select("id,track_id,track_name,track_artist,track_art_url,singer_configs,created_at").eq("session_id",S.sessionId).eq("status","played").order("created_at",{ascending:true});
+  var gP=sb.from("karaoke_guests").select("id,name,profile_picture").eq("session_id",S.sessionId);
+  var rP=sb.from("karaoke_award_results").select("*").eq("session_id",S.sessionId);
+  var awR=await awP, hR=await hP, gR=await gP, rR=await rP;
+  S.awards=(awR.data)||[];
+  S.awardsHistory=(hR.data||[]).map(function(r){
+    return {
+      queueRowId:r.id,trackId:r.track_id,trackName:r.track_name,trackArtist:r.track_artist,
+      trackArtUrl:r.track_art_url,singers:r.singer_configs||[],playedAt:r.created_at
+    };
+  });
+  S.awardsGuestsCache=(gR.data||[]).map(function(g){return {id:g.id,name:g.name,profilePicture:g.profile_picture};});
+  S.awardResults=(rR.data)||[];
+  // Own votes only
+  if(S.guestId&&S.awards.length){
+    var ids=S.awards.map(function(a){return a.id;});
+    var v=await sb.from("karaoke_award_votes").select("*").in("award_id",ids).eq("voter_guest_id",S.guestId);
+    var map={};
+    (v.data||[]).forEach(function(vt){map[vt.award_id]=vt;});
+    S.awardVotes=map;
+  }
+}
+async function castAwardVote(awardId,subject){
+  if(!S.guestId)return;
+  var row={award_id:awardId,voter_guest_id:S.guestId,subject_queue_row_id:subject.queueRowId||null,subject_guest_id:subject.guestId||null,updated_at:new Date().toISOString()};
+  var r=await sb.from("karaoke_award_votes").upsert(row,{onConflict:"award_id,voter_guest_id"});
+  if(r.error){alert("Failed to cast vote. Try again.");return;}
+  // Cache the vote locally for immediate UI feedback
+  S.awardVotes[awardId]={award_id:awardId,voter_guest_id:S.guestId,subject_queue_row_id:row.subject_queue_row_id,subject_guest_id:row.subject_guest_id};
+  render();
+}
+async function createCustomAward(draft){
+  if(!S.guestId)return;
+  var row={
+    session_id:S.sessionId,slug:null,title:draft.title,subject_type:draft.subjectType,
+    icon_id:draft.iconId||null,icon_data_url:draft.iconDataUrl||null,
+    is_default:false,created_by_guest_id:S.guestId
+  };
+  var r=await sb.from("karaoke_awards").insert(row).select("*").single();
+  if(r.error){
+    if(r.error.code==="23505")alert("You already created an award for this session.");
+    else alert("Failed to create award: "+r.error.message);
+    return null;
+  }
+  // Local mirror update; realtime will reconcile.
+  S.awards=S.awards.concat([r.data]);
+  return r.data;
+}
+async function updateMyAward(awardId,fields){
+  var upd={updated_at:new Date().toISOString()};
+  if(fields.title!==undefined)upd.title=fields.title;
+  if(fields.iconId!==undefined)upd.icon_id=fields.iconId;
+  if(fields.iconDataUrl!==undefined)upd.icon_data_url=fields.iconDataUrl;
+  // Mutually exclusive: clear the other when one is set.
+  if(fields.iconId)upd.icon_data_url=null;
+  if(fields.iconDataUrl)upd.icon_id=null;
+  var r=await sb.from("karaoke_awards").update(upd).eq("id",awardId);
+  if(r.error){alert("Failed to update award.");return;}
+}
+async function deleteMyAward(awardId){
+  // Count votes first — companion guests can only delete if 0 votes.
+  var c=await sb.from("karaoke_award_votes").select("id",{count:"exact",head:true}).eq("award_id",awardId);
+  if(c.count&&c.count>0){alert("You can't delete this award — it already has votes. Ask the host to delete it instead.");return;}
+  var r=await sb.from("karaoke_awards").delete().eq("id",awardId);
+  if(r.error){alert("Failed to delete award.");return;}
+  S.awards=S.awards.filter(function(a){return a.id!==awardId;});
+}
+
+// ---- Candidate generation (mirrors AwardsManager.buildCandidates) ----
+function buildAwardCandidates(award){
+  if(award.subject_type==="performance"){
+    return S.awardsHistory.map(function(p){
+      return {
+        key:p.queueRowId,type:"performance",
+        label:p.trackName,
+        subtitle:(p.singers&&p.singers.length?p.singers.map(function(s){return s.name;}).join(", "):p.trackArtist),
+        avatar:p.trackArtUrl,
+        singers:p.singers||[],
+        bannedNames:(p.singers||[]).map(function(s){return s.name;}),
+        bannedIds:(p.singers||[]).map(function(s){return s.guestId||"";}).filter(Boolean)
+      };
+    });
+  }
+  if(award.subject_type==="group"){
+    return S.awardsHistory.filter(function(p){return (p.singers||[]).length>=2;}).map(function(p){
+      return {
+        key:p.queueRowId,type:"group",
+        label:(p.singers||[]).map(function(s){return s.name;}).join(" & "),
+        subtitle:p.trackName+" — "+p.trackArtist,
+        avatar:p.trackArtUrl,
+        singers:p.singers||[],
+        bannedNames:(p.singers||[]).map(function(s){return s.name;}),
+        bannedIds:(p.singers||[]).map(function(s){return s.guestId||"";}).filter(Boolean)
+      };
+    });
+  }
+  // singer
+  var sangNames={},sangIds={};
+  S.awardsHistory.forEach(function(p){
+    (p.singers||[]).forEach(function(s){
+      if(s.name)sangNames[s.name]=true;
+      if(s.guestId)sangIds[s.guestId]=true;
+    });
+  });
+  var out=[];
+  S.awardsGuestsCache.forEach(function(g){
+    if(sangIds[g.id]||sangNames[g.name]){
+      out.push({
+        key:g.id,type:"singer",label:g.name,subtitle:"Performer",avatar:g.profilePicture||null,
+        bannedNames:[g.name],bannedIds:[g.id]
+      });
+    }
+  });
+  // Note: name-only performers (no companion guest record) are intentionally
+  // omitted. The DB constraint on karaoke_award_votes requires either a guest
+  // or queue-row reference, so a name-only entry has nowhere to be recorded.
+  return out;
+}
+
+function awardCandidateBanned(c){
+  if(!S.guestId&&!S.guestName)return false;
+  if(c.bannedIds&&c.bannedIds.indexOf(S.guestId)!==-1)return true;
+  if(c.bannedNames&&c.bannedNames.indexOf(S.guestName)!==-1)return true;
+  return false;
+}
+
+function awardOwnVote(awardId){return S.awardVotes[awardId]||null;}
+
+function matchCandidateByVote(award,vote,candidates){
+  if(!vote)return null;
+  var key=award.subject_type==="singer"?vote.subject_guest_id:vote.subject_queue_row_id;
+  for(var i=0;i<candidates.length;i++){
+    if(candidates[i].key===key)return candidates[i];
+    if(award.subject_type==="singer"&&candidates[i].key==="name:"+key)return candidates[i];
+  }
+  return null;
+}
+
+// ---- Render: list ----
+function renderAwardsScreen(){
+  if(S.awardScreen==="detail"&&S.awardActiveId){
+    var aw=null;for(var i=0;i<S.awards.length;i++)if(S.awards[i].id===S.awardActiveId){aw=S.awards[i];break;}
+    if(aw)return renderAwardDetail(aw);
+  }
+  if(S.awardScreen==="create"||S.awardScreen==="edit")return renderAwardCreateScreen();
+  return renderAwardsList();
+}
+
+function renderAwardsList(){
+  var html='<div class="awards-screen screen">'+
+    '<div class="awards-screen-header">'+
+      '<div class="awards-screen-header-text">'+
+        '<div class="awards-title">Awards</div>'+
+        '<div class="awards-sub">Vote anytime. Winners are revealed when the host wraps up.</div>'+
+      '</div>'+
+    '</div>';
+  var hasOwn=false;var ownAward=null;
+  for(var i=0;i<S.awards.length;i++){if(S.awards[i].created_by_guest_id===S.guestId){hasOwn=true;ownAward=S.awards[i];break;}}
+  var ctaIcon=hasOwn
+    ? '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>'
+    : '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+  html+='<button class="awards-create-cta'+(hasOwn?" awards-create-cta--owned":"")+'" id="awards-create-btn">'+
+    ctaIcon +
+    (hasOwn?"Edit your award: "+esc(ownAward.title):"Create Custom Award")+'</button>';
+  html+='<div class="awards-grid">';
+  if(S.awards.length===0){
+    html+='</div><div class="awards-empty-state">No awards yet. Default awards appear when the host opens the session.</div>';
+  }else{
+    for(var j=0;j<S.awards.length;j++){
+      var aw=S.awards[j];
+      var voted=!!awardOwnVote(aw.id);
+      var finalized=!!aw.finalized_at;
+      var subjectLabel=aw.subject_type==="performance"?"Performance":aw.subject_type==="singer"?"Singer":"Duo / Group";
+      var iconHtml='<div class="awards-card__icon"><span class="awards-card__icon-shape">'+awardsIconBody(aw)+'</span></div>';
+      var badge=finalized?'<div class="awards-card__finalized-badge">Closed</div>':(voted?'<div class="awards-card__voted-badge">Voted</div>':"");
+      var cls="awards-card"+(voted?" awards-card--voted":"")+(finalized?" awards-card--finalized":"");
+      html+='<button class="'+cls+'" data-award-id="'+esc(aw.id)+'">'+
+        badge+iconHtml+
+        '<div class="awards-card__title">'+esc(aw.title)+'</div>'+
+        '<div class="awards-card__sub">'+subjectLabel+'</div>'+
+      '</button>';
+    }
+    html+='</div>';
+  }
+  html+='</div>';
+  return html;
+}
+
+function renderAwardDetail(aw){
+  var candidates=buildAwardCandidates(aw);
+  var vote=awardOwnVote(aw.id);
+  var voted=matchCandidateByVote(aw,vote,candidates);
+  var subjectLabel=aw.subject_type==="performance"?"Pick the best performance":aw.subject_type==="singer"?"Pick a singer":"Pick the best duo or group";
+  var finalized=!!aw.finalized_at;
+  var html='<div class="awards-screen screen">'+
+    '<div class="awards-detail-header">'+
+      '<button class="awards-detail-back" id="awards-back-btn"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>'+
+      '<div class="awards-detail-icon">'+awardsIconHtmlFor(aw)+'</div>'+
+      '<div class="awards-detail-info">'+
+        '<h2>'+esc(aw.title)+'</h2>'+
+        '<p>'+esc(subjectLabel)+(aw.is_default?" · Default award":" · Custom award")+(finalized?" · Voting closed":"")+'</p>'+
+      '</div>'+
+    '</div>';
+  if(voted){
+    html+='<div class="awards-section-label">Your Vote</div>'+
+      '<div class="awards-your-vote-card">'+
+        renderCandidateAvatarBlock(voted)+
+        '<div class="awards-candidate__info">'+
+          '<div class="awards-candidate__label">'+esc(voted.label)+'</div>'+
+          (voted.subtitle?'<div class="awards-candidate__sub">'+esc(voted.subtitle)+'</div>':"")+
+        '</div>'+
+        (finalized?"":'<div class="awards-candidate__hint">Tap below to change</div>')+
+      '</div>';
+  }
+  if(candidates.length===0){
+    var emptyMsg=aw.subject_type==="singer"?"No singers yet — once someone takes the mic they'll appear here.":aw.subject_type==="group"?"No multi-singer performances yet.":"No performances yet — check back after a song plays.";
+    html+='<div class="awards-empty-state">'+esc(emptyMsg)+'</div>';
+  }else{
+    html+='<div class="awards-section-label">'+(voted?"Other candidates":"Candidates")+'</div>';
+    for(var i=0;i<candidates.length;i++){
+      var c=candidates[i];
+      if(voted&&c.key===voted.key)continue;
+      var banned=awardCandidateBanned(c);
+      var disabled=finalized||banned;
+      var hint=finalized?'Voting closed':(banned?"Can't vote for yourself":"Tap to vote");
+      html+='<button class="awards-candidate'+(disabled?" awards-candidate--disabled":"")+'" data-candidate-key="'+esc(c.key)+'"'+(disabled?' disabled':"")+'>'+
+        renderCandidateAvatarBlock(c)+
+        '<div class="awards-candidate__info">'+
+          '<div class="awards-candidate__label">'+esc(c.label)+'</div>'+
+          (c.subtitle?'<div class="awards-candidate__sub">'+esc(c.subtitle)+'</div>':"")+
+        '</div>'+
+        '<div class="awards-candidate__hint">'+esc(hint)+'</div>'+
+      '</button>';
+    }
+  }
+  html+='</div>';
+  return html;
+}
+function renderCandidateAvatarBlock(c){
+  if(c.avatar){
+    return '<div class="awards-candidate__avatar"><img src="'+esc(c.avatar)+'" alt=""></div>';
+  }
+  return '<div class="awards-candidate__avatar">'+esc((c.label||"?").charAt(0).toUpperCase())+'</div>';
+}
+
+function renderAwardCreateScreen(){
+  var draft=S.awardCreateDraft||{title:"",subjectType:"performance",iconId:null,iconDataUrl:null};
+  var isEdit=S.awardScreen==="edit"&&!!S.awardEditingId;
+  var categories=awardsIconCategories();
+  var category=S.awardIconCategory||"Featured";
+  if(categories.indexOf(category)===-1)category="Featured";
+  var searchQ=S.awardIconSearch||"";
+  var filtered=awardsFilteredIcons(category,searchQ);
+  var page=S.awardIconPage||0;
+  var pageSize=AWARDS_ICON_PAGE_SIZE;
+  var pageCount=Math.max(1,Math.ceil(filtered.length/pageSize));
+  if(page>=pageCount)page=pageCount-1;
+  var pageStart=page*pageSize;
+  var pageEnd=Math.min(filtered.length,pageStart+pageSize);
+  var pageIcons=filtered.slice(pageStart,pageEnd);
+  var usingPhoto=!!draft.iconDataUrl;
+  var html='<div class="awards-create-shell screen">'+
+    '<div class="awards-detail-header">'+
+      '<button class="awards-detail-back" id="awards-back-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>'+
+      '<div class="awards-detail-info">'+
+        '<h2>'+(isEdit?"Edit your award":"Create an award")+'</h2>'+
+        '<p>Make it memorable — everyone can vote on it</p>'+
+      '</div>'+
+    '</div>'+
+
+    '<div class="awards-field">'+
+      '<div class="awards-field-label">Award name</div>'+
+      '<input class="awards-text-input" id="awards-name-input" maxlength="40" placeholder="e.g. Most Dramatic Solo" value="'+esc(draft.title||"")+'">'+
+    '</div>'+
+
+    '<div class="awards-field">'+
+      '<div class="awards-field-label">What is it for?</div>'+
+      '<div class="awards-segmented">'+
+        '<button data-subject="performance"'+(draft.subjectType==="performance"?' class="active"':"")+'>A performance</button>'+
+        '<button data-subject="singer"'+(draft.subjectType==="singer"?' class="active"':"")+'>A singer</button>'+
+        '<button data-subject="group"'+(draft.subjectType==="group"?' class="active"':"")+'>A duo/group</button>'+
+      '</div>'+
+    '</div>'+
+
+    '<div class="awards-field">'+
+      '<div class="awards-field-label">Visual</div>'+
+      '<div class="awards-visual-toggle">'+
+        '<button data-visual="icon"'+(usingPhoto?"":' class="active"')+'>Pick an icon</button>'+
+        '<span class="awards-or">OR</span>'+
+        '<button data-visual="photo"'+(usingPhoto?' class="active"':"")+'>Upload a photo</button>'+
+      '</div>';
+  if(usingPhoto){
+    html+='<label class="awards-photo-upload" id="awards-photo-upload">'+
+      (draft.iconDataUrl?'<img src="'+esc(draft.iconDataUrl)+'" alt="">':'<svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>')+
+      '<span>'+(draft.iconDataUrl?"Tap to change":"Tap to upload a photo")+'</span>'+
+      '<input type="file" id="awards-photo-input" accept="image/*" style="display:none">'+
+    '</label>';
+  }else{
+    html+='<input class="awards-picker-search" id="awards-search-input" placeholder="Search '+(window.AWARDS_ICONS||[]).length+' icons…" value="'+esc(searchQ)+'">';
+    html+='<div class="awards-icon-categories">';
+    for(var k=0;k<categories.length;k++){
+      html+='<button data-cat="'+esc(categories[k])+'"'+(category===categories[k]?' class="active"':"")+'>'+esc(categories[k])+'</button>';
+    }
+    html+='</div>';
+    html+='<div class="awards-icon-picker-info"><span>'+filtered.length+' icon'+(filtered.length===1?"":"s")+'</span><span>Page '+(page+1)+' / '+pageCount+'</span></div>';
+    html+='<div class="awards-icon-grid">';
+    if(pageIcons.length===0){
+      html+='<div style="grid-column:1/-1;padding:24px;text-align:center;color:var(--white-faint);font-size:13px">No icons match. Try a different word.</div>';
+    } else {
+      for(var i=0;i<pageIcons.length;i++){
+        var ic=pageIcons[i];
+        html+='<button data-icon-id="'+esc(ic.id)+'"'+(draft.iconId===ic.id?' class="active"':"")+' title="'+esc(ic.label)+'">'+awardsPickerThumb(ic)+'</button>';
+      }
+    }
+    html+='</div>';
+    if(pageCount>1){
+      html+='<div class="awards-icon-pager">'+
+        '<button id="awards-page-prev"'+(page<=0?' disabled':"")+'>← Prev</button>'+
+        '<span class="awards-icon-pager-info">'+(pageStart+1)+'–'+pageEnd+' of '+filtered.length+'</span>'+
+        '<button id="awards-page-next"'+(page>=pageCount-1?' disabled':"")+'>Next →</button>'+
+      '</div>';
+    }
+  }
+  html+='</div>'+
+    '<div class="awards-submit-row">';
+  if(isEdit){
+    html+='<button class="awards-btn awards-btn--danger" id="awards-delete-btn">Delete</button>';
+  }
+  html+='<button class="awards-btn" id="awards-cancel-btn">Cancel</button>'+
+    '<button class="awards-btn awards-btn--primary" id="awards-submit-btn">'+(isEdit?"Save":"Create Award")+'</button>'+
+    '</div>'+
+  '</div>';
+  return html;
+}
+
+// ---- Vote-confirm modal ----
+function renderVoteConfirmOverlay(){
+  if(!S.awardVoteConfirm)return"";
+  var c=S.awardVoteConfirm;
+  return '<div class="vote-confirm-backdrop" id="vote-confirm-backdrop">'+
+    '<div class="vote-confirm-card">'+
+      '<div class="vote-confirm-title">Change your vote?</div>'+
+      '<div class="vote-confirm-sub">You already picked <strong>'+esc(c.oldLabel)+'</strong>. Switch to <strong>'+esc(c.newLabel)+'</strong>?</div>'+
+      '<div class="vote-confirm-actions">'+
+        '<button class="vote-confirm-btn vote-confirm-btn-ghost" id="vote-confirm-cancel">Keep my vote</button>'+
+        '<button class="vote-confirm-btn vote-confirm-btn-yes" id="vote-confirm-yes">Switch</button>'+
+      '</div>'+
+    '</div>'+
+  '</div>';
+}
+
+// ---- Reveal overlay (synced with stage) ----
+function renderRevealOverlay(){
+  var step=S.awardsRevealStep;if(!step)return"";
+  var inner="";
+  if(step.phase==="opening"){
+    inner='<div class="awards-reveal__opening">'+
+      '<div class="awards-reveal__opening-title">Tonight\'s Awards</div>'+
+      '<div class="awards-reveal__opening-sub">'+step.totalAwards+' categor'+(step.totalAwards===1?"y":"ies")+' to reveal</div>'+
+    '</div>';
+  } else if(step.phase==="nominees"&&step.award){
+    var isPerf=step.award.subject_type==="performance"||step.award.subject_type==="group";
+    var allCands=step.candidates||[];
+    var maxCount=isPerf?5:8;
+    var cands=allCands.slice(0,maxCount);
+    var nomList="";
+    if(isPerf){
+      // Rich rows: album art + track name + singer profile pics + names
+      for(var i=0;i<cands.length;i++){
+        var c=cands[i];
+        var initial=esc((c.label||"?").charAt(0).toUpperCase());
+        var art=c.avatarUrl
+          ? '<img class="awards-reveal__nominee-art" src="'+esc(c.avatarUrl)+'" alt="">'
+          : '<div class="awards-reveal__nominee-art" style="display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:22px">'+initial+'</div>';
+        var singers=c.singers||[];
+        var singerAvatars="";
+        var visibleSingers=singers.slice(0,4);
+        for(var si=0;si<visibleSingers.length;si++){
+          var s=visibleSingers[si];
+          var bg=s.color?'background:linear-gradient(135deg,'+s.color+','+s.color+'aa)':"";
+          singerAvatars+='<div class="awards-reveal__nominee-singer-avatar" style="'+bg+'">'+
+            (s.profilePicture?'<img src="'+esc(s.profilePicture)+'" alt="">':esc((s.name||"?").charAt(0).toUpperCase()))+
+          '</div>';
+        }
+        var singerLine=singers.length
+          ? '<div class="awards-reveal__nominee-singers"><div class="awards-reveal__nominee-singers-avatars">'+singerAvatars+'</div><div class="awards-reveal__nominee-singer-names">'+esc(singers.map(function(x){return x.name;}).join(", "))+'</div></div>'
+          : "";
+        nomList+='<div class="awards-reveal__nominee--rich" style="animation-delay:'+(i*0.1)+'s">'+
+          art+
+          '<div class="awards-reveal__nominee-meta">'+
+            '<div class="awards-reveal__nominee-track">'+esc(c.label)+'</div>'+
+            singerLine+
+          '</div>'+
+        '</div>';
+      }
+      if(allCands.length>maxCount)nomList+='<div class="awards-reveal__nominee">+'+(allCands.length-maxCount)+' more</div>';
+    } else {
+      for(var i=0;i<cands.length;i++){
+        var c=cands[i];
+        var av=c.avatarUrl?'<img src="'+esc(c.avatarUrl)+'" alt="">':'<div class="awards-reveal__nominee-avatar">'+esc((c.label||"?").charAt(0).toUpperCase())+'</div>';
+        nomList+='<div class="awards-reveal__nominee" style="animation-delay:'+(i*0.08)+'s">'+av+'<span>'+esc(c.label)+'</span></div>';
+      }
+      if(allCands.length>maxCount)nomList+='<div class="awards-reveal__nominee">+'+(allCands.length-maxCount)+' more</div>';
+    }
+    var listCls=isPerf?"awards-reveal__nominees-list awards-reveal__nominees-list--rich":"awards-reveal__nominees-list";
+    inner='<div class="awards-reveal__nominees">'+
+      '<div class="awards-reveal__award-icon">'+awardsIconBody(step.award)+'</div>'+
+      '<div><div class="awards-reveal__nominees-label">Award '+(step.awardIndex+1)+' of '+step.totalAwards+'</div>'+
+      '<div class="awards-reveal__award-title">'+esc(step.award.title)+'</div></div>'+
+      (cands.length?'<div class="awards-reveal__nominees-label">Nominees</div><div class="'+listCls+'">'+nomList+'</div>':'<div class="awards-reveal__nominees-label" style="opacity:0.6">No candidates</div>')+
+    '</div>';
+  } else if(step.phase==="drumroll"&&step.award){
+    inner='<div class="awards-reveal__drumroll">'+
+      '<div class="awards-reveal__award-icon">'+awardsIconHtmlFor(step.award)+'</div>'+
+      '<div class="awards-reveal__award-title">'+esc(step.award.title)+'</div>'+
+      '<div class="awards-reveal__drumroll-text">And the winner is…</div>'+
+      '<div class="awards-reveal__drumroll-dots"><span></span><span></span><span></span><span></span><span></span></div>'+
+    '</div>';
+  } else if(step.phase==="winner"&&step.award){
+    var winners=step.winners||[];
+    var awardCrest='<div class="awards-reveal__winner-crest">'+awardsIconBody(step.award)+'</div>';
+    if(winners.length===0){
+      inner='<div class="awards-reveal__winner">'+
+        awardCrest+
+        '<div class="awards-reveal__winner-label">Award · '+esc(step.award.title)+'</div>'+
+        '<div class="awards-reveal__winner-card">'+
+          '<div class="awards-reveal__winner-name" style="font-size:clamp(28px,4vw,52px)">No winner this round</div>'+
+          '<div class="awards-reveal__winner-sub">No votes were cast</div>'+
+        '</div>'+
+      '</div>';
+    } else {
+      var avHtml="";
+      winners.forEach(function(w){
+        if(w.singers&&w.singers.length>1){
+          w.singers.forEach(function(s){
+            avHtml+='<div class="awards-reveal__winner-avatar">'+(s.profilePicture?'<img src="'+esc(s.profilePicture)+'" style="width:100%;height:100%;object-fit:cover">':esc((s.name||"?").charAt(0).toUpperCase()))+'</div>';
+          });
+        } else {
+          avHtml+=w.avatarUrl?'<img class="awards-reveal__winner-avatar" src="'+esc(w.avatarUrl)+'" alt="">':'<div class="awards-reveal__winner-avatar">'+esc((w.label||"?").charAt(0).toUpperCase())+'</div>';
+        }
+      });
+      var names=winners.length===1?esc(winners[0].label):winners.map(function(w){return esc(w.label);}).join(" · ");
+      var sub=winners.length===1&&winners[0].subtitle?'<div class="awards-reveal__winner-sub">'+esc(winners[0].subtitle)+'</div>':"";
+      if(winners.length>1){
+        sub='<div class="awards-reveal__winner-sub">Tied with '+(step.voteCount||0)+' vote'+((step.voteCount||0)===1?"":"s")+' each</div>';
+      }
+      var votes=winners.length===1?'<div class="awards-reveal__winner-votes">'+(step.voteCount||0)+' vote'+((step.voteCount||0)===1?"":"s")+'</div>':"";
+      inner='<div class="awards-reveal__winner">'+
+        awardCrest+
+        '<div class="awards-reveal__winner-label">Winner · '+esc(step.award.title)+'</div>'+
+        '<div class="awards-reveal__winner-card">'+
+          '<div class="awards-reveal__winner-avatars">'+avHtml+'</div>'+
+          '<div class="awards-reveal__winner-name">'+names+'</div>'+sub+votes+
+        '</div>'+
+      '</div>';
+      // Confetti
+      var conf='<div class="awards-reveal__confetti">';
+      var colors=["#fde68a","#f59e0b","#ec4899","#a78bfa","#22d3ee","#34d399"];
+      for(var ci=0;ci<60;ci++){
+        var left=(Math.random()*100).toFixed(1);
+        var col=colors[ci%colors.length];
+        var dur=(2.5+Math.random()*2).toFixed(2);
+        var dl=(Math.random()*1.5).toFixed(2);
+        var rot=Math.floor(Math.random()*360);
+        conf+='<span style="left:'+left+'%;background:'+col+';animation-duration:'+dur+'s;animation-delay:'+dl+'s;transform:rotateZ('+rot+'deg)"></span>';
+      }
+      conf+='</div>';
+      inner=conf+inner;
+    }
+  } else if(step.phase==="finale"){
+    var summary=step.finaleSummary||[];
+    var cards="";
+    for(var fi=0;fi<summary.length;fi++){
+      var s2=summary[fi];
+      var wlabel=s2.winners&&s2.winners.length?s2.winners.map(function(w){return esc(w.label);}).join(" · "):"No winner";
+      var wsub=s2.winners&&s2.winners.length===1&&s2.winners[0].subtitle?'<div class="awards-reveal__finale-card-sub">'+esc(s2.winners[0].subtitle)+'</div>':"";
+      cards+='<div class="awards-reveal__finale-card">'+
+        '<div class="awards-reveal__finale-card-icon">'+awardsIconHtmlFor(s2.award)+'</div>'+
+        '<div class="awards-reveal__finale-card-title">'+esc(s2.award.title)+'</div>'+
+        '<div class="awards-reveal__finale-card-winner">'+wlabel+'</div>'+wsub+
+      '</div>';
+    }
+    inner='<div class="awards-reveal__finale">'+
+      '<div class="awards-reveal__finale-title">That\'s a Wrap!</div>'+
+      '<div class="awards-reveal__finale-grid">'+cards+'</div>'+
+    '</div>';
+  }
+  return '<div class="awards-reveal awards-reveal-companion"><div class="awards-reveal__spotlight"></div>'+inner+'</div>';
+}
+
+// ---- Realtime subscriptions for awards ----
+function subAwardsRealtime(){
+  if(awCh)sb.removeChannel(awCh);
+  if(avCh)sb.removeChannel(avCh);
+  if(arCh)sb.removeChannel(arCh);
+  awCh=sb.channel("aw-"+S.sessionId)
+    .on("postgres_changes",{event:"*",schema:"public",table:"karaoke_awards",filter:"session_id=eq."+S.sessionId},function(){
+      loadAwards().then(render);
+    }).subscribe();
+  avCh=sb.channel("av-"+S.sessionId)
+    .on("postgres_changes",{event:"*",schema:"public",table:"karaoke_award_votes"},function(){
+      // We can't filter by session_id (votes ref awards, not sessions); refresh own votes only.
+      if(!S.guestId||!S.awards.length)return;
+      var ids=S.awards.map(function(a){return a.id;});
+      sb.from("karaoke_award_votes").select("*").in("award_id",ids).eq("voter_guest_id",S.guestId).then(function(r){
+        var map={};(r.data||[]).forEach(function(v){map[v.award_id]=v;});S.awardVotes=map;
+        if(S.screen==="awards")render();
+      });
+    }).subscribe();
+  arCh=sb.channel("ar-"+S.sessionId)
+    .on("broadcast",{event:"reveal-step"},function(pl){
+      var step=pl.payload&&pl.payload.step;
+      S.awardsRevealStep=step||null;
+      render();
+    }).subscribe();
+}
+
+// ---- Event handlers for the awards screens ----
+function bindAwardsEvents(){
+  // Awards list
+  var createBtn=document.getElementById("awards-create-btn");
+  if(createBtn){
+    createBtn.addEventListener("click",function(){
+      var existing=null;for(var i=0;i<S.awards.length;i++)if(S.awards[i].created_by_guest_id===S.guestId){existing=S.awards[i];break;}
+      if(existing){
+        S.awardScreen="edit";S.awardEditingId=existing.id;
+        S.awardCreateDraft={title:existing.title,subjectType:existing.subject_type,iconId:existing.icon_id||null,iconDataUrl:existing.icon_data_url||null};
+      } else {
+        S.awardScreen="create";S.awardEditingId=null;
+        S.awardCreateDraft={title:"",subjectType:"performance",iconId:null,iconDataUrl:null};
+      }
+      S.awardIconCategory="Featured";S.awardIconSearch="";S.awardIconPage=0;
+      render();
+    });
+  }
+  document.querySelectorAll("[data-award-id]").forEach(function(btn){
+    btn.addEventListener("click",function(){
+      S.awardActiveId=btn.getAttribute("data-award-id");
+      S.awardScreen="detail";
+      render();
+    });
+  });
+
+  // Detail
+  var back=document.getElementById("awards-back-btn");
+  if(back){
+    back.addEventListener("click",function(){
+      S.awardScreen="list";S.awardActiveId=null;S.awardCreateDraft=null;S.awardEditingId=null;
+      render();
+    });
+  }
+  document.querySelectorAll("[data-candidate-key]").forEach(function(btn){
+    btn.addEventListener("click",function(){
+      var key=btn.getAttribute("data-candidate-key");
+      var award=null;for(var i=0;i<S.awards.length;i++)if(S.awards[i].id===S.awardActiveId){award=S.awards[i];break;}
+      if(!award)return;
+      var candidates=buildAwardCandidates(award);
+      var chosen=null;for(var j=0;j<candidates.length;j++)if(candidates[j].key===key){chosen=candidates[j];break;}
+      if(!chosen)return;
+      if(awardCandidateBanned(chosen))return;
+      if(award.finalized_at)return;
+      var existingVote=awardOwnVote(award.id);
+      var voted=matchCandidateByVote(award,existingVote,candidates);
+      if(voted){
+        // Show confirm modal
+        S.awardVoteConfirm={awardId:award.id,newLabel:chosen.label,oldLabel:voted.label,subject:resolveSubjectFromCandidate(award,chosen)};
+        render();
+      } else {
+        castAwardVote(award.id,resolveSubjectFromCandidate(award,chosen));
+      }
+    });
+  });
+
+  // Vote-confirm modal
+  var vcb=document.getElementById("vote-confirm-backdrop");
+  if(vcb){
+    vcb.addEventListener("click",function(e){if(e.target===vcb){S.awardVoteConfirm=null;render();}});
+  }
+  var vcc=document.getElementById("vote-confirm-cancel");
+  if(vcc)vcc.addEventListener("click",function(){S.awardVoteConfirm=null;render();});
+  var vcy=document.getElementById("vote-confirm-yes");
+  if(vcy)vcy.addEventListener("click",function(){
+    var c=S.awardVoteConfirm;if(!c)return;
+    S.awardVoteConfirm=null;
+    castAwardVote(c.awardId,c.subject);
+  });
+
+  // Create / edit form
+  var ni=document.getElementById("awards-name-input");
+  if(ni)ni.addEventListener("input",function(){if(S.awardCreateDraft)S.awardCreateDraft.title=ni.value;});
+  document.querySelectorAll("[data-subject]").forEach(function(b){
+    b.addEventListener("click",function(){
+      if(S.awardCreateDraft){S.awardCreateDraft.subjectType=b.getAttribute("data-subject");render();}
+    });
+  });
+  document.querySelectorAll("[data-visual]").forEach(function(b){
+    b.addEventListener("click",function(){
+      if(!S.awardCreateDraft)return;
+      var v=b.getAttribute("data-visual");
+      if(v==="icon"){S.awardCreateDraft.iconDataUrl=null;if(!S.awardCreateDraft.iconId)S.awardCreateDraft.iconId=(window.AWARDS_ICONS||[])[0]?(window.AWARDS_ICONS[0].id):null;}
+      else {S.awardCreateDraft.iconId=null;}
+      render();
+    });
+  });
+  document.querySelectorAll("[data-cat]").forEach(function(b){
+    b.addEventListener("click",function(){S.awardIconCategory=b.getAttribute("data-cat");S.awardIconPage=0;render();});
+  });
+  var iconSearch=document.getElementById("awards-search-input");
+  if(iconSearch){
+    iconSearch.addEventListener("input",function(){
+      S.awardIconSearch=iconSearch.value;
+      S.awardIconPage=0;
+      render();
+      var s=document.getElementById("awards-search-input");
+      if(s){s.focus();s.setSelectionRange(s.value.length,s.value.length);}
+    });
+  }
+  document.querySelectorAll("[data-icon-id]").forEach(function(b){
+    b.addEventListener("click",function(){
+      if(!S.awardCreateDraft)return;
+      S.awardCreateDraft.iconId=b.getAttribute("data-icon-id");
+      S.awardCreateDraft.iconDataUrl=null;
+      render();
+    });
+  });
+  var prevBtn=document.getElementById("awards-page-prev");
+  if(prevBtn)prevBtn.addEventListener("click",function(){S.awardIconPage=Math.max(0,(S.awardIconPage||0)-1);render();});
+  var nextBtn=document.getElementById("awards-page-next");
+  if(nextBtn)nextBtn.addEventListener("click",function(){S.awardIconPage=(S.awardIconPage||0)+1;render();});
+  var pu=document.getElementById("awards-photo-upload"),pui=document.getElementById("awards-photo-input");
+  if(pu&&pui){
+    pu.addEventListener("click",function(e){if(e.target===pui)return;pui.click();});
+    pui.addEventListener("change",function(){
+      if(pui.files&&pui.files[0]){
+        resizeImage(pui.files[0],256,0.85,function(url){
+          if(S.awardCreateDraft){S.awardCreateDraft.iconDataUrl=url;S.awardCreateDraft.iconId=null;render();}
+        });
+      }
+    });
+  }
+  var cancelBtn=document.getElementById("awards-cancel-btn");
+  if(cancelBtn)cancelBtn.addEventListener("click",function(){
+    S.awardScreen="list";S.awardCreateDraft=null;S.awardEditingId=null;render();
+  });
+  var submitBtn=document.getElementById("awards-submit-btn");
+  if(submitBtn)submitBtn.addEventListener("click",async function(){
+    var d=S.awardCreateDraft;if(!d)return;
+    var title=(d.title||"").trim();
+    if(!title){alert("Give your award a name.");return;}
+    if(!d.iconId&&!d.iconDataUrl){alert("Pick an icon or upload a photo.");return;}
+    submitBtn.disabled=true;
+    if(S.awardScreen==="edit"&&S.awardEditingId){
+      await updateMyAward(S.awardEditingId,{title:title,iconId:d.iconId,iconDataUrl:d.iconDataUrl});
+    } else {
+      await createCustomAward({title:title,subjectType:d.subjectType,iconId:d.iconId,iconDataUrl:d.iconDataUrl});
+    }
+    S.awardScreen="list";S.awardCreateDraft=null;S.awardEditingId=null;
+    await loadAwards();render();
+  });
+  var deleteBtn=document.getElementById("awards-delete-btn");
+  if(deleteBtn)deleteBtn.addEventListener("click",async function(){
+    if(!confirm("Delete this award?"))return;
+    if(S.awardEditingId)await deleteMyAward(S.awardEditingId);
+    S.awardScreen="list";S.awardCreateDraft=null;S.awardEditingId=null;
+    await loadAwards();render();
+  });
+}
+
+function resolveSubjectFromCandidate(award,c){
+  if(award.subject_type==="singer")return {guestId:c.key,queueRowId:null};
+  return {guestId:null,queueRowId:c.key};
+}
+
 function renderError(){
   return '<div class="error-screen screen"><div class="error-icon">&#128542;</div><div class="error-title">Session Unavailable</div><div class="error-sub">'+esc(S.errorMessage)+'</div></div>';
 }
@@ -4323,9 +5526,12 @@ function bindEvents(){
   document.querySelectorAll(".nav-tab").forEach(function(tab){
     tab.addEventListener("click",function(){
       S.screen=tab.dataset.nav;
-      if(tab.dataset.nav==="queue")loadQueue().then(render);else render();
+      if(tab.dataset.nav==="queue"){loadQueue().then(render);}
+      else if(tab.dataset.nav==="awards"){S.awardScreen="list";S.awardActiveId=null;loadAwards().then(render);}
+      else{render();}
     });
   });
+  bindAwardsEvents();
   document.querySelectorAll("[data-q-vote-up]").forEach(function(btn){
     btn.addEventListener("click",function(){
       var id=btn.getAttribute("data-q-vote-up");

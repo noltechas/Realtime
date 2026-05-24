@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useApp } from '../context/AppContext'
 import { useTheme } from '../context/ThemeContext'
+import { AwardsRevealAnimation } from '../awards/AwardsRevealAnimation'
 import { HiddenSongStagePanel, HiddenSongStageHeading } from '../components/HiddenSongCard'
 
 import { VoiceEffectsEngine } from '../audio/VoiceEffectsEngine'
@@ -2214,6 +2215,7 @@ export default function KaraokePage() {
 
         </div>
         {qrOverlay}
+        <AwardsRevealAnimation step={state.awardsRevealStep} />
         </>
     )
 }

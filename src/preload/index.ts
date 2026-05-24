@@ -75,6 +75,19 @@ export type ElectronAPI = {
     sendReaction: (reaction: any) => void
     onReaction: (callback: (reaction: any) => void) => any
     offReaction: (handler: any) => void
+    // Awards
+    ensureDefaultAwards: () => Promise<void>
+    listAwards: () => Promise<any[]>
+    listAwardVotes: () => Promise<any[]>
+    listAwardResults: () => Promise<any[]>
+    createAward: (input: { title: string; subjectType: 'performance' | 'singer' | 'group'; iconId: string | null; iconDataUrl: string | null; createdByGuestId: string }) => Promise<{ id?: string; error?: string }>
+    updateAward: (awardId: string, fields: { title?: string; iconId?: string | null; iconDataUrl?: string | null }) => Promise<{ error?: string }>
+    deleteAward: (awardId: string) => Promise<{ error?: string }>
+    castAwardVote: (input: { awardId: string; voterGuestId: string; subjectQueueRowId: string | null; subjectGuestId: string | null }) => Promise<{ error?: string }>
+    clearAwardVote: (awardId: string, voterGuestId: string) => Promise<void>
+    persistAwardResults: (results: any[]) => Promise<void>
+    unfinalizeAwards: (awardIds: string[]) => Promise<void>
+    broadcastRevealStep: (step: any) => Promise<void>
 }
 
 const api: ElectronAPI = {
@@ -183,7 +196,20 @@ const api: ElectronAPI = {
         ipcRenderer.on('reaction:receive', handler)
         return handler
     },
-    offReaction: (handler) => ipcRenderer.removeListener('reaction:receive', handler)
+    offReaction: (handler) => ipcRenderer.removeListener('reaction:receive', handler),
+    // Awards
+    ensureDefaultAwards: () => ipcRenderer.invoke('karaoke:ensure-default-awards'),
+    listAwards: () => ipcRenderer.invoke('karaoke:list-awards'),
+    listAwardVotes: () => ipcRenderer.invoke('karaoke:list-award-votes'),
+    listAwardResults: () => ipcRenderer.invoke('karaoke:list-award-results'),
+    createAward: (input) => ipcRenderer.invoke('karaoke:create-award', input),
+    updateAward: (awardId, fields) => ipcRenderer.invoke('karaoke:update-award', awardId, fields),
+    deleteAward: (awardId) => ipcRenderer.invoke('karaoke:delete-award', awardId),
+    castAwardVote: (input) => ipcRenderer.invoke('karaoke:cast-award-vote', input),
+    clearAwardVote: (awardId, voterGuestId) => ipcRenderer.invoke('karaoke:clear-award-vote', awardId, voterGuestId),
+    persistAwardResults: (results) => ipcRenderer.invoke('karaoke:persist-award-results', results),
+    unfinalizeAwards: (awardIds) => ipcRenderer.invoke('karaoke:unfinalize-awards', awardIds),
+    broadcastRevealStep: (step) => ipcRenderer.invoke('karaoke:broadcast-reveal-step', step)
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

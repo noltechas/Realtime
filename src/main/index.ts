@@ -13,6 +13,11 @@ import {
     listRecentSessions, getSession, deleteSession,
     fetchAndStoreTrendingGifs,
     bumpBonusPointsForRemaining, lockQueueItem,
+    ensureDefaultAwards, listAwards, listAwardVotes,
+    createCustomAward, updateAward, deleteAward,
+    castAwardVote, clearAwardVote,
+    persistAwardResults, listAwardResults, unfinalizeAwards,
+    broadcastRevealStep,
     CatalogItem
 } from './supabase'
 
@@ -577,6 +582,11 @@ ipcMain.handle('karaoke:create-session', async (_event, name: string, themeName:
             console.error('Failed to fetch trending GIFs:', e)
         )
 
+        // Seed default awards in background
+        ensureDefaultAwards(session.sessionId).catch(e =>
+            console.error('Failed to seed default awards:', e)
+        )
+
         return {
             sessionId: session.sessionId,
             sessionCode: session.sessionCode,
@@ -615,6 +625,11 @@ ipcMain.handle('karaoke:resume-session', async (_event, sessionId: string) => {
         // Refresh trending GIFs in background on resume
         fetchAndStoreTrendingGifs(session.sessionId).catch(e =>
             console.error('Failed to fetch trending GIFs on resume:', e)
+        )
+
+        // Seed default awards (idempotent — only inserts missing slugs)
+        ensureDefaultAwards(session.sessionId).catch(e =>
+            console.error('Failed to seed default awards on resume:', e)
         )
 
         return {
@@ -701,6 +716,69 @@ ipcMain.handle('karaoke:update-guest', async (_event, id: string, fields: { name
 
 ipcMain.handle('karaoke:remove-guest', async (_event, id: string) => {
     await removeGuest(id)
+})
+
+// ----- Awards IPC Handlers -----
+
+ipcMain.handle('karaoke:ensure-default-awards', async () => {
+    if (!activeSession) return
+    await ensureDefaultAwards(activeSession.id)
+})
+
+ipcMain.handle('karaoke:list-awards', async () => {
+    if (!activeSession) return []
+    return listAwards(activeSession.id)
+})
+
+ipcMain.handle('karaoke:list-award-votes', async () => {
+    if (!activeSession) return []
+    return listAwardVotes(activeSession.id)
+})
+
+ipcMain.handle('karaoke:list-award-results', async () => {
+    if (!activeSession) return []
+    return listAwardResults(activeSession.id)
+})
+
+ipcMain.handle('karaoke:create-award', async (_event, input: { title: string; subjectType: 'performance' | 'singer' | 'group'; iconId: string | null; iconDataUrl: string | null; createdByGuestId: string }) => {
+    if (!activeSession) return { error: 'No active session' }
+    return createCustomAward({
+        sessionId: activeSession.id,
+        title: input.title,
+        subjectType: input.subjectType,
+        iconId: input.iconId,
+        iconDataUrl: input.iconDataUrl,
+        createdByGuestId: input.createdByGuestId
+    })
+})
+
+ipcMain.handle('karaoke:update-award', async (_event, awardId: string, fields: { title?: string; iconId?: string | null; iconDataUrl?: string | null }) => {
+    return updateAward(awardId, fields)
+})
+
+ipcMain.handle('karaoke:delete-award', async (_event, awardId: string) => {
+    return deleteAward(awardId)
+})
+
+ipcMain.handle('karaoke:cast-award-vote', async (_event, input: { awardId: string; voterGuestId: string; subjectQueueRowId: string | null; subjectGuestId: string | null }) => {
+    return castAwardVote(input)
+})
+
+ipcMain.handle('karaoke:clear-award-vote', async (_event, awardId: string, voterGuestId: string) => {
+    await clearAwardVote(awardId, voterGuestId)
+})
+
+ipcMain.handle('karaoke:persist-award-results', async (_event, results: any[]) => {
+    await persistAwardResults(results)
+})
+
+ipcMain.handle('karaoke:unfinalize-awards', async (_event, awardIds: string[]) => {
+    await unfinalizeAwards(awardIds)
+})
+
+ipcMain.handle('karaoke:broadcast-reveal-step', async (_event, step: unknown) => {
+    if (!activeSession) return
+    await broadcastRevealStep(activeSession.id, step)
 })
 
 // ----- System Volume IPC Handlers -----

@@ -30,6 +30,8 @@ export function useKaraokeSession() {
     const queueChannelRef = useRef<RealtimeChannel | null>(null)
     const reactionChannelRef = useRef<RealtimeChannel | null>(null)
     const sessionChannelRef = useRef<RealtimeChannel | null>(null)
+    const awardsChannelRef = useRef<RealtimeChannel | null>(null)
+    const awardsRevealChannelRef = useRef<RealtimeChannel | null>(null)
     const isRemotePlayRef = useRef(false)
     const lastSeenSkipAtRef = useRef<string | null>(null)
     const reconcileTimerRef = useRef<NodeJS.Timeout | null>(null)
@@ -510,4 +512,117 @@ export function useKaraokeSession() {
         const timer = setTimeout(() => { isRemotePlayRef.current = false }, 500)
         return () => clearTimeout(timer)
     }, [state.isPlaying, state.karaokeSessionId])
+
+    // ---- Awards realtime + initial load ----------------------------------
+    // Subscribe to karaoke_awards + karaoke_award_results for the active
+    // session. Main window owns the initial fetch; stage window receives
+    // updates via the state:action IPC relay.
+    useEffect(() => {
+        if (window.electronAPI?.isStageWindow) return
+        const sessionId = state.karaokeSessionId
+        if (!sessionId) return
+
+        // Initial fetch (also seeds defaults if missing — main process did this
+        // on session create, but the IPC call is idempotent so we don't worry).
+        const loadAll = async () => {
+            const [awards, results] = await Promise.all([
+                window.electronAPI?.listAwards(),
+                window.electronAPI?.listAwardResults()
+            ])
+            if (awards) dispatch({ type: 'SET_AWARDS', payload: awards.map(mapAwardRow) })
+            if (results) dispatch({ type: 'SET_AWARD_RESULTS', payload: results.map(mapAwardResultRow) })
+        }
+        loadAll()
+
+        if (awardsChannelRef.current) supabase.removeChannel(awardsChannelRef.current)
+
+        const ch = supabase
+            .channel('renderer-awards-' + sessionId)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'karaoke_awards', filter: 'session_id=eq.' + sessionId }, (payload) => {
+                if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+                    const row = payload.new as any
+                    dispatch({ type: 'UPSERT_AWARD', payload: mapAwardRow(row) })
+                } else if (payload.eventType === 'DELETE') {
+                    const row = payload.old as any
+                    if (row?.id) dispatch({ type: 'REMOVE_AWARD', payload: row.id })
+                }
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'karaoke_award_results', filter: 'session_id=eq.' + sessionId }, () => {
+                // Easiest path: refetch the whole results set when anything
+                // changes. Results are small (one row per winner per award).
+                window.electronAPI?.listAwardResults().then(r => {
+                    dispatch({ type: 'SET_AWARD_RESULTS', payload: (r || []).map(mapAwardResultRow) })
+                })
+            })
+            .subscribe()
+        awardsChannelRef.current = ch
+
+        return () => {
+            if (awardsChannelRef.current) {
+                supabase.removeChannel(awardsChannelRef.current)
+                awardsChannelRef.current = null
+            }
+        }
+    }, [state.karaokeSessionId, dispatch])
+
+    // Awards reveal broadcast channel — both main AND stage need to receive
+    // these. The stage window goes through state:action IPC for everything
+    // else; for reveal-step we subscribe directly so the stage doesn't depend
+    // on the main window staying responsive during the sequence.
+    useEffect(() => {
+        const sessionId = state.karaokeSessionId
+        if (!sessionId) return
+
+        if (awardsRevealChannelRef.current) supabase.removeChannel(awardsRevealChannelRef.current)
+
+        const ch = supabase
+            .channel('ar-' + sessionId)
+            .on('broadcast', { event: 'reveal-step' }, (pl: any) => {
+                const step = pl?.payload?.step ?? null
+                dispatch({ type: 'SET_REVEAL_STEP', payload: step })
+            })
+            .subscribe()
+        awardsRevealChannelRef.current = ch
+
+        return () => {
+            if (awardsRevealChannelRef.current) {
+                supabase.removeChannel(awardsRevealChannelRef.current)
+                awardsRevealChannelRef.current = null
+            }
+        }
+    }, [state.karaokeSessionId, dispatch])
+}
+
+// ---- Row mappers (DB snake_case -> typed objects) --------------------------
+function mapAwardRow(r: any): import('../awards/types').Award {
+    return {
+        id: r.id,
+        sessionId: r.sessionId ?? r.session_id,
+        slug: r.slug ?? null,
+        title: r.title,
+        subjectType: r.subjectType ?? r.subject_type,
+        iconId: r.iconId ?? r.icon_id ?? null,
+        iconDataUrl: r.iconDataUrl ?? r.icon_data_url ?? null,
+        isDefault: !!(r.isDefault ?? r.is_default),
+        createdByGuestId: r.createdByGuestId ?? r.created_by_guest_id ?? null,
+        finalizedAt: r.finalizedAt ?? r.finalized_at ?? null,
+        createdAt: r.createdAt ?? r.created_at,
+        updatedAt: r.updatedAt ?? r.updated_at
+    }
+}
+
+function mapAwardResultRow(r: any): import('../awards/types').AwardResult {
+    return {
+        id: r.id,
+        awardId: r.awardId ?? r.award_id,
+        sessionId: r.sessionId ?? r.session_id,
+        sessionCode: r.sessionCode ?? r.session_code,
+        rank: r.rank ?? 1,
+        winnerLabel: r.winnerLabel ?? r.winner_label,
+        winnerSubtitle: r.winnerSubtitle ?? r.winner_subtitle ?? null,
+        winnerAvatarUrl: r.winnerAvatarUrl ?? r.winner_avatar_url ?? null,
+        winnerMeta: r.winnerMeta ?? r.winner_meta ?? null,
+        voteCount: r.voteCount ?? r.vote_count ?? 0,
+        createdAt: r.createdAt ?? r.created_at
+    }
 }
