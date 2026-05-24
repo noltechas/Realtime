@@ -126,14 +126,24 @@ export function bindEvents(){
   }
   var ps=document.getElementById("profile-save"),pn=document.getElementById("profile-name");
   if(ps&&pn){
-    ps.addEventListener("click",function(){if(pn.value.trim())updateProfile(pn.value,S.profilePicture);});
+    ps.addEventListener("click",function(){if(pn.value.trim())updateProfile(pn.value,S.profilePicture,S.defaultColor);});
   }
+  document.querySelectorAll(".profile-color-swatch").forEach(function(sw){
+    sw.addEventListener("click",function(){
+      var c=sw.getAttribute("data-default-color");
+      if(!c)return;
+      S.defaultColor=(S.defaultColor||"").toLowerCase()===c.toLowerCase()?null:c;
+      render();
+    });
+  });
+  var pcc=document.getElementById("profile-color-clear");
+  if(pcc){pcc.addEventListener("click",function(){S.defaultColor=null;render();});}
   var psw=document.getElementById("profile-switch");
   if(psw){psw.addEventListener("click",function(){
     if(!confirm("Switch user? You'll need to enter a new name. Songs you've added will stay queued."))return;
     localStorage.removeItem("karaoke_guest_"+S.sessionCode);
     clearDeviceProfile();
-    S.guestId=null;S.guestName="";S.profilePicture=null;S.joinName="";
+    S.guestId=null;S.guestName="";S.profilePicture=null;S.defaultColor=null;S.joinName="";
     S.screen="join";render();
   });}
   // (The #nav-profile click handler was removed — the profile button now
@@ -330,7 +340,7 @@ export function bindEvents(){
         var gid=pill.dataset.addGuest;
         var guest=(S.guests||[]).find(function(g){return g.id===gid;});
         if(!guest)return;
-        addSinger({name:guest.name,profilePicture:guest.profilePicture||null});
+        addSinger({name:guest.name,profilePicture:guest.profilePicture||null,defaultColor:guest.defaultColor||null});
         S.singerPickerOpen=false;S.customSingerName="";render();
       });
     });

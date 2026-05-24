@@ -1,14 +1,14 @@
 import { S } from './state.js';
 
 export function saveLocal(){
-  localStorage.setItem("karaoke_guest_"+S.sessionCode,JSON.stringify({guestId:S.guestId,guestName:S.guestName,sessionId:S.sessionId,profilePicture:S.profilePicture}));
+  localStorage.setItem("karaoke_guest_"+S.sessionCode,JSON.stringify({guestId:S.guestId,guestName:S.guestName,sessionId:S.sessionId,profilePicture:S.profilePicture,defaultColor:S.defaultColor||null}));
 }
 export function loadDeviceProfile(){
   try{var raw=localStorage.getItem("karaoke_device_profile");return raw?JSON.parse(raw):null;}catch(e){return null;}
 }
 export function saveDeviceProfile(){
   if(!S.guestName)return;
-  try{localStorage.setItem("karaoke_device_profile",JSON.stringify({name:S.guestName,profilePicture:S.profilePicture||null,prefersSanitize:S.prefersSanitize!==false}));}catch(e){}
+  try{localStorage.setItem("karaoke_device_profile",JSON.stringify({name:S.guestName,profilePicture:S.profilePicture||null,prefersSanitize:S.prefersSanitize!==false,defaultColor:S.defaultColor||null}));}catch(e){}
 }
 export function clearDeviceProfile(){
   try{localStorage.removeItem("karaoke_device_profile");}catch(e){}

@@ -119,9 +119,10 @@ export async function validateSession(){
   S.nowPlayingStageTheme=r.data.now_playing_stage_theme||null;
   if(r.data.now_playing_name){S.nowPlaying={trackId:r.data.now_playing_track_id,name:r.data.now_playing_name,artist:r.data.now_playing_artist,artUrl:r.data.now_playing_art_url};if(r.data.now_playing_track_id)caches.playedTrackIds[r.data.now_playing_track_id]=true;}
   if(S.guestId){
-    var gr=await sb.from("karaoke_guests").select("id,profile_picture").eq("id",S.guestId).eq("session_id",S.sessionId).single();
+    var gr=await sb.from("karaoke_guests").select("id,profile_picture,default_color").eq("id",S.guestId).eq("session_id",S.sessionId).single();
     if(gr.data){
       if(gr.data.profile_picture&&!S.profilePicture){S.profilePicture=gr.data.profile_picture;saveLocal();}
+      if(gr.data.default_color&&!S.defaultColor){S.defaultColor=gr.data.default_color;saveLocal();saveDeviceProfile();}
       await loadCatalog();await loadQueue();await loadGuests();await loadAwards();subRT();
       S.screen="songs";
       checkYoureUp();
@@ -137,6 +138,7 @@ export async function rejoinAsGuest(g){
   S.guestId=g.id;
   S.guestName=g.name;
   S.profilePicture=g.profilePicture||null;
+  if(g.defaultColor)S.defaultColor=g.defaultColor;
   S.screen="joining";render();
   saveLocal();
   saveDeviceProfile();
@@ -151,6 +153,7 @@ export async function joinSession(name){
   S.joining=true;S.guestName=name.trim();S.joinName="";S.screen="joining";render();
   var ins={session_id:S.sessionId,name:name.trim()};
   if(S.profilePicture)ins.profile_picture=S.profilePicture;
+  if(S.defaultColor)ins.default_color=S.defaultColor;
   var r=await sb.from("karaoke_guests").insert(ins).select("id").single();
   if(r.error){S.joining=false;S.screen="join";render();alert("Failed to join. Try again.");return;}
   S.guestId=r.data.id;
@@ -225,8 +228,8 @@ export async function castVote(queueRowId,value){
   }
 }
 export async function loadGuests(){
-  var r=await sb.from("karaoke_guests").select("id,name,profile_picture").eq("session_id",S.sessionId);
-  S.guests=(r.data||[]).map(function(g){return{id:g.id,name:g.name,profilePicture:g.profile_picture};});
+  var r=await sb.from("karaoke_guests").select("id,name,profile_picture,default_color").eq("session_id",S.sessionId);
+  S.guests=(r.data||[]).map(function(g){return{id:g.id,name:g.name,profilePicture:g.profile_picture,defaultColor:g.default_color||null};});
 }
 export function checkYoureUp(){
   if(S.nowPlayingSingerConfigs&&S.guestName&&S.nowPlaying){
@@ -303,13 +306,15 @@ export async function addToQueue(){
   if(r.error){S.addingToQueue=false;alert("Failed to add song. Try again.");return;}
   S.addingToQueue=false;S.selectedTrack=null;S.singers=[];S.stage_theme=null;S.hide_song=false;S.customSingerName="";S.singerPickerOpen=false;S.screen="queue";await loadQueue();render();
 }
-export async function updateProfile(name,pic){
+export async function updateProfile(name,pic,defaultColor){
   var upd={name:name.trim()};
   if(pic!==undefined)upd.profile_picture=pic;
+  if(defaultColor!==undefined)upd.default_color=defaultColor;
   var r=await sb.from("karaoke_guests").update(upd).eq("id",S.guestId);
   if(r.error){alert("Failed to save profile. Try again.");return;}
   S.guestName=name.trim();
   if(pic!==undefined)S.profilePicture=pic;
+  if(defaultColor!==undefined)S.defaultColor=defaultColor;
   saveLocal();
   saveDeviceProfile();
   S.screen="songs";render();

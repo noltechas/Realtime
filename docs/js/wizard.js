@@ -2,9 +2,26 @@ import { S, NC, MAX_SINGERS } from './state.js';
 import { render } from './render/main.js';
 import { addToQueue } from './supabase.js';
 
+function findNCByColor(hex){
+  if(!hex)return null;
+  var lc=hex.toLowerCase();
+  for(var i=0;i<NC.length;i++){if(NC[i].c.toLowerCase()===lc)return NC[i];}
+  return null;
+}
+function colorTakenByOther(hex,exceptIdx){
+  if(!hex)return false;
+  var lc=hex.toLowerCase();
+  for(var i=0;i<S.singers.length;i++){
+    if(i===exceptIdx)continue;
+    if(((S.singers[i].color||"").toLowerCase())===lc)return true;
+  }
+  return false;
+}
 export function initWizardFromTrack(track){
   S.selectedTrack=track;
-  S.singers=[{name:S.guestName,color:NC[0].c,colorGlow:NC[0].g,roleIndices:[],profilePicture:S.profilePicture,whitePersonCheck:S.prefersSanitize!==false}];
+  var pref=findNCByColor(S.defaultColor);
+  var first=pref||NC[0];
+  S.singers=[{name:S.guestName,color:first.c,colorGlow:first.g,roleIndices:[],profilePicture:S.profilePicture,whitePersonCheck:S.prefersSanitize!==false}];
   S.wizardStep=2;
   S.screen="wizard-singers";
   S.customSingerName="";
@@ -15,10 +32,23 @@ export function initWizardFromTrack(track){
 export function addSinger(payload){
   if(S.singers.length>=MAX_SINGERS)return;
   var i=S.singers.length;
+  var pref=payload&&payload.defaultColor?findNCByColor(payload.defaultColor):null;
+  var color="",glow="";
+  if(pref&&!colorTakenByOther(pref.c,-1)){
+    color=pref.c;glow=pref.g;
+  }else if(!pref){
+    var fallback=NC[i%NC.length];
+    if(!colorTakenByOther(fallback.c,-1)){color=fallback.c;glow=fallback.g;}
+    else{
+      for(var k=0;k<NC.length;k++){
+        if(!colorTakenByOther(NC[k].c,-1)){color=NC[k].c;glow=NC[k].g;break;}
+      }
+    }
+  }
   var singer={
     name:(payload&&payload.name)||"",
-    color:NC[i%NC.length].c,
-    colorGlow:NC[i%NC.length].g,
+    color:color,
+    colorGlow:glow,
     roleIndices:[],
     profilePicture:(payload&&payload.profilePicture)||null,
     whitePersonCheck:true
