@@ -151,7 +151,7 @@ export function renderAwardsList(){
     '<div class="awards-screen-header">'+
       '<div class="awards-screen-header-text">'+
         '<div class="awards-title">Awards</div>'+
-        '<div class="awards-sub">Vote anytime. Winners are revealed when the host wraps up.</div>'+
+        '<div class="awards-sub">Vote anytime. Winners are revealed when the night ends.</div>'+
       '</div>'+
     '</div>';
   var hasOwn=false;var ownAward=null;
