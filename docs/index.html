@@ -38,16 +38,29 @@
     log.push(e);
     write(LS,log.slice(-20));
   }
-  // Check if the previous page load got past key milestones.
-  // If "page-loaded" was set but "first-render" wasn't, the app crashed
-  // before its first render — likely a module-load or init failure.
+  // Diagnose previous load: where did it die, and was it a silent process
+  // kill (iOS memory pressure) vs a JS error we already captured?
   var lc=read(LM);
   if(lc.length){
     var last=lc[lc.length-1];
-    var stages={};
-    for(var i=0;i<lc.length;i++){stages[lc[i].stage]=true;}
-    if(stages['page-loaded'] && !stages['first-render-done']){
-      pushErr({time:new Date().toISOString(),message:'[diag] previous load reached "'+last.stage+'" then died with no JS error (likely memory crash / SyntaxError before handlers ready)',source:'',line:0,col:0,stack:'lifecycle: '+lc.map(function(x){return x.stage;}).join(' → ')});
+    var stages=lc.map(function(x){return x.stage;});
+    var sawRender=false;
+    for(var i=0;i<stages.length;i++){if(stages[i].indexOf('render:')===0){sawRender=true;break;}}
+    var sawInit=stages.indexOf('init-started')>=0;
+    var prevErrCount=read(LS).length;
+    // Only emit the diagnostic if there's NO JS error already logged from
+    // the previous run — those tell us the cause directly. This entry is
+    // specifically for silent process kills (memory / hang).
+    if(prevErrCount===0){
+      var diag;
+      if(!sawInit){
+        diag='previous load died before init-started — module load probably failed';
+      }else if(!sawRender){
+        diag='previous load started init but never rendered — validateSession or first render threw silently';
+      }else{
+        diag='previous load reached "'+last.stage+'" then died silently — likely iOS memory kill or main-thread hang';
+      }
+      pushErr({time:new Date().toISOString(),message:'[diag] '+diag,source:'',line:0,col:0,stack:'lifecycle (last '+lc.length+'): '+stages.join(' → ')});
     }
   }
   mark('page-loaded');
