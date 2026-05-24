@@ -671,15 +671,34 @@ export async function listAwardResults(sessionId: string): Promise<any[]> {
     return data || []
 }
 
-// Broadcast the reveal step on the per-session awards channel. Returns the
-// channel so the caller can keep a reference if needed.
+// Cache one channel per session so successive broadcasts reuse the socket
+// instead of opening a new channel (and waiting for SUBSCRIBED) on every step.
+let revealChannel: RealtimeChannel | null = null
+let revealChannelSession: string | null = null
+
+// Broadcast the reveal step on the per-session awards channel. Times out the
+// subscribe wait so a flaky network doesn't stall the entire reveal sequence —
+// the local stage already has the step via the state:action IPC relay, so a
+// failed broadcast only loses companion-phone sync, not the show on stage.
 export async function broadcastRevealStep(sessionId: string, step: unknown): Promise<void> {
-    const ch = supabase.channel('ar-' + sessionId)
-    await new Promise<void>((resolve) => {
-        ch.subscribe(status => {
-            if (status === 'SUBSCRIBED') resolve()
+    if (!revealChannel || revealChannelSession !== sessionId) {
+        if (revealChannel) supabase.removeChannel(revealChannel)
+        revealChannel = supabase.channel('ar-' + sessionId)
+        revealChannelSession = sessionId
+        await new Promise<void>((resolve) => {
+            let done = false
+            const settle = () => { if (!done) { done = true; resolve() } }
+            revealChannel!.subscribe(status => {
+                if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+                    settle()
+                }
+            })
+            setTimeout(settle, 2500)
         })
-    })
-    await ch.send({ type: 'broadcast', event: 'reveal-step', payload: { step } })
-    // Channel left open; supabase reuses sockets.
+    }
+    try {
+        await revealChannel.send({ type: 'broadcast', event: 'reveal-step', payload: { step } })
+    } catch (e) {
+        console.error('[Awards] broadcast send failed:', e)
+    }
 }

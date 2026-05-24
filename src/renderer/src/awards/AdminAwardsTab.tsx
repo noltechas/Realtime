@@ -90,15 +90,20 @@ export function AdminAwardsTab() {
         sequenceRef.current = runRevealSequence({
             items,
             onBroadcast: async (step: RevealStep) => {
-                // Drive local stage immediately
+                // Drive local stage immediately via IPC state relay — the stage
+                // window picks this up regardless of whether the supabase
+                // broadcast succeeds.
                 dispatch({ type: 'SET_REVEAL_STEP', payload: step })
-                // And broadcast to companion site phones
-                await window.electronAPI?.broadcastRevealStep(step)
+                // Fire-and-forget the supabase broadcast so a slow / failed
+                // send to companion phones never stalls the on-stage sequence.
+                window.electronAPI?.broadcastRevealStep(step).catch(e =>
+                    console.warn('[Awards] reveal broadcast failed:', e)
+                )
             },
             onComplete: () => {
                 setRevealStatus('idle')
                 dispatch({ type: 'SET_REVEAL_STEP', payload: null })
-                window.electronAPI?.broadcastRevealStep({ phase: 'idle', awardIndex: 0, totalAwards: 0, startedAt: new Date().toISOString() })
+                window.electronAPI?.broadcastRevealStep({ phase: 'idle', awardIndex: 0, totalAwards: 0, startedAt: new Date().toISOString() }).catch(() => {})
             }
         })
     }
