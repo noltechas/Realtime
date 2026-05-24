@@ -6,6 +6,7 @@ import { castVote, sendReaction, joinSession, rejoinAsGuest, updateProfile, runR
 import { render } from '../render/main.js';
 import { filterCatalog, renderGenreTabs, renderRequest, renderSongCards } from '../render/songs.js';
 import { bindAwardsEvents } from './awards.js';
+import { ensureAwardsManifest } from '../awards-manifest.js';
 
 // Timer vars — module-local to event handlers.
 var gifSearchTimer=null;
@@ -404,7 +405,15 @@ export function bindEvents(){
     tab.addEventListener("click",function(){
       S.screen=tab.dataset.nav;
       if(tab.dataset.nav==="queue"){loadQueue().then(render);}
-      else if(tab.dataset.nav==="awards"){S.awardScreen="list";S.awardActiveId=null;loadAwards().then(render);}
+      else if(tab.dataset.nav==="awards"){
+        S.awardScreen="list";S.awardActiveId=null;
+        // Kick off manifest load in parallel with loadAwards; both promises
+        // resolve independently. The awards list can render with the CDN
+        // fallback before the manifest arrives — manifest just enables the
+        // icon picker for create/edit.
+        ensureAwardsManifest().then(render).catch(function(e){console.warn('awards manifest load failed:',e);});
+        loadAwards().then(render);
+      }
       else{render();}
     });
   });

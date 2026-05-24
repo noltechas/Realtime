@@ -2,6 +2,7 @@ import { S } from '../state.js';
 import { resizeImage } from '../utils.js';
 import { render } from '../render/main.js';
 import { shuffleAwardIcons, buildAwardCandidates, awardCandidateBanned, awardOwnVote, matchCandidateByVote } from '../render/awards.js';
+import { ensureAwardsManifest } from '../awards-manifest.js';
 import { castAwardVote, createCustomAward, updateMyAward, deleteMyAward, loadAwards } from '../supabase.js';
 
 export function resolveSubjectFromCandidate(award,c){
@@ -27,7 +28,10 @@ export function bindAwardsEvents(){
         S.awardCreateDraft={title:"",subjectType:"performance",iconId:null,iconDataUrl:null,visualMode:"icon"};
       }
       S.awardIconCategory="Featured";S.awardIconSearch="";S.awardIconPage=0;
-      shuffleAwardIcons();
+      // Make sure the icon catalog is loaded before shuffleAwardIcons runs —
+      // it reads window.AWARDS_ICONS. If it isn't here yet (user hasn't been
+      // on Awards tab), inject the script now then render once it lands.
+      ensureAwardsManifest().then(function(){shuffleAwardIcons();render();}).catch(function(e){console.warn('manifest load failed:',e);render();});
       render();
     });
   }
