@@ -52,7 +52,14 @@ export function render(){
   }
   if(S.screen==="awards"){overlayHtml+=renderVoteConfirmOverlay();}
   if(overlayMount){overlayMount.innerHTML=overlayHtml;}
-  bindEvents();
+  try{ bindEvents(); }
+  catch(e){
+    // Don't let a stray event-handler binding crash the whole app —
+    // log it and continue so the page still renders.
+    if(window.__pushErr)window.__pushErr({time:new Date().toISOString(),message:'bindEvents threw: '+(e&&e.message||e),source:(e&&e.fileName)||'',line:(e&&e.lineNumber)||0,col:(e&&e.columnNumber)||0,stack:(e&&e.stack)||''});
+    else console.error('bindEvents threw:',e);
+  }
+  if(window.__mark)window.__mark('render:'+S.screen);
 }
 
 export function renderError(){

@@ -18,6 +18,50 @@
 <link rel="stylesheet" href="css/awards.css">
 </head>
 <body>
+<script>
+// Early error trap. Runs before any module-loading begins so we catch
+// module parse/import failures, syntax errors, and anything that fires
+// before the main app evaluates. Also tracks lifecycle markers so we
+// can tell whether the page died from a JS error or a hard process kill.
+(function(){
+  var LS='karaoke_error_log';
+  var LM='karaoke_lifecycle';
+  function read(k){try{return JSON.parse(localStorage.getItem(k)||'[]');}catch(e){return[];}}
+  function write(k,v){try{localStorage.setItem(k,JSON.stringify(v).slice(0,20000));}catch(e){}}
+  function mark(stage){
+    var lc=read(LM);
+    lc.push({t:Date.now(),stage:stage,url:location.href.slice(-80)});
+    write(LM,lc.slice(-30));
+  }
+  function pushErr(e){
+    var log=read(LS);
+    log.push(e);
+    write(LS,log.slice(-20));
+  }
+  // Check if the previous page load got past key milestones.
+  // If "page-loaded" was set but "first-render" wasn't, the app crashed
+  // before its first render — likely a module-load or init failure.
+  var lc=read(LM);
+  if(lc.length){
+    var last=lc[lc.length-1];
+    var stages={};
+    for(var i=0;i<lc.length;i++){stages[lc[i].stage]=true;}
+    if(stages['page-loaded'] && !stages['first-render-done']){
+      pushErr({time:new Date().toISOString(),message:'[diag] previous load reached "'+last.stage+'" then died with no JS error (likely memory crash / SyntaxError before handlers ready)',source:'',line:0,col:0,stack:'lifecycle: '+lc.map(function(x){return x.stage;}).join(' → ')});
+    }
+  }
+  mark('page-loaded');
+  window.__mark=mark;
+  window.__pushErr=pushErr;
+  window.addEventListener('error',function(ev){
+    pushErr({time:new Date().toISOString(),message:(ev.error&&ev.error.message)||ev.message||'Unknown',source:ev.filename||'',line:ev.lineno||0,col:ev.colno||0,stack:(ev.error&&ev.error.stack)||''});
+  },true);
+  window.addEventListener('unhandledrejection',function(ev){
+    var r=ev.reason;
+    pushErr({time:new Date().toISOString(),message:(r&&r.message)||String(r)||'Unhandled rejection',source:'',line:0,col:0,stack:(r&&r.stack)||''});
+  });
+})();
+</script>
 <div class="mesh-bg"></div>
 <div id="notif-container"></div>
 <div class="app" id="app"></div>

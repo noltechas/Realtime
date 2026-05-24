@@ -5,6 +5,7 @@ import { render } from './render/main.js';
 import { validateSession } from './supabase.js';
 
 function init(){
+  if(window.__mark)window.__mark('init-started');
   var p=new URLSearchParams(window.location.search);
   S.sessionCode=p.get("session");
   if(!S.sessionCode){S.screen="error";S.errorMessage="No session code provided. Scan the QR code to join.";render();return;}

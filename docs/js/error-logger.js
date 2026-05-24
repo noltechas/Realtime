@@ -1,15 +1,11 @@
-// On-device error overlay + localStorage log.
-// Loaded FIRST (before anything else) so it catches early module-load errors.
-//
-// Why: iOS Safari shows "A problem repeatedly occurred" on crashes but hides
-// the actual JS error. Without DevTools you can't see what threw. This logger:
-//   1. Listens for window 'error' and 'unhandledrejection' events
-//   2. Shows the most recent error as a fixed red banner at the top
-//   3. Persists the last 20 errors to localStorage so they survive crashes/reloads
-//   4. Adds a small 🐞 button (top-right) that dumps the full log when tapped
+// On-device error overlay. The window 'error' and 'unhandledrejection'
+// listeners are registered in an inline <script> at the top of <body> in
+// index.html, so they're already active before any module evaluates.
+// This file just provides the visual UI (red banner + 🐞 button + clipboard
+// dump) and marks lifecycle stages so we can tell how far the page got.
 
 const LS_KEY = 'karaoke_error_log';
-const MAX = 20;
+const LM_KEY = 'karaoke_lifecycle';
 
 function readLog() {
   try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); }
@@ -17,33 +13,29 @@ function readLog() {
 }
 
 function writeLog(entries) {
-  try { localStorage.setItem(LS_KEY, JSON.stringify(entries.slice(-MAX))); }
+  try { localStorage.setItem(LS_KEY, JSON.stringify(entries.slice(-20))); }
   catch (e) {}
 }
 
-function append(entry) {
-  const log = readLog();
-  log.push(entry);
-  writeLog(log);
-  showBanner(entry);
+function readLifecycle() {
+  try { return JSON.parse(localStorage.getItem(LM_KEY) || '[]'); }
+  catch (e) { return []; }
 }
 
 function ensureBugButton() {
   if (document.getElementById('err-bug-btn')) return;
   const btn = document.createElement('button');
   btn.id = 'err-bug-btn';
-  btn.textContent = '🐞';
   btn.title = 'View error log';
   btn.style.cssText = [
     'position:fixed','top:4px','right:4px','z-index:2147483646',
-    'width:28px','height:28px','padding:0','border-radius:50%',
+    'min-width:28px','height:28px','padding:0 6px','border-radius:14px',
     'border:1px solid rgba(255,255,255,0.3)','background:rgba(0,0,0,0.55)',
-    'color:#fff','font-size:14px','line-height:28px','text-align:center',
+    'color:#fff','font:700 11px/28px monospace','text-align:center',
     'cursor:pointer','-webkit-tap-highlight-color:transparent'
   ].join(';');
   btn.addEventListener('click', showFullLog);
   document.body.appendChild(btn);
-  // Mark unread count via badge color
   refreshBadge();
 }
 
@@ -63,7 +55,6 @@ function refreshBadge() {
 }
 
 function showBanner(entry) {
-  // Removes any existing banner first
   const old = document.getElementById('err-banner');
   if (old) old.remove();
   const div = document.createElement('div');
@@ -81,68 +72,53 @@ function showBanner(entry) {
   close.style.cssText = 'position:absolute;top:4px;right:6px;background:none;border:none;color:#fff;font-size:22px;cursor:pointer;padding:0;width:28px;height:28px;line-height:1';
   close.addEventListener('click', () => div.remove());
   div.appendChild(close);
-  if (document.body) document.body.appendChild(div);
-  else document.addEventListener('DOMContentLoaded', () => document.body.appendChild(div));
+  document.body.appendChild(div);
   refreshBadge();
 }
 
 function showFullLog() {
   const log = readLog();
-  if (log.length === 0) { alert('Error log is empty.'); return; }
-  const text = log.map((e, i) =>
-    `#${i + 1} [${e.time}]\n${e.message}\nat ${e.source || '?'}:${e.line || '?'}:${e.col || '?'}\n${e.stack || ''}`
-  ).join('\n\n---\n\n');
-  // Copy to clipboard so user can paste it back to us
+  const lc = readLifecycle();
+  const lcStages = lc.map((e) => `${new Date(e.t).toISOString().slice(11,23)} ${e.stage}`).join('\n');
+  const errText = log.length === 0
+    ? '(no errors)'
+    : log.map((e, i) =>
+        `#${i + 1} [${e.time}]\n${e.message}\nat ${e.source || '?'}:${e.line || '?'}:${e.col || '?'}\n${e.stack || ''}`
+      ).join('\n\n---\n\n');
+  const text = `=== LIFECYCLE (last ${lc.length} stages) ===\n${lcStages || '(none)'}\n\n=== ERRORS (${log.length}) ===\n${errText}`;
   if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
-  if (confirm(`Errors (${log.length}) copied to clipboard. Tap OK to clear log, Cancel to keep.`)) {
+  if (confirm(`Copied to clipboard:\n• Lifecycle stages: ${lc.length}\n• Errors: ${log.length}\n\nOK to clear, Cancel to keep.`)) {
     writeLog([]);
+    try { localStorage.removeItem(LM_KEY); } catch (e) {}
     refreshBadge();
   }
 }
 
-window.addEventListener('error', (ev) => {
-  append({
-    time: new Date().toISOString(),
-    message: (ev.error && ev.error.message) || ev.message || 'Unknown error',
-    source: ev.filename || '',
-    line: ev.lineno || 0,
-    col: ev.colno || 0,
-    stack: (ev.error && ev.error.stack) || ''
-  });
-});
-
-window.addEventListener('unhandledrejection', (ev) => {
-  const reason = ev.reason;
-  append({
-    time: new Date().toISOString(),
-    message: (reason && reason.message) || String(reason) || 'Unhandled rejection',
-    source: '',
-    line: 0,
-    col: 0,
-    stack: (reason && reason.stack) || ''
-  });
-});
-
-// Add the 🐞 button as soon as the body exists.
+// Wire up the UI as soon as <body> exists.
 if (document.body) ensureBugButton();
 else document.addEventListener('DOMContentLoaded', ensureBugButton);
 
-// If errors are persisted from before, surface the most recent one immediately.
+// Surface the most recent persisted error on app start so the user sees it
+// without having to tap the 🐞 (especially after a Safari reload-loop).
 const existing = readLog();
 if (existing.length > 0) {
-  // Don't auto-show banner on every load — but if the user opens with ?debug,
-  // pop the most recent one so they see what last crashed.
-  if (new URLSearchParams(location.search).has('debug')) {
-    showBanner(existing[existing.length - 1]);
-  }
+  // Defer slightly so the banner stacks above any other startup UI
+  setTimeout(() => {
+    if (document.body) showBanner(existing[existing.length - 1]);
+  }, 50);
 }
 
-// Expose a small helper for manual logging from app code if useful.
-window.__logErr = (msg, extra) => append({
-  time: new Date().toISOString(),
-  message: '[manual] ' + msg,
-  source: '',
-  line: 0,
-  col: 0,
-  stack: extra ? String(extra) : ''
-});
+// Helper for app code to log manually if useful.
+window.__logErr = (msg, extra) => {
+  if (typeof window.__pushErr === 'function') {
+    window.__pushErr({
+      time: new Date().toISOString(),
+      message: '[manual] ' + msg,
+      source: '', line: 0, col: 0,
+      stack: extra ? String(extra) : ''
+    });
+  }
+};
+
+// Mark that all modules finished evaluating.
+if (typeof window.__mark === 'function') window.__mark('modules-loaded');
