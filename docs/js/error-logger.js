@@ -73,15 +73,37 @@ function showBanner(entry) {
   refreshBadge();
 }
 
-function showFullLog() {
+async function showFullLog() {
   const log = readLog();
-  const text = log.length === 0
+  // Pull live state from the running app so we can diagnose theme/session
+  // issues — the most common "this isn't working right" cause is state
+  // not matching expectations.
+  let stateDump = '(state unavailable)';
+  try {
+    const sMod = await import('./state.js');
+    const S = sMod.S;
+    stateDump = JSON.stringify({
+      screen: S.screen,
+      theme_name: S.theme_name,
+      nowPlayingStageTheme: S.nowPlayingStageTheme,
+      nowPlaying: S.nowPlaying ? { name: S.nowPlaying.name, trackId: S.nowPlaying.trackId } : null,
+      bodyDataTheme: document.body.getAttribute('data-theme'),
+      themeStyleSize: document.getElementById('theme-global')?.textContent?.length || 0,
+      sessionCode: S.sessionCode,
+      guestName: S.guestName,
+      catalogSize: (S.catalog || []).length,
+      queueSize: (S.queue || []).length,
+      songsVisibleCount: S.songsVisibleCount
+    }, null, 2);
+  } catch (e) {}
+  const errText = log.length === 0
     ? '(no errors logged)'
     : log.map((e, i) =>
         `#${i + 1} [${e.time}]\n${e.message}\nat ${e.source || '?'}:${e.line || '?'}:${e.col || '?'}\n${e.stack || ''}`
       ).join('\n\n---\n\n');
+  const text = `=== STATE ===\n${stateDump}\n\n=== ERRORS (${log.length}) ===\n${errText}`;
   if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
-  if (confirm(`Errors (${log.length}) copied to clipboard.\n\nOK to clear, Cancel to keep.`)) {
+  if (confirm(`State + errors (${log.length}) copied to clipboard.\n\nOK to clear errors, Cancel to keep.`)) {
     writeLog([]);
     refreshBadge();
   }
