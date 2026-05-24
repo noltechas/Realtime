@@ -4,10 +4,9 @@
 // localStorage. This module just provides the visible UI for debugging.
 
 const LS_KEY = 'karaoke_error_log';
-const DEBUG = (() => {
-  try { return new URLSearchParams(window.location.search).has('debug'); }
-  catch (e) { return false; }
-})();
+// The 🐞 button is always shown until we close out diagnosing the
+// remaining mobile-only bugs. To hide it later, gate this on a URL param.
+const DEBUG = true;
 
 function readLog() {
   try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); }

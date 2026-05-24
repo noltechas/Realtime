@@ -76,15 +76,23 @@ export function bindEvents(){
   }
   var au=document.getElementById("avatar-upload"),ai=document.getElementById("avatar-input");
   if(au&&ai){
-    au.addEventListener("click",function(){ai.click();});
+    if(window.__logErr)window.__logErr('join avatar: bound. au='+!!au+' ai='+!!ai);
+    au.addEventListener("click",function(){
+      if(window.__logErr)window.__logErr('join avatar: TAP on avatar-upload div, calling ai.click()');
+      try{ai.click();}
+      catch(e){if(window.__logErr)window.__logErr('join avatar: ai.click() threw: '+(e&&e.message||e));}
+    });
+    ai.addEventListener("click",function(){
+      if(window.__logErr)window.__logErr('join avatar: input element received click (picker should open)');
+    });
     ai.addEventListener("change",function(){
-      if(window.__logErr)window.__logErr('join avatar change: files='+(ai.files?ai.files.length:'null'));
+      if(window.__logErr)window.__logErr('join avatar: change fired, files='+(ai.files?ai.files.length:'null'));
       if(ai.files&&ai.files[0]){
         var f=ai.files[0];
-        if(window.__logErr)window.__logErr('join avatar file: '+f.name+' ('+f.type+', '+f.size+' bytes)');
+        if(window.__logErr)window.__logErr('join avatar: file picked '+f.name+' ('+f.type+', '+f.size+' bytes)');
         var ni2=document.getElementById("name-input");if(ni2)S.joinName=ni2.value;
         resizeImage(f,128,0.8,function(url){
-          if(window.__logErr)window.__logErr('join avatar resize done: url='+(url?'data:image ('+url.length+' chars)':'NULL'));
+          if(window.__logErr)window.__logErr('join avatar: resize done, url='+(url?'data:image ('+url.length+' chars)':'NULL'));
           S.profilePicture=url;render();
         });
       }
@@ -106,14 +114,22 @@ export function bindEvents(){
   });
   var pa=document.getElementById("profile-avatar"),pai=document.getElementById("profile-avatar-input");
   if(pa&&pai){
-    pa.addEventListener("click",function(){pai.click();});
+    if(window.__logErr)window.__logErr('profile avatar: bound. pa='+!!pa+' pai='+!!pai);
+    pa.addEventListener("click",function(){
+      if(window.__logErr)window.__logErr('profile avatar: TAP on profile-avatar div, calling pai.click()');
+      try{pai.click();}
+      catch(e){if(window.__logErr)window.__logErr('profile avatar: pai.click() threw: '+(e&&e.message||e));}
+    });
+    pai.addEventListener("click",function(){
+      if(window.__logErr)window.__logErr('profile avatar: input element received click (picker should open)');
+    });
     pai.addEventListener("change",function(){
-      if(window.__logErr)window.__logErr('profile avatar change: files='+(pai.files?pai.files.length:'null'));
+      if(window.__logErr)window.__logErr('profile avatar: change fired, files='+(pai.files?pai.files.length:'null'));
       if(pai.files&&pai.files[0]){
         var f=pai.files[0];
-        if(window.__logErr)window.__logErr('profile avatar file: '+f.name+' ('+f.type+', '+f.size+' bytes)');
+        if(window.__logErr)window.__logErr('profile avatar: file picked '+f.name+' ('+f.type+', '+f.size+' bytes)');
         resizeImage(f,128,0.8,function(url){
-          if(window.__logErr)window.__logErr('profile avatar resize done: url='+(url?'data:image ('+url.length+' chars)':'NULL'));
+          if(window.__logErr)window.__logErr('profile avatar: resize done, url='+(url?'data:image ('+url.length+' chars)':'NULL'));
           S.profilePicture=url;render();
         });
       }
