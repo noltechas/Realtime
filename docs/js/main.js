@@ -1,8 +1,8 @@
-import './error-logger.js?v=20260524e';
-import { S } from './state.js?v=20260524e';
-import { loadDeviceProfile } from './persistence.js?v=20260524e';
-import { render } from './render/main.js?v=20260524e';
-import { validateSession } from './supabase.js?v=20260524e';
+import './error-logger.js';
+import { S } from './state.js';
+import { loadDeviceProfile } from './persistence.js';
+import { render } from './render/main.js';
+import { validateSession } from './supabase.js';
 
 function init(){
   var p=new URLSearchParams(window.location.search);

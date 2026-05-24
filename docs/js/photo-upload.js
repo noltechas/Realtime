@@ -5,9 +5,7 @@
 // the now-detached input — so the file never reaches us. Routing every
 // avatar/photo flow through a single input parked in <body> fixes that.
 
-import { S } from './state.js?v=20260524e';
-import { resizeImage } from './utils.js?v=20260524e';
-import { render } from './render/main.js?v=20260524e';
+import { resizeImage } from './utils.js';
 
 let _pendingCallback = null;
 let _input = null;
@@ -20,9 +18,12 @@ function ensureInput() {
     _input.type = 'file';
     _input.accept = 'image/*';
     _input.id = 'global-photo-input';
-    // No pointer-events:none — iOS Safari can refuse to surface a file
-    // picker for an input that's been declared non-interactive.
-    _input.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0;';
+    // iOS Safari quirk: file inputs need a real rendered size (not 0×0)
+    // for the picker to open via programmatic click(). 1×1 px + opacity:0
+    // + off-screen position keeps it invisible while satisfying WebKit's
+    // hit-target check. The original per-screen inputs used this exact
+    // recipe; that's why they could open the picker.
+    _input.style.cssText = 'position:absolute;width:1px;height:1px;left:-9999px;top:0;opacity:0;';
     document.body.appendChild(_input);
   }
   if (!_input._wired) {

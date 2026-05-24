@@ -1,6 +1,6 @@
-import { S, NC, MAX_SINGERS } from './state.js?v=20260524e';
-import { render } from './render/main.js?v=20260524e';
-import { addToQueue } from './supabase.js?v=20260524e';
+import { S, NC, MAX_SINGERS } from './state.js';
+import { render } from './render/main.js';
+import { addToQueue } from './supabase.js';
 
 export function initWizardFromTrack(track){
   S.selectedTrack=track;

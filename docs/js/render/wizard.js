@@ -1,5 +1,5 @@
-import { S, NC, MAX_SINGERS } from '../state.js?v=20260524e';
-import { esc, avatarHTML } from '../utils.js?v=20260524e';
+import { S, NC, MAX_SINGERS } from '../state.js';
+import { esc, avatarHTML } from '../utils.js';
 
 export function renderWizardStepper(step){
   var roles=(S.selectedTrack&&S.selectedTrack.roles)||[];
