@@ -1197,13 +1197,14 @@
 .text-input-overlay {
   position: fixed; inset: 0; z-index: 200;
   background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-  display: flex; align-items: flex-end; justify-content: center;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
   animation: overlayIn 0.2s ease;
 }
 .text-input-sheet {
   width: 100%; max-width: 420px;
-  background: var(--surface-2); border-top: 1px solid var(--white-ghost);
-  border-radius: 20px 20px 0 0; padding: 20px; padding-bottom: calc(20px + env(safe-area-inset-bottom));
+  background: var(--surface-2); border: 1px solid var(--white-ghost);
+  border-radius: 20px; padding: 20px;
 }
 .text-input-field {
   width: 100%; padding: 14px 16px; font-size: 16px; font-family: var(--font-body);
