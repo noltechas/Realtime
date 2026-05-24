@@ -2518,17 +2518,26 @@ body[data-theme="retrowave"] .wiz-color-swatch-check { color: #0a0614 !important
   letter-spacing: 0.5px; text-transform: uppercase; font-weight: 700;
 }
 .awards-icon-grid {
-  display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px;
-  max-height: 320px; overflow-y: auto;
+  display: grid;
+  /* 5 columns at 1fr ensures every column fits the available width on
+     phones (no horizontal scroll). min-width:0 on the children stops icon
+     content from pushing columns wider than their cell. */
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  max-height: 360px; overflow-y: auto; overflow-x: hidden;
+  width: 100%;
   padding: 6px;
   border-radius: 14px; background: var(--surface-1); border: 1px solid var(--white-ghost);
   scrollbar-width: thin;
+  box-sizing: border-box;
 }
 .awards-icon-grid button {
   aspect-ratio: 1 / 1; padding: 7px; border: 1.5px solid transparent;
   border-radius: 10px; background: var(--surface-2); cursor: pointer;
   color: var(--white-muted); display: flex; align-items: center; justify-content: center;
   transition: border-color 0.12s, color 0.12s, transform 0.12s;
+  min-width: 0;
+  overflow: hidden;
 }
 .awards-icon-grid button:hover { color: var(--white); }
 .awards-icon-grid button:active { transform: scale(0.93); }
@@ -3065,16 +3074,20 @@ function resizeImage(file,maxSize,quality,cb){
   reader.onload=function(e){
     var img=new Image();
     img.onload=function(){
-      var c=document.createElement("canvas");
-      c.width=maxSize;c.height=maxSize;
-      var ctx=c.getContext("2d");
-      var sz=Math.min(img.width,img.height);
-      var sx=(img.width-sz)/2,sy=(img.height-sz)/2;
-      ctx.drawImage(img,sx,sy,sz,sz,0,0,maxSize,maxSize);
-      cb(c.toDataURL("image/jpeg",quality));
+      try{
+        var c=document.createElement("canvas");
+        c.width=maxSize;c.height=maxSize;
+        var ctx=c.getContext("2d");
+        var sz=Math.min(img.width,img.height);
+        var sx=(img.width-sz)/2,sy=(img.height-sz)/2;
+        ctx.drawImage(img,sx,sy,sz,sz,0,0,maxSize,maxSize);
+        cb(c.toDataURL("image/jpeg",quality));
+      }catch(err){console.error("resizeImage canvas error:",err);cb(null);}
     };
+    img.onerror=function(){console.error("resizeImage image load failed");cb(null);};
     img.src=e.target.result;
   };
+  reader.onerror=function(){console.error("resizeImage FileReader failed");cb(null);};
   reader.readAsDataURL(file);
 }
 var MAX_SINGERS=4;
@@ -4836,7 +4849,7 @@ function renderAwardCreateScreen(){
     html+='<label class="awards-photo-upload" id="awards-photo-upload">'+
       (draft.iconDataUrl?'<img src="'+esc(draft.iconDataUrl)+'" alt="">':'<svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>')+
       '<span>'+(draft.iconDataUrl?"Tap to change":"Tap to upload a photo")+'</span>'+
-      '<input type="file" id="awards-photo-input" accept="image/*" style="display:none">'+
+      '<input type="file" id="awards-photo-input" accept="image/*" style="position:absolute;opacity:0;width:0;height:0;pointer-events:none">'+
     '</label>';
   }else{
     html+='<input class="awards-picker-search" id="awards-search-input" placeholder="Search '+(window.AWARDS_ICONS||[]).length+' icons…" value="'+esc(searchQ)+'">';
@@ -5184,15 +5197,26 @@ function bindAwardsEvents(){
   if(prevBtn)prevBtn.addEventListener("click",function(){S.awardIconPage=Math.max(0,(S.awardIconPage||0)-1);render();});
   var nextBtn=document.getElementById("awards-page-next");
   if(nextBtn)nextBtn.addEventListener("click",function(){S.awardIconPage=(S.awardIconPage||0)+1;render();});
-  var pu=document.getElementById("awards-photo-upload"),pui=document.getElementById("awards-photo-input");
-  if(pu&&pui){
-    pu.addEventListener("click",function(e){if(e.target===pui)return;pui.click();});
+  // Photo input: the native label > input pairing handles the click for us.
+  // Don't add a JS click handler on the label — doing so double-fires the
+  // picker on iOS Safari and cancels the first instance, which is why the
+  // "I picked a photo but nothing happened" bug shows up.
+  var pui=document.getElementById("awards-photo-input");
+  if(pui){
     pui.addEventListener("change",function(){
-      if(pui.files&&pui.files[0]){
-        resizeImage(pui.files[0],256,0.85,function(url){
-          if(S.awardCreateDraft){S.awardCreateDraft.iconDataUrl=url;S.awardCreateDraft.iconId=null;render();}
+      var file=pui.files&&pui.files[0];
+      if(!file){console.warn("[Awards] photo input change with no file");return;}
+      try{
+        resizeImage(file,256,0.85,function(url){
+          if(!url){console.warn("[Awards] resizeImage returned no data url");return;}
+          if(S.awardCreateDraft){
+            S.awardCreateDraft.iconDataUrl=url;
+            S.awardCreateDraft.iconId=null;
+            S.awardCreateDraft.visualMode="photo";
+            render();
+          }
         });
-      }
+      }catch(e){console.error("[Awards] photo upload failed:",e);}
     });
   }
   var cancelBtn=document.getElementById("awards-cancel-btn");

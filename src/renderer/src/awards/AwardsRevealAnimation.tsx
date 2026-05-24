@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { FEATURED_SVGS, awardIconCdnUrl } from './icons/manifest'
 import { Award, AwardCandidate, RevealStep } from './types'
 import '../styles/awards.css'
@@ -155,10 +156,17 @@ interface Props {
 export function AwardsRevealAnimation({ step }: Props) {
     useStageSfx(step?.phase ?? null)
 
+    // Debug log so we can confirm in DevTools whether the step is arriving.
+    useEffect(() => {
+        if (step) console.log('[AwardsRevealAnimation] step:', step.phase, step.awardIndex, '/', step.totalAwards)
+    }, [step])
+
     if (!step || step.phase === 'idle' || step.phase === 'done') {
         return null
     }
-    return (
+    // Portal to <body> so the overlay is never trapped inside an ancestor's
+    // stacking context, overflow:hidden, or transform-induced containing block.
+    return createPortal((
         <div className="awards-reveal" role="dialog" aria-label="Awards reveal">
             <div className="awards-reveal__spotlight" />
             {step.phase === 'winner' && <ConfettiBurst key={step.startedAt} />}
@@ -172,7 +180,7 @@ export function AwardsRevealAnimation({ step }: Props) {
             )}
             {step.phase === 'finale' && <FinaleCard summary={step.finaleSummary || []} />}
         </div>
-    )
+    ), document.body)
 }
 
 // ---- Phase subcomponents -------------------------------------------------

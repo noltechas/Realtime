@@ -17,6 +17,8 @@ import {
     fetchGuests,
     buildPersistedResults,
     runRevealSequence,
+    getRevealBroadcastChannel,
+    sendRevealStepBroadcast,
     PlayedPerformance,
     KnownGuest,
     RevealSequenceItem
@@ -86,24 +88,26 @@ export function AdminAwardsTab() {
         )
         await window.electronAPI?.persistAwardResults(allResults)
 
+        // Pre-warm the renderer-side broadcast channel BEFORE the sequence
+        // starts. Avoids the first step racing against the SUBSCRIBED handshake.
+        try { await getRevealBroadcastChannel(sessionId) } catch (e) { console.warn('[Awards] broadcast channel warmup failed:', e) }
+
         setRevealStatus('running')
         sequenceRef.current = runRevealSequence({
             items,
             onBroadcast: async (step: RevealStep) => {
-                // Drive local stage immediately via IPC state relay — the stage
-                // window picks this up regardless of whether the supabase
-                // broadcast succeeds.
+                // Drive the local admin/stage windows immediately via IPC.
                 dispatch({ type: 'SET_REVEAL_STEP', payload: step })
-                // Fire-and-forget the supabase broadcast so a slow / failed
-                // send to companion phones never stalls the on-stage sequence.
-                window.electronAPI?.broadcastRevealStep(step).catch(e =>
-                    console.warn('[Awards] reveal broadcast failed:', e)
-                )
+                // Send the supabase broadcast directly from this renderer.
+                // (Doing this from main was unreliable — the main-process
+                // supabase client opened a new socket per broadcast and racing
+                // the SUBSCRIBED handshake meant phones got nothing.)
+                sendRevealStepBroadcast(sessionId, step)
             },
             onComplete: () => {
                 setRevealStatus('idle')
                 dispatch({ type: 'SET_REVEAL_STEP', payload: null })
-                window.electronAPI?.broadcastRevealStep({ phase: 'idle', awardIndex: 0, totalAwards: 0, startedAt: new Date().toISOString() }).catch(() => {})
+                sendRevealStepBroadcast(sessionId, { phase: 'idle', awardIndex: 0, totalAwards: 0, startedAt: new Date().toISOString() })
             }
         })
     }
@@ -113,7 +117,7 @@ export function AdminAwardsTab() {
         sequenceRef.current = null
         setRevealStatus('idle')
         dispatch({ type: 'SET_REVEAL_STEP', payload: null })
-        window.electronAPI?.broadcastRevealStep({ phase: 'idle', awardIndex: 0, totalAwards: 0, startedAt: new Date().toISOString() })
+        if (sessionId) sendRevealStepBroadcast(sessionId, { phase: 'idle', awardIndex: 0, totalAwards: 0, startedAt: new Date().toISOString() })
     }
 
     const handleUnfinalize = async () => {

@@ -382,3 +382,42 @@ export function runRevealSequence(opts: {
         }
     }
 }
+
+// --- Renderer-side broadcast channel cache --------------------------------
+// One channel per session, kept open for the lifetime of the session so
+// successive reveal steps reuse it. Renderer-side (not main-process) so the
+// connection rides the same websocket the rest of the app already uses.
+
+const revealChannels: Map<string, ReturnType<typeof awardsSupabase.channel>> = new Map()
+const revealChannelReady: Map<string, Promise<void>> = new Map()
+
+export async function getRevealBroadcastChannel(sessionId: string) {
+    if (revealChannels.has(sessionId)) {
+        await revealChannelReady.get(sessionId)
+        return revealChannels.get(sessionId)!
+    }
+    const ch = awardsSupabase.channel('ar-' + sessionId, { config: { broadcast: { self: false, ack: false } } })
+    revealChannels.set(sessionId, ch)
+    const ready = new Promise<void>((resolve) => {
+        let done = false
+        const settle = () => { if (!done) { done = true; resolve() } }
+        ch.subscribe(status => {
+            if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+                settle()
+            }
+        })
+        setTimeout(settle, 3000)
+    })
+    revealChannelReady.set(sessionId, ready)
+    await ready
+    return ch
+}
+
+export async function sendRevealStepBroadcast(sessionId: string, step: unknown): Promise<void> {
+    const ch = await getRevealBroadcastChannel(sessionId)
+    try {
+        await ch.send({ type: 'broadcast', event: 'reveal-step', payload: { step } })
+    } catch (e) {
+        console.warn('[Awards] reveal broadcast send failed:', e)
+    }
+}
