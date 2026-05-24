@@ -297,7 +297,7 @@
 }
 .awards-field { margin-bottom: 18px; }
 .awards-field-label {
-  font-size: 11px; color: var(--white-faint); font-weight: 700;
+  font-size: 11px; color: var(--white-muted); font-weight: 700;
   letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px;
 }
 .awards-text-input {
@@ -341,7 +341,7 @@
 /* The OR separator */
 .awards-visual-toggle .awards-or {
   font-family: var(--font-display); font-weight: 800; font-size: 11px;
-  letter-spacing: 2px; color: var(--white-faint);
+  letter-spacing: 2px; color: var(--white-muted);
   padding: 0 6px;
 }
 
@@ -457,8 +457,9 @@
   flex: 0 0 auto;
 }
 .awards-btn {
-  flex: 1; padding: 14px; border-radius: 12px; border: 1.5px solid var(--white-faint);
-  background: transparent; color: var(--white-muted);
+  flex: 1; padding: 14px; border-radius: 12px;
+  border: 1.5px solid var(--white-ghost);
+  background: var(--surface-1); color: var(--white);
   font-family: var(--font-display); font-weight: 700; font-size: 14px;
   cursor: pointer; letter-spacing: 0.4px;
 }
