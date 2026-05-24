@@ -14,7 +14,6 @@
 <!-- awards-icons/manifest.js (905KB) is NOT loaded here. It's lazily injected
      when the user opens the Awards tab — see ensureAwardsManifest() in
      events/awards.js. This was a major iOS Safari memory pressure source. -->
-
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/components.css">
 <link rel="stylesheet" href="css/themes.css">
@@ -22,73 +21,17 @@
 </head>
 <body>
 <script>
-// Early error trap. Runs before any module-loading begins so we catch
-// module parse/import failures, syntax errors, and anything that fires
-// before the main app evaluates. Also tracks lifecycle markers so we
-// can tell whether the page died from a JS error or a hard process kill.
+// Silent error trap. Persists the last 20 uncaught JS errors to localStorage
+// so we can recover them after a crash. The visible UI (red banner + 🐞
+// button + clipboard dump) is mounted only when '?debug' is in the URL —
+// see js/error-logger.js.
 (function(){
   var LS='karaoke_error_log';
-  var LM='karaoke_lifecycle';
-  function read(k){try{return JSON.parse(localStorage.getItem(k)||'[]');}catch(e){return[];}}
-  function write(k,v){try{localStorage.setItem(k,JSON.stringify(v).slice(0,20000));}catch(e){}}
-  function mark(stage){
-    var lc=read(LM);
-    lc.push({t:Date.now(),stage:stage,url:location.href.slice(-80)});
-    write(LM,lc.slice(-30));
-  }
+  function read(){try{return JSON.parse(localStorage.getItem(LS)||'[]');}catch(e){return[];}}
   function pushErr(e){
-    var log=read(LS);
-    log.push(e);
-    write(LS,log.slice(-20));
+    try{localStorage.setItem(LS,JSON.stringify(read().concat([e]).slice(-20)));}catch(e){}
   }
-  // Diagnose previous load: where did it die, and was it a silent process
-  // kill (iOS memory pressure) vs a JS error we already captured?
-  var lc=read(LM);
-  // 'page-hidden' is the LAST marker if the user navigated away cleanly
-  // (Safari fires pagehide on backgrounding, tab close, refresh, navigation).
-  // No 'page-hidden' = the page was killed by the OS or otherwise died abruptly.
-  var cleanShutdown=lc.length>0 && lc[lc.length-1].stage==='page-hidden';
-  if(lc.length && !cleanShutdown){
-    var last=lc[lc.length-1];
-    var stages=lc.map(function(x){return x.stage;});
-    var sawRender=false;
-    for(var i=0;i<stages.length;i++){if(stages[i].indexOf('render:')===0){sawRender=true;break;}}
-    var sawInit=stages.indexOf('init-started')>=0;
-    var prevErrCount=read(LS).length;
-    // Only emit the diagnostic if there's NO JS error already logged from
-    // the previous run — those tell us the cause directly. This entry is
-    // specifically for silent process kills (memory / hang).
-    if(prevErrCount===0){
-      var diag;
-      if(!sawInit){
-        diag='previous load died before init-started — module load probably failed';
-      }else if(!sawRender){
-        diag='previous load started init but never rendered — validateSession or first render threw silently';
-      }else{
-        diag='previous load reached "'+last.stage+'" then died silently — likely iOS memory kill or main-thread hang';
-      }
-      // Augment with heartbeat info if available
-      var aliveDetail='';
-      try{
-        var lhb=localStorage.getItem('karaoke_last_hb');
-        if(lhb){
-          var hb=JSON.parse(lhb);
-          aliveDetail=' (last heartbeat '+(Date.now()-hb.t)+'ms ago, '+(hb.t-(last.t||0))+'ms past last marker)';
-        }
-      }catch(e){}
-      pushErr({time:new Date().toISOString(),message:'[diag] '+diag+aliveDetail,source:'',line:0,col:0,stack:'lifecycle (last '+lc.length+'): '+stages.join(' → ')});
-    }
-  }
-  mark('page-loaded');
-  window.__mark=mark;
   window.__pushErr=pushErr;
-  // Heartbeat: overwrites a single localStorage key every 500ms. On the next
-  // page load we can read the "last seen alive" timestamp and compute how
-  // long the page was alive past the last lifecycle marker. Doesn't pollute
-  // the lifecycle history (which is capped at 30 entries).
-  setInterval(function(){
-    try{localStorage.setItem('karaoke_last_hb',JSON.stringify({t:Date.now(),stage:read(LM).slice(-1)[0]||{}}));}catch(e){}
-  },500);
   window.addEventListener('error',function(ev){
     pushErr({time:new Date().toISOString(),message:(ev.error&&ev.error.message)||ev.message||'Unknown',source:ev.filename||'',line:ev.lineno||0,col:ev.colno||0,stack:(ev.error&&ev.error.stack)||''});
   },true);
@@ -96,10 +39,8 @@
     var r=ev.reason;
     pushErr({time:new Date().toISOString(),message:(r&&r.message)||String(r)||'Unhandled rejection',source:'',line:0,col:0,stack:(r&&r.stack)||''});
   });
-  // 'page-hidden' marker tells the next page load that the previous one shut
-  // down cleanly (the user navigated, refreshed, or backgrounded the tab).
-  // Without it we treat the prior load as having crashed.
-  window.addEventListener('pagehide',function(){mark('page-hidden');});
+  // Clean up old debug keys from earlier versions
+  try{localStorage.removeItem('karaoke_lifecycle');localStorage.removeItem('karaoke_last_hb');}catch(e){}
 })();
 </script>
 <div class="mesh-bg"></div>

@@ -1,11 +1,13 @@
-// On-device error overlay. The window 'error' and 'unhandledrejection'
-// listeners are registered in an inline <script> at the top of <body> in
-// index.html, so they're already active before any module evaluates.
-// This file just provides the visual UI (red banner + 🐞 button + clipboard
-// dump) and marks lifecycle stages so we can tell how far the page got.
+// On-device error overlay. Mounted only when '?debug' is present in the URL.
+// The window 'error' and 'unhandledrejection' listeners are registered by
+// the inline <script> in index.html so errors are always logged silently to
+// localStorage. This module just provides the visible UI for debugging.
 
 const LS_KEY = 'karaoke_error_log';
-const LM_KEY = 'karaoke_lifecycle';
+const DEBUG = (() => {
+  try { return new URLSearchParams(window.location.search).has('debug'); }
+  catch (e) { return false; }
+})();
 
 function readLog() {
   try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); }
@@ -15,11 +17,6 @@ function readLog() {
 function writeLog(entries) {
   try { localStorage.setItem(LS_KEY, JSON.stringify(entries.slice(-20))); }
   catch (e) {}
-}
-
-function readLifecycle() {
-  try { return JSON.parse(localStorage.getItem(LM_KEY) || '[]'); }
-  catch (e) { return []; }
 }
 
 function ensureBugButton() {
@@ -78,37 +75,19 @@ function showBanner(entry) {
 
 function showFullLog() {
   const log = readLog();
-  const lc = readLifecycle();
-  const lcStages = lc.map((e) => `${new Date(e.t).toISOString().slice(11,23)} ${e.stage}`).join('\n');
-  const errText = log.length === 0
-    ? '(no errors)'
+  const text = log.length === 0
+    ? '(no errors logged)'
     : log.map((e, i) =>
         `#${i + 1} [${e.time}]\n${e.message}\nat ${e.source || '?'}:${e.line || '?'}:${e.col || '?'}\n${e.stack || ''}`
       ).join('\n\n---\n\n');
-  const text = `=== LIFECYCLE (last ${lc.length} stages) ===\n${lcStages || '(none)'}\n\n=== ERRORS (${log.length}) ===\n${errText}`;
   if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
-  if (confirm(`Copied to clipboard:\n• Lifecycle stages: ${lc.length}\n• Errors: ${log.length}\n\nOK to clear, Cancel to keep.`)) {
+  if (confirm(`Errors (${log.length}) copied to clipboard.\n\nOK to clear, Cancel to keep.`)) {
     writeLog([]);
-    try { localStorage.removeItem(LM_KEY); } catch (e) {}
     refreshBadge();
   }
 }
 
-// Wire up the UI as soon as <body> exists.
-if (document.body) ensureBugButton();
-else document.addEventListener('DOMContentLoaded', ensureBugButton);
-
-// Surface the most recent persisted error on app start so the user sees it
-// without having to tap the 🐞 (especially after a Safari reload-loop).
-const existing = readLog();
-if (existing.length > 0) {
-  // Defer slightly so the banner stacks above any other startup UI
-  setTimeout(() => {
-    if (document.body) showBanner(existing[existing.length - 1]);
-  }, 50);
-}
-
-// Helper for app code to log manually if useful.
+// Manual logging helper (always available — no-op if __pushErr missing).
 window.__logErr = (msg, extra) => {
   if (typeof window.__pushErr === 'function') {
     window.__pushErr({
@@ -120,5 +99,14 @@ window.__logErr = (msg, extra) => {
   }
 };
 
-// Mark that all modules finished evaluating.
-if (typeof window.__mark === 'function') window.__mark('modules-loaded');
+// Only mount the visible UI when '?debug' is in the URL.
+if (DEBUG) {
+  if (document.body) ensureBugButton();
+  else document.addEventListener('DOMContentLoaded', ensureBugButton);
+  const existing = readLog();
+  if (existing.length > 0) {
+    setTimeout(() => {
+      if (document.body) showBanner(existing[existing.length - 1]);
+    }, 50);
+  }
+}

@@ -106,7 +106,6 @@ export function renderYoureUp(){
       '<div class="youreup-song" style="margin-top:0">'+esc(np.name)+'</div>'+
       '<div class="youreup-artist">'+esc(np.artist||"")+'</div>'+
       '<button class="youreup-play-btn" id="youreup-play-btn" style="'+btnBg+'">'+playIcon+'</button>'+
-      (ms?'<div class="youreup-singer-label" style="color:'+singerColor+'">Singing as '+esc(ms.name)+'</div>':'')+
       toggles+
       skipBtn+
       skipConfirm+
@@ -114,12 +113,10 @@ export function renderYoureUp(){
   }
   return '<div class="youreup-screen screen">'+
     '<div class="youreup-title">You\'re Up!</div>'+
-    '<div class="youreup-sub">Get ready to sing</div>'+
     artH+
     '<div class="youreup-song">'+esc(np.name)+'</div>'+
     '<div class="youreup-artist">'+esc(np.artist||"")+'</div>'+
     '<button class="youreup-play-btn" id="youreup-play-btn" style="'+btnBg+'">'+playIcon+'</button>'+
-    (ms?'<div class="youreup-singer-label" style="color:'+singerColor+'">Singing as '+esc(ms.name)+'</div>':'')+
     toggles+
     skipBtn+
     skipConfirm+

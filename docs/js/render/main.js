@@ -59,7 +59,6 @@ export function render(){
     if(window.__pushErr)window.__pushErr({time:new Date().toISOString(),message:'bindEvents threw: '+(e&&e.message||e),source:(e&&e.fileName)||'',line:(e&&e.lineNumber)||0,col:(e&&e.columnNumber)||0,stack:(e&&e.stack)||''});
     else console.error('bindEvents threw:',e);
   }
-  if(window.__mark)window.__mark('render:'+S.screen);
 }
 
 export function renderError(){
