@@ -623,6 +623,7 @@ export interface PersistedAwardResult {
 export async function persistAwardResults(results: PersistedAwardResult[]): Promise<void> {
     if (results.length === 0) return
     const awardIds = Array.from(new Set(results.map(r => r.awardId)))
+    const sessionIds = Array.from(new Set(results.map(r => r.sessionId)))
     await supabase.from('karaoke_award_results').delete().in('award_id', awardIds)
     const rows = results.map(r => ({
         award_id: r.awardId,
@@ -638,12 +639,16 @@ export async function persistAwardResults(results: PersistedAwardResult[]): Prom
     const { error } = await supabase.from('karaoke_award_results').insert(rows)
     if (error) console.error('Failed to persist award results:', error.message)
 
-    // Mark awards as finalized so voting locks
+    // Mark EVERY award in the session as finalized (not just ones the caller
+    // explicitly listed) so default awards always get the closed badge too.
     const finalizedAt = new Date().toISOString()
-    await supabase
-        .from('karaoke_awards')
-        .update({ finalized_at: finalizedAt, updated_at: finalizedAt })
-        .in('id', awardIds)
+    if (sessionIds.length > 0) {
+        const { error: upErr } = await supabase
+            .from('karaoke_awards')
+            .update({ finalized_at: finalizedAt, updated_at: finalizedAt })
+            .in('session_id', sessionIds)
+        if (upErr) console.error('Failed to finalize awards:', upErr.message)
+    }
 }
 
 // Clear finalized state and winner snapshot — used when admin wants to

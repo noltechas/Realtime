@@ -65,7 +65,7 @@ interface PendingSong {
     }
 }
 
-const GENRE_BUCKETS = ['Hip Hop', 'R&B', 'Pop', 'Rock', 'Indie', 'Electronic', 'Country / Folk', 'Other'] as const
+const GENRE_BUCKETS = ['Hip Hop', 'R&B', 'Pop', 'Rock', 'Indie', 'Electronic', 'Folk', 'Other'] as const
 
 function bucketSpotifyGenres(rawTags: string[] | null | undefined): string[] {
     if (!rawTags || rawTags.length === 0) return []
@@ -75,7 +75,7 @@ function bucketSpotifyGenres(rawTags: string[] | null | undefined): string[] {
         { bucket: 'Indie', matches: ['indie', 'dream pop', 'psychedelic', 'shoegaze', 'bedroom pop', 'art pop', 'lo-fi'] },
         { bucket: 'Electronic', matches: ['electronic', 'edm', 'house', 'techno', 'dance', 'synth-pop', 'synthpop', 'vaporwave', 'electropop', 'trance', 'drum and bass', 'dnb'] },
         { bucket: 'Rock', matches: ['rock', 'metal', 'punk', 'grunge', 'emo'] },
-        { bucket: 'Country / Folk', matches: ['country', 'folk', 'americana', 'bluegrass', 'singer-songwriter'] },
+        { bucket: 'Folk', matches: ['country', 'folk', 'americana', 'bluegrass', 'singer-songwriter'] },
         { bucket: 'Pop', matches: ['pop'] }
     ]
     const result = new Set<string>()

@@ -8,10 +8,13 @@
 .awards-reveal {
     position: fixed;
     inset: 0;
-    z-index: 1000;
+    z-index: 2147483647; /* sit above any other overlay */
     overflow: hidden;
     color: #fff;
-    background: radial-gradient(ellipse at center, rgba(20, 12, 36, 0.95) 0%, rgba(2, 2, 6, 1) 80%);
+    /* Fully opaque base — no transparency at any radial stop so nothing
+       behind the overlay shows through. */
+    background-color: #020206;
+    background-image: radial-gradient(ellipse at center, #140C24 0%, #020206 80%);
     font-family: var(--font-display, 'Space Grotesk', sans-serif);
     display: flex;
     align-items: center;
@@ -19,6 +22,7 @@
     text-align: center;
     padding: 32px;
     user-select: none;
+    isolation: isolate;
 }
 
 /* Backdrop "spotlight" that moves with each phase */
@@ -415,9 +419,23 @@
     width: 36px;
     height: 36px;
     color: #fde68a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
 }
 .awards-reveal__finale-card-icon svg { width: 100%; height: 100%; fill: currentColor; }
-.awards-reveal__finale-card-icon img { width: 36px; height: 36px; border-radius: 8px; object-fit: cover; }
+.awards-reveal__finale-card-icon img { width: 100% !important; height: 100% !important; border-radius: 8px; object-fit: cover; }
+/* Mask-image-rendered icons (non-featured custom awards) need explicit
+   dimensions in this small finale slot — without them the inline-block span
+   collapses to zero. */
+.awards-reveal__finale-card-icon .awards-icon-mask,
+.awards-reveal__finale-card-icon > span {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background-color: currentColor;
+}
 .awards-reveal__finale-card-title {
     font-size: 14px;
     text-transform: uppercase;

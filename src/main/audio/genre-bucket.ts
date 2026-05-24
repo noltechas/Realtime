@@ -5,7 +5,7 @@ export const GENRE_BUCKETS = [
     'Rock',
     'Indie',
     'Electronic',
-    'Country / Folk',
+    'Folk',
     'Other'
 ] as const
 
@@ -22,7 +22,7 @@ const RULES: Rule[] = [
     { bucket: 'Indie', matches: ['indie', 'dream pop', 'psychedelic', 'shoegaze', 'bedroom pop', 'art pop', 'lo-fi'] },
     { bucket: 'Electronic', matches: ['electronic', 'edm', 'house', 'techno', 'dance', 'synth-pop', 'synthpop', 'vaporwave', 'electropop', 'trance', 'drum and bass', 'dnb'] },
     { bucket: 'Rock', matches: ['rock', 'metal', 'punk', 'grunge', 'emo'] },
-    { bucket: 'Country / Folk', matches: ['country', 'folk', 'americana', 'bluegrass', 'singer-songwriter'] },
+    { bucket: 'Folk', matches: ['country', 'folk', 'americana', 'bluegrass', 'singer-songwriter'] },
     { bucket: 'Pop', matches: ['pop'] }
 ]
 

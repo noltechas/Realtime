@@ -2605,11 +2605,13 @@ body[data-theme="retrowave"] .wiz-color-swatch-check { color: #0a0614 !important
 
 /* Reveal overlay — companion mobile sees the same Oscars sequence */
 .awards-reveal-companion {
-  position: fixed; inset: 0; z-index: 10001;
-  background: radial-gradient(ellipse at center, rgba(20,12,36,0.97), rgba(2,2,6,1) 80%);
+  position: fixed; inset: 0; z-index: 2147483647;
+  background-color: #020206;
+  background-image: radial-gradient(ellipse at center, #140C24, #020206 80%);
   display: flex; align-items: center; justify-content: center; padding: 24px;
   color: #fff; font-family: var(--font-display); text-align: center;
   overflow: hidden;
+  isolation: isolate;
 }
 </style>
 </head>
@@ -3754,7 +3756,7 @@ function renderProfile(){
     '<button id="profile-switch" style="margin-top:14px;width:100%;padding:14px 16px;border-radius:10px;border:1px solid var(--white-faint);background:transparent;color:var(--white-muted);font-size:13px;font-weight:700;font-family:var(--font-display);cursor:pointer;letter-spacing:0.5px">Switch user</button>'+
   '</div>';
 }
-var GENRE_ORDER=["Hip Hop","R&B","Pop","Rock","Indie","Electronic","Country / Folk","Other"];
+var GENRE_ORDER=["Hip Hop","R&B","Pop","Rock","Indie","Electronic","Folk","Other"];
 function computeGenreCounts(){
   var counts={};
   counts["All Songs"]=S.catalog.length;
