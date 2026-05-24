@@ -1,13 +1,13 @@
-import { S } from '../state.js?v=20260524b';
-import { esc } from '../utils.js?v=20260524b';
-import { applyTheme } from '../themes.js?v=20260524b';
-import { renderJoin, renderRejoin, renderJoining, renderProfile } from './auth.js?v=20260524b';
-import { renderSongs, renderRequest } from './songs.js?v=20260524b';
-import { renderWizardShell, renderWizardSingers, renderWizardRoles, renderWizardStage, renderWizardFooter, renderSingerPickerOverlay } from './wizard.js?v=20260524b';
-import { renderQueue } from './queue.js?v=20260524b';
-import { renderStage, renderEmojiPicker, renderTextInput, renderMemePicker, renderYoureUp, renderBN } from './stage.js?v=20260524b';
-import { renderAwardsScreen, renderVoteConfirmOverlay, renderRevealOverlay } from './awards.js?v=20260524b';
-import { bindEvents } from '../events/main.js?v=20260524b';
+import { S } from '../state.js?v=20260524c';
+import { esc } from '../utils.js?v=20260524c';
+import { applyTheme } from '../themes.js?v=20260524c';
+import { renderJoin, renderRejoin, renderJoining, renderProfile } from './auth.js?v=20260524c';
+import { renderSongs, renderRequest } from './songs.js?v=20260524c';
+import { renderWizardShell, renderWizardSingers, renderWizardRoles, renderWizardStage, renderWizardFooter, renderSingerPickerOverlay } from './wizard.js?v=20260524c';
+import { renderQueue } from './queue.js?v=20260524c';
+import { renderStage, renderEmojiPicker, renderTextInput, renderMemePicker, renderYoureUp, renderBN } from './stage.js?v=20260524c';
+import { renderAwardsScreen, renderVoteConfirmOverlay, renderRevealOverlay } from './awards.js?v=20260524c';
+import { bindEvents } from '../events/main.js?v=20260524c';
 
 export function render(){
   var a=document.getElementById("app");
@@ -52,6 +52,7 @@ export function render(){
   }
   if(S.screen==="awards"){overlayHtml+=renderVoteConfirmOverlay();}
   if(overlayMount){overlayMount.innerHTML=overlayHtml;}
+  if(window.__logErr)window.__logErr('render: screen='+S.screen+' calling bindEvents');
   try{ bindEvents(); }
   catch(e){
     // Don't let a stray event-handler binding crash the whole app —

@@ -1,9 +1,9 @@
-import { S, AWARDS_ICON_PAGE_SIZE } from '../state.js?v=20260524b';
-import { resizeImage, esc } from '../utils.js?v=20260524b';
-import { render } from '../render/main.js?v=20260524b';
-import { shuffleAwardIcons, buildAwardCandidates, awardCandidateBanned, awardOwnVote, matchCandidateByVote, awardsFilteredIcons, awardsPickerThumb } from '../render/awards.js?v=20260524b';
-import { ensureAwardsManifest } from '../awards-manifest.js?v=20260524b';
-import { castAwardVote, createCustomAward, updateMyAward, deleteMyAward, loadAwards } from '../supabase.js?v=20260524b';
+import { S, AWARDS_ICON_PAGE_SIZE } from '../state.js?v=20260524c';
+import { resizeImage, esc } from '../utils.js?v=20260524c';
+import { render } from '../render/main.js?v=20260524c';
+import { shuffleAwardIcons, buildAwardCandidates, awardCandidateBanned, awardOwnVote, matchCandidateByVote, awardsFilteredIcons, awardsPickerThumb } from '../render/awards.js?v=20260524c';
+import { ensureAwardsManifest } from '../awards-manifest.js?v=20260524c';
+import { castAwardVote, createCustomAward, updateMyAward, deleteMyAward, loadAwards } from '../supabase.js?v=20260524c';
 
 // Holds the most recent infinite-scroll sentinel observer for the icon
 // picker, so we can disconnect it before binding a new one on re-render.

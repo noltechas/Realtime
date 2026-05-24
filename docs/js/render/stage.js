@@ -1,5 +1,5 @@
-import { S, EMOJI_LIST, caches } from '../state.js?v=20260524b';
-import { esc, avatarHTML } from '../utils.js?v=20260524b';
+import { S, EMOJI_LIST, caches } from '../state.js?v=20260524c';
+import { esc, avatarHTML } from '../utils.js?v=20260524c';
 
 export function renderStage(){
   var customCell="";

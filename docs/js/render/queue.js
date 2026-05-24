@@ -1,6 +1,6 @@
-import { S, caches } from '../state.js?v=20260524b';
-import { esc, avatarHTML, fmtD } from '../utils.js?v=20260524b';
-import { loadVotedMap } from '../persistence.js?v=20260524b';
+import { S, caches } from '../state.js?v=20260524c';
+import { esc, avatarHTML, fmtD } from '../utils.js?v=20260524c';
+import { loadVotedMap } from '../persistence.js?v=20260524c';
 
 export function hiddenLabel(t){
   if(t==="cyberpunk")return"[REDACTED]";

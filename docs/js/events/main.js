@@ -1,13 +1,13 @@
-import { sb, S, caches } from '../state.js?v=20260524b';
-import { filterGifs, restoreMemeSearch, resizeImage } from '../utils.js?v=20260524b';
-import { clearDeviceProfile, saveDeviceProfile } from '../persistence.js?v=20260524b';
-import { initWizardFromTrack, addSinger, removeSinger, setSingerColor, wizardHasAnyChanges, wizardBack, nextWizardStep } from '../wizard.js?v=20260524b';
-import { castVote, sendReaction, joinSession, rejoinAsGuest, updateProfile, runRequestSearch, submitSongRequest, loadAwards, loadGuests, loadQueue } from '../supabase.js?v=20260524b';
-import { render } from '../render/main.js?v=20260524b';
-import { filterCatalog, renderGenreTabs, renderRequest, renderSongCards, songCardHtml, SONGS_BATCH_SIZE } from '../render/songs.js?v=20260524b';
-import { bindAwardsEvents } from './awards.js?v=20260524b';
-import { ensureAwardsManifest } from '../awards-manifest.js?v=20260524b';
-import { pickProfilePhoto } from '../photo-upload.js?v=20260524b';
+import { sb, S, caches } from '../state.js?v=20260524c';
+import { filterGifs, restoreMemeSearch, resizeImage } from '../utils.js?v=20260524c';
+import { clearDeviceProfile, saveDeviceProfile } from '../persistence.js?v=20260524c';
+import { initWizardFromTrack, addSinger, removeSinger, setSingerColor, wizardHasAnyChanges, wizardBack, nextWizardStep } from '../wizard.js?v=20260524c';
+import { castVote, sendReaction, joinSession, rejoinAsGuest, updateProfile, runRequestSearch, submitSongRequest, loadAwards, loadGuests, loadQueue } from '../supabase.js?v=20260524c';
+import { render } from '../render/main.js?v=20260524c';
+import { filterCatalog, renderGenreTabs, renderRequest, renderSongCards, songCardHtml, SONGS_BATCH_SIZE } from '../render/songs.js?v=20260524c';
+import { bindAwardsEvents } from './awards.js?v=20260524c';
+import { ensureAwardsManifest } from '../awards-manifest.js?v=20260524c';
+import { pickProfilePhoto } from '../photo-upload.js?v=20260524c';
 
 // Timer vars — module-local to event handlers.
 var gifSearchTimer=null;
@@ -15,6 +15,13 @@ var requestSearchTimer=null;
 // Holds the most recent infinite-scroll sentinel observer so we can
 // disconnect it before binding a new one on the next render.
 var songsSentinelObserver=null;
+// Idempotency guard. render() always replaces #app's children, so checking
+// the firstElementChild identity tells us whether the DOM has actually been
+// re-rendered since the last bindEvents call. If not, we skip rebinding —
+// otherwise duplicate calls (e.g., back-to-back renders from Realtime +
+// state mutation) end up stacking handlers on the same elements and a
+// single tap dispatches multiple events.
+var _lastBoundFirstChild=null;
 // Songs header auto-hide on scroll: when the user scrolls down past a small
 // threshold the title + search bar collapse so just the genre tabs stay
 // pinned at the top. Scrolling up restores the full header.
@@ -67,6 +74,14 @@ function setupSongsScrollListener(){
 }
 
 export function bindEvents(){
+  // Skip if the DOM hasn't changed since the last bindEvents call.
+  var _app=document.getElementById("app");
+  var _fc=_app?_app.firstElementChild:null;
+  if(_fc && _fc===_lastBoundFirstChild){
+    if(window.__logErr)window.__logErr('bindEvents: skipped (same DOM as last call)');
+    return;
+  }
+  _lastBoundFirstChild=_fc;
   var ni=document.getElementById("name-input"),jb=document.getElementById("join-btn");
   if(ni&&jb){
     jb.disabled=!ni.value.trim();
