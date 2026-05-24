@@ -4,13 +4,16 @@ import { clearDeviceProfile, saveDeviceProfile } from '../persistence.js';
 import { initWizardFromTrack, addSinger, removeSinger, setSingerColor, wizardHasAnyChanges, wizardBack, nextWizardStep } from '../wizard.js';
 import { castVote, sendReaction, joinSession, rejoinAsGuest, updateProfile, runRequestSearch, submitSongRequest, loadAwards, loadGuests, loadQueue } from '../supabase.js';
 import { render } from '../render/main.js';
-import { filterCatalog, renderGenreTabs, renderRequest, renderSongCards } from '../render/songs.js';
+import { filterCatalog, renderGenreTabs, renderRequest, renderSongCards, songCardHtml, SONGS_BATCH_SIZE } from '../render/songs.js';
 import { bindAwardsEvents } from './awards.js';
 import { ensureAwardsManifest } from '../awards-manifest.js';
 
 // Timer vars — module-local to event handlers.
 var gifSearchTimer=null;
 var requestSearchTimer=null;
+// Holds the most recent infinite-scroll sentinel observer so we can
+// disconnect it before binding a new one on the next render.
+var songsSentinelObserver=null;
 
 export function bindEvents(){
   var ni=document.getElementById("name-input"),jb=document.getElementById("join-btn");
@@ -63,14 +66,52 @@ export function bindEvents(){
   });}
   var np2=document.getElementById("nav-profile");
   if(np2){np2.addEventListener("click",function(){S.screen="profile";render();});}
+  // Append the next batch of song cards before the sentinel. Called by the
+  // IntersectionObserver when the sentinel scrolls into view.
+  function loadMoreSongs(){
+    var fl=filterCatalog();
+    var have=(S.songsVisibleCount||SONGS_BATCH_SIZE);
+    if(have>=fl.length)return;
+    var nextBatch=fl.slice(have,have+SONGS_BATCH_SIZE);
+    if(nextBatch.length===0)return;
+    var grid=document.getElementById("song-grid");
+    var sentinel=document.getElementById("songs-sentinel");
+    if(!grid||!sentinel)return;
+    var html=nextBatch.map(songCardHtml).join("");
+    sentinel.insertAdjacentHTML("beforebegin",html);
+    S.songsVisibleCount=have+nextBatch.length;
+    if(S.songsVisibleCount>=fl.length){
+      // No more songs — remove sentinel and disconnect observer.
+      sentinel.remove();
+      if(songsSentinelObserver){songsSentinelObserver.disconnect();songsSentinelObserver=null;}
+    }
+  }
+  function setupSongsSentinel(){
+    if(songsSentinelObserver){songsSentinelObserver.disconnect();songsSentinelObserver=null;}
+    var sentinel=document.getElementById("songs-sentinel");
+    if(!sentinel||!("IntersectionObserver" in window))return;
+    songsSentinelObserver=new IntersectionObserver(function(entries){
+      for(var i=0;i<entries.length;i++){
+        if(entries[i].isIntersecting){loadMoreSongs();}
+      }
+    },{rootMargin:"400px 0px"});
+    songsSentinelObserver.observe(sentinel);
+  }
   function bindSongCards(){
-    document.querySelectorAll(".song-card").forEach(function(card){
-      card.addEventListener("click",function(){
+    // Event delegation so we don't need to re-bind handlers on cards that
+    // get appended later by loadMoreSongs() — a single listener on the
+    // grid covers every current and future .song-card.
+    var grid=document.getElementById("song-grid");
+    if(grid && !grid.dataset.delegated){
+      grid.dataset.delegated="1";
+      grid.addEventListener("click",function(e){
+        var card=e.target.closest&&e.target.closest(".song-card");
+        if(!card||!grid.contains(card))return;
         var tid=card.dataset.track;
         var track=S.catalog.find(function(s2){return s2.track_id===tid;});
         if(track){initWizardFromTrack(track);render();}
       });
-    });
+    }
     var reqCta=document.getElementById("request-song-cta");
     if(reqCta)reqCta.addEventListener("click",function(){
       var carry=(S.searchQuery||"").trim();
@@ -95,8 +136,12 @@ export function bindEvents(){
         });
       }
     });
+    setupSongsSentinel();
   }
   function refreshSongsView(opts){
+    // Filter/genre changed — reset to the first batch so we don't paint a
+    // huge grid for the new filter.
+    S.songsVisibleCount=SONGS_BATCH_SIZE;
     var fl=filterCatalog();
     var grid=document.getElementById("song-grid");
     if(grid){grid.innerHTML=renderSongCards(fl);bindSongCards();}
@@ -403,6 +448,10 @@ export function bindEvents(){
   }
   document.querySelectorAll(".nav-tab").forEach(function(tab){
     tab.addEventListener("click",function(){
+      // Reset the songs paint batch whenever the user (re-)enters the Songs
+      // tab so we never paint a giant grid for a user who'd scrolled to
+      // load more cards in a previous visit.
+      if(tab.dataset.nav==="songs")S.songsVisibleCount=SONGS_BATCH_SIZE;
       S.screen=tab.dataset.nav;
       if(tab.dataset.nav==="queue"){loadQueue().then(render);}
       else if(tab.dataset.nav==="awards"){

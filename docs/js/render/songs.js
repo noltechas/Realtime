@@ -62,11 +62,22 @@ export function renderRequestCta(){
     '</span>'+
   '</button>';
 }
-// Cap visible cards. iOS Safari was killing the page when this render emitted
-// hundreds of <img>-bearing cards (memory pressure from image-load queueing).
-// User can still search/filter to find specific songs — the filter applies
-// to the full catalog, the cap only limits what's painted.
-var SONGS_RENDER_LIMIT=60;
+// Initial batch size + how many more to append each time the user scrolls
+// to the bottom. Keeps the DOM small enough for iOS Safari's per-tab memory
+// budget. See events/main.js for the IntersectionObserver that drives this.
+export var SONGS_BATCH_SIZE=30;
+
+// Build the HTML for a single song card. Exported so the infinite-scroll
+// handler can append batches without re-running the whole renderSongs() pipe.
+export function songCardHtml(s){
+  return '<div class="song-card" data-track="'+s.track_id+'">'+
+    (s.art_url?'<img src="'+s.art_url+'" alt="" loading="lazy">':'<div class="song-card-placeholder">&#127925;</div>')+
+    '<div class="song-card-info">'+
+      '<div class="song-card-title">'+esc(s.name)+'</div>'+
+      '<div class="song-card-artist">'+esc(s.artist)+'</div>'+
+      '<div class="song-card-dur">'+fmtD(s.duration_ms)+'</div>'+
+    '</div></div>';
+}
 
 export function renderSongCards(fl){
   var q=(S.searchQuery||"").toLowerCase();
@@ -77,21 +88,19 @@ export function renderSongCards(fl){
     else empty='<div class="song-empty">No songs in the catalog yet</div>';
     return empty+renderRequestCta();
   }
-  var truncated=fl.length>SONGS_RENDER_LIMIT;
-  var visible=truncated?fl.slice(0,SONGS_RENDER_LIMIT):fl;
-  var cards=visible.map(function(s){
-    return '<div class="song-card" data-track="'+s.track_id+'">'+
-      (s.art_url?'<img src="'+s.art_url+'" alt="" loading="lazy">':'<div class="song-card-placeholder">&#127925;</div>')+
-      '<div class="song-card-info">'+
-        '<div class="song-card-title">'+esc(s.name)+'</div>'+
-        '<div class="song-card-artist">'+esc(s.artist)+'</div>'+
-        '<div class="song-card-dur">'+fmtD(s.duration_ms)+'</div>'+
-      '</div></div>';
-  }).join("");
-  var moreNote=truncated
-    ? '<div class="song-empty" style="grid-column:1/-1;padding:20px 12px;font-size:13px;">'+(fl.length-SONGS_RENDER_LIMIT)+' more songs — use the search bar to find them.</div>'
+  // Cap initial paint at S.songsVisibleCount; the IntersectionObserver in
+  // events/main.js bumps the count + appends a batch when the sentinel
+  // enters the viewport.
+  var visibleCount=S.songsVisibleCount||SONGS_BATCH_SIZE;
+  var hasMore=fl.length>visibleCount;
+  var visible=hasMore?fl.slice(0,visibleCount):fl;
+  var cards=visible.map(songCardHtml).join("");
+  // Sentinel marks the bottom of the grid for the IntersectionObserver.
+  // We render the request CTA at the very end (after all batches are loaded).
+  var sentinel=hasMore
+    ? '<div id="songs-sentinel" class="song-empty" style="grid-column:1/-1;padding:24px 12px;font-size:12px;opacity:0.6;">Loading more songs…</div>'
     : '';
-  return cards+moreNote+renderRequestCta();
+  return cards+sentinel+renderRequestCta();
 }
 export function renderRequest(){
   var disabled=!S.spotifyToken;
