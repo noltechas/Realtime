@@ -41,7 +41,11 @@
   // Diagnose previous load: where did it die, and was it a silent process
   // kill (iOS memory pressure) vs a JS error we already captured?
   var lc=read(LM);
-  if(lc.length){
+  // 'page-hidden' is the LAST marker if the user navigated away cleanly
+  // (Safari fires pagehide on backgrounding, tab close, refresh, navigation).
+  // No 'page-hidden' = the page was killed by the OS or otherwise died abruptly.
+  var cleanShutdown=lc.length>0 && lc[lc.length-1].stage==='page-hidden';
+  if(lc.length && !cleanShutdown){
     var last=lc[lc.length-1];
     var stages=lc.map(function(x){return x.stage;});
     var sawRender=false;
@@ -89,6 +93,10 @@
     var r=ev.reason;
     pushErr({time:new Date().toISOString(),message:(r&&r.message)||String(r)||'Unhandled rejection',source:'',line:0,col:0,stack:(r&&r.stack)||''});
   });
+  // 'page-hidden' marker tells the next page load that the previous one shut
+  // down cleanly (the user navigated, refreshed, or backgrounded the tab).
+  // Without it we treat the prior load as having crashed.
+  window.addEventListener('pagehide',function(){mark('page-hidden');});
 })();
 </script>
 <div class="mesh-bg"></div>
