@@ -45,3 +45,9 @@ npm-debug.log*
 
 # Local one-off / per-artist scripts (not part of the app build)
 scripts/
+
+# Generated per-icon SVGs (~7,500 files) from scripts/fetch-award-icons.js.
+# Non-featured icons render from the Iconify CDN at runtime, so these
+# don't need to be in git. manifest.js + awards-reveal.css ARE checked in.
+docs/awards-icons/*__*.svg
+src/renderer/public/awards-icons

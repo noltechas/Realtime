@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import { useTheme } from '../context/ThemeContext'
-import { FEATURED_SVGS } from './icons/manifest'
+import { FEATURED_SVGS, awardIconCdnUrl } from './icons/manifest'
 import {
     Award,
     AwardCandidate,
@@ -196,23 +196,28 @@ export function AdminAwardsTab() {
                         <div key={award.id} style={{ ...theme.card, border: theme.border, padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                 <div style={{ width: 40, height: 40, borderRadius: theme.radiusSmall, background: theme.creamDark, padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.black }}>
-                                    {award.iconDataUrl
-                                        ? <img src={award.iconDataUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }} />
-                                        : featuredSvg
-                                            ? <span style={{ width: '100%', height: '100%', display: 'block' }} dangerouslySetInnerHTML={{ __html: featuredSvg.replace('<svg ', '<svg style="width:100%;height:100%;fill:currentColor" ') }} />
-                                            : award.iconId
-                                                ? <span style={{
-                                                    width: '100%', height: '100%',
-                                                    background: 'currentColor',
-                                                    WebkitMaskImage: 'url(awards-icons/' + award.iconId + '.svg)',
-                                                    maskImage: 'url(awards-icons/' + award.iconId + '.svg)',
-                                                    WebkitMaskSize: 'contain', maskSize: 'contain',
-                                                    WebkitMaskPosition: 'center', maskPosition: 'center',
-                                                    WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat',
-                                                    display: 'block'
-                                                }} />
-                                                : <span style={{ fontSize: 22 }}>🏆</span>
-                                    }
+                                    {(() => {
+                                        if (award.iconDataUrl) {
+                                            return <img src={award.iconDataUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }} />
+                                        }
+                                        if (featuredSvg) {
+                                            return <span style={{ width: '100%', height: '100%', display: 'block' }} dangerouslySetInnerHTML={{ __html: featuredSvg.replace('<svg ', '<svg style="width:100%;height:100%;fill:currentColor" ') }} />
+                                        }
+                                        const cdn = award.iconId ? awardIconCdnUrl(award.iconId) : null
+                                        if (cdn) {
+                                            return <span style={{
+                                                width: '100%', height: '100%',
+                                                background: 'currentColor',
+                                                WebkitMaskImage: 'url(' + cdn + ')',
+                                                maskImage: 'url(' + cdn + ')',
+                                                WebkitMaskSize: 'contain', maskSize: 'contain',
+                                                WebkitMaskPosition: 'center', maskPosition: 'center',
+                                                WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat',
+                                                display: 'block'
+                                            }} />
+                                        }
+                                        return <span style={{ fontSize: 22 }}>🏆</span>
+                                    })()}
                                 </div>
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 15, color: theme.black, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

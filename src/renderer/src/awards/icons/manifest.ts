@@ -18,13 +18,24 @@ export function findAwardIcon(id: string | null | undefined): AwardIcon | undefi
     return AWARD_ICONS.find(i => i.id === id)
 }
 
-// Fetch the SVG body for an icon. Featured icons resolve instantly from
-// the inlined map; everything else is lazy-loaded from awards-icons/{id}.svg.
+// Return the public Iconify CDN URL for an icon id like
+// "game-icons__trophy-cup". Used by mask-image renderers for any
+// icon not in FEATURED_SVGS. Browser-cached after first request.
+export function awardIconCdnUrl(id: string): string | null {
+    const i = id.indexOf("__")
+    if (i < 0) return null
+    return "https://api.iconify.design/" + id.slice(0, i) + "/" + id.slice(i + 2) + ".svg"
+}
+
+// Fetch the inline SVG body for an icon. Featured -> instant from the
+// inlined map; otherwise pulled from the Iconify CDN.
 const svgCache: Record<string, string> = { ...FEATURED_SVGS }
 export async function getAwardIconSvg(id: string): Promise<string | null> {
     if (svgCache[id]) return svgCache[id]
+    const url = awardIconCdnUrl(id)
+    if (!url) return null
     try {
-        const r = await fetch("awards-icons/" + id + ".svg")
+        const r = await fetch(url)
         if (!r.ok) return null
         const svg = await r.text()
         svgCache[id] = svg

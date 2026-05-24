@@ -2420,18 +2420,8 @@ body[data-theme="retrowave"] .wiz-color-swatch-check { color: #0a0614 !important
 .awards-visual-toggle .awards-or {
   font-family: var(--font-display); font-weight: 800; font-size: 11px;
   letter-spacing: 2px; color: var(--white-faint);
-  position: relative;
   padding: 0 6px;
 }
-.awards-visual-toggle .awards-or::before,
-.awards-visual-toggle .awards-or::after {
-  content: "";
-  position: absolute; top: 50%;
-  width: 14px; height: 1px;
-  background: var(--white-ghost);
-}
-.awards-visual-toggle .awards-or::before { right: 100%; }
-.awards-visual-toggle .awards-or::after { left: 100%; }
 
 /* Icon picker — searchable + paginated + lazy SVG via mask */
 .awards-picker-search {
@@ -2584,7 +2574,7 @@ var NC=[
 {c:"#e11d48",g:"rgba(225,29,72,0.3)"}
 ];
 var S={screen:"loading",sessionCode:null,sessionId:null,sessionName:null,guestId:null,guestName:"",profilePicture:null,guests:[],catalog:[],searchQuery:"",selectedGenre:"All Songs",selectedTrack:null,singers:[],wizardStep:2,singerPickerOpen:false,customSingerName:"",queue:[],nowPlaying:null,errorMessage:"",theme_name:"neo-brutal",stage_theme:null,hide_song:false,customEmoji:null,emojiPickerOpen:false,textInputOpen:false,memePickerOpen:false,memeSearchQuery:"",memeGifs:[],memeLoading:false,isPlaying:false,nowPlayingSingerConfigs:null,matchedSinger:null,nowPlayingStageTheme:null,joining:false,joinName:"",addingToQueue:false,vocalFxEnabled:true,autotuneEnabled:true,skipConfirmOpen:false,prefersSanitize:true,spotifyToken:null,requestQuery:"",requestResults:[],requestSearching:false,requestSubmittingId:null,requestConfirm:null,
-awards:[],awardVotes:{},awardResults:[],awardActiveId:null,awardScreen:"list",awardCreateDraft:null,awardEditingId:null,awardIconCategory:"Featured",awardIconSearch:"",awardIconPage:0,awardVoteConfirm:null,awardsRevealStep:null,awardsHistory:[],awardsGuestsCache:[]};
+awards:[],awardVotes:{},awardResults:[],awardActiveId:null,awardScreen:"list",awardCreateDraft:null,awardEditingId:null,awardIconCategory:"Featured",awardIconSearch:"",awardIconPage:0,awardIconShuffled:[],awardVoteConfirm:null,awardsRevealStep:null,awardsHistory:[],awardsGuestsCache:[]};
 var qCh=null,sCh=null,gCh=null,rCh=null,awCh=null,avCh=null,arCh=null;
 var playedTrackIds={};
 var allGifs=[];
@@ -4404,8 +4394,17 @@ function awardsIconById(id){
   return null;
 }
 var AWARDS_FALLBACK_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 9a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4H6Zm-3 0V3h2v6a4 4 0 0 0 4 4h6a4 4 0 0 0 4-4V3h2v6a6 6 0 0 1-6 6h-1v3h3v2H8v-2h3v-3h-1a6 6 0 0 1-6-6Z"/></svg>';
+// Resolve an icon id like "game-icons__trophy-cup" to the public Iconify CDN
+// URL: https://api.iconify.design/game-icons/trophy-cup.svg. Returns null if
+// the id isn't a recognized prefix__name shape.
+function awardsIconCdnUrl(id){
+  if(!id)return null;
+  var i=id.indexOf("__");
+  if(i<0)return null;
+  return "https://api.iconify.design/"+id.slice(0,i)+"/"+id.slice(i+2)+".svg";
+}
 // Render an icon body for an award. Returns themable HTML — inline SVG for
-// featured icons, mask-image for everything else (color follows currentColor).
+// featured icons, mask-image (CDN-backed) for everything else.
 function awardsIconBody(award){
   if(award.icon_data_url||award.iconDataUrl){
     return '<img src="'+esc(award.icon_data_url||award.iconDataUrl)+'" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">';
@@ -4414,8 +4413,9 @@ function awardsIconBody(award){
   if(!iconId)return AWARDS_FALLBACK_SVG;
   var inlined=(window.AWARDS_FEATURED_SVGS||{})[iconId];
   if(inlined)return inlined;
-  // mask-image fallback — lazy-loads the SVG file, color follows currentColor
-  return '<span class="awards-icon-mask" style="width:100%;height:100%;-webkit-mask-image:url(awards-icons/'+esc(iconId)+'.svg);mask-image:url(awards-icons/'+esc(iconId)+'.svg)"></span>';
+  var url=awardsIconCdnUrl(iconId);
+  if(!url)return AWARDS_FALLBACK_SVG;
+  return '<span class="awards-icon-mask" style="width:100%;height:100%;-webkit-mask-image:url('+esc(url)+');mask-image:url('+esc(url)+')"></span>';
 }
 // Backwards-compat wrapper (callers used awardsIconHtmlFor)
 function awardsIconHtmlFor(award){ return awardsIconBody(award); }
@@ -4423,7 +4423,9 @@ function awardsIconHtmlFor(award){ return awardsIconBody(award); }
 function awardsPickerThumb(ic){
   var inlined=(window.AWARDS_FEATURED_SVGS||{})[ic.id];
   if(inlined)return inlined;
-  return '<span class="awards-icon-mask" style="width:100%;height:100%;-webkit-mask-image:url(awards-icons/'+esc(ic.id)+'.svg);mask-image:url(awards-icons/'+esc(ic.id)+'.svg)"></span>';
+  var url=awardsIconCdnUrl(ic.id);
+  if(!url)return AWARDS_FALLBACK_SVG;
+  return '<span class="awards-icon-mask" style="width:100%;height:100%;-webkit-mask-image:url('+esc(url)+');mask-image:url('+esc(url)+')"></span>';
 }
 function awardsIconCategories(){
   var counts={};
@@ -4438,7 +4440,10 @@ function awardsIconCategories(){
   return ["Featured","All"].concat(keys);
 }
 function awardsFilteredIcons(category,searchQ){
-  var list=window.AWARDS_ICONS||[];
+  // Use the shuffled view if present (populated on each Create-page visit) so
+  // every guest sees a fresh, randomized browse order. Same Schwartzian
+  // shuffle pattern used by the song catalog load.
+  var list=(S.awardIconShuffled&&S.awardIconShuffled.length)?S.awardIconShuffled:(window.AWARDS_ICONS||[]);
   var q=(searchQ||"").trim().toLowerCase();
   var out=[];
   for(var i=0;i<list.length;i++){
@@ -4449,6 +4454,10 @@ function awardsFilteredIcons(category,searchQ){
     out.push(ic);
   }
   return out;
+}
+function shuffleAwardIcons(){
+  var src=window.AWARDS_ICONS||[];
+  S.awardIconShuffled=src.map(function(v){return{v:v,s:Math.random()};}).sort(function(a,b){return a.s-b.s;}).map(function(o){return o.v;});
 }
 // Picker pagination (companion state)
 var AWARDS_ICON_PAGE_SIZE=60;
@@ -4990,6 +4999,7 @@ function bindAwardsEvents(){
         S.awardCreateDraft={title:"",subjectType:"performance",iconId:null,iconDataUrl:null};
       }
       S.awardIconCategory="Featured";S.awardIconSearch="";S.awardIconPage=0;
+      shuffleAwardIcons();
       render();
     });
   }

@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useRef } from 'react'
-import { FEATURED_SVGS } from './icons/manifest'
+import { FEATURED_SVGS, awardIconCdnUrl } from './icons/manifest'
 import { Award, AwardCandidate, RevealStep } from './types'
 import '../styles/awards.css'
 
 // Helper: render an award's icon. Tries (in order) uploaded photo, inlined
-// featured SVG, then mask-image fallback (loads /awards-icons/{id}.svg).
+// featured SVG, then mask-image backed by the Iconify CDN.
 function AwardIconBody({ award }: { award: Award }) {
     if (award.iconDataUrl) {
         return <img src={award.iconDataUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
@@ -17,12 +17,14 @@ function AwardIconBody({ award }: { award: Award }) {
     if (inlined) {
         return <span style={{ width: '100%', height: '100%', display: 'block' }} dangerouslySetInnerHTML={{ __html: inlined }} />
     }
+    const url = awardIconCdnUrl(iconId)
+    if (!url) return null
     return <span
         className="awards-icon-mask"
         style={{
             width: '100%', height: '100%',
-            WebkitMaskImage: 'url(awards-icons/' + iconId + '.svg)',
-            maskImage: 'url(awards-icons/' + iconId + '.svg)'
+            WebkitMaskImage: 'url(' + url + ')',
+            maskImage: 'url(' + url + ')'
         }}
     />
 }
