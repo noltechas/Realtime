@@ -1,5 +1,5 @@
-import { S, GENRE_ORDER } from '../state.js?v=20260524c';
-import { esc, fmtD, addedLabel } from '../utils.js?v=20260524c';
+import { S, GENRE_ORDER } from '../state.js?v=20260524d';
+import { esc, fmtD, addedLabel } from '../utils.js?v=20260524d';
 
 export function computeGenreCounts(){
   var counts={};

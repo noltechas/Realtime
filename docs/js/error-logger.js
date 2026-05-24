@@ -77,11 +77,14 @@ async function showFullLog() {
   // Pull live state from the running app so we can diagnose theme/session
   // issues — the most common "this isn't working right" cause is state
   // not matching expectations.
+  const now = new Date();
   let stateDump = '(state unavailable)';
   try {
     const sMod = await import('./state.js');
     const S = sMod.S;
     stateDump = JSON.stringify({
+      now: now.toISOString(),
+      cacheBust: '20260524d',  // bump when you redeploy so we know the page is fresh
       screen: S.screen,
       theme_name: S.theme_name,
       nowPlayingStageTheme: S.nowPlayingStageTheme,
@@ -95,11 +98,16 @@ async function showFullLog() {
       songsVisibleCount: S.songsVisibleCount
     }, null, 2);
   } catch (e) {}
+  // Annotate each error with how long ago it was logged. Anything > 60s old
+  // is almost certainly a stale entry from before your latest test.
   const errText = log.length === 0
     ? '(no errors logged)'
-    : log.map((e, i) =>
-        `#${i + 1} [${e.time}]\n${e.message}\nat ${e.source || '?'}:${e.line || '?'}:${e.col || '?'}\n${e.stack || ''}`
-      ).join('\n\n---\n\n');
+    : log.map((e, i) => {
+        const t = new Date(e.time);
+        const ageSec = Math.round((now.getTime() - t.getTime()) / 1000);
+        const ageTag = isNaN(ageSec) ? '' : ` (${ageSec}s ago${ageSec > 60 ? ' — STALE?' : ''})`;
+        return `#${i + 1} [${e.time}]${ageTag}\n${e.message}\nat ${e.source || '?'}:${e.line || '?'}:${e.col || '?'}\n${e.stack || ''}`;
+      }).join('\n\n---\n\n');
   const text = `=== STATE ===\n${stateDump}\n\n=== ERRORS (${log.length}) ===\n${errText}`;
   if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
   if (confirm(`State + errors (${log.length}) copied to clipboard.\n\nOK to clear errors, Cancel to keep.`)) {

@@ -1,4 +1,4 @@
-import { S } from './state.js?v=20260524c';
+import { S } from './state.js?v=20260524d';
 
 export function saveLocal(){
   localStorage.setItem("karaoke_guest_"+S.sessionCode,JSON.stringify({guestId:S.guestId,guestName:S.guestName,sessionId:S.sessionId,profilePicture:S.profilePicture}));
