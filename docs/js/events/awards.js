@@ -56,9 +56,14 @@ function bindAwardIconGrid(){
       var btn=e.target.closest&&e.target.closest("[data-icon-id]");
       if(!btn||!grid.contains(btn))return;
       if(!S.awardCreateDraft)return;
-      S.awardCreateDraft.iconId=btn.getAttribute("data-icon-id");
+      var id=btn.getAttribute("data-icon-id");
+      S.awardCreateDraft.iconId=id;
       S.awardCreateDraft.iconDataUrl=null;
-      render();
+      // Toggle .active in place rather than re-rendering — a full render()
+      // rebuilds #app, which destroys the grid and resets its scrollTop.
+      var prev=grid.querySelector("button.active");
+      if(prev&&prev!==btn)prev.classList.remove("active");
+      btn.classList.add("active");
     });
   }
 }
