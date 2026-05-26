@@ -28,6 +28,37 @@ export function initWizardFromTrack(track){
   S.singerPickerOpen=false;
   S.stage_theme=null;
   S.hide_song=false;
+  S.editQueueRowId=null;
+}
+// Edit-your-song entry: rehydrate the wizard from an existing karaoke_queue
+// row instead of seeding defaults. Submit will UPDATE the row rather than
+// INSERT a new one — see addToQueue() in supabase.js for the branch.
+export function initWizardFromQueueItem(track,row){
+  S.selectedTrack=track;
+  var cfgs=(row&&row.singer_configs)||[];
+  S.singers=cfgs.map(function(c){
+    return {
+      name:c.name||"",
+      color:c.color||NC[0].c,
+      colorGlow:c.colorGlow||NC[0].g,
+      roleIndices:Array.isArray(c.roleIndices)?c.roleIndices.slice():[],
+      profilePicture:c.profilePicture||null,
+      whitePersonCheck:!!c.whitePersonCheck
+    };
+  });
+  if(S.singers.length===0){
+    // Defensive — shouldn't happen, but a queue row with no singers shouldn't
+    // wedge the wizard. Seed with the current guest so the user can save out.
+    var first=NC[0];
+    S.singers=[{name:S.guestName,color:first.c,colorGlow:first.g,roleIndices:[],profilePicture:S.profilePicture,whitePersonCheck:true}];
+  }
+  S.wizardStep=2;
+  S.screen="wizard-singers";
+  S.customSingerName="";
+  S.singerPickerOpen=false;
+  S.stage_theme=row.stage_theme||null;
+  S.hide_song=!!row.is_hidden;
+  S.editQueueRowId=row.id;
 }
 export function addSinger(payload){
   if(S.singers.length>=MAX_SINGERS)return;
@@ -75,6 +106,10 @@ export function alreadyHasSinger(name,guestId){
   return false;
 }
 export function wizardHasAnyChanges(){
+  // Edit mode: the wizard opens with the existing row's state already in
+  // place, so a "different from defaults?" check would false-negative. Treat
+  // edit as always-dirty so the user sees a confirm on cancel.
+  if(S.editQueueRowId)return true;
   if(S.singers.length>1)return true;
   if(S.singers[0]&&S.singers[0].roleIndices&&S.singers[0].roleIndices.length>0)return true;
   if(S.stage_theme)return true;
@@ -92,8 +127,11 @@ export function wizardBack(){
     if(wizardHasAnyChanges()){
       if(!confirm("Discard this song setup?"))return;
     }
-    S.selectedTrack=null;S.singers=[];S.stage_theme=null;S.hide_song=false;S.customSingerName="";S.singerPickerOpen=false;
-    S.screen="songs";render();return;
+    // Edit cancel returns to the Queue tab (where the edit started); fresh-add
+    // cancel returns to the Songs tab as before.
+    var wasEdit=!!S.editQueueRowId;
+    S.selectedTrack=null;S.singers=[];S.stage_theme=null;S.hide_song=false;S.customSingerName="";S.singerPickerOpen=false;S.editQueueRowId=null;
+    S.screen=wasEdit?"queue":"songs";render();return;
   }
   if(S.wizardStep===3){gotoWizardStep(2);return;}
   if(S.wizardStep===4){

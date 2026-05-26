@@ -8,6 +8,7 @@ import { renderQueue } from './queue.js';
 import { renderStage, renderEmojiPicker, renderTextInput, renderMemePicker, renderYoureUp, renderBN } from './stage.js';
 import { renderAwardsScreen, renderVoteConfirmOverlay, renderRevealOverlay } from './awards.js';
 import { bindEvents } from '../events/main.js';
+import { trackScreen } from '../history.js';
 
 export function render(){
   // Defensive: if a click handler somewhere mis-sets S.screen to an
@@ -22,6 +23,7 @@ export function render(){
     if(window.__pushErr)window.__pushErr({time:new Date().toISOString(),message:'render: unknown screen '+JSON.stringify(S.screen)+' — bailing',source:'',line:0,col:0,stack:''});
     return;
   }
+  trackScreen();
   var a=document.getElementById("app");
   // Apply song's stage theme on You're Up screen, restore global theme otherwise
   if(S.screen==="youreup"&&S.nowPlayingStageTheme){

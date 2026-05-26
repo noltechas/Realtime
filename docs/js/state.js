@@ -19,7 +19,7 @@ export const NC=[
 ];
 export const S={screen:"loading",sessionCode:null,sessionId:null,sessionName:null,guestId:null,guestName:"",profilePicture:null,defaultColor:null,guests:[],catalog:[],searchQuery:"",selectedGenre:"All Songs",selectedTrack:null,singers:[],wizardStep:2,singerPickerOpen:false,customSingerName:"",queue:[],nowPlaying:null,errorMessage:"",theme_name:"neo-brutal",stage_theme:null,hide_song:false,customEmoji:null,emojiPickerOpen:false,textInputOpen:false,memePickerOpen:false,memeSearchQuery:"",memeGifs:[],memeLoading:false,isPlaying:false,nowPlayingSingerConfigs:null,matchedSinger:null,nowPlayingStageTheme:null,joining:false,joinName:"",addingToQueue:false,vocalFxEnabled:true,autotuneEnabled:true,skipConfirmOpen:false,prefersSanitize:true,spotifyToken:null,requestQuery:"",requestResults:[],requestSearching:false,requestSubmittingId:null,requestConfirm:null,
 awards:[],awardVotes:{},awardResults:[],awardActiveId:null,awardScreen:"list",awardCreateDraft:null,awardEditingId:null,awardIconSearch:"",awardIconVisibleCount:0,awardIconShuffled:[],awardVoteConfirm:null,awardsRevealStep:null,awardsHistory:[],awardsGuestsCache:[],
-songsVisibleCount:30};
+songsVisibleCount:30,editQueueRowId:null};
 
 export const EMOJI_LIST=[
   "\uD83D\uDE00","\uD83D\uDE02","\uD83D\uDE0D","\uD83E\uDD29","\uD83E\uDD73","\uD83E\uDD2F","\uD83D\uDE31","\uD83D\uDE2D",

@@ -289,22 +289,34 @@ export function subRT(){
 export async function addToQueue(){
   if(S.addingToQueue)return;
   var t=S.selectedTrack;if(!t)return;
+  var editing=!!S.editQueueRowId;
   var sc=S.singers.slice().map(function(s){var o={name:(s.name||"").trim()||"Singer",color:s.color,colorGlow:s.colorGlow,roleIndices:s.roleIndices||[]};if(s.profilePicture)o.profilePicture=s.profilePicture;if(s.whitePersonCheck)o.whitePersonCheck=true;return o;});
   if(t.roles&&t.roles.length>0&&sc.length>0){
     var ur=sc.filter(function(s){return !s.roleIndices||s.roleIndices.length===0;});
     if(ur.length>0){
-      if(!confirm("One or more singers don't have roles assigned. Add to queue anyway?"))return;
+      var msg=editing
+        ? "One or more singers don't have roles assigned. Save changes anyway?"
+        : "One or more singers don't have roles assigned. Add to queue anyway?";
+      if(!confirm(msg))return;
     }
   }
   S.addingToQueue=true;
-  var mr=await sb.from("karaoke_queue").select("position").eq("session_id",S.sessionId).order("position",{ascending:false}).limit(1).single();
-  var np=(mr.data?mr.data.position:-1)+1;
-  var ins={session_id:S.sessionId,track_id:t.track_id,track_name:t.name,track_artist:t.artist,track_art_url:t.art_url,track_duration_ms:t.duration_ms,singer_configs:sc,added_by_guest_id:S.guestId,added_by_name:S.guestName,source:"remote",position:np,status:"queued"};
-  if(S.stage_theme)ins.stage_theme=S.stage_theme;
-  if(S.hide_song)ins.is_hidden=true;
-  var r=await sb.from("karaoke_queue").insert(ins);
-  if(r.error){S.addingToQueue=false;alert("Failed to add song. Try again.");return;}
-  S.addingToQueue=false;S.selectedTrack=null;S.singers=[];S.stage_theme=null;S.hide_song=false;S.customSingerName="";S.singerPickerOpen=false;S.screen="queue";await loadQueue();render();
+  if(editing){
+    // UPDATE in place — preserve score / position / locked / created_at /
+    // added_by_* so votes and ordering aren't reset by an edit.
+    var upd={singer_configs:sc,stage_theme:S.stage_theme||null,is_hidden:!!S.hide_song};
+    var ur2=await sb.from("karaoke_queue").update(upd).eq("id",S.editQueueRowId);
+    if(ur2.error){S.addingToQueue=false;alert("Failed to save changes. Try again.");return;}
+  }else{
+    var mr=await sb.from("karaoke_queue").select("position").eq("session_id",S.sessionId).order("position",{ascending:false}).limit(1).single();
+    var np=(mr.data?mr.data.position:-1)+1;
+    var ins={session_id:S.sessionId,track_id:t.track_id,track_name:t.name,track_artist:t.artist,track_art_url:t.art_url,track_duration_ms:t.duration_ms,singer_configs:sc,added_by_guest_id:S.guestId,added_by_name:S.guestName,source:"remote",position:np,status:"queued"};
+    if(S.stage_theme)ins.stage_theme=S.stage_theme;
+    if(S.hide_song)ins.is_hidden=true;
+    var r=await sb.from("karaoke_queue").insert(ins);
+    if(r.error){S.addingToQueue=false;alert("Failed to add song. Try again.");return;}
+  }
+  S.addingToQueue=false;S.selectedTrack=null;S.singers=[];S.stage_theme=null;S.hide_song=false;S.customSingerName="";S.singerPickerOpen=false;S.editQueueRowId=null;S.screen="queue";await loadQueue();render();
 }
 export async function updateProfile(name,pic,defaultColor){
   var upd={name:name.trim()};

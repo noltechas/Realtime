@@ -53,7 +53,7 @@ export function renderWizardShell(step,body){
   '</div>';
 }
 export function renderWizardFooter(step){
-  var cta=(step===4)?"Add to Queue":"Next";
+  var cta=(step===4)?(S.editQueueRowId?"Save Changes":"Add to Queue"):"Next";
   var needsTheme=(step===4&&!S.stage_theme);
   var isDisabled=(step===4&&(S.addingToQueue||needsTheme));
   var disabled=isDisabled?" disabled":"";

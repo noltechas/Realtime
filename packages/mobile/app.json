@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "Realtime Karaoke",
+    "slug": "realtime-karaoke-mobile",
+    "scheme": "realtimekaraoke",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.noltechas.realtimekaraoke",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Used to scan the host's QR code so you can join the session.",
+        "NSPhotoLibraryUsageDescription": "Choose a profile photo to show on stage and in the queue."
+      }
+    },
+    "android": {
+      "package": "com.noltechas.realtimekaraoke",
+      "adaptiveIcon": {
+        "backgroundColor": "#5b1ea8",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Used to scan the host's QR code so you can join the session."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Choose a profile photo to show on stage and in the queue.",
+          "cameraPermission": "Take a profile photo to show on stage and in the queue."
+        }
+      ]
+    ]
+  }
+}

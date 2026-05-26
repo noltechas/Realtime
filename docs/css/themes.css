@@ -206,6 +206,14 @@
   background: #FFD60A !important; color: #1A1A1A !important;
   border: 2.5px solid #1A1A1A !important; box-shadow: 2px 2px 0 #1A1A1A !important;
 }
+.queue-item[data-stage-theme="neo-brutal"] .queue-edit-btn {
+  background: #FFD60A !important; color: #1A1A1A !important;
+  border: 2.5px solid #1A1A1A !important; border-radius: 6px !important;
+  box-shadow: 2px 2px 0 #1A1A1A !important;
+}
+.queue-item[data-stage-theme="neo-brutal"] .queue-edit-btn:active {
+  box-shadow: 0 0 0 #1A1A1A !important; transform: translate(2px,2px) !important;
+}
 
 /* cyberpunk: neon outline with glow, no border-radius */
 .queue-item[data-stage-theme="cyberpunk"] .queue-vote-btn--up {

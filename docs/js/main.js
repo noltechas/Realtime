@@ -2,6 +2,7 @@ import { S } from './state.js';
 import { loadDeviceProfile } from './persistence.js';
 import { render } from './render/main.js';
 import { validateSession } from './supabase.js';
+import { initHistory } from './history.js';
 
 function init(){
   var p=new URLSearchParams(window.location.search);
@@ -12,6 +13,7 @@ function init(){
   var dp=loadDeviceProfile();
   if(dp&&typeof dp.prefersSanitize==="boolean")S.prefersSanitize=dp.prefersSanitize;
   if(dp&&dp.defaultColor&&!S.defaultColor)S.defaultColor=dp.defaultColor;
+  initHistory(render);
   validateSession();
 }
 

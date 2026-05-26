@@ -1,7 +1,7 @@
 import { sb, S, caches } from '../state.js';
 import { filterGifs, restoreMemeSearch, resizeImage } from '../utils.js';
 import { clearDeviceProfile, saveDeviceProfile } from '../persistence.js';
-import { initWizardFromTrack, addSinger, removeSinger, setSingerColor, wizardHasAnyChanges, wizardBack, nextWizardStep } from '../wizard.js';
+import { initWizardFromTrack, initWizardFromQueueItem, addSinger, removeSinger, setSingerColor, wizardHasAnyChanges, wizardBack, nextWizardStep } from '../wizard.js';
 import { castVote, sendReaction, joinSession, rejoinAsGuest, updateProfile, runRequestSearch, submitSongRequest, loadAwards, loadGuests, loadQueue } from '../supabase.js';
 import { render } from '../render/main.js';
 import { filterCatalog, renderGenreTabs, renderRequest, renderSongCards, songCardHtml, SONGS_BATCH_SIZE } from '../render/songs.js';
@@ -565,6 +565,17 @@ export function bindEvents(){
     btn.addEventListener("click",function(){
       var id=btn.getAttribute("data-q-vote-down");
       castVote(id,-1);
+    });
+  });
+  document.querySelectorAll("[data-q-edit]").forEach(function(btn){
+    btn.addEventListener("click",function(){
+      var id=btn.getAttribute("data-q-edit");
+      var row=S.queue.find(function(q){return q.id===id;});
+      if(!row)return;
+      var track=S.catalog.find(function(c){return c.track_id===row.track_id;});
+      if(!track){alert("Can't edit yet — the song catalog is still loading.");return;}
+      initWizardFromQueueItem(track,row);
+      render();
     });
   });
   var reqBack=document.getElementById("req-back");
