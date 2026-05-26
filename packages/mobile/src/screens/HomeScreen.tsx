@@ -25,8 +25,7 @@ import {
 } from '@karaoke/shared'
 import type { MainTabsParamList, RootStackParamList } from '../navigation/types'
 import { useTheme } from '../theme/ThemeContext'
-import { themeShadow, themePressed, themeRadius, themeCardBorder, themeAccentTint } from '../theme/styles'
-import { ThemedBackdrop } from '../theme/ThemedBackdrop'
+import { themeShadow, themePressed, themeRadius, themeCardBorder, themeAccentTint } from '../theme/helpers'
 import { useProfile } from '../hooks/useProfile'
 import { useSession } from '../hooks/useSession'
 import {
@@ -55,7 +54,7 @@ function relativeTime(iso: string): string {
 }
 
 export function HomeScreen() {
-  const { tokens, styles } = useTheme()
+  const { tokens, ui } = useTheme()
   const navigation = useNavigation<HomeNav>()
   const insets = useSafeAreaInsets()
   const { profile } = useProfile()
@@ -165,8 +164,8 @@ export function HomeScreen() {
   const sortedHistory = sortHistory(history, session?.sessionId ?? null, statuses)
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
-      <ThemedBackdrop />
+    <SafeAreaView style={ui.styles.screen} edges={['top', 'left', 'right']}>
+      <ui.Backdrop />
       <View style={{ flex: 1, paddingBottom: bottomPadding }}>
         <View
           style={{
@@ -217,8 +216,8 @@ export function HomeScreen() {
                 backgroundColor: tokens.isDark ? themeAccentTint(tokens, 0.05) : 'rgba(255,255,255,0.5)',
               }}
             >
-              <Text style={[styles.h2, { marginBottom: 6 }]}>No sessions yet</Text>
-              <Text style={[styles.muted, { textAlign: 'center' }]}>
+              <Text style={[ui.styles.h2, { marginBottom: 6 }]}>No sessions yet</Text>
+              <Text style={[ui.styles.muted, { textAlign: 'center' }]}>
                 Sessions you join will show up here so you can hop back in.
               </Text>
             </View>

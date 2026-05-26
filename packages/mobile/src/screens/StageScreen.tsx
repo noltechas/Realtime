@@ -25,7 +25,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import * as ImagePicker from 'expo-image-picker'
-import type { ThemeTokens } from '@karaoke/shared'
+import type { ThemeTokens, SingerConfig } from '@karaoke/shared'
 import { useSession } from '../hooks/useSession'
 import { useProfile } from '../hooks/useProfile'
 import {
@@ -41,10 +41,8 @@ import {
   themePressed,
   themeRadius,
   themeCardBorder,
-  themeCardShape,
   themeAccentTint,
-} from '../theme/styles'
-import { ThemedBackdrop } from '../theme/ThemedBackdrop'
+} from '../theme/helpers'
 
 const REACTION_COOLDOWN_MS = 300
 
@@ -55,19 +53,35 @@ const EMOJI_LIST = [
   '❤️','🔥','✨','🌟','💯','🎉','🎊','🎈',
   '🎵','🎤','🎶','🎸','🥁','🎹','🎧','📢',
   '💀','🫠','🤡','👻','👽','🤖','🐶','🐱',
-  '🍻','🍺','🍸','🥂','☕','🍕','🍔','🍪',
   '💪','🚀','🏆','🥇',
 ]
 
+// Stage tab — data container. All atoms (reaction cells, play/pause button,
+// toggle boxes, the tab icon) come from the active theme's UI module. Modal
+// pickers (Emoji / Text / GIF / Skip-confirm) live here because they're
+// strictly token-driven (no per-theme structural decisions).
 export function StageScreen() {
   const { session } = useSession()
   const { profile } = useProfile()
   const row = useSessionRow(session?.sessionId)
   const insets = useSafeAreaInsets()
-  const { tokens } = useTheme()
+  const { tokens, ui } = useTheme()
   const guestName = session?.guestName
 
-  const matched = guestIsUp(row, guestName)
+  const currentMatch = guestIsUp(row, guestName)
+
+  // Persist the last known matched singer config so transient Supabase
+  // realtime updates don't flicker back to ReactGrid.
+  const lastMatchRef = useRef<SingerConfig | null>(null)
+  if (currentMatch !== null) {
+    lastMatchRef.current = currentMatch
+  } else if (!row?.now_playing_track_id && !row?.now_playing_name) {
+    lastMatchRef.current = null
+  } else if (Array.isArray(row?.now_playing_singer_configs)) {
+    lastMatchRef.current = null
+  }
+
+  const matched = lastMatchRef.current
   const isUp = matched !== null
 
   if (!session) {
@@ -84,7 +98,7 @@ export function StageScreen() {
 
   return (
     <SafeAreaView style={safeStyle(tokens)} edges={['top', 'left', 'right']}>
-      <ThemedBackdrop />
+      <ui.Backdrop />
       {isUp ? (
         <YoureUp
           row={row}
@@ -121,7 +135,7 @@ function ReactGrid({
   profilePicture: string | null
   bottomPadding: number
 }) {
-  const { tokens } = useTheme()
+  const { tokens, ui } = useTheme()
   const [customEmoji, setCustomEmoji] = useState<string | null>(null)
   const [emojiOpen, setEmojiOpen] = useState(false)
   const [textOpen, setTextOpen] = useState(false)
@@ -208,6 +222,8 @@ function ReactGrid({
   const cooldownActive =
     Date.now() - lastReactionAtRef.current < REACTION_COOLDOWN_MS
 
+  const { iconColor, plusIconColor } = ui.reactionIconColors
+
   return (
     <View style={{ flex: 1 }}>
       <View style={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 12 }}>
@@ -216,13 +232,13 @@ function ReactGrid({
 
       <View style={[gridStyle, { paddingBottom: bottomPadding }]}>
         <View style={gridRowStyle}>
-          <ReactionCell
+          <ui.ReactionCell
             label="Clap"
             icon={<Text style={cellEmojiStyle}>👏</Text>}
             onPress={() => sendReaction('emoji', '👏')}
             disabled={cooldownActive}
           />
-          <ReactionCell
+          <ui.ReactionCell
             label="Boo"
             icon={<Text style={cellEmojiStyle}>👎</Text>}
             onPress={() => sendReaction('emoji', '👎')}
@@ -231,7 +247,7 @@ function ReactGrid({
         </View>
         <View style={gridRowStyle}>
           {customEmoji ? (
-            <ReactionCell
+            <ui.ReactionCell
               label="Custom"
               icon={<Text style={cellEmojiStyle}>{customEmoji}</Text>}
               onPress={() => sendReaction('emoji', customEmoji)}
@@ -239,27 +255,27 @@ function ReactGrid({
               disabled={cooldownActive}
             />
           ) : (
-            <ReactionCell
+            <ui.ReactionCell
               label="Custom Emoji"
-              icon={<Text style={cellPlusStyle(tokens)}>+</Text>}
+              icon={<Text style={cellPlusStyle(tokens, plusIconColor)}>+</Text>}
               onPress={() => setEmojiOpen(true)}
             />
           )}
-          <ReactionCell
+          <ui.ReactionCell
             label="Say Something"
-            icon={<Ionicons name="chatbubble-outline" size={64} color={tokens.black} />}
+            icon={<Ionicons name="chatbubble-outline" size={64} color={iconColor} />}
             onPress={() => setTextOpen(true)}
           />
         </View>
         <View style={gridRowStyle}>
-          <ReactionCell
+          <ui.ReactionCell
             label="Memes"
-            icon={<Ionicons name="image-outline" size={64} color={tokens.black} />}
+            icon={<Ionicons name="image-outline" size={64} color={iconColor} />}
             onPress={() => setMemeOpen(true)}
           />
-          <ReactionCell
+          <ui.ReactionCell
             label="Photo"
-            icon={<Ionicons name="camera-outline" size={64} color={tokens.black} />}
+            icon={<Ionicons name="camera-outline" size={64} color={iconColor} />}
             onPress={onPickPhoto}
           />
         </View>
@@ -284,47 +300,6 @@ function ReactGrid({
         onPick={onPickMeme}
       />
     </View>
-  )
-}
-
-function ReactionCell({
-  onPress,
-  onEditPress,
-  disabled,
-  icon,
-  label,
-}: {
-  onPress: () => void
-  onEditPress?: () => void
-  disabled?: boolean
-  icon: React.ReactNode
-  label: string
-}) {
-  const { tokens } = useTheme()
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      style={({ pressed }) => [
-        cellStyle(tokens, label),
-        // Press feedback — slide on offset themes, dim on glow themes,
-        // plus a per-key wobble on blob (sketch) themes.
-        pressed ? themePressed(tokens, label) : null,
-        disabled ? { opacity: 0.4 } : null,
-      ]}
-    >
-      <View style={cellIconAreaStyle}>{icon}</View>
-      <Text style={cellLabelStyle(tokens)}>{label}</Text>
-      {onEditPress ? (
-        <Pressable
-          onPress={onEditPress}
-          hitSlop={6}
-          style={cellEditStyle(tokens)}
-        >
-          <Ionicons name="create-outline" size={12} color={tokens.black} />
-        </Pressable>
-      ) : null}
-    </Pressable>
   )
 }
 
@@ -367,7 +342,7 @@ function EmojiPicker({
 }
 
 // ----------------------------------------------------------------------------
-// Text input — centered sheet
+// Text input sheet — centered modal
 // ----------------------------------------------------------------------------
 function TextInputSheet({
   visible,
@@ -511,7 +486,7 @@ function YoureUp({
   sessionId: string
   bottomPadding: number
 }) {
-  const { tokens } = useTheme()
+  const { tokens, ui } = useTheme()
   const np = row
   const isPlaying = !!np?.is_playing
   const trackName = np?.now_playing_name ?? ''
@@ -558,33 +533,6 @@ function YoureUp({
       .eq('id', sessionId)
   }, [sessionId])
 
-  const pulse = useRef(new Animated.Value(0)).current
-  useEffect(() => {
-    if (isPlaying) {
-      pulse.setValue(0)
-      return
-    }
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, {
-          toValue: 1,
-          duration: 1200,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulse, {
-          toValue: 0,
-          duration: 1200,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ]),
-    )
-    loop.start()
-    return () => loop.stop()
-  }, [isPlaying, pulse])
-  const pulseScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.05] })
-
   return (
     <View style={{ flex: 1, paddingBottom: bottomPadding }}>
       <View style={yupWrapStyle}>
@@ -593,35 +541,23 @@ function YoureUp({
         ) : null}
 
         {!isPlaying && artUrl ? (
-          <Image source={{ uri: artUrl }} style={yupArtStyle(tokens)} />
+          <View style={yupArtStyle(tokens)}>
+            <Image source={{ uri: artUrl }} style={{ width: '100%', height: '100%' }} />
+          </View>
         ) : null}
 
         <Text style={yupSongStyle(tokens)} numberOfLines={2}>{trackName || 'Waiting for the host…'}</Text>
         {!!trackArtist && <Text style={yupArtistStyle(tokens)} numberOfLines={1}>{trackArtist}</Text>}
 
-        <Animated.View style={{ transform: [{ scale: isPlaying ? 1 : pulseScale }] }}>
-          <Pressable
-            onPress={onPlayPause}
-            style={({ pressed }) => [
-              playBtnStyle(tokens),
-              { backgroundColor: isPlaying ? tokens.vividYellow : singerColor },
-              pressed ? playBtnPressedStyle(tokens) : null,
-            ]}
-          >
-            {isPlaying ? (
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <View style={pauseBarStyle(tokens)} />
-                <View style={pauseBarStyle(tokens)} />
-              </View>
-            ) : (
-              <View style={playTriStyle(tokens)} />
-            )}
-          </Pressable>
-        </Animated.View>
+        <ui.StagePlayButton
+          isPlaying={isPlaying}
+          singerColor={singerColor}
+          onPress={onPlayPause}
+        />
 
         <View style={toggleRowStyle}>
-          <ToggleBox label="Vocal FX" on={vfxOn} onPress={onToggleVfx} />
-          <ToggleBox label="Autotune" on={atOn} onPress={onToggleAt} />
+          <ui.StageToggleBox label="Vocal FX" on={vfxOn} onPress={onToggleVfx} />
+          <ui.StageToggleBox label="Autotune" on={atOn} onPress={onToggleAt} />
         </View>
 
         <Pressable
@@ -631,8 +567,10 @@ function YoureUp({
             pressed ? themePressed(tokens) : null,
           ]}
         >
-          <Ionicons name="play-skip-forward" size={16} color={tokens.black} />
-          <Text style={skipBtnLabelStyle(tokens)}>Skip Song</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Ionicons name="play-skip-forward" size={16} color={tokens.black} />
+            <Text style={skipBtnLabelStyle(tokens)}>Skip Song</Text>
+          </View>
         </Pressable>
       </View>
 
@@ -642,41 +580,6 @@ function YoureUp({
         onConfirm={onConfirmSkip}
       />
     </View>
-  )
-}
-
-function ToggleBox({
-  label,
-  on,
-  onPress,
-}: {
-  label: string
-  on: boolean
-  onPress: () => void
-}) {
-  const { tokens } = useTheme()
-  const isDark = tokens.isDark
-  const activeBg = isDark ? themeAccentTint(tokens, 0.18) : tokens.vividYellow
-  const idleBg = isDark ? 'transparent' : tokens.white
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        toggleBtnStyle(tokens),
-        { backgroundColor: on ? activeBg : idleBg },
-        pressed ? themePressed(tokens) : null,
-      ]}
-    >
-      <View
-        style={[
-          toggleCheckBoxStyle(tokens),
-          { backgroundColor: on ? (isDark ? tokens.accentA : tokens.black) : (isDark ? 'transparent' : tokens.white) },
-        ]}
-      >
-        {on ? <Ionicons name="checkmark" size={16} color={isDark ? tokens.appBg : tokens.white} /> : null}
-      </View>
-      <Text style={toggleLabelStyle(tokens)}>{label}</Text>
-    </Pressable>
   )
 }
 
@@ -717,23 +620,22 @@ function SkipConfirm({
 }
 
 // ----------------------------------------------------------------------------
-// Tab icon
+// Tab icon — the active theme owns the SVG/Ionicons render. The screen
+// owns the "isUp" check so the icon swaps live as the session row updates.
 // ----------------------------------------------------------------------------
 export function StageTabIcon({ color, size = 22 }: { color: string; size?: number }) {
   const { session } = useSession()
   const row = useSessionRow(session?.sessionId)
   const isUp = guestIsUp(row, session?.guestName) !== null
-  return (
-    <Ionicons
-      name={isUp ? 'mic' : 'happy-outline'}
-      size={size}
-      color={color}
-    />
-  )
+  const { ui } = useTheme()
+  const Icon = ui.StageTabIcon
+  return <Icon color={color} size={size} isUp={isUp} />
 }
 
 // ============================================================================
-// Style builders
+// Style builders — all token-driven (shadowStyle / cornerStyle / isDark /
+// cardShape) rather than theme-name branching. Per-theme structural decisions
+// live in the atom files; these are the modal-only fallbacks.
 // ============================================================================
 function safeStyle(t: ThemeTokens): ViewStyle {
   return { flex: 1, backgroundColor: t.appBg }
@@ -763,18 +665,6 @@ const gridRowStyle: ViewStyle = {
   flexDirection: 'row',
   gap: 12,
 }
-function cellStyle(t: ThemeTokens, key: string): ViewStyle {
-  return {
-    flex: 1,
-    backgroundColor: t.white,
-    ...themeCardBorder(t),
-    // Per-cell key seeds the blob mould so the 6 React cells each take a
-    // different hand-drawn shape (sketch); other themes ignore the key.
-    ...themeCardShape(t, key),
-    padding: 12,
-    ...themeShadow(t, 'md'),
-  }
-}
 const cellIconAreaStyle: ViewStyle = {
   flex: 1,
   alignItems: 'center',
@@ -782,58 +672,31 @@ const cellIconAreaStyle: ViewStyle = {
 }
 const cellEmojiStyle: TextStyle = {
   fontSize: 72,
-  // iOS emoji glyphs draw above the text baseline by a few px. With
-  // `lineHeight === fontSize` the top of clap/boo/balloon emojis get clipped
-  // by the surrounding flex container. ~1.18× gives the glyph room to render
-  // its natural ascent without misaligning the visual center.
+  // iOS emoji glyphs draw above the text baseline by a few px. ~1.18× gives
+  // the glyph room to render its natural ascent without misaligning center.
   lineHeight: 86,
   textAlign: 'center',
 }
-function cellPlusStyle(t: ThemeTokens): TextStyle {
+function cellPlusStyle(t: ThemeTokens, color: string): TextStyle {
   return {
     fontSize: 64,
     lineHeight: 64,
-    color: t.faint,
+    color,
     fontWeight: '300',
     textAlign: 'center',
-  }
-}
-function cellLabelStyle(t: ThemeTokens): TextStyle {
-  return {
-    textAlign: 'center',
-    marginTop: 8,
-    fontFamily: t.fontDisplay,
-    fontWeight: '800',
-    fontSize: 13,
-    color: t.black,
-    letterSpacing: t.displayUppercase ? 2 : 0.3,
-    textTransform: 'uppercase',
-  }
-}
-function cellEditStyle(t: ThemeTokens): ViewStyle {
-  return {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 24,
-    height: 24,
-    borderRadius: themeRadius(t, 6),
-    borderWidth: t.isDark ? 1 : 2,
-    borderColor: t.isDark ? t.accentA : t.black,
-    backgroundColor: t.isDark ? themeAccentTint(t, 0.18) : t.vividYellow,
-    alignItems: 'center',
-    justifyContent: 'center',
+    ...(t.isDark ? { textShadowColor: t.accentGlowColor, textShadowRadius: 8 } : {}),
   }
 }
 
+// ── Modals ─────────────────────────────────────────────────────────────────
 const overlayStyle: ViewStyle = {
   flex: 1,
-  backgroundColor: 'rgba(0,0,0,0.55)',
+  backgroundColor: 'rgba(0,0,0,0.45)',
   justifyContent: 'flex-end',
 }
 const overlayCenterStyle: ViewStyle = {
   flex: 1,
-  backgroundColor: 'rgba(0,0,0,0.55)',
+  backgroundColor: 'rgba(0,0,0,0.45)',
   alignItems: 'center',
   justifyContent: 'center',
   padding: 24,
@@ -947,6 +810,7 @@ function poweredByStyle(t: ThemeTokens): TextStyle {
   }
 }
 
+// ── YoureUp scaffolding ────────────────────────────────────────────────────
 const yupWrapStyle: ViewStyle = {
   flex: 1,
   paddingHorizontal: 24,
@@ -965,19 +829,20 @@ function yupHeroStyle(t: ThemeTokens): TextStyle {
     textAlign: 'center',
     marginBottom: 4,
     textTransform: t.displayUppercase ? 'uppercase' : 'none',
-    textShadowColor: t.isDark ? t.hotRed : 'transparent',
+    textShadowColor: t.isDark ? t.accentGlowColor : 'transparent',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: t.isDark ? 12 : 0,
   }
 }
-function yupArtStyle(t: ThemeTokens): ImageStyle {
+function yupArtStyle(t: ThemeTokens): ViewStyle {
   return {
     width: 200,
     height: 200,
     borderRadius: themeRadius(t, t.radius),
-    ...(themeCardBorder(t) as ImageStyle),
+    ...themeCardBorder(t),
     backgroundColor: t.creamDark,
-    ...(themeShadow(t, 'md') as ImageStyle),
+    ...themeShadow(t, 'md'),
+    overflow: 'hidden',
   }
 }
 function yupSongStyle(t: ThemeTokens): TextStyle {
@@ -1001,47 +866,6 @@ function yupArtistStyle(t: ThemeTokens): TextStyle {
     textAlign: 'center',
   }
 }
-function playBtnStyle(t: ThemeTokens): ViewStyle {
-  return {
-    width: 120,
-    height: 120,
-    borderRadius: t.cornerStyle === 'sharp' ? 0 : 60,
-    borderWidth: t.isDark ? 1 : t.cardBorderWidth,
-    borderColor: t.isDark ? t.accentA : t.black,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...themeShadow(t, 'lg'),
-  }
-}
-function playBtnPressedStyle(t: ThemeTokens): ViewStyle {
-  if (t.isDark) return { opacity: 0.85 }
-  return {
-    transform: [{ translateX: 4 }, { translateY: 4 }],
-    shadowOpacity: 0,
-    elevation: 0,
-  }
-}
-function playTriStyle(t: ThemeTokens): ViewStyle {
-  return {
-    width: 0,
-    height: 0,
-    borderTopWidth: 24,
-    borderBottomWidth: 24,
-    borderLeftWidth: 40,
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderLeftColor: t.isDark ? t.appBg : t.black,
-    marginLeft: 8,
-  }
-}
-function pauseBarStyle(t: ThemeTokens): ViewStyle {
-  return {
-    width: 14,
-    height: 44,
-    backgroundColor: t.isDark ? t.appBg : t.black,
-    borderRadius: 2,
-  }
-}
 const toggleRowStyle: ViewStyle = {
   flexDirection: 'row',
   gap: 12,
@@ -1049,40 +873,8 @@ const toggleRowStyle: ViewStyle = {
   maxWidth: 360,
   marginTop: 8,
 }
-function toggleBtnStyle(t: ThemeTokens): ViewStyle {
-  return {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: themeRadius(t, t.radius),
-    ...themeCardBorder(t),
-    ...themeShadow(t, 'sm'),
-  }
-}
-function toggleCheckBoxStyle(t: ThemeTokens): ViewStyle {
-  return {
-    width: 22,
-    height: 22,
-    borderRadius: t.cornerStyle === 'sharp' ? 0 : 4,
-    borderWidth: t.isDark ? 1 : 2,
-    borderColor: t.isDark ? t.accentA : t.black,
-    alignItems: 'center',
-    justifyContent: 'center',
-  }
-}
-function toggleLabelStyle(t: ThemeTokens): TextStyle {
-  return {
-    fontFamily: t.fontDisplay,
-    fontWeight: '800',
-    fontSize: 13,
-    color: t.black,
-    letterSpacing: t.displayUppercase ? 1.5 : 0.3,
-    textTransform: t.displayUppercase ? 'uppercase' : 'none',
-  }
-}
+
+// ── Skip button + confirm modal ────────────────────────────────────────────
 function skipBtnStyle(t: ThemeTokens): ViewStyle {
   return {
     flexDirection: 'row',
@@ -1093,7 +885,7 @@ function skipBtnStyle(t: ThemeTokens): ViewStyle {
     maxWidth: 360,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: t.white,
+    backgroundColor: t.isDark ? 'transparent' : t.white,
     ...themeCardBorder(t),
     borderRadius: themeRadius(t, t.radius),
     ...themeShadow(t, 'md'),

@@ -43,6 +43,8 @@ export function useSessionRow(sessionId: string | undefined): FullSessionRow | n
       .then((res) => {
         if (cancelled) return
         if (res.error || !res.data) return
+        // Initial fetch is authoritative — replace whatever placeholder
+        // state we have. Subsequent realtime UPDATEs merge (see below).
         setRow(res.data as FullSessionRow)
       })
 
@@ -67,7 +69,19 @@ export function useSessionRow(sessionId: string | undefined): FullSessionRow | n
         },
         (payload) => {
           if (cancelled) return
-          setRow(payload.new as FullSessionRow)
+          // Merge incoming payload into the existing row instead of
+          // replacing it. The desktop fires several narrow updates
+          // (`syncIsPlaying` only writes `is_playing`, theme/trending_gifs
+          // updates only touch their own columns) and Supabase realtime
+          // can deliver a `payload.new` that omits unchanged JSONB
+          // columns like `now_playing_singer_configs`. Replacing the row
+          // wholesale would briefly drop the singer match — flipping the
+          // stage-tab label/icon back to "React" mid-song or during the
+          // skip→next-song transition even when the local guest is still
+          // a singer. Merge keeps every known field until a later update
+          // explicitly overwrites it.
+          const next = payload.new as Partial<FullSessionRow>
+          setRow((prev) => (prev ? { ...prev, ...next } : (next as FullSessionRow)))
         },
       )
       .subscribe()

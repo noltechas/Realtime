@@ -21,22 +21,6 @@ const NEON_AMBER   = '#ffcc00'
 const NEON_RED     = '#ff0055'
 const WHITE_TINTED = '#d0ffe8'
 
-const SINGER_COLORS = [
-  { color: '#00ff88', colorGlow: 'rgba(0,255,136,0.4)'   },
-  { color: '#ff00aa', colorGlow: 'rgba(255,0,170,0.4)'   },
-  { color: '#00e5ff', colorGlow: 'rgba(0,229,255,0.4)'   },
-  { color: '#ffcc00', colorGlow: 'rgba(255,204,0,0.4)'   },
-  { color: '#ff3366', colorGlow: 'rgba(255,51,102,0.4)'  },
-  { color: '#aa00ff', colorGlow: 'rgba(170,0,255,0.4)'   },
-  { color: '#ff6600', colorGlow: 'rgba(255,102,0,0.4)'   },
-  { color: '#00ffcc', colorGlow: 'rgba(0,255,204,0.4)'   },
-  { color: '#ff0055', colorGlow: 'rgba(255,0,85,0.4)'    },
-  { color: '#66ff00', colorGlow: 'rgba(102,255,0,0.4)'   },
-  { color: '#ff44cc', colorGlow: 'rgba(255,68,204,0.4)'  },
-  { color: '#00ccff', colorGlow: 'rgba(0,204,255,0.4)'   },
-  { color: '#ffaa00', colorGlow: 'rgba(255,170,0,0.4)'   },
-]
-
 export const CYBERPUNK_TOKENS: ThemeTokens = {
   name: 'cyberpunk',
   displayName: 'Cyberpunk',
@@ -87,8 +71,6 @@ export const CYBERPUNK_TOKENS: ThemeTokens = {
 
   spinnerBorder:    'rgba(0,255,136,0.15)',
   spinnerBorderTop: NEON_GREEN,
-
-  singerColors: SINGER_COLORS,
 
   // ── Mobile flags ────────────────────────────────────────────────────────────
   isDark: true,

@@ -14,17 +14,6 @@ const YELLOW= '#fff9c4'
 const WOBBLY = '255px 15px 225px 15px / 15px 225px 15px 255px'
 const WOBBLY_MD = '25px 225px 15px 255px / 255px 15px 225px 15px'
 
-const SINGER_COLORS = [
-  { color: RED, colorGlow: 'rgba(255, 77, 77, 0.2)' },
-  { color: BLUE, colorGlow: 'rgba(45, 93, 161, 0.2)' },
-  { color: YELLOW, colorGlow: 'rgba(255, 249, 196, 0.3)' },
-  { color: '#4caf50', colorGlow: 'rgba(76, 175, 80, 0.2)' },
-  { color: '#ff9800', colorGlow: 'rgba(255, 152, 0, 0.2)' },
-  { color: '#9c27b0', colorGlow: 'rgba(156, 39, 176, 0.2)' },
-  { color: '#00bcd4', colorGlow: 'rgba(0, 188, 212, 0.2)' },
-  { color: '#795548', colorGlow: 'rgba(121, 85, 72, 0.2)' },
-]
-
 const GLOBAL_CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Kalam:wght@700&family=Patrick+Hand&display=swap');
 
@@ -302,5 +291,4 @@ export const SKETCH: Theme = {
     transform: 'rotate(-2deg)',
   },
 
-  singerColors: SINGER_COLORS,
 }

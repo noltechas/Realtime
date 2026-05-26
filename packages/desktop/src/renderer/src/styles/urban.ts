@@ -14,17 +14,6 @@ const SPRAY_SILVER = '#E0E0E0'
 const ALERT_RED = '#FF1E1E'
 const ACID_CYAN = '#00F0FF'
 
-const SINGER_COLORS = [
-  { color: TOXIC_GREEN, colorGlow: 'rgba(212, 255, 0, 0.4)' },
-  { color: SPRAY_SILVER, colorGlow: 'rgba(224, 224, 224, 0.3)' },
-  { color: ALERT_RED, colorGlow: 'rgba(255, 30, 30, 0.4)' },
-  { color: ACID_CYAN, colorGlow: 'rgba(0, 240, 255, 0.4)' },
-  { color: '#FF00E6', colorGlow: 'rgba(255, 0, 230, 0.4)' }, // Magenta
-  { color: '#FFA600', colorGlow: 'rgba(255, 166, 0, 0.4)' }, // Hazard Orange
-  { color: '#9000FF', colorGlow: 'rgba(144, 0, 255, 0.4)' }, // Toxic Purple
-  { color: PURE_WHITE, colorGlow: 'rgba(255, 255, 255, 0.2)' }
-]
-
 const GLOBAL_CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;700&family=Permanent+Marker&display=swap');
 
@@ -349,5 +338,4 @@ export const URBAN: Theme = {
     transform: 'rotate(-10deg) scale(1.2)',
   },
 
-  singerColors: SINGER_COLORS,
 }

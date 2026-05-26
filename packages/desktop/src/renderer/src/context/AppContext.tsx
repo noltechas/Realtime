@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef, ReactNode } from 'react'
+import { UNIVERSAL_SINGER_COLORS } from '@karaoke/shared'
 
 // ---- Types ----
 export interface SpotifyTrack {
@@ -166,21 +167,10 @@ export interface AppState {
     awardsRevealStep: RevealStep | null
 }
 
-export const NEON_COLORS = [
-    { color: '#22d3ee', colorGlow: 'rgba(34, 211, 238, 0.3)' }, // Cyan
-    { color: '#f472b6', colorGlow: 'rgba(244, 114, 182, 0.3)' }, // Pink
-    { color: '#fbbf24', colorGlow: 'rgba(251, 191, 36, 0.3)' }, // Amber
-    { color: '#a78bfa', colorGlow: 'rgba(167, 139, 250, 0.3)' }, // Violet
-    { color: '#34d399', colorGlow: 'rgba(52, 211, 153, 0.3)' }, // Emerald
-    { color: '#818cf8', colorGlow: 'rgba(129, 140, 248, 0.3)' }, // Indigo
-    { color: '#ef4444', colorGlow: 'rgba(239, 68, 68, 0.3)' },  // Electric Red
-    { color: '#f97316', colorGlow: 'rgba(249, 115, 22, 0.3)' },  // Neon Orange
-    { color: '#84cc16', colorGlow: 'rgba(132, 204, 22, 0.3)' },  // Lime
-    { color: '#14b8a6', colorGlow: 'rgba(20, 184, 166, 0.3)' },  // Teal
-    { color: '#3b82f6', colorGlow: 'rgba(59, 130, 246, 0.3)' },  // Electric Blue
-    { color: '#d946ef', colorGlow: 'rgba(217, 70, 239, 0.3)' }, // Neon Purple
-    { color: '#e11d48', colorGlow: 'rgba(225, 29, 72, 0.3)' }   // Rose
-]
+// Universal singer palette — re-exported from the shared package so desktop
+// callers that already imported NEON_COLORS keep working. The actual values
+// live in packages/shared/src/themes/singerColors.ts.
+export const NEON_COLORS = UNIVERSAL_SINGER_COLORS
 
 // Hydrate the vocal-offset-by-device map from localStorage at startup.
 // Falls back to {} on any parse / storage error.

@@ -21,22 +21,6 @@ const PALE_YELLOW = '#fff9c4'
 const SOFT_RED    = '#ff4d4d'
 const PEN_GREEN   = '#4caf50'
 
-const SINGER_COLORS = [
-  { color: '#2d5da1', colorGlow: 'rgba(45,93,161,0.3)'  },
-  { color: '#ff4d4d', colorGlow: 'rgba(255,77,77,0.3)'  },
-  { color: '#fbbf24', colorGlow: 'rgba(251,191,36,0.3)' },
-  { color: '#a78bfa', colorGlow: 'rgba(167,139,250,0.3)' },
-  { color: '#4caf50', colorGlow: 'rgba(76,175,80,0.3)'  },
-  { color: '#f472b6', colorGlow: 'rgba(244,114,182,0.3)' },
-  { color: '#06b6d4', colorGlow: 'rgba(6,182,212,0.3)'  },
-  { color: '#f97316', colorGlow: 'rgba(249,115,22,0.3)' },
-  { color: '#22c55e', colorGlow: 'rgba(34,197,94,0.3)'  },
-  { color: '#8b5cf6', colorGlow: 'rgba(139,92,246,0.3)' },
-  { color: '#3b82f6', colorGlow: 'rgba(59,130,246,0.3)' },
-  { color: '#ec4899', colorGlow: 'rgba(236,72,153,0.3)' },
-  { color: '#14b8a6', colorGlow: 'rgba(20,184,166,0.3)' },
-]
-
 export const SKETCH_TOKENS: ThemeTokens = {
   name: 'sketch',
   displayName: 'Sketch',
@@ -84,8 +68,6 @@ export const SKETCH_TOKENS: ThemeTokens = {
 
   spinnerBorder:    'rgba(45,45,45,0.15)',
   spinnerBorderTop: SKETCH_BLUE,
-
-  singerColors: SINGER_COLORS,
 
   // ── Mobile flags ────────────────────────────────────────────────────────────
   isDark: false,

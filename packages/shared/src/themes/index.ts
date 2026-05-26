@@ -1,5 +1,8 @@
 export type { ThemeTokens, SingerColor } from './tokens'
+export { UNIVERSAL_SINGER_COLORS, findColorIndex } from './singerColors'
 export { NEO_BRUTAL_TOKENS } from './neo-brutal'
 export { CYBERPUNK_TOKENS } from './cyberpunk'
 export { SKETCH_TOKENS } from './sketch'
+export { URBAN_TOKENS } from './urban'
+export { DEEP_SEA_TOKENS } from './deep-sea'
 export { THEME_TOKENS_BY_NAME, resolveThemeTokens } from './registry'

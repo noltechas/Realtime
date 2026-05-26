@@ -24,22 +24,6 @@ const FONT_DISPLAY = "'Spectral', 'Georgia', serif"
 const FONT_BODY    = "'Spectral', 'Georgia', serif"
 
 // ── Singer colors — industrial palette ───────────────────────────────────────
-const SINGER_COLORS = [
-  { color: '#C8973E', colorGlow: 'rgba(200,151,62,0.4)'   },   // brass gold
-  { color: '#E07040', colorGlow: 'rgba(224,112,64,0.4)'   },   // copper red
-  { color: '#5A9E8F', colorGlow: 'rgba(90,158,143,0.4)'   },   // verdigris green
-  { color: '#D4CEC0', colorGlow: 'rgba(212,206,192,0.4)'  },   // steam white
-  { color: '#D48A30', colorGlow: 'rgba(212,138,48,0.4)'   },   // boiler orange
-  { color: '#4A7A9E', colorGlow: 'rgba(74,122,158,0.4)'   },   // iron blue
-  { color: '#50B8A0', colorGlow: 'rgba(80,184,160,0.4)'   },   // patina teal
-  { color: '#A0A0A8', colorGlow: 'rgba(160,160,168,0.4)'  },   // rivet silver
-  { color: '#8B5A3A', colorGlow: 'rgba(139,90,58,0.4)'    },   // mahogany brown
-  { color: '#E8B84C', colorGlow: 'rgba(232,184,76,0.4)'   },   // gaslight amber
-  { color: '#4060A0', colorGlow: 'rgba(64,96,160,0.4)'    },   // cobalt blue
-  { color: '#B84030', colorGlow: 'rgba(184,64,48,0.4)'    },   // rust red
-  { color: '#7A5098', colorGlow: 'rgba(122,80,152,0.4)'   },   // forge violet
-]
-
 // Weathered parchment crosshatch texture SVG
 const PARCHMENT_SVG = encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'><line x1='0' y1='0' x2='60' y2='60' stroke='rgba(200,151,62,0.03)' stroke-width='0.5'/><line x1='20' y1='0' x2='60' y2='40' stroke='rgba(200,151,62,0.025)' stroke-width='0.4'/><line x1='40' y1='0' x2='60' y2='20' stroke='rgba(200,151,62,0.02)' stroke-width='0.3'/><line x1='0' y1='20' x2='40' y2='60' stroke='rgba(200,151,62,0.025)' stroke-width='0.4'/><line x1='0' y1='40' x2='20' y2='60' stroke='rgba(200,151,62,0.02)' stroke-width='0.3'/></svg>`)
 
@@ -468,5 +452,4 @@ export const STEAMPUNK: Theme = {
     backdropFilter: 'blur(12px)',
   },
 
-  singerColors: SINGER_COLORS,
 }

@@ -25,20 +25,19 @@ import {
   type KaraokeGuestRow,
 } from '@karaoke/shared'
 import type { RootStackParamList } from '../navigation/types'
+import { UNIVERSAL_SINGER_COLORS, findColorIndex } from '@karaoke/shared'
 import { useTheme } from '../theme/ThemeContext'
 import { useSession } from '../hooks/useSession'
 import { useProfile } from '../hooks/useProfile'
 import { useSessionHistory } from '../hooks/useSessionHistory'
 import { supabase } from '../supabase/client'
-import { Button } from '../components/PrimaryButton'
 import { AvatarPicker } from '../components/AvatarPicker'
-import { ColorPicker, findColorIndex } from '../components/ColorPicker'
 
 type LobbyNav = NativeStackNavigationProp<RootStackParamList, 'Lobby'>
 type LobbyRouteProp = RouteProp<RootStackParamList, 'Lobby'>
 
 export function LobbyScreen() {
-  const { tokens, styles } = useTheme()
+  const { tokens, ui } = useTheme()
   const navigation = useNavigation<LobbyNav>()
   const route = useRoute<LobbyRouteProp>()
   const { code } = route.params
@@ -70,10 +69,10 @@ export function LobbyScreen() {
   useEffect(() => {
     if (profile) {
       setName((prev) => prev || profile.name)
-      setColorIndex(findColorIndex(tokens, profile.defaultColor))
+      setColorIndex(findColorIndex(profile.defaultColor))
       setPicture((prev) => (prev !== null ? prev : profile.profilePicture ?? null))
     }
-  }, [profile, tokens])
+  }, [profile])
 
   useEffect(() => {
     let cancelled = false
@@ -119,7 +118,7 @@ export function LobbyScreen() {
         Alert.alert('Pick a name', 'Tell us what to call you on stage.')
         return
       }
-      const color = overrides?.color ?? tokens.singerColors[colorIndex]?.color
+      const color = overrides?.color ?? UNIVERSAL_SINGER_COLORS[colorIndex]?.color
       const finalPicture = overrides ? overrides.picture ?? null : picture
       setBusy(true)
       try {
@@ -190,7 +189,6 @@ export function LobbyScreen() {
       saveProfile,
       recordJoin,
       navigation,
-      tokens.singerColors,
     ],
   )
 
@@ -211,11 +209,11 @@ export function LobbyScreen() {
 
   if (error) {
     return (
-      <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
-        <View style={styles.page}>
-          <Text style={[styles.h1, { marginBottom: 12 }]}>Can't join</Text>
-          <Text style={[styles.body, { marginBottom: 24 }]}>{error}</Text>
-          <Button
+      <SafeAreaView style={ui.styles.screen} edges={['top', 'left', 'right']}>
+        <View style={ui.styles.page}>
+          <Text style={[ui.styles.h1, { marginBottom: 12 }]}>Can't join</Text>
+          <Text style={[ui.styles.body, { marginBottom: 24 }]}>{error}</Text>
+          <ui.Button
             label="Scan Again"
             onPress={() =>
               navigation.reset({ index: 0, routes: [{ name: 'Main' }] })
@@ -228,7 +226,7 @@ export function LobbyScreen() {
 
   if (!session || profileLoading) {
     return (
-      <SafeAreaView style={styles.screen}>
+      <SafeAreaView style={ui.styles.screen}>
         <View
           style={{
             flex: 1,
@@ -238,7 +236,7 @@ export function LobbyScreen() {
           }}
         >
           <ActivityIndicator color={tokens.hotRed} />
-          <Text style={[styles.muted, { marginTop: 12 }]}>
+          <Text style={[ui.styles.muted, { marginTop: 12 }]}>
             Looking up session {code}…
           </Text>
         </View>
@@ -251,7 +249,7 @@ export function LobbyScreen() {
   // network round-trip finishes.
   if (autoJoining || (profileComplete && busy)) {
     return (
-      <SafeAreaView style={styles.screen}>
+      <SafeAreaView style={ui.styles.screen}>
         <View
           style={{
             flex: 1,
@@ -264,7 +262,7 @@ export function LobbyScreen() {
           <ActivityIndicator color={tokens.hotRed} />
           <Text
             style={[
-              styles.h2,
+              ui.styles.h2,
               { marginTop: 16, textAlign: 'center' },
             ]}
           >
@@ -272,7 +270,7 @@ export function LobbyScreen() {
           </Text>
           <Text
             style={[
-              styles.muted,
+              ui.styles.muted,
               { marginTop: 6, textAlign: 'center' },
             ]}
           >
@@ -283,11 +281,11 @@ export function LobbyScreen() {
     )
   }
 
-  const selectedColor = tokens.singerColors[colorIndex]?.color ?? tokens.hotRed
+  const selectedColor = UNIVERSAL_SINGER_COLORS[colorIndex]?.color ?? tokens.hotRed
   const initial = (name.trim()[0] ?? '').toUpperCase()
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={ui.styles.screen} edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
@@ -389,7 +387,7 @@ export function LobbyScreen() {
               onChangeText={setName}
               placeholder="What should we call you?"
               placeholderTextColor={tokens.faint}
-              style={[styles.input, { fontSize: 20 }]}
+              style={[ui.styles.input, { fontSize: 20 }]}
               autoCorrect={false}
               returnKeyType="done"
               maxLength={32}
@@ -397,7 +395,7 @@ export function LobbyScreen() {
           </View>
 
           <View style={{ marginBottom: 24 }}>
-            <ColorPicker value={colorIndex} onChange={setColorIndex} />
+            <ui.ColorPicker value={colorIndex} onChange={setColorIndex} />
           </View>
         </View>
 
@@ -411,7 +409,7 @@ export function LobbyScreen() {
             backgroundColor: tokens.appBg,
           }}
         >
-          <Button label="Join Session" onPress={() => void performJoin()} loading={busy} />
+          <ui.Button label="Join Session" onPress={() => void performJoin()} loading={busy} />
           <Pressable
             onPress={() =>
               navigation.reset({ index: 0, routes: [{ name: 'Main' }] })

@@ -62,9 +62,6 @@ export interface ThemeTokens {
   spinnerBorder: string
   spinnerBorderTop: string
 
-  // Singer palette
-  singerColors: SingerColor[]
-
   // ── Mobile-specific flags ───────────────────────────────────────────────────
   // These drive how React Native styles render. Desktop ignores them — the
   // desktop Theme interface in packages/desktop/src/renderer/src/styles/theme.ts

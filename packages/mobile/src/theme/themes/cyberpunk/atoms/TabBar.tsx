@@ -2,10 +2,10 @@ import React, { useEffect, useRef, useState } from 'react'
 import { View, Text, Pressable, Animated, Easing } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs'
-import { useTheme } from '../theme/ThemeContext'
-import { TAB_ICONS, type TabIconComponent } from './TabIcons'
-import { useSession } from '../hooks/useSession'
-import { useSessionRow, guestIsUp } from '../hooks/useSessionRow'
+import { useTheme } from '../../../ThemeContext'
+import { TAB_ICONS, type TabIconComponent } from '../../../../navigation/TabIcons'
+import { useSession } from '../../../../hooks/useSession'
+import { useSessionRow, guestIsUp } from '../../../../hooks/useSessionRow'
 
 // Live label for the Stage tab. Returns 'STAGE' when the local guest is
 // matched to a singer on the now-playing track, 'REACT' otherwise. Mirrors
@@ -23,7 +23,7 @@ function useStageLabel(): string {
 // — all in the theme's neon green on a void-black panel with a top neon
 // hairline + glow. A vertical scan line drifts across the active tab's
 // underline every cycle to sell the CRT feel.
-export function CyberpunkTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets()
   const { tokens } = useTheme()
   const stageLabel = useStageLabel()

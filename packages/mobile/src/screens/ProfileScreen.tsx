@@ -7,13 +7,13 @@ import {
   Platform,
 } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { UNIVERSAL_SINGER_COLORS, findColorIndex } from '@karaoke/shared'
 import { useTheme } from '../theme/ThemeContext'
 import { useProfile } from '../hooks/useProfile'
 import { AvatarPicker } from '../components/AvatarPicker'
-import { ColorPicker, findColorIndex } from '../components/ColorPicker'
 
 export function ProfileScreen() {
-  const { tokens, styles } = useTheme()
+  const { tokens, ui } = useTheme()
   const insets = useSafeAreaInsets()
   const { profile, saveProfile } = useProfile()
 
@@ -27,11 +27,11 @@ export function ProfileScreen() {
   useEffect(() => {
     if (profile && !seeded.current) {
       setName(profile.name ?? '')
-      setColorIndex(findColorIndex(tokens, profile.defaultColor))
+      setColorIndex(findColorIndex(profile.defaultColor))
       setPicture(profile.profilePicture ?? null)
       seeded.current = true
     }
-  }, [profile, tokens])
+  }, [profile])
 
   // Autosave every change (debounced) — no Save button, matches the iOS
   // Settings-style "type and it sticks" pattern.
@@ -42,13 +42,13 @@ export function ProfileScreen() {
     const timer = setTimeout(() => {
       void saveProfile({
         name: trimmed,
-        defaultColor: tokens.singerColors[colorIndex]?.color,
+        defaultColor: UNIVERSAL_SINGER_COLORS[colorIndex]?.color,
         profilePicture: picture ?? undefined,
       })
       setSavedTick(Date.now())
     }, 500)
     return () => clearTimeout(timer)
-  }, [name, colorIndex, picture, saveProfile, tokens.singerColors])
+  }, [name, colorIndex, picture, saveProfile])
 
   useEffect(() => {
     if (savedTick === null) return
@@ -56,7 +56,7 @@ export function ProfileScreen() {
     return () => clearTimeout(timer)
   }, [savedTick])
 
-  const selectedColor = tokens.singerColors[colorIndex]?.color ?? tokens.hotRed
+  const selectedColor = UNIVERSAL_SINGER_COLORS[colorIndex]?.color ?? tokens.hotRed
   const initial = (name.trim()[0] ?? '').toUpperCase()
   // Floating tab bar lives ~96px above the screen bottom (plus the home
   // indicator inset). Reserve that space so centering happens within the
@@ -64,7 +64,7 @@ export function ProfileScreen() {
   const tabBarReserve = insets.bottom + 96
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={ui.styles.screen} edges={['top', 'left', 'right']}>
       {savedTick !== null ? (
         <View
           style={{
@@ -143,7 +143,7 @@ export function ProfileScreen() {
               placeholder="What should we call you?"
               placeholderTextColor={tokens.faint}
               style={[
-                styles.input,
+                ui.styles.input,
                 { fontSize: 22, textAlign: 'center', minWidth: 240 },
               ]}
               autoCorrect={false}
@@ -153,7 +153,7 @@ export function ProfileScreen() {
           </View>
 
           <View style={{ marginTop: 28, alignSelf: 'stretch' }}>
-            <ColorPicker value={colorIndex} onChange={setColorIndex} />
+            <ui.ColorPicker value={colorIndex} onChange={setColorIndex} />
           </View>
         </View>
       </KeyboardAvoidingView>

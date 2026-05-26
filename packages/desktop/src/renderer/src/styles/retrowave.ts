@@ -23,22 +23,6 @@ const FONT_DISPLAY = "'Audiowide', 'Rajdhani', sans-serif"
 const FONT_BODY    = "'Rajdhani', 'Exo 2', sans-serif"
 
 // ── Singer colors — warm sunset + neon palette ──────────────────────────────
-const SINGER_COLORS = [
-  { color: '#FF2D95', colorGlow: 'rgba(255,45,149,0.4)'  },   // hot pink
-  { color: '#00BFFF', colorGlow: 'rgba(0,191,255,0.4)'   },   // electric blue
-  { color: '#FF6B2B', colorGlow: 'rgba(255,107,43,0.4)'  },   // sunset orange
-  { color: '#FFD700', colorGlow: 'rgba(255,215,0,0.4)'   },   // sunset gold
-  { color: '#B44AFF', colorGlow: 'rgba(180,74,255,0.4)'  },   // neon purple
-  { color: '#FF4466', colorGlow: 'rgba(255,68,102,0.4)'  },   // coral red
-  { color: '#00E5CC', colorGlow: 'rgba(0,229,204,0.4)'   },   // mint teal
-  { color: '#FF8C00', colorGlow: 'rgba(255,140,0,0.4)'   },   // dark orange
-  { color: '#E040FB', colorGlow: 'rgba(224,64,251,0.4)'  },   // magenta
-  { color: '#40C4FF', colorGlow: 'rgba(64,196,255,0.4)'  },   // light blue
-  { color: '#FF6090', colorGlow: 'rgba(255,96,144,0.4)'  },   // flamingo pink
-  { color: '#FFAB40', colorGlow: 'rgba(255,171,64,0.4)'  },   // amber
-  { color: '#7C4DFF', colorGlow: 'rgba(124,77,255,0.4)'  },   // deep violet
-]
-
 // ── Global CSS injected when retrowave theme is active ──────────────────────
 const GLOBAL_CSS = `
 /* ── Custom fonts ────────────────────────────────────────────────────────── */
@@ -437,5 +421,4 @@ export const RETROWAVE: Theme = {
     backdropFilter: 'blur(12px)',
   },
 
-  singerColors: SINGER_COLORS,
 }

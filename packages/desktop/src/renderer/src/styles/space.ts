@@ -23,22 +23,6 @@ const FONT_DISPLAY = "'Exo 2', 'Orbitron', sans-serif"
 const FONT_BODY    = "'Exo 2', 'Orbitron', sans-serif"
 
 // ── Singer colors — cosmic palette ───────────────────────────────────────────
-const SINGER_COLORS = [
-  { color: '#E040FB', colorGlow: 'rgba(224,64,251,0.4)'   },   // nebula magenta
-  { color: '#40E0D0', colorGlow: 'rgba(64,224,208,0.4)'   },   // plasma cyan
-  { color: '#FFB740', colorGlow: 'rgba(255,183,64,0.4)'   },   // solar amber
-  { color: '#4090FF', colorGlow: 'rgba(64,144,255,0.4)'   },   // pulsar blue
-  { color: '#FF4060', colorGlow: 'rgba(255,64,96,0.4)'    },   // supernova red
-  { color: '#40FB80', colorGlow: 'rgba(64,251,128,0.4)'   },   // aurora green
-  { color: '#A040FB', colorGlow: 'rgba(160,64,251,0.4)'   },   // quasar violet
-  { color: '#FF8040', colorGlow: 'rgba(255,128,64,0.4)'   },   // comet orange
-  { color: '#E0E0F0', colorGlow: 'rgba(224,224,240,0.4)'  },   // starlight white
-  { color: '#FB40A0', colorGlow: 'rgba(251,64,160,0.4)'   },   // cosmic pink
-  { color: '#40A0FF', colorGlow: 'rgba(64,160,255,0.4)'   },   // ion blue
-  { color: '#A0FB40', colorGlow: 'rgba(160,251,64,0.4)'   },   // gamma lime
-  { color: '#FFD040', colorGlow: 'rgba(255,208,64,0.4)'   },   // dwarf gold
-]
-
 // Constellation pattern SVG (connected dots and lines)
 const CONSTELLATION_SVG = encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'><circle cx='30' cy='40' r='1.2' fill='rgba(224,224,240,0.12)'/><circle cx='80' cy='25' r='1' fill='rgba(224,224,240,0.08)'/><circle cx='140' cy='60' r='1.3' fill='rgba(224,224,240,0.10)'/><circle cx='170' cy='130' r='1' fill='rgba(224,224,240,0.09)'/><circle cx='60' cy='150' r='1.2' fill='rgba(224,224,240,0.11)'/><circle cx='120' cy='170' r='1' fill='rgba(224,224,240,0.07)'/><line x1='30' y1='40' x2='80' y2='25' stroke='rgba(224,224,240,0.04)' stroke-width='0.5'/><line x1='80' y1='25' x2='140' y2='60' stroke='rgba(224,224,240,0.04)' stroke-width='0.5'/><line x1='140' y1='60' x2='170' y2='130' stroke='rgba(224,224,240,0.04)' stroke-width='0.5'/><line x1='60' y1='150' x2='120' y2='170' stroke='rgba(224,224,240,0.04)' stroke-width='0.5'/><line x1='30' y1='40' x2='60' y2='150' stroke='rgba(224,224,240,0.03)' stroke-width='0.5'/></svg>`)
 
@@ -464,5 +448,4 @@ export const SPACE: Theme = {
     backdropFilter: 'blur(12px)',
   },
 
-  singerColors: SINGER_COLORS,
 }

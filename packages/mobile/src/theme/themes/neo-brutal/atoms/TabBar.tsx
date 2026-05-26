@@ -3,10 +3,10 @@ import { View, Text, Pressable, Platform, Animated, Easing } from 'react-native'
 import { BlurView } from 'expo-blur'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs'
-import { useTheme } from '../theme/ThemeContext'
-import { TAB_ICONS, type TabIconComponent } from './TabIcons'
-import { useSession } from '../hooks/useSession'
-import { useSessionRow, guestIsUp } from '../hooks/useSessionRow'
+import { useTheme } from '../../../ThemeContext'
+import { TAB_ICONS, type TabIconComponent } from '../../../../navigation/TabIcons'
+import { useSession } from '../../../../hooks/useSession'
+import { useSessionRow, guestIsUp } from '../../../../hooks/useSessionRow'
 
 // Live label for the Stage tab. Returns 'Stage' when the local guest is
 // matched to a singer on the now-playing track, 'React' otherwise. The hook
@@ -24,7 +24,7 @@ function useStageLabel(): string {
 // for a "watery" stretching feel. Generalises to any number of tabs — icons
 // come from the TAB_ICONS map keyed by route name (falls back to whatever
 // `tabBarIcon` is set in screen options if a route isn't in TAB_ICONS).
-export function LiquidGlassTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets()
   const { tokens } = useTheme()
   const stageLabel = useStageLabel()

@@ -22,22 +22,6 @@ const FONT_DISPLAY = "'Chicle', 'Spicy Rice', cursive"
 const FONT_BODY    = "'Spicy Rice', 'Comfortaa', cursive"
 
 // ── Singer colors — psychedelic palette ──────────────────────────────────────
-const SINGER_COLORS = [
-  { color: '#ff2d95', colorGlow: 'rgba(255,45,149,0.4)'   },   // hot pink
-  { color: '#b6ff2d', colorGlow: 'rgba(182,255,45,0.4)'   },   // electric lime
-  { color: '#ff8c2d', colorGlow: 'rgba(255,140,45,0.4)'   },   // tangerine
-  { color: '#2dd9ff', colorGlow: 'rgba(45,217,255,0.4)'   },   // electric sky
-  { color: '#ff2dff', colorGlow: 'rgba(255,45,255,0.4)'   },   // magenta
-  { color: '#ffff2d', colorGlow: 'rgba(255,255,45,0.4)'   },   // acid yellow
-  { color: '#2dff95', colorGlow: 'rgba(45,255,149,0.4)'   },   // mint burst
-  { color: '#ff6b2d', colorGlow: 'rgba(255,107,45,0.4)'   },   // flame orange
-  { color: '#952dff', colorGlow: 'rgba(149,45,255,0.4)'   },   // grape
-  { color: '#2dffff', colorGlow: 'rgba(45,255,255,0.4)'   },   // aqua
-  { color: '#ff2d2d', colorGlow: 'rgba(255,45,45,0.4)'    },   // cherry
-  { color: '#95ff2d', colorGlow: 'rgba(149,255,45,0.4)'   },   // chartreuse
-  { color: '#ff2dcc', colorGlow: 'rgba(255,45,204,0.4)'   },   // fuchsia
-]
-
 // ── Global CSS injected when psychedelic theme is active ─────────────────────
 const GLOBAL_CSS = `
 /* ── Custom fonts ────────────────────────────────────────────────────────── */
@@ -360,5 +344,4 @@ export const PSYCHEDELIC: Theme = {
     borderRadius:  8,
   },
 
-  singerColors: SINGER_COLORS,
 }

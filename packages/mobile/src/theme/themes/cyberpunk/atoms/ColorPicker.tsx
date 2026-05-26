@@ -1,17 +1,18 @@
 import React from 'react'
 import { View, Text, Pressable, ScrollView } from 'react-native'
-import { useTheme } from '../theme/ThemeContext'
+import { UNIVERSAL_SINGER_COLORS } from '@karaoke/shared'
+import { useTheme } from '../../../ThemeContext'
+import type { ColorPickerProps } from '../../../types'
 
-interface ColorPickerProps {
-  value: number
-  onChange: (index: number) => void
-  label?: string
-}
-
-// Horizontal scroll of singer-color swatches. Pure rendering — selection state
-// lives with the caller so the chosen color can drive other UI (e.g. the
-// AvatarPicker ring).
-export function ColorPicker({ value, onChange, label = 'Your Color' }: ColorPickerProps) {
+// Cyberpunk color picker — sharp-cornered (borderRadius 0) swatches with a
+// neon glow under the currently selected one. Reads from the universal
+// palette (every theme shows the same 13 colors so a user's identity
+// persists across theme switches).
+export function CyberpunkColorPicker({
+  value,
+  onChange,
+  label = 'Your Color',
+}: ColorPickerProps) {
   const { tokens } = useTheme()
   return (
     <View>
@@ -34,7 +35,7 @@ export function ColorPicker({ value, onChange, label = 'Your Color' }: ColorPick
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 24, gap: 12 }}
       >
-        {tokens.singerColors.map((c, i) => {
+        {UNIVERSAL_SINGER_COLORS.map((c, i) => {
           const selected = i === value
           return (
             <Pressable
@@ -44,11 +45,11 @@ export function ColorPicker({ value, onChange, label = 'Your Color' }: ColorPick
               style={{
                 width: 38,
                 height: 38,
-                borderRadius: tokens.cornerStyle === 'sharp' ? 0 : 999,
+                borderRadius: 0,
                 backgroundColor: c.color,
                 borderWidth: selected ? 4 : 2,
                 borderColor: selected ? tokens.black : tokens.dimBorder,
-                ...(selected && tokens.isDark
+                ...(selected
                   ? {
                       shadowColor: c.color,
                       shadowOffset: { width: 0, height: 0 },
@@ -63,13 +64,4 @@ export function ColorPicker({ value, onChange, label = 'Your Color' }: ColorPick
       </ScrollView>
     </View>
   )
-}
-
-// Helper for matching a saved hex color back to its index in the singer palette.
-export function findColorIndex(tokens: { singerColors: { color: string }[] }, color: string | undefined): number {
-  if (!color) return 0
-  const idx = tokens.singerColors.findIndex(
-    (c) => c.color.toLowerCase() === color.toLowerCase(),
-  )
-  return idx >= 0 ? idx : 0
 }

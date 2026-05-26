@@ -1,29 +1,23 @@
 import React from 'react'
-import { View, Text, Pressable, ScrollView } from 'react-native'
-import type { GenreCounts } from '@karaoke/shared'
-import { useTheme } from '../theme/ThemeContext'
-import { themeRadius, themeAccentTint } from '../theme/styles'
+import { Text, Pressable, ScrollView, View } from 'react-native'
+import { NEO_BRUTAL_MOBILE } from '../../../tokens'
+import type { GenreTabsProps } from '../../../types'
 
-interface GenreTabsProps {
-  list: string[]
-  counts: GenreCounts
-  value: string
-  onChange: (genre: string) => void
-}
+// Neo-brutal genre pills. Lifted from the default branch of the legacy
+// GenreTabs component — fully rounded pills (radius 999), hard 2px black
+// borders, black-fill active state with white label. No skew, no glow.
+const t = NEO_BRUTAL_MOBILE
 
 export function GenreTabs({ list, counts, value, onChange }: GenreTabsProps) {
-  const { tokens } = useTheme()
-  const isDark = tokens.isDark
   if (list.length <= 1) return null
 
-  // Pill shape per theme: rounded by default, sharp for cyberpunk/urban.
-  const pillRadius = tokens.cornerStyle === 'sharp' ? 0 : 999
-  const idleBorder = tokens.dimBorder
-  const activeBorder = isDark ? tokens.accentA : tokens.black
-  const activeBg = isDark ? themeAccentTint(tokens, 0.18) : tokens.black
-  const activeText = isDark ? tokens.accentA : tokens.white
-  const counterActiveBg = isDark ? themeAccentTint(tokens, 0.25) : 'rgba(255,255,255,0.22)'
-  const counterIdleBg = isDark ? themeAccentTint(tokens, 0.1) : 'rgba(26,26,26,0.08)'
+  const pillRadius = 999
+  const idleBorder = t.dimBorder
+  const activeBorder = t.black
+  const activeBg = t.black
+  const activeText = t.white
+  const counterActiveBg = 'rgba(255,255,255,0.22)'
+  const counterIdleBg = 'rgba(26,26,26,0.08)'
 
   return (
     <ScrollView
@@ -45,29 +39,19 @@ export function GenreTabs({ list, counts, value, onChange }: GenreTabsProps) {
               paddingVertical: 10,
               minHeight: 44,
               borderRadius: pillRadius,
-              borderWidth: isDark ? 1 : 2,
+              borderWidth: 2,
               borderColor: active ? activeBorder : idleBorder,
               backgroundColor: active ? activeBg : 'transparent',
-              // Cyberpunk gets a faint glow on the active pill.
-              ...(active && isDark
-                ? {
-                    shadowColor: tokens.accentGlowColor,
-                    shadowOffset: { width: 0, height: 0 },
-                    shadowOpacity: 0.5,
-                    shadowRadius: 10,
-                  }
-                : {}),
             }}
           >
             <Text
               style={{
-                fontFamily: tokens.fontDisplay,
+                fontFamily: t.fontDisplay,
                 fontWeight: '800',
                 fontSize: 15,
                 lineHeight: 22,
-                color: active ? activeText : tokens.black,
-                letterSpacing: tokens.displayUppercase ? 1.5 : 0.2,
-                textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
+                color: active ? activeText : t.black,
+                letterSpacing: 0.2,
                 includeFontPadding: false,
               }}
               numberOfLines={1}
@@ -79,7 +63,7 @@ export function GenreTabs({ list, counts, value, onChange }: GenreTabsProps) {
                 marginLeft: 10,
                 paddingHorizontal: 9,
                 paddingVertical: 2,
-                borderRadius: themeRadius(tokens, 999),
+                borderRadius: 999,
                 backgroundColor: active ? counterActiveBg : counterIdleBg,
                 minWidth: 28,
                 alignItems: 'center',
@@ -88,11 +72,11 @@ export function GenreTabs({ list, counts, value, onChange }: GenreTabsProps) {
             >
               <Text
                 style={{
-                  fontFamily: tokens.fontDisplay,
+                  fontFamily: t.fontDisplay,
                   fontWeight: '800',
                   fontSize: 13,
                   lineHeight: 18,
-                  color: active ? activeText : tokens.muted,
+                  color: active ? activeText : t.muted,
                   includeFontPadding: false,
                 }}
                 numberOfLines={1}

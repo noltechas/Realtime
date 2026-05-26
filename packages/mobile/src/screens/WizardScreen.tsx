@@ -23,17 +23,17 @@ import {
   addQueueItem,
   listGuests,
   updateQueueItem,
+  UNIVERSAL_SINGER_COLORS,
+  findColorIndex,
   type KaraokeGuestRow,
   type SingerConfig,
+  type ThemeTokens,
 } from '@karaoke/shared'
 import type { RootStackParamList } from '../navigation/types'
 import { useTheme, SessionThemeProvider } from '../theme/ThemeContext'
-import { ThemedBackdrop } from '../theme/ThemedBackdrop'
 import { useSession } from '../hooks/useSession'
 import { useProfile } from '../hooks/useProfile'
 import { supabase } from '../supabase/client'
-import { findColorIndex } from '../components/ColorPicker'
-import { Button } from '../components/PrimaryButton'
 
 type WizardNav = NativeStackNavigationProp<RootStackParamList, 'Wizard'>
 type WizardRouteProp = RouteProp<RootStackParamList, 'Wizard'>
@@ -68,6 +68,83 @@ function formatDuration(ms: number | null | undefined): string {
   return `${Math.floor(total / 60)}:${(total % 60).toString().padStart(2, '0')}`
 }
 
+// Token-driven wizard card chrome. Dispatches on structural flags
+// (cardShape / cardBorderWidth / shadowStyle / isDark) — no theme-name
+// branching. Per-theme structural feel is preserved:
+//   - sketch (cardShape: 'blob')        → post-it note: warm yellow paper, slight rotation, blob radii
+//   - urban  (cardBorderWidth: 0)       → parallelogram skew with accent edge
+//   - dark   (cyberpunk, deep-sea)      → translucent panel with accent glow
+//   - default (neo-brutal)              → solid white card with hard black border
+function wizardCardStyle(tokens: ThemeTokens, color?: string, overrides?: any, index: number = 0): any {
+  if (tokens.cardShape === 'blob') {
+    const angle = (index % 2 === 0 ? 1 : -1) * (0.4 + (index % 3) * 0.2)
+    return {
+      backgroundColor: '#FEF9DA',
+      borderWidth: 1,
+      borderColor: 'rgba(0,0,0,0.08)',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.15,
+      shadowRadius: 5,
+      borderBottomLeftRadius: 4,
+      borderBottomRightRadius: 8,
+      borderTopLeftRadius: 2,
+      borderTopRightRadius: 1,
+      transform: [{ rotate: `${angle}deg` }],
+      ...overrides,
+    }
+  }
+  if (tokens.cardBorderWidth === 0) {
+    return {
+      backgroundColor: tokens.creamDark,
+      borderWidth: 2,
+      borderColor: tokens.dimBorder,
+      borderRightWidth: 4,
+      borderBottomWidth: 4,
+      borderRightColor: color || tokens.accentA,
+      borderBottomColor: color || tokens.accentA,
+      transform: [{ skewX: '-8deg' }],
+      ...overrides,
+    }
+  }
+  if (tokens.isDark) {
+    return {
+      backgroundColor: tokens.creamDark,
+      borderWidth: 1,
+      borderColor: color || tokens.dimBorder,
+      borderBottomWidth: 3,
+      borderRadius: tokens.cornerStyle === 'sharp' ? 0 : tokens.radius,
+      ...(color
+        ? {
+            shadowColor: color,
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: 0.4,
+            shadowRadius: 12,
+          }
+        : null),
+      ...overrides,
+    }
+  }
+  return {
+    backgroundColor: tokens.white,
+    borderWidth: tokens.cardBorderWidth,
+    borderColor: tokens.black,
+    borderRadius: tokens.cornerStyle === 'sharp' ? 0 : tokens.radius,
+    ...overrides,
+  }
+}
+
+// Counter-transform for wizardCardStyle's outer transform so text/icons inside
+// the card sit straight. Sketch un-rotates, urban un-skews, others no-op.
+function wizardCardUnskew(tokens: ThemeTokens, index: number = 0): { transform: any[] } {
+  if (tokens.cardBorderWidth === 0) return { transform: [{ skewX: '8deg' }] }
+  if (tokens.cardShape === 'blob') {
+    const angle = (index % 2 === 0 ? 1 : -1) * (0.4 + (index % 3) * 0.2)
+    return { transform: [{ rotate: `${-angle}deg` }] }
+  }
+  return { transform: [] }
+}
+
 // Public entry point — wraps the wizard body in SessionThemeProvider so the
 // modal picks up the live session theme (the modal is mounted from the
 // RootStack, outside SessionTabs, so it doesn't inherit that provider).
@@ -80,7 +157,7 @@ export function WizardScreen() {
 }
 
 function WizardBody() {
-  const { tokens, styles } = useTheme()
+  const { tokens, ui } = useTheme()
   const insets = useSafeAreaInsets()
   const navigation = useNavigation<WizardNav>()
   const route = useRoute<WizardRouteProp>()
@@ -119,8 +196,8 @@ function WizardBody() {
     }
     const guestName =
       profile?.name?.trim() || session?.guestName?.trim() || 'Singer'
-    const colorIdx = findColorIndex(tokens, profile?.defaultColor)
-    const c = tokens.singerColors[colorIdx] ?? tokens.singerColors[0]
+    const colorIdx = findColorIndex(profile?.defaultColor)
+    const c = UNIVERSAL_SINGER_COLORS[colorIdx] ?? UNIVERSAL_SINGER_COLORS[0]
     setSingers([
       {
         name: guestName,
@@ -289,8 +366,8 @@ function WizardBody() {
   const stepCount = hasRoles ? 3 : 2
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
-      <ThemedBackdrop />
+    <SafeAreaView style={ui.styles.screen} edges={['top', 'left', 'right']}>
+      <ui.Backdrop />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
@@ -319,7 +396,7 @@ function WizardBody() {
               justifyContent: 'center',
             }}
           >
-            <CloseGlyph color={tokens.black} />
+            <CloseGlyph color={tokens.isDark ? tokens.accentA : tokens.black} />
           </Pressable>
           <View style={{ flex: 1, alignItems: 'center' }}>
             <Text
@@ -351,57 +428,55 @@ function WizardBody() {
 
         {/* Song banner */}
         <View
-          style={{
+          style={wizardCardStyle(tokens, undefined, {
             flexDirection: 'row',
             alignItems: 'center',
             marginHorizontal: 16,
             marginBottom: 12,
             padding: 10,
-            backgroundColor: tokens.white,
-            borderWidth: tokens.isDark ? 1 : 2,
-            borderColor: tokens.isDark ? tokens.dimBorder : tokens.black,
-            borderRadius: tokens.cornerStyle === 'sharp' ? 0 : tokens.radius,
-          }}
+          })}
         >
-          {track.art_url ? (
-            <Image
-              source={{ uri: track.art_url }}
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: tokens.cornerStyle === 'sharp' ? 0 : 6,
-                borderWidth: tokens.isDark ? 1 : 2,
-                borderColor: tokens.isDark ? tokens.dimBorder : tokens.black,
-              }}
-            />
-          ) : (
-            <View
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: tokens.cornerStyle === 'sharp' ? 0 : 6,
-                borderWidth: tokens.isDark ? 1 : 2,
-                borderColor: tokens.isDark ? tokens.dimBorder : tokens.black,
-                backgroundColor: tokens.creamDark,
-              }}
-            />
-          )}
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text
-              style={{
-                fontFamily: tokens.fontDisplay,
-                fontWeight: '900',
-                fontSize: 14,
-                color: tokens.black,
-              }}
-              numberOfLines={1}
-            >
-              {track.name}
-            </Text>
-            <Text style={styles.muted} numberOfLines={1}>
-              {track.artist}
-              {track.duration_ms ? `  ·  ${formatDuration(track.duration_ms)}` : ''}
-            </Text>
+          <View style={[{ flexDirection: 'row', alignItems: 'center', flex: 1 }, wizardCardUnskew(tokens)]}>
+            {track.art_url ? (
+              <Image
+                source={{ uri: track.art_url }}
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: tokens.cornerStyle === 'sharp' ? 0 : 6,
+                  borderWidth: tokens.isDark ? 1 : 2,
+                  borderColor: tokens.isDark ? tokens.dimBorder : tokens.black,
+                }}
+              />
+            ) : (
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: tokens.cornerStyle === 'sharp' ? 0 : 6,
+                  borderWidth: tokens.isDark ? 1 : 2,
+                  borderColor: tokens.isDark ? tokens.dimBorder : tokens.black,
+                  backgroundColor: tokens.creamDark,
+                }}
+              />
+            )}
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text
+                style={{
+                  fontFamily: tokens.fontDisplay,
+                  fontWeight: '900',
+                  fontSize: 14,
+                  color: tokens.black,
+                }}
+                numberOfLines={1}
+              >
+                {track.name}
+              </Text>
+              <Text style={{ fontFamily: tokens.fontBody, fontSize: 13, color: tokens.muted }} numberOfLines={1}>
+                {track.artist}
+                {track.duration_ms ? `  ·  ${formatDuration(track.duration_ms)}` : ''}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -449,7 +524,7 @@ function WizardBody() {
           }}
         >
           <View style={{ flex: 1 }}>
-            <Button
+            <ui.Button
               label={step === 2 ? 'Cancel' : 'Back'}
               variant="outline"
               onPress={goBack}
@@ -457,13 +532,13 @@ function WizardBody() {
           </View>
           <View style={{ flex: 1 }}>
             {step === 4 ? (
-              <Button
+              <ui.Button
                 label={isEditMode ? 'Save Changes' : 'Add to Queue'}
                 onPress={submit}
                 loading={submitting}
               />
             ) : (
-              <Button label="Next" onPress={goNext} />
+              <ui.Button label="Next" onPress={goNext} />
             )}
           </View>
         </View>
@@ -478,8 +553,8 @@ function WizardBody() {
           onPickGuest={(g) => {
             if (singers.length >= MAX_SINGERS) return
             const taken = singers.map((s) => s.color.toLowerCase())
-            const idx = findFreeColorIndex(tokens, g.default_color, taken)
-            const c = tokens.singerColors[idx]
+            const idx = findFreeColorIndex(g.default_color, taken)
+            const c = UNIVERSAL_SINGER_COLORS[idx]
             setSingers([
               ...singers,
               {
@@ -498,8 +573,8 @@ function WizardBody() {
             if (!trimmed) return
             if (singers.length >= MAX_SINGERS) return
             const taken = singers.map((s) => s.color.toLowerCase())
-            const idx = findFreeColorIndex(tokens, undefined, taken)
-            const c = tokens.singerColors[idx]
+            const idx = findFreeColorIndex(undefined, taken)
+            const c = UNIVERSAL_SINGER_COLORS[idx]
             setSingers([
               ...singers,
               {
@@ -520,18 +595,17 @@ function WizardBody() {
 }
 
 function findFreeColorIndex(
-  tokens: { singerColors: { color: string; colorGlow: string }[] },
   preferred: string | null | undefined,
   taken: string[],
 ): number {
   if (preferred) {
-    const idx = tokens.singerColors.findIndex(
+    const idx = UNIVERSAL_SINGER_COLORS.findIndex(
       (c) => c.color.toLowerCase() === preferred.toLowerCase(),
     )
     if (idx >= 0 && !taken.includes(preferred.toLowerCase())) return idx
   }
-  for (let i = 0; i < tokens.singerColors.length; i++) {
-    const c = tokens.singerColors[i]
+  for (let i = 0; i < UNIVERSAL_SINGER_COLORS.length; i++) {
+    const c = UNIVERSAL_SINGER_COLORS[i]
     if (!taken.includes(c.color.toLowerCase())) return i
   }
   return 0
@@ -587,24 +661,12 @@ function SingersStep({
       {singers.map((s, i) => (
         <View
           key={`${i}-${s.guestId ?? s.name}`}
-          style={{
-            backgroundColor: tokens.white,
-            borderWidth: tokens.cardBorderWidth,
-            borderColor: s.color,
-            borderRadius: tokens.cornerStyle === 'sharp' ? 0 : tokens.radius,
+          style={wizardCardStyle(tokens, s.color, {
             padding: 12,
             marginBottom: 12,
-            ...(tokens.isDark
-              ? {
-                  shadowColor: s.color,
-                  shadowOffset: { width: 0, height: 0 },
-                  shadowOpacity: 0.4,
-                  shadowRadius: 12,
-                }
-              : null),
-          }}
+          }, i)}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, transform: wizardCardUnskew(tokens, i).transform as any }}>
             <View
               style={{
                 width: 44,
@@ -612,7 +674,7 @@ function SingersStep({
                 borderRadius: 999,
                 backgroundColor: s.color,
                 borderWidth: 2,
-                borderColor: tokens.black,
+                borderColor: tokens.isDark ? tokens.accentA : tokens.black,
                 alignItems: 'center',
                 justifyContent: 'center',
                 overflow: 'hidden',
@@ -656,7 +718,7 @@ function SingersStep({
                     style={{
                       backgroundColor: tokens.vividYellow,
                       borderWidth: 1,
-                      borderColor: tokens.black,
+                      borderColor: tokens.isDark ? tokens.accentA : tokens.black,
                       borderRadius: 999,
                       paddingHorizontal: 7,
                       paddingVertical: 2,
@@ -689,8 +751,8 @@ function SingersStep({
                   height: 32,
                   borderRadius: 999,
                   borderWidth: 2,
-                  borderColor: tokens.black,
-                  backgroundColor: tokens.white,
+                  borderColor: tokens.isDark ? tokens.dimBorder : tokens.black,
+                  backgroundColor: tokens.isDark ? tokens.appBg : tokens.white,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
@@ -700,7 +762,7 @@ function SingersStep({
             ) : null}
           </View>
 
-          <View style={{ marginTop: 12 }}>
+          <View style={[{ marginTop: 12 }, wizardCardUnskew(tokens)]}>
             <Text
               style={{
                 fontFamily: tokens.fontDisplay,
@@ -715,7 +777,7 @@ function SingersStep({
               Pick {i === 0 ? 'your' : `${s.name || 'singer'}’s`} color
             </Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              {tokens.singerColors.map((c) => {
+              {UNIVERSAL_SINGER_COLORS.map((c) => {
                 const lc = c.color.toLowerCase()
                 const selected = lc === s.color.toLowerCase()
                 const takenByOther = takenColors.has(lc) && takenColors.get(lc) !== i
@@ -730,14 +792,14 @@ function SingersStep({
                     style={{
                       width: 32,
                       height: 32,
-                      borderRadius: 999,
+                      borderRadius: tokens.cornerStyle === 'sharp' ? 0 : 999,
                       backgroundColor: c.color,
                       borderWidth: selected ? 4 : 2,
                       borderColor: selected
-                        ? tokens.black
+                        ? (tokens.black)
                         : takenByOther
-                        ? tokens.dimBorder
-                        : tokens.muted,
+                        ? (tokens.dimBorder)
+                        : (tokens.muted),
                       opacity: takenByOther ? 0.35 : 1,
                     }}
                   />
@@ -758,7 +820,7 @@ function SingersStep({
             paddingVertical: 14,
             borderRadius: tokens.radius,
             borderWidth: 2,
-            borderColor: tokens.black,
+            borderColor: tokens.isDark ? tokens.accentA : tokens.black,
             borderStyle: 'dashed',
             backgroundColor: pressed ? tokens.pressedOverlay : 'transparent',
           })}
@@ -849,15 +911,12 @@ function RolesStep({
       {roles.map((roleName, ri) => (
         <View
           key={`${ri}-${roleName}`}
-          style={{
-            backgroundColor: tokens.white,
-            borderWidth: 2,
-            borderColor: tokens.black,
-            borderRadius: tokens.radius,
+          style={wizardCardStyle(tokens, undefined, {
             padding: 12,
             marginBottom: 12,
-          }}
+          })}
         >
+          <View style={wizardCardUnskew(tokens)}>
           <Text
             style={{
               fontFamily: tokens.fontDisplay,
@@ -907,7 +966,7 @@ function RolesStep({
                       borderRadius: 999,
                       backgroundColor: s.color,
                       borderWidth: 1,
-                      borderColor: tokens.black,
+                      borderColor: tokens.isDark ? tokens.accentA : tokens.black,
                       marginRight: 6,
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -927,6 +986,7 @@ function RolesStep({
                           fontWeight: '900',
                           fontSize: 11,
                           color: tokens.black,
+                          zIndex: 1,
                         }}
                       >
                         {(s.name?.[0] ?? '?').toUpperCase()}
@@ -947,26 +1007,26 @@ function RolesStep({
               )
             })}
           </View>
+          </View>
         </View>
       ))}
 
       {unassigned > 0 ? (
         <View
-          style={{
+          style={wizardCardStyle(tokens, tokens.hotRed, {
             flexDirection: 'row',
             backgroundColor: tokens.vividYellow,
-            borderWidth: 2,
-            borderColor: tokens.black,
-            borderRadius: tokens.radius,
             padding: 12,
             marginTop: 4,
-          }}
+          })}
         >
-          <Text style={{ fontSize: 18, marginRight: 8 }}>!</Text>
-          <Text style={{ flex: 1, fontFamily: tokens.fontBody, fontSize: 13, color: tokens.black }}>
-            {unassigned === 1 ? '1 singer hasn’t' : `${unassigned} singers haven’t`} been
-            assigned a role. Tap their name above, or continue if they’re just hanging out.
-          </Text>
+          <View style={[{ flexDirection: 'row', flex: 1 }, wizardCardUnskew(tokens)]}>
+            <Text style={{ fontSize: 18, marginRight: 8, color: tokens.black }}>!</Text>
+            <Text style={{ flex: 1, fontFamily: tokens.fontBody, fontSize: 13, color: tokens.black }}>
+              {unassigned === 1 ? '1 singer hasn’t' : `${unassigned} singers haven’t`} been
+              assigned a role. Tap their name above, or continue if they’re just hanging out.
+            </Text>
+          </View>
         </View>
       ) : null}
     </View>
@@ -1030,28 +1090,29 @@ function StageStep({
             <Pressable
               key={t.key}
               onPress={() => onStageThemeChange(selected ? null : t.key)}
-              style={{
+              style={wizardCardStyle(tokens, undefined, {
                 paddingHorizontal: 14,
                 paddingVertical: 12,
                 minWidth: '47%',
                 backgroundColor: t.bg,
-                borderRadius: 8,
-                borderWidth: selected ? 3 : 1.5,
-                borderColor: selected ? tokens.black : t.accent,
+                borderWidth: selected ? 3 : tokens.isDark ? 1 : 1.5,
+                borderColor: selected ? (tokens.isDark ? tokens.accentA : tokens.black) : t.accent,
                 alignItems: 'center',
-              }}
+              })}
             >
-              <Text
-                style={{
-                  color: t.text,
-                  fontFamily: tokens.fontDisplay,
-                  fontWeight: '900',
-                  fontSize: 14,
-                  letterSpacing: 0.5,
-                }}
-              >
-                {t.label}
-              </Text>
+              <View style={wizardCardUnskew(tokens)}>
+                <Text
+                  style={{
+                    color: t.text,
+                    fontFamily: tokens.fontDisplay,
+                    fontWeight: '900',
+                    fontSize: 14,
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  {t.label}
+                </Text>
+              </View>
             </Pressable>
           )
         })}
@@ -1062,48 +1123,48 @@ function StageStep({
 
       <Pressable
         onPress={() => onHideSongChange(!hideSong)}
-        style={{
+        style={wizardCardStyle(tokens, undefined, {
           flexDirection: 'row',
           alignItems: 'flex-start',
           padding: 14,
-          borderRadius: tokens.radius,
-          borderWidth: 2,
-          borderColor: hideSong ? tokens.black : tokens.dimBorder,
-          backgroundColor: hideSong ? tokens.creamDark : tokens.white,
-        }}
+          borderColor: hideSong ? (tokens.isDark ? tokens.accentA : tokens.black) : (tokens.dimBorder),
+          backgroundColor: hideSong ? tokens.creamDark : (tokens.isDark ? tokens.appBg : tokens.white),
+        })}
       >
-        <View
-          style={{
-            width: 22,
-            height: 22,
-            borderRadius: 6,
-            borderWidth: 2,
-            borderColor: tokens.black,
-            backgroundColor: hideSong ? tokens.black : tokens.white,
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginRight: 12,
-            marginTop: 2,
-          }}
-        >
-          {hideSong ? <CheckGlyph color={tokens.white} /> : null}
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text
+        <View style={[{ flexDirection: 'row', flex: 1 }, wizardCardUnskew(tokens)]}>
+          <View
             style={{
-              fontFamily: tokens.fontDisplay,
-              fontWeight: '800',
-              fontSize: 14,
-              color: tokens.black,
+              width: 22,
+              height: 22,
+              borderRadius: tokens.cornerStyle === 'sharp' ? 0 : 6,
+              borderWidth: tokens.isDark ? 1 : 2,
+              borderColor: tokens.isDark ? tokens.accentA : tokens.black,
+              backgroundColor: hideSong ? (tokens.isDark ? tokens.accentA : tokens.black) : tokens.white,
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: 12,
+              marginTop: 2,
             }}
           >
-            Keep the song title hidden until I start
-          </Text>
-          <Text style={{ fontFamily: tokens.fontBody, fontSize: 12, color: tokens.muted, marginTop: 4 }}>
-            {hideSong
-              ? "Other guests won’t see the song name until it plays"
-              : "Surprise everyone — the song name shows up only when it plays"}
-          </Text>
+            {hideSong ? <CheckGlyph color={tokens.white} /> : null}
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text
+              style={{
+                fontFamily: tokens.fontDisplay,
+                fontWeight: '800',
+                fontSize: 14,
+                color: tokens.black,
+              }}
+            >
+              Keep the song title hidden until I start
+            </Text>
+            <Text style={{ fontFamily: tokens.fontBody, fontSize: 12, color: tokens.muted, marginTop: 4 }}>
+              {hideSong
+                ? "Other guests won’t see the song name until it plays"
+                : "Surprise everyone — the song name shows up only when it plays"}
+            </Text>
+          </View>
         </View>
       </Pressable>
     </View>
@@ -1155,8 +1216,8 @@ function SingerPicker({
           backgroundColor: tokens.appBg,
           borderTopLeftRadius: 20,
           borderTopRightRadius: 20,
-          borderTopWidth: 2,
-          borderColor: tokens.black,
+          borderTopWidth: tokens.isDark ? 1 : 2,
+          borderColor: tokens.isDark ? tokens.accentA : tokens.black,
           paddingHorizontal: 20,
           paddingTop: 16,
           paddingBottom: Math.max(insets.bottom, 16) + 8,
@@ -1214,7 +1275,7 @@ function SingerPicker({
                   padding: 10,
                   borderRadius: tokens.radiusSmall,
                   marginBottom: 6,
-                  backgroundColor: pressed ? tokens.pressedOverlay : 'transparent',
+                  backgroundColor: pressed ? (tokens.pressedOverlay) : 'transparent',
                 })}
               >
                 <View
@@ -1223,8 +1284,8 @@ function SingerPicker({
                     height: 36,
                     borderRadius: 999,
                     backgroundColor: g.default_color || tokens.softViolet,
-                    borderWidth: 2,
-                    borderColor: tokens.black,
+                    borderWidth: tokens.isDark ? 1 : 2,
+                    borderColor: tokens.isDark ? tokens.accentA : tokens.black,
                     alignItems: 'center',
                     justifyContent: 'center',
                     overflow: 'hidden',
@@ -1289,8 +1350,8 @@ function SingerPicker({
             style={{
               flex: 1,
               backgroundColor: tokens.creamDark,
-              borderWidth: 2,
-              borderColor: tokens.black,
+              borderWidth: tokens.isDark ? 1 : 2,
+              borderColor: tokens.isDark ? tokens.dimBorder : tokens.black,
               borderRadius: tokens.radiusSmall,
               paddingHorizontal: 12,
               paddingVertical: 10,
@@ -1308,8 +1369,8 @@ function SingerPicker({
               paddingHorizontal: 16,
               paddingVertical: 12,
               borderRadius: tokens.radius,
-              borderWidth: 3,
-              borderColor: tokens.black,
+              borderWidth: tokens.isDark ? 1 : 3,
+              borderColor: tokens.isDark ? tokens.accentB : tokens.black,
               backgroundColor: customName.trim() ? tokens.hotRed : tokens.creamDark,
               opacity: customName.trim() ? 1 : 0.5,
             }}

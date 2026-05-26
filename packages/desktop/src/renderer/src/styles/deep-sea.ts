@@ -23,22 +23,6 @@ const FONT_DISPLAY = "'Quicksand', 'Nunito', sans-serif"
 const FONT_BODY    = "'Nunito', 'Quicksand', sans-serif"
 
 // ── Singer colors — ocean creature palette ───────────────────────────────────
-const SINGER_COLORS = [
-  { color: '#00ffc8', colorGlow: 'rgba(0,255,200,0.4)'   },   // bioluminescent teal
-  { color: '#b44dff', colorGlow: 'rgba(180,77,255,0.4)'   },   // jellyfish violet
-  { color: '#ff6b8a', colorGlow: 'rgba(255,107,138,0.4)'  },   // coral pink
-  { color: '#ffc857', colorGlow: 'rgba(255,200,87,0.4)'   },   // anglerfish amber
-  { color: '#00b4d8', colorGlow: 'rgba(0,180,216,0.4)'    },   // deep ocean blue
-  { color: '#ff9e5e', colorGlow: 'rgba(255,158,94,0.4)'   },   // sea slug orange
-  { color: '#7df9ff', colorGlow: 'rgba(125,249,255,0.4)'  },   // electric ice
-  { color: '#e040fb', colorGlow: 'rgba(224,64,251,0.4)'   },   // neon anemone
-  { color: '#69f0ae', colorGlow: 'rgba(105,240,174,0.4)'  },   // kelp green
-  { color: '#ff80ab', colorGlow: 'rgba(255,128,171,0.4)'  },   // rose coral
-  { color: '#40c4ff', colorGlow: 'rgba(64,196,255,0.4)'   },   // luminous blue
-  { color: '#ffab40', colorGlow: 'rgba(255,171,64,0.4)'   },   // sunset anemone
-  { color: '#b9f6ca', colorGlow: 'rgba(185,246,202,0.4)'  },   // sea foam
-]
-
 // ── Global CSS injected when deep-sea theme is active ────────────────────────
 const GLOBAL_CSS = `
 /* ── Custom fonts ────────────────────────────────────────────────────────── */
@@ -380,5 +364,4 @@ export const DEEP_SEA: Theme = {
     borderRadius:  6,
   },
 
-  singerColors: SINGER_COLORS,
 }

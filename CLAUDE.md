@@ -116,31 +116,53 @@ npm run start    # Run production build
 
 ## Adding a New Theme
 
-Themes are defined in `src/renderer/src/styles/` and registered in `src/renderer/src/context/ThemeContext.tsx`. Themes should be VERY VERY original and should all have new features, animations, looks, colors, etc. There should be something new with each theme. Every new theme requires changes across multiple files:
+Themes are defined in `src/renderer/src/styles/` and registered in `src/renderer/src/context/ThemeContext.tsx`, as well as in the mobile companion app under `packages/mobile/src/theme/`. Themes should be VERY VERY original and should all have new features, animations, looks, colors, etc. There should be something new with each theme. Every new theme requires changes across multiple files and platforms:
 
-### Files to create/modify
+### Design & Aesthetic Rules
+
+1. **Be Structurally Unique**: Don't just swap colors and leave the default generic drop shadows. Inject unique geometric and structural designs. For example, the Urban theme ditches generic glowing shadows entirely in favor of slanted parallelograms (`skewX`) and heavy, solid geometric neon borders.
+2. **Font Matching**: If a theme exists on the companion website or mobile app, match the fonts exactly. Load the appropriate Google Fonts and apply them to headings, buttons, and body text to match the theme's specific vibe.
+3. **Semantic Colors can be Inverted**: Remember that `tokens.black` and `tokens.white` are semantic, not literal colors. In a dark theme like Urban, `tokens.black` is often used for the literal `#FFFFFF` (white) foreground text, while `tokens.white` represents a dark background card. Always test contrast, especially on navigation bars and input fields, to ensure you haven't accidentally rendered white text on a white/lime background.
+
+### Files to create/modify (Desktop & Web)
 
 1. **Create `src/renderer/src/styles/{theme-name}.ts`** — Implement the full `Theme` interface from `theme.ts`. Use an existing theme (e.g., `cyberpunk.ts`) as a template.
 2. **Register in `ThemeContext.tsx`** — Import and add to the `THEMES` map.
 3. **Update the theme ring** — Set `nextThemeName` on the previous last theme to point to the new one, and set the new theme's `nextThemeName` to cycle back (currently `neo-brutal`).
-4. **Add idle screen in `KaraokePage.tsx`** — Each theme has a hardcoded idle/waiting screen (shown when no song is queued). Add a `if (theme.name === '...')` branch before the Urban fallback (`// ---- Urban (Hip Hop) idle ----`). **Idle screens must have lots of character** — add decorative SVG elements (icons, shapes, patterns), animated backgrounds, thematic flourishes, and atmospheric details that match the theme's personality. Look at existing themes for examples: neo-brutal has colored offset blocks, sketch has hand-drawn SVG doodles, cyberpunk has dot grids and scanlines, urban has spotlight vignettes and grunge noise, deep-sea has jellyfish SVGs and light rays, psychedelic has peace signs and spinning mandalas. A plain centered heading + QR code is not enough.
-5. **Add lyric highlighting in `KaraokePage.tsx`** — Each theme has custom active-line styling in the lyric renderer (~line 1078). Add a branch for the new theme with unique visual effects (glow, animation class, etc.). The default `else` branch is generic and boring.
+4. **Add idle screen in `KaraokePage.tsx`** — Each theme has a hardcoded idle/waiting screen (shown when no song is queued). Add a `if (theme.name === '...')` branch before the fallback. **Idle screens must have lots of character** — add decorative SVG elements, animated backgrounds, thematic flourishes, and atmospheric details. A plain centered heading + QR code is not enough.
+5. **Add lyric highlighting in `KaraokePage.tsx`** — Each theme has custom active-line styling in the lyric renderer (~line 1078). Add a branch for the new theme with unique visual effects (glow, animation class, etc.).
 6. **Add CSS animation in `karaoke.css`** — Define a keyframe animation and a `.k-line--{theme-name}` class for the stage lyric effect.
-7. **Update QR overlay in `KaraokePage.tsx`** — If the theme has a dark background, ensure it gets `'rgba(0,0,0,0.8)'` for the QR backdrop (light themes are whitelisted: `neo-brutal`, `sketch`).
-8. **Update companion website in `docs/index.html`** — ALWAYS add the new theme to the companion website. This requires three changes:
-   - Add any new Google Fonts to the `<link>` tag (line ~12).
+7. **Update QR overlay in `KaraokePage.tsx`** — If the theme has a dark background, ensure it gets `'rgba(0,0,0,0.8)'` for the QR backdrop.
+8. **Update companion website in `docs/index.html`** — ALWAYS add the new theme to the companion website:
+   - Add any new Google Fonts to the `<link>` tag.
    - Add a new `else if(S.theme_name==="theme-name")` block in `applyTheme()` with CSS variables and component overrides matching the Electron theme.
    - Add a new `<button class="theme-pick-btn">` in `renderConfig()` with inline preview styles matching the theme's aesthetic.
 
+### Files to create/modify (Mobile App)
+
+When extending the theme to the Expo mobile app (`packages/mobile`), you must inject your structural and geometric changes into the mobile UI components directly:
+1. **Define the Theme**: Create the theme token file in `packages/mobile/src/theme/themes/` and register it in `tokens.ts`.
+2. **Update Core Screens**: Apply conditional logic (`tokens.name === 'your-theme'`) to alter structural styles in:
+   - `screens/SongsScreen.tsx` (Song cards - apply structural transforms here)
+   - `screens/QueueScreen.tsx` (Queue rows, row numbers, singer pills, upvote/downvote buttons, locked tags, voted tags)
+   - `screens/StageScreen.tsx` (Play buttons, reaction grid cells, toggles)
+   - `screens/WizardScreen.tsx` (Song setup cards, role assignment cards, and ensure footer action buttons are themed)
+3. **Update Shared Components**: Don't forget to update shared UI elements:
+   - `components/GenreTabs.tsx` (Genre Selection Tabs, container transforms, and active text color visibility)
+   - `components/PrimaryButton.tsx` (Base button styles used across screens like WizardScreen)
+4. **Update Navigation**: Check `navigation/<Theme>TabBar.tsx` and `navigation/TabIcons.tsx` to ensure custom icons fit the theme and active/inactive tab text contrast is readable against the background, remembering that `tokens.black` might mean white.
+   - **NEVER create custom SVG icons for the nav bar.** Always use `Ionicons` from `@expo/vector-icons`. The canonical icon names are defined in `navigation/TabIcons.tsx` — use those same Ionicons names (e.g. `musical-notes` for Songs, `fish` for Profile). Custom-drawn nav icons are inconsistent with the icon library and will be rejected.
+5. **Organic Randomness**: If your theme calls for a chaotic or hand-drawn look (like the Sketch theme), make sure to add organic randomness (e.g., slight rotations using string hashes) instead of extreme static rotations, which can cause clipping or look artificial.
+6. **Unskew / Counter-transform**: If your theme uses structural transformations (like `skewX` in the Urban theme), you must safely counter-transform (e.g., `skewX: '8deg'`) the inner text and icons so they remain perfectly upright and legible inside their warped containers.
+
 ### Contrast checklist
 
-- **`black`/`white` are semantic, not literal.** On dark themes, `black` = light text, `white` = dark background. On light themes, they're normal. All text using `theme.black` will be readable on `theme.cream`/`theme.appBg`.
-- **The NOW PLAYING banner** (`NowPlayingBanner` in `QueuePage.tsx`) uses `theme.accentB` as background with hardcoded dark (`#1A1A1A`) text — `accentB` must always be a bright/vivid color that provides good contrast with dark text. Always preview the Queue page with a song playing to verify the NOW PLAYING card looks good with the theme's accentB.
+- **`black`/`white` are semantic, not literal.** On dark themes, `black` = light text, `white` = dark background.
+- **The NOW PLAYING banner** (`NowPlayingBanner` in `QueuePage.tsx`) uses `theme.accentB` as background with hardcoded dark (`#1A1A1A`) text — `accentB` must always be a bright/vivid color that provides good contrast with dark text.
 - **Singer count buttons** use `theme.accentA` for the selected state with dark text.
 - **Never use `theme.white` as text color on a `theme.card` background** — on light themes they're the same color. Use `theme.black` for text on card backgrounds.
-- **The theme dropdown** in `App.tsx` uses `theme.black` for text on the card-colored dropdown. Don't change this to `navLink`.
-- **Hardcoded colors** should only appear in theme-specific idle screens and lyric effects where the exact theme is known.
-- Test every page (Search, Queue, Stage, Admin) with the new theme to check contrast.
+- **The theme dropdown** in `App.tsx` uses `theme.black` for text on the card-colored dropdown.
+- Test every page (Search, Queue, Stage, Admin, Wizard) with the new theme to check contrast.
 
 ### Google Fonts
 

@@ -2,6 +2,8 @@ import {
   NEO_BRUTAL_TOKENS,
   CYBERPUNK_TOKENS,
   SKETCH_TOKENS,
+  URBAN_TOKENS,
+  DEEP_SEA_TOKENS,
   resolveThemeTokens,
   type ThemeTokens,
 } from '@karaoke/shared'
@@ -31,18 +33,33 @@ export const CYBERPUNK_MOBILE: ThemeTokens = withMobileFonts(
   'Menlo',
 )
 
-// Sketch-Mobile — iOS ships "Marker Felt" and "Bradley Hand" out of the box;
-// both give the hand-drawn feel without loading Kalam / Patrick Hand.
+// Sketch-Mobile — Custom loaded Google fonts (Kalam)
 export const SKETCH_MOBILE: ThemeTokens = withMobileFonts(
   SKETCH_TOKENS,
-  'Marker Felt',
-  'Bradley Hand',
+  'Kalam_700Bold',
+  'Kalam_400Regular',
+)
+
+// Urban-Mobile — Custom loaded Google fonts.
+export const URBAN_MOBILE: ThemeTokens = withMobileFonts(
+  URBAN_TOKENS,
+  'PermanentMarker_400Regular',
+  'Oswald_400Regular',
+)
+
+// Deep-Sea-Mobile — Custom loaded Google fonts.
+export const DEEP_SEA_MOBILE: ThemeTokens = withMobileFonts(
+  DEEP_SEA_TOKENS,
+  'LuckiestGuy_400Regular',
+  'Nunito_400Regular',
 )
 
 const MOBILE_BY_NAME: Record<string, ThemeTokens> = {
   'neo-brutal': NEO_BRUTAL_MOBILE,
   cyberpunk: CYBERPUNK_MOBILE,
   sketch: SKETCH_MOBILE,
+  urban: URBAN_MOBILE,
+  'deep-sea': DEEP_SEA_MOBILE,
 }
 
 // Resolve a session theme name to the mobile-flavored token bundle. Falls

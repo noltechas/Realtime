@@ -24,22 +24,6 @@ const FONT_BODY    = "'Zen Kaku Gothic New', 'Noto Sans JP', sans-serif"
 const FONT_HEADING = "'Cormorant Garamond', 'Georgia', serif"
 
 // ── Singer colors — nature-inspired palette ──────────────────────────────────
-const SINGER_COLORS = [
-  { color: '#D4442A', colorGlow: 'rgba(212,68,42,0.4)'   },   // vermillion
-  { color: '#7BA05B', colorGlow: 'rgba(123,160,91,0.4)'   },   // bamboo green
-  { color: '#9B72CF', colorGlow: 'rgba(155,114,207,0.4)'  },   // wisteria purple
-  { color: '#E8A0BF', colorGlow: 'rgba(232,160,191,0.4)'  },   // plum blossom pink
-  { color: '#E8943A', colorGlow: 'rgba(232,148,58,0.4)'   },   // koi orange
-  { color: '#4A90B8', colorGlow: 'rgba(74,144,184,0.4)'   },   // ocean blue
-  { color: '#A8C256', colorGlow: 'rgba(168,194,86,0.4)'   },   // moss
-  { color: '#F2C4D3', colorGlow: 'rgba(242,196,211,0.4)'  },   // sakura
-  { color: '#C9A84C', colorGlow: 'rgba(201,168,76,0.4)'   },   // gold
-  { color: '#8B6B4A', colorGlow: 'rgba(139,107,74,0.4)'   },   // cedar brown
-  { color: '#7B68AE', colorGlow: 'rgba(123,104,174,0.4)'  },   // iris violet
-  { color: '#6BB5D9', colorGlow: 'rgba(107,181,217,0.4)'  },   // sky blue
-  { color: '#C73E3E', colorGlow: 'rgba(199,62,62,0.4)'    },   // maple red
-]
-
 // Raked sand SVG pattern (concentric arcs for karesansui texture)
 const SAND_PATTERN_SVG = encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='120' height='60' viewBox='0 0 120 60'><path d='M0 30 Q30 10 60 30 Q90 50 120 30' fill='none' stroke='rgba(201,168,76,0.07)' stroke-width='0.8'/><path d='M0 45 Q30 25 60 45 Q90 65 120 45' fill='none' stroke='rgba(201,168,76,0.05)' stroke-width='0.6'/><path d='M0 15 Q30 -5 60 15 Q90 35 120 15' fill='none' stroke='rgba(201,168,76,0.05)' stroke-width='0.6'/></svg>`)
 
@@ -397,5 +381,4 @@ export const ZEN: Theme = {
     borderRadius:  6,
   },
 
-  singerColors: SINGER_COLORS,
 }
