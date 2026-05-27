@@ -27,6 +27,8 @@
     "@expo-google-fonts/spicy-rice": "^0.4.1",
     "@expo-google-fonts/sriracha": "^0.4.1",
     "@expo-google-fonts/zen-kaku-gothic-new": "^0.4.1",
+    "@expo-google-fonts/audiowide": "^0.4.1",
+    "@expo-google-fonts/monoton": "^0.4.1",
     "@expo/vector-icons": "^15.0.3",
     "@karaoke/shared": "*",
     "@react-native-async-storage/async-storage": "2.2.0",

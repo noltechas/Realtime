@@ -1,5 +1,6 @@
 import 'react-native-url-polyfill/auto'
 import React from 'react'
+import { Text, View, ScrollView } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { ThemeProvider } from './src/theme/ThemeContext'
@@ -23,8 +24,39 @@ import { SpecialElite_400Regular } from '@expo-google-fonts/special-elite'
 import { Monoton_400Regular } from '@expo-google-fonts/monoton'
 import { Audiowide_400Regular } from '@expo-google-fonts/audiowide'
 
+// Error boundary so a crash anywhere in the render tree shows visibly on
+// screen instead of leaving us staring at a white screen with no logs.
+interface ErrorBoundaryState { error: Error | null }
+class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, ErrorBoundaryState> {
+  state: ErrorBoundaryState = { error: null }
+  static getDerivedStateFromError(error: Error) { return { error } }
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error('[App] Render tree threw:', error, info)
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <View style={{ flex: 1, backgroundColor: '#1a1a1a', padding: 24, paddingTop: 80 }}>
+          <Text style={{ color: '#ff4444', fontSize: 20, fontWeight: '700', marginBottom: 16 }}>
+            Crash on launch
+          </Text>
+          <ScrollView style={{ flex: 1 }}>
+            <Text style={{ color: '#ffffff', fontSize: 14, marginBottom: 12 }}>
+              {this.state.error.name}: {this.state.error.message}
+            </Text>
+            <Text style={{ color: '#aaaaaa', fontSize: 11, fontFamily: 'Courier' }}>
+              {this.state.error.stack || '(no stack)'}
+            </Text>
+          </ScrollView>
+        </View>
+      )
+    }
+    return this.props.children
+  }
+}
+
 export default function App() {
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     Oswald_400Regular,
     Oswald_700Bold,
     PermanentMarker_400Regular,
@@ -51,16 +83,32 @@ export default function App() {
     Remalos: require('./assets/fonts/Remalos-Regular.ttf'),
   })
 
-  if (!fontsLoaded) {
-    return null
+  // Render once fonts are loaded OR once we know they failed. Without the
+  // fontError fallback the app silently hangs on a white screen forever if
+  // even one font asset fails to bundle — better to ship with system-font
+  // fallbacks than to never render at all.
+  if (!fontsLoaded && !fontError) {
+    // Visible loading state so a hung font load is observable on TestFlight
+    // (previously we returned null, which paints a white screen forever).
+    return (
+      <View style={{ flex: 1, backgroundColor: '#0a0a0a', alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ color: '#ffffff', fontSize: 16 }}>Loading fonts…</Text>
+      </View>
+    )
+  }
+  if (fontError) {
+    // Log so we can spot this in TestFlight crash/issue reports.
+    console.warn('[App] Font load error, falling back to system fonts:', fontError)
   }
 
   return (
-    <SafeAreaProvider>
-      <ThemeProvider>
-        <StatusBar style="dark" />
-        <RootNavigator />
-      </ThemeProvider>
-    </SafeAreaProvider>
+    <AppErrorBoundary>
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <StatusBar style="dark" />
+          <RootNavigator />
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </AppErrorBoundary>
   )
 }
