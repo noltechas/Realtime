@@ -15,14 +15,16 @@ export function ThemedTabBar(props: BottomTabBarProps) {
   const row = useSessionRow(session?.sessionId)
   const wasUpRef = useRef(false)
 
-  const isUp = guestIsUp(row, session?.guestName) !== null
+  const isUp = guestIsUp(row, session?.guestName, session?.guestId) !== null
+
+  const hasStage = props.state.routeNames.includes('Stage')
 
   useEffect(() => {
-    if (isUp && !wasUpRef.current) {
+    if (isUp && !wasUpRef.current && hasStage) {
       props.navigation.navigate('Stage', undefined)
     }
     wasUpRef.current = isUp
-  }, [isUp, props.navigation])
+  }, [isUp, props.navigation, hasStage])
 
   const TabBar = ui.TabBar
   return <TabBar {...props} />

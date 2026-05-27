@@ -12,7 +12,7 @@ import { useSessionRow, guestIsUp } from '../../../../hooks/useSessionRow'
 function useStageLabel(): string {
   const { session } = useSession()
   const row = useSessionRow(session?.sessionId)
-  return guestIsUp(row, session?.guestName) ? 'STAGE' : 'REACT'
+  return guestIsUp(row, session?.guestName, session?.guestId) ? 'STAGE' : 'REACT'
 }
 
 // Custom SVG Icons for Urban Theme — sharp, graffiti-stencil style. The

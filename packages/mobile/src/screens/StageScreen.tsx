@@ -68,7 +68,7 @@ export function StageScreen() {
   const { tokens, ui } = useTheme()
   const guestName = session?.guestName
 
-  const currentMatch = guestIsUp(row, guestName)
+  const currentMatch = guestIsUp(row, guestName, session?.guestId)
 
   // Persist the last known matched singer config so transient Supabase
   // realtime updates don't flicker back to ReactGrid.
@@ -626,7 +626,7 @@ function SkipConfirm({
 export function StageTabIcon({ color, size = 22 }: { color: string; size?: number }) {
   const { session } = useSession()
   const row = useSessionRow(session?.sessionId)
-  const isUp = guestIsUp(row, session?.guestName) !== null
+  const isUp = guestIsUp(row, session?.guestName, session?.guestId) !== null
   const { ui } = useTheme()
   const Icon = ui.StageTabIcon
   return <Icon color={color} size={size} isUp={isUp} />

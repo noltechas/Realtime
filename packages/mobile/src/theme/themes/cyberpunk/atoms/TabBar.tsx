@@ -14,7 +14,7 @@ import { useSessionRow, guestIsUp } from '../../../../hooks/useSessionRow'
 function useStageLabel(): string {
   const { session } = useSession()
   const row = useSessionRow(session?.sessionId)
-  return guestIsUp(row, session?.guestName) ? 'STAGE' : 'REACT'
+  return guestIsUp(row, session?.guestName, session?.guestId) ? 'STAGE' : 'REACT'
 }
 
 // Cyberpunk HUD nav — full-width terminal panel at the bottom of the screen

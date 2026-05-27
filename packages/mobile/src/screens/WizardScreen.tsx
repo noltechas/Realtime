@@ -34,6 +34,27 @@ import { useTheme, SessionThemeProvider } from '../theme/ThemeContext'
 import { useSession } from '../hooks/useSession'
 import { useProfile } from '../hooks/useProfile'
 import { supabase } from '../supabase/client'
+import {
+  HudBrackets as SpaceHudBrackets,
+  MissionTrail as SpaceMissionTrail,
+  AvatarOrbit as SpaceAvatarOrbit,
+  PlanetSwatch as SpacePlanetSwatch,
+  AddCrewButton as SpaceAddCrewButton,
+} from './wizard/SpaceWizardChrome'
+import {
+  BrassFrame as SteampunkBrassFrame,
+  ConveyorTrail as SteampunkConveyorTrail,
+  AvatarGearWreath as SteampunkAvatarGearWreath,
+  JewelBezelSwatch as SteampunkJewelBezelSwatch,
+  SteampunkAddCrewButton,
+} from './wizard/SteampunkWizardChrome'
+import {
+  NeonFrame as RetrowaveNeonFrame,
+  SunsetTrail as RetrowaveSunsetTrail,
+  AvatarChromeRing as RetrowaveAvatarChromeRing,
+  NeonOrbSwatch as RetrowaveNeonOrbSwatch,
+  RetrowaveAddCrewButton,
+} from './wizard/RetrowaveWizardChrome'
 
 type WizardNav = NativeStackNavigationProp<RootStackParamList, 'Wizard'>
 type WizardRouteProp = RouteProp<RootStackParamList, 'Wizard'>
@@ -58,8 +79,8 @@ const STAGE_THEMES = [
   { key: 'psychedelic', label: 'Psychedelic', bg: '#1a0a2e', text: '#ff2d95', accent: '#ff2d95' },
   { key: 'zen', label: 'Zen', bg: '#1a1814', text: '#D4B85A', accent: '#D4B85A' },
   { key: 'space', label: 'Space', bg: '#08080F', text: '#E040FB', accent: '#E040FB' },
-  { key: 'steampunk', label: 'Steampunk', bg: '#14110F', text: '#C8973E', accent: '#C8973E' },
-  { key: 'retrowave', label: 'Retrowave', bg: '#0a0614', text: '#FF2D95', accent: '#FF2D95' },
+  { key: 'steampunk', label: 'Steampunk', bg: '#1F1108', text: '#E8A93B', accent: '#B8762D' },
+  { key: 'retrowave', label: 'Retrowave', bg: '#0A0420', text: '#FF2D95', accent: '#FF2D95' },
 ]
 
 function formatDuration(ms: number | null | undefined): string {
@@ -70,12 +91,106 @@ function formatDuration(ms: number | null | undefined): string {
 
 // Token-driven wizard card chrome. Dispatches on structural flags
 // (cardShape / cardBorderWidth / shadowStyle / isDark) — no theme-name
-// branching. Per-theme structural feel is preserved:
-//   - sketch (cardShape: 'blob')        → post-it note: warm yellow paper, slight rotation, blob radii
-//   - urban  (cardBorderWidth: 0)       → parallelogram skew with accent edge
-//   - dark   (cyberpunk, deep-sea)      → translucent panel with accent glow
-//   - default (neo-brutal)              → solid white card with hard black border
+// branching, except zen and space which have structural needs (tatami
+// binding / HUD corner brackets) that aren't expressible through the
+// existing flags. Per-theme structural feel:
+//   - zen                                    → tatami binding: vermillion top/bottom bands with gold-hairline sides
+//   - space                                  → HUD console: void panel, magenta/cyan rim, corner brackets
+//   - sketch (cardShape: 'blob' + offset)   → post-it note: warm paper, slight rotation, blob radii
+//   - psychedelic (cardShape: 'blob' + glow) → translucent purple panel with asymmetric blob corners + pink halo
+//   - urban  (cardBorderWidth: 0)            → parallelogram skew with accent edge
+//   - dark   (cyberpunk, deep-sea)           → translucent panel with accent glow
+//   - default (neo-brutal)                   → solid white card with hard black border
 function wizardCardStyle(tokens: ThemeTokens, color?: string, overrides?: any, index: number = 0): any {
+  if (tokens.name === 'space') {
+    // Space HUD console — translucent void panel with a magenta rim (or
+    // singer-color override) and a soft plasma glow. Corners are clean (the
+    // visible HUD brackets are layered in via WizardSpaceBrackets below).
+    return {
+      backgroundColor: 'rgba(14,14,26,0.78)',
+      borderWidth: 1,
+      borderColor: color || 'rgba(224,64,251,0.4)',
+      borderRadius: 8,
+      shadowColor: color || tokens.accentGlowColor,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.55,
+      shadowRadius: 12,
+      ...overrides,
+    }
+  }
+  if (tokens.name === 'retrowave') {
+    // Retrowave — deep-indigo arcade-console card with a hot-pink rim and a
+    // strong pink/cyan dual glow. Sharp corners (radius: 0) — every retrowave
+    // surface is angular. NeonFrame corner brackets get layered in by the
+    // caller. The color override drives the rim color so singer cards pick
+    // up their identity color in the chrome.
+    return {
+      backgroundColor: '#1A0A3A',
+      borderWidth: 1.5,
+      borderColor: color || '#FF2D95',
+      borderRadius: 0,
+      shadowColor: color || '#FF2D95',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.85,
+      shadowRadius: 12,
+      ...overrides,
+    }
+  }
+  if (tokens.name === 'steampunk') {
+    // Steampunk — dark mahogany panel with a thick brass rim and an amber
+    // gas-lamp glow. The visible corner rivets + filigree edges are layered
+    // in via SteampunkBrassFrame below. The color override drives the brass
+    // rim color so singer cards pick up their identity color in the chrome.
+    return {
+      backgroundColor: '#2A1A0E',
+      borderWidth: 2,
+      borderColor: color || '#B8762D',
+      borderRadius: 8,
+      shadowColor: color || '#E8A93B',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.55,
+      shadowRadius: 12,
+      ...overrides,
+    }
+  }
+  if (tokens.name === 'zen') {
+    // Zen tatami binding — thick vermillion (or singer-color) bands top and
+    // bottom with gold-hairline sides on a dark-stone surface. Sharp corners,
+    // no shadows or glows. The singer-color override flows through `color`
+    // so singer cards get their identity color in the binding.
+    return {
+      backgroundColor: tokens.creamDark,
+      borderTopWidth: 4,
+      borderBottomWidth: 4,
+      borderLeftWidth: 1,
+      borderRightWidth: 1,
+      borderTopColor: color || '#D4442A',
+      borderBottomColor: color || '#D4442A',
+      borderLeftColor: 'rgba(212,184,90,0.35)',
+      borderRightColor: 'rgba(212,184,90,0.35)',
+      borderRadius: 0,
+      ...overrides,
+    }
+  }
+  if (tokens.cardShape === 'blob' && tokens.shadowStyle === 'glow') {
+    // Psychedelic — translucent deep-purple panel that lets the lava-lamp
+    // backdrop bleed through, framed in a fat 2px hot-pink rim with a strong
+    // neon glow. Simple rounded corners (no blob) per request — the
+    // psychedelic identity comes from the *halo + tint*, not from the
+    // silhouette. Singer-color override drives both the border and the glow
+    // hue, so singer cards pick up their identity color in the chrome.
+    return {
+      backgroundColor: 'rgba(42,20,80,0.58)',
+      borderWidth: 2,
+      borderColor: color || 'rgba(255,45,149,0.6)',
+      shadowColor: color || tokens.accentGlowColor,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.75,
+      shadowRadius: 18,
+      borderRadius: 22,
+      ...overrides,
+    }
+  }
   if (tokens.cardShape === 'blob') {
     const angle = (index % 2 === 0 ? 1 : -1) * (0.4 + (index % 3) * 0.2)
     return {
@@ -135,14 +250,100 @@ function wizardCardStyle(tokens: ThemeTokens, color?: string, overrides?: any, i
 }
 
 // Counter-transform for wizardCardStyle's outer transform so text/icons inside
-// the card sit straight. Sketch un-rotates, urban un-skews, others no-op.
+// the card sit straight. Sketch un-rotates, urban un-skews, others no-op
+// (psychedelic blob has no rotation).
 function wizardCardUnskew(tokens: ThemeTokens, index: number = 0): { transform: any[] } {
   if (tokens.cardBorderWidth === 0) return { transform: [{ skewX: '8deg' }] }
-  if (tokens.cardShape === 'blob') {
+  if (tokens.cardShape === 'blob' && tokens.shadowStyle !== 'glow') {
     const angle = (index % 2 === 0 ? 1 : -1) * (0.4 + (index % 3) * 0.2)
     return { transform: [{ rotate: `${-angle}deg` }] }
   }
   return { transform: [] }
+}
+
+// Psychedelic adds a hot-pink glow + brighter rim to small chrome elements
+// (inputs, icon buttons, swatches) so they read on-theme inside the wizard
+// instead of as generic dark-mode chips. Returns a style fragment for the
+// glow + border override, or null on other themes.
+function psyChromeExtras(tokens: ThemeTokens): any {
+  if (tokens.shadowStyle !== 'glow' || tokens.cardShape !== 'blob') return null
+  return {
+    borderColor: tokens.accentA,
+    shadowColor: tokens.accentGlowColor,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.55,
+    shadowRadius: 10,
+  }
+}
+
+// Psychedelic also wants display headings (step indicator, "Add a singer",
+// etc.) to glow softly so they pop against the lava-lamp backdrop.
+function psyHeadingExtras(tokens: ThemeTokens): any {
+  if (tokens.shadowStyle !== 'glow' || tokens.cardShape !== 'blob') return null
+  return {
+    textShadowColor: 'rgba(255,45,149,0.55)',
+    textShadowRadius: 8,
+    textShadowOffset: { width: 0, height: 0 },
+  }
+}
+
+// Steampunk wants its Cinzel headings to read as engraved brass plaques —
+// gas-lamp amber glow + extra letter spacing + uppercase. Returns a style
+// fragment for the wizard step titles ("Who's singing?", "Finish up", etc.).
+function steamHeadingExtras(tokens: ThemeTokens): any {
+  if (tokens.name !== 'steampunk') return null
+  return {
+    color: '#E8A93B',
+    letterSpacing: 2.4,
+    textTransform: 'uppercase',
+    textShadowColor: 'rgba(232,169,59,0.65)',
+    textShadowRadius: 8,
+    textShadowOffset: { width: 0, height: 0 },
+  }
+}
+
+// Steampunk wants small chrome (icon buttons, the close button, modal input
+// chips) to pick up a brass border + amber glow so they feel part of the
+// machinery. Returns null on every other theme.
+function steamChromeExtras(tokens: ThemeTokens): any {
+  if (tokens.name !== 'steampunk') return null
+  return {
+    borderColor: '#B8762D',
+    shadowColor: '#E8A93B',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.55,
+    shadowRadius: 8,
+  }
+}
+
+// Retrowave wants its Monoton step titles to read as neon-tube signage:
+// chromatic-aberration-adjacent glow, hot-pink color, extra letter-spacing,
+// italic uppercase, sharp drop shadow on the cyan side.
+function retroHeadingExtras(tokens: ThemeTokens): any {
+  if (tokens.name !== 'retrowave') return null
+  return {
+    color: '#FFFFFF',
+    fontFamily: 'Monoton_400Regular',
+    letterSpacing: 2.8,
+    textTransform: 'uppercase',
+    textShadowColor: 'rgba(255,45,149,0.95)',
+    textShadowRadius: 10,
+    textShadowOffset: { width: 0, height: 0 },
+  }
+}
+
+// Retrowave small-chrome: pink rim + glow, used on the close button, modal
+// input chip, and "Add" button so they read as neon-edge controls.
+function retroChromeExtras(tokens: ThemeTokens): any {
+  if (tokens.name !== 'retrowave') return null
+  return {
+    borderColor: '#FF2D95',
+    borderRadius: 0,
+    shadowColor: '#FF2D95',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.85,
+    shadowRadius: 8,
+  }
 }
 
 // Public entry point — wraps the wizard body in SessionThemeProvider so the
@@ -306,6 +507,13 @@ function WizardBody() {
           roleIndices: s.roleIndices,
         }
         if (s.profilePicture) sc.profilePicture = s.profilePicture
+        // Persist the guestId so the live session can identify the local
+        // singer by their stable session-scoped UUID instead of by display
+        // name. Without this, a singer whose `name` was stamped from
+        // `profile.name` won't match a `guestIsUp()` lookup that compares
+        // against `session.guestName` (since those two values drift apart
+        // any time the user edits their profile after joining).
+        if (s.guestId) sc.guestId = s.guestId
         return sc
       })
       if (isEditMode && edit) {
@@ -394,34 +602,62 @@ function WizardBody() {
               backgroundColor: tokens.isDark ? 'transparent' : tokens.white,
               alignItems: 'center',
               justifyContent: 'center',
+              ...(psyChromeExtras(tokens) ?? {}),
+              ...(steamChromeExtras(tokens) ?? {}),
+              ...(retroChromeExtras(tokens) ?? {}),
             }}
           >
             <CloseGlyph color={tokens.isDark ? tokens.accentA : tokens.black} />
           </Pressable>
           <View style={{ flex: 1, alignItems: 'center' }}>
-            <Text
-              style={{
-                fontFamily: tokens.fontDisplay,
-                fontWeight: '800',
-                fontSize: 11,
-                letterSpacing: 2,
-                color: tokens.muted,
-                textTransform: 'uppercase',
-              }}
-            >
-              Step {step === 4 ? stepCount : step - 1} of {stepCount}
-            </Text>
-            <Text
-              style={{
-                fontFamily: tokens.fontDisplay,
-                fontWeight: '900',
-                fontSize: 18,
-                color: tokens.black,
-                marginTop: 2,
-              }}
-            >
-              {stepLabel}
-            </Text>
+            {tokens.name === 'space' ? (
+              <SpaceMissionTrail
+                current={step === 4 ? stepCount : step - 1}
+                total={stepCount}
+                label={stepLabel}
+              />
+            ) : tokens.name === 'steampunk' ? (
+              <SteampunkConveyorTrail
+                current={step === 4 ? stepCount : step - 1}
+                total={stepCount}
+                label={stepLabel}
+              />
+            ) : tokens.name === 'retrowave' ? (
+              <RetrowaveSunsetTrail
+                current={step === 4 ? stepCount : step - 1}
+                total={stepCount}
+                label={stepLabel}
+              />
+            ) : (
+              <>
+                <Text
+                  style={{
+                    fontFamily: tokens.fontDisplay,
+                    fontWeight: '800',
+                    fontSize: 11,
+                    letterSpacing: 2,
+                    color: tokens.muted,
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Step {step === 4 ? stepCount : step - 1} of {stepCount}
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: tokens.fontDisplay,
+                    fontWeight: '900',
+                    fontSize: 18,
+                    color: tokens.black,
+                    marginTop: 2,
+                    ...(psyHeadingExtras(tokens) ?? {}),
+                    ...(steamHeadingExtras(tokens) ?? {}),
+                    ...(retroHeadingExtras(tokens) ?? {}),
+                  }}
+                >
+                  {stepLabel}
+                </Text>
+              </>
+            )}
           </View>
           <View style={{ width: 36 }} />
         </View>
@@ -434,8 +670,16 @@ function WizardBody() {
             marginHorizontal: 16,
             marginBottom: 12,
             padding: 10,
+            overflow: 'hidden',
           })}
         >
+          {tokens.name === 'space' ? (
+            <SpaceHudBrackets size={10} thickness={1.2} inset={2} />
+          ) : tokens.name === 'steampunk' ? (
+            <SteampunkBrassFrame size={8} filigree />
+          ) : tokens.name === 'retrowave' ? (
+            <RetrowaveNeonFrame size={10} thickness={1.2} inset={2} />
+          ) : null}
           <View style={[{ flexDirection: 'row', alignItems: 'center', flex: 1 }, wizardCardUnskew(tokens)]}>
             {track.art_url ? (
               <Image
@@ -653,6 +897,8 @@ function SingersStep({
           color: tokens.black,
           letterSpacing: -0.5,
           marginBottom: 16,
+          ...(steamHeadingExtras(tokens) ?? {}),
+          ...(retroHeadingExtras(tokens) ?? {}),
         }}
       >
         Who's singing?
@@ -664,42 +910,122 @@ function SingersStep({
           style={wizardCardStyle(tokens, s.color, {
             padding: 12,
             marginBottom: 12,
+            overflow: 'hidden',
           }, i)}
         >
+          {tokens.name === 'space' ? (
+            <SpaceHudBrackets size={10} thickness={1.2} inset={3} topColor={s.color} bottomColor="#40E0D0" />
+          ) : tokens.name === 'steampunk' ? (
+            <SteampunkBrassFrame size={9} rivetColor={s.color} filigree />
+          ) : tokens.name === 'retrowave' ? (
+            <RetrowaveNeonFrame size={10} thickness={1.4} inset={3} topColor={s.color} bottomColor="#00F0FF" />
+          ) : null}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, transform: wizardCardUnskew(tokens, i).transform as any }}>
-            <View
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 999,
-                backgroundColor: s.color,
-                borderWidth: 2,
-                borderColor: tokens.isDark ? tokens.accentA : tokens.black,
-                alignItems: 'center',
-                justifyContent: 'center',
-                overflow: 'hidden',
-                marginRight: 12,
-              }}
-            >
-              {s.profilePicture ? (
-                <Image
-                  source={{ uri: s.profilePicture }}
-                  style={{ width: '100%', height: '100%' }}
-                  resizeMode="cover"
-                />
-              ) : (
-                <Text
-                  style={{
-                    fontFamily: tokens.fontDisplay,
-                    fontWeight: '900',
-                    fontSize: 18,
-                    color: tokens.black,
-                  }}
-                >
-                  {(s.name?.[0] ?? '?').toUpperCase()}
-                </Text>
-              )}
-            </View>
+            {tokens.name === 'space' ? (
+              <View style={{ marginRight: 12 }}>
+                <SpaceAvatarOrbit size={44} color={s.color}>
+                  {s.profilePicture ? (
+                    <Image
+                      source={{ uri: s.profilePicture }}
+                      style={{ width: '100%', height: '100%' }}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Text
+                      style={{
+                        fontFamily: tokens.fontDisplay,
+                        fontWeight: '900',
+                        fontSize: 18,
+                        color: '#08080F',
+                      }}
+                    >
+                      {(s.name?.[0] ?? '?').toUpperCase()}
+                    </Text>
+                  )}
+                </SpaceAvatarOrbit>
+              </View>
+            ) : tokens.name === 'steampunk' ? (
+              <View style={{ marginRight: 12 }}>
+                <SteampunkAvatarGearWreath size={44} color={s.color}>
+                  {s.profilePicture ? (
+                    <Image
+                      source={{ uri: s.profilePicture }}
+                      style={{ width: '100%', height: '100%' }}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Text
+                      style={{
+                        fontFamily: tokens.fontDisplay,
+                        fontWeight: '900',
+                        fontSize: 18,
+                        color: '#1F1108',
+                      }}
+                    >
+                      {(s.name?.[0] ?? '?').toUpperCase()}
+                    </Text>
+                  )}
+                </SteampunkAvatarGearWreath>
+              </View>
+            ) : tokens.name === 'retrowave' ? (
+              <View style={{ marginRight: 12 }}>
+                <RetrowaveAvatarChromeRing size={44} color={s.color}>
+                  {s.profilePicture ? (
+                    <Image
+                      source={{ uri: s.profilePicture }}
+                      style={{ width: '100%', height: '100%' }}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Text
+                      style={{
+                        fontFamily: tokens.fontBody,
+                        fontWeight: '900',
+                        fontSize: 18,
+                        color: '#0A0420',
+                        fontStyle: 'italic',
+                      }}
+                    >
+                      {(s.name?.[0] ?? '?').toUpperCase()}
+                    </Text>
+                  )}
+                </RetrowaveAvatarChromeRing>
+              </View>
+            ) : (
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 999,
+                  backgroundColor: s.color,
+                  borderWidth: 2,
+                  borderColor: tokens.isDark ? tokens.accentA : tokens.black,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  overflow: 'hidden',
+                  marginRight: 12,
+                }}
+              >
+                {s.profilePicture ? (
+                  <Image
+                    source={{ uri: s.profilePicture }}
+                    style={{ width: '100%', height: '100%' }}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Text
+                    style={{
+                      fontFamily: tokens.fontDisplay,
+                      fontWeight: '900',
+                      fontSize: 18,
+                      color: tokens.black,
+                    }}
+                  >
+                    {(s.name?.[0] ?? '?').toUpperCase()}
+                  </Text>
+                )}
+              </View>
+            )}
             <View style={{ flex: 1 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Text
@@ -777,10 +1103,46 @@ function SingersStep({
               Pick {i === 0 ? 'your' : `${s.name || 'singer'}’s`} color
             </Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              {UNIVERSAL_SINGER_COLORS.map((c) => {
+              {UNIVERSAL_SINGER_COLORS.map((c, ci) => {
                 const lc = c.color.toLowerCase()
                 const selected = lc === s.color.toLowerCase()
                 const takenByOther = takenColors.has(lc) && takenColors.get(lc) !== i
+                if (tokens.name === 'space') {
+                  return (
+                    <SpacePlanetSwatch
+                      key={c.color}
+                      color={c.color}
+                      selected={selected}
+                      takenByOther={takenByOther}
+                      seed={ci}
+                      onPress={() => setColor(i, c.color, c.colorGlow)}
+                    />
+                  )
+                }
+                if (tokens.name === 'steampunk') {
+                  return (
+                    <SteampunkJewelBezelSwatch
+                      key={c.color}
+                      color={c.color}
+                      selected={selected}
+                      takenByOther={takenByOther}
+                      seed={ci}
+                      onPress={() => setColor(i, c.color, c.colorGlow)}
+                    />
+                  )
+                }
+                if (tokens.name === 'retrowave') {
+                  return (
+                    <RetrowaveNeonOrbSwatch
+                      key={c.color}
+                      color={c.color}
+                      selected={selected}
+                      takenByOther={takenByOther}
+                      seed={ci}
+                      onPress={() => setColor(i, c.color, c.colorGlow)}
+                    />
+                  )
+                }
                 return (
                   <Pressable
                     key={c.color}
@@ -811,43 +1173,51 @@ function SingersStep({
       ))}
 
       {singers.length < MAX_SINGERS ? (
-        <Pressable
-          onPress={onAddPress}
-          style={({ pressed }) => ({
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            paddingVertical: 14,
-            borderRadius: tokens.radius,
-            borderWidth: 2,
-            borderColor: tokens.isDark ? tokens.accentA : tokens.black,
-            borderStyle: 'dashed',
-            backgroundColor: pressed ? tokens.pressedOverlay : 'transparent',
-          })}
-        >
-          <Text
-            style={{
-              fontFamily: tokens.fontDisplay,
-              fontWeight: '900',
-              fontSize: 22,
-              color: tokens.black,
-              marginRight: 8,
-            }}
+        tokens.name === 'space' ? (
+          <SpaceAddCrewButton onPress={onAddPress} />
+        ) : tokens.name === 'steampunk' ? (
+          <SteampunkAddCrewButton onPress={onAddPress} />
+        ) : tokens.name === 'retrowave' ? (
+          <RetrowaveAddCrewButton onPress={onAddPress} />
+        ) : (
+          <Pressable
+            onPress={onAddPress}
+            style={({ pressed }) => ({
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              paddingVertical: 14,
+              borderRadius: tokens.radius,
+              borderWidth: 2,
+              borderColor: tokens.isDark ? tokens.accentA : tokens.black,
+              borderStyle: 'dashed',
+              backgroundColor: pressed ? tokens.pressedOverlay : 'transparent',
+            })}
           >
-            +
-          </Text>
-          <Text
-            style={{
-              fontFamily: tokens.fontDisplay,
-              fontWeight: '800',
-              fontSize: 14,
-              color: tokens.black,
-              letterSpacing: 0.2,
-            }}
-          >
-            Add another singer
-          </Text>
-        </Pressable>
+            <Text
+              style={{
+                fontFamily: tokens.fontDisplay,
+                fontWeight: '900',
+                fontSize: 22,
+                color: tokens.black,
+                marginRight: 8,
+              }}
+            >
+              +
+            </Text>
+            <Text
+              style={{
+                fontFamily: tokens.fontDisplay,
+                fontWeight: '800',
+                fontSize: 14,
+                color: tokens.black,
+                letterSpacing: 0.2,
+              }}
+            >
+              Add another singer
+            </Text>
+          </Pressable>
+        )
       ) : null}
     </View>
   )
@@ -892,6 +1262,8 @@ function RolesStep({
           fontSize: 24,
           color: tokens.black,
           letterSpacing: -0.5,
+          ...(steamHeadingExtras(tokens) ?? {}),
+          ...(retroHeadingExtras(tokens) ?? {}),
         }}
       >
         Who sings what?
@@ -914,8 +1286,16 @@ function RolesStep({
           style={wizardCardStyle(tokens, undefined, {
             padding: 12,
             marginBottom: 12,
+            overflow: 'hidden',
           })}
         >
+          {tokens.name === 'space' ? (
+            <SpaceHudBrackets size={10} thickness={1.2} inset={3} />
+          ) : tokens.name === 'steampunk' ? (
+            <SteampunkBrassFrame size={9} filigree />
+          ) : tokens.name === 'retrowave' ? (
+            <RetrowaveNeonFrame size={10} thickness={1.4} inset={3} />
+          ) : null}
           <View style={wizardCardUnskew(tokens)}>
           <Text
             style={{
@@ -1021,8 +1401,8 @@ function RolesStep({
           })}
         >
           <View style={[{ flexDirection: 'row', flex: 1 }, wizardCardUnskew(tokens)]}>
-            <Text style={{ fontSize: 18, marginRight: 8, color: tokens.black }}>!</Text>
-            <Text style={{ flex: 1, fontFamily: tokens.fontBody, fontSize: 13, color: tokens.black }}>
+            <Text style={{ fontSize: 18, marginRight: 8, color: '#1a1814' }}>!</Text>
+            <Text style={{ flex: 1, fontFamily: tokens.fontBody, fontSize: 13, color: '#1a1814' }}>
               {unassigned === 1 ? '1 singer hasn’t' : `${unassigned} singers haven’t`} been
               assigned a role. Tap their name above, or continue if they’re just hanging out.
             </Text>
@@ -1054,6 +1434,8 @@ function StageStep({
           fontSize: 24,
           color: tokens.black,
           letterSpacing: -0.5,
+          ...(steamHeadingExtras(tokens) ?? {}),
+          ...(retroHeadingExtras(tokens) ?? {}),
         }}
       >
         Finish up
@@ -1084,7 +1466,7 @@ function StageStep({
         Stage theme
       </Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
-        {STAGE_THEMES.map((t) => {
+        {STAGE_THEMES.map((t, ti) => {
           const selected = stageTheme === t.key
           return (
             <Pressable
@@ -1098,8 +1480,22 @@ function StageStep({
                 borderWidth: selected ? 3 : tokens.isDark ? 1 : 1.5,
                 borderColor: selected ? (tokens.isDark ? tokens.accentA : tokens.black) : t.accent,
                 alignItems: 'center',
+                overflow: 'hidden',
               })}
             >
+              {tokens.name === 'space' ? (
+                <SpaceHudBrackets
+                  size={8}
+                  thickness={1.2}
+                  inset={3}
+                  topColor={t.accent}
+                  bottomColor={t.accent}
+                />
+              ) : tokens.name === 'steampunk' ? (
+                <SteampunkBrassFrame size={7} rivetColor={t.accent} filigree={false} />
+              ) : tokens.name === 'retrowave' ? (
+                <RetrowaveNeonFrame size={8} thickness={1.1} inset={3} topColor={t.accent} bottomColor={t.accent} />
+              ) : null}
               <View style={wizardCardUnskew(tokens)}>
                 <Text
                   style={{
@@ -1241,6 +1637,8 @@ function SingerPicker({
             fontSize: 20,
             color: tokens.black,
             marginBottom: 16,
+            ...(steamHeadingExtras(tokens) ?? {}),
+            ...(retroHeadingExtras(tokens) ?? {}),
           }}
         >
           Add a singer
@@ -1358,6 +1756,9 @@ function SingerPicker({
               fontFamily: tokens.fontBody,
               fontSize: 16,
               color: tokens.black,
+              ...(psyChromeExtras(tokens) ?? {}),
+              ...(steamChromeExtras(tokens) ?? {}),
+              ...(retroChromeExtras(tokens) ?? {}),
             }}
             returnKeyType="done"
             onSubmitEditing={onAddCustom}
@@ -1373,6 +1774,9 @@ function SingerPicker({
               borderColor: tokens.isDark ? tokens.accentB : tokens.black,
               backgroundColor: customName.trim() ? tokens.hotRed : tokens.creamDark,
               opacity: customName.trim() ? 1 : 0.5,
+              ...(customName.trim() ? psyChromeExtras(tokens) ?? {} : {}),
+              ...(customName.trim() ? steamChromeExtras(tokens) ?? {} : {}),
+              ...(customName.trim() ? retroChromeExtras(tokens) ?? {} : {}),
             }}
           >
             <Text

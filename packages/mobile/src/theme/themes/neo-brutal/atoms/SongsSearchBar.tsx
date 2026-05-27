@@ -7,40 +7,41 @@ import type { SongsSearchBarProps } from '../../../types'
 // of SongsScreen — cream-dark fill, 2px hard black border, small radius.
 const t = NEO_BRUTAL_MOBILE
 
+// Returns just the input box. The screen owns page-level padding around it
+// so atoms don't double-wrap (which would double the horizontal padding and
+// push the genre tabs below it down the page).
 export function SongsSearchBar({ value, onChangeText }: SongsSearchBarProps) {
   return (
-    <View style={{ paddingHorizontal: 24, paddingTop: 16, marginBottom: 8 }}>
-      <View
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: t.creamDark,
+        borderWidth: 2,
+        borderColor: t.black,
+        borderRadius: t.radiusSmall,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+      }}
+    >
+      <SearchGlyph color={t.muted} />
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        placeholder="Search songs or artists…"
+        placeholderTextColor={t.faint}
         style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          backgroundColor: t.creamDark,
-          borderWidth: 2,
-          borderColor: t.black,
-          borderRadius: t.radiusSmall,
-          paddingHorizontal: 14,
-          paddingVertical: 10,
+          flex: 1,
+          marginLeft: 10,
+          fontFamily: t.fontBody,
+          fontSize: 16,
+          color: t.black,
+          padding: 0,
         }}
-      >
-        <SearchGlyph color={t.muted} />
-        <TextInput
-          value={value}
-          onChangeText={onChangeText}
-          placeholder="Search songs or artists…"
-          placeholderTextColor={t.faint}
-          style={{
-            flex: 1,
-            marginLeft: 10,
-            fontFamily: t.fontBody,
-            fontSize: 16,
-            color: t.black,
-            padding: 0,
-          }}
-          autoCorrect={false}
-          returnKeyType="search"
-          clearButtonMode="while-editing"
-        />
-      </View>
+        autoCorrect={false}
+        returnKeyType="search"
+        clearButtonMode="while-editing"
+      />
     </View>
   )
 }

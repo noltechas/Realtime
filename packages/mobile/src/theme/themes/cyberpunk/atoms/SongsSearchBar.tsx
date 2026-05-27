@@ -7,44 +7,45 @@ import type { SongsSearchBarProps } from '../../../types'
 // (rgba 0,255,136,0.04), sharp corners, faint accent border, no glow when
 // idle. The CRT-style placeholder text reads in `faint` neon so it doesn't
 // overpower the dot-grid backdrop behind it.
+// Returns just the input box. The screen owns page-level padding around it
+// so atoms don't double-wrap (which would double the horizontal padding and
+// push the genre tabs below it down the page).
 export function CyberpunkSongsSearchBar({
   value,
   onChangeText,
 }: SongsSearchBarProps) {
   const { tokens } = useTheme()
   return (
-    <View style={{ paddingHorizontal: 24, paddingTop: 16, marginBottom: 8 }}>
-      <View
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,255,136,0.04)',
+        borderWidth: 1,
+        borderColor: tokens.dimBorder,
+        borderRadius: 0,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+      }}
+    >
+      <SearchGlyph color={tokens.muted} />
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        placeholder="Search songs or artists…"
+        placeholderTextColor={tokens.faint}
         style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          backgroundColor: 'rgba(0,255,136,0.04)',
-          borderWidth: 1,
-          borderColor: tokens.dimBorder,
-          borderRadius: 0,
-          paddingHorizontal: 14,
-          paddingVertical: 10,
+          flex: 1,
+          marginLeft: 10,
+          fontFamily: tokens.fontBody,
+          fontSize: 16,
+          color: tokens.black,
+          padding: 0,
         }}
-      >
-        <SearchGlyph color={tokens.muted} />
-        <TextInput
-          value={value}
-          onChangeText={onChangeText}
-          placeholder="Search songs or artists…"
-          placeholderTextColor={tokens.faint}
-          style={{
-            flex: 1,
-            marginLeft: 10,
-            fontFamily: tokens.fontBody,
-            fontSize: 16,
-            color: tokens.black,
-            padding: 0,
-          }}
-          autoCorrect={false}
-          returnKeyType="search"
-          clearButtonMode="while-editing"
-        />
-      </View>
+        autoCorrect={false}
+        returnKeyType="search"
+        clearButtonMode="while-editing"
+      />
     </View>
   )
 }

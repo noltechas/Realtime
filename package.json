@@ -12,5 +12,9 @@
     "build": "npm run build --workspace=@karaoke/desktop",
     "start": "npm run start --workspace=@karaoke/desktop",
     "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "dependencies": {
+    "@expo-google-fonts/audiowide": "^0.4.1",
+    "@expo-google-fonts/monoton": "^0.4.1"
   }
 }

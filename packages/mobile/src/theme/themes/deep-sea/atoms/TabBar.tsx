@@ -16,7 +16,7 @@ const bubbleImg = require('../../../../../assets/bubble.png')
 function useStageLabel(): string {
   const { session } = useSession()
   const row = useSessionRow(session?.sessionId)
-  return guestIsUp(row, session?.guestName) ? 'Stage' : 'React'
+  return guestIsUp(row, session?.guestName, session?.guestId) ? 'Stage' : 'React'
 }
 
 // ─── Realistic Bubble used inside this tab bar AND by other deep-sea atoms ──

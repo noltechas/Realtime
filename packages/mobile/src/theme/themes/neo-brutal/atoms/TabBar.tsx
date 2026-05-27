@@ -15,7 +15,7 @@ import { useSessionRow, guestIsUp } from '../../../../hooks/useSessionRow'
 function useStageLabel(): string {
   const { session } = useSession()
   const row = useSessionRow(session?.sessionId)
-  return guestIsUp(row, session?.guestName) ? 'Stage' : 'React'
+  return guestIsUp(row, session?.guestName, session?.guestId) ? 'Stage' : 'React'
 }
 
 // Floating capsule tab bar with an iOS liquid-glass backdrop. A single pill

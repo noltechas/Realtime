@@ -170,7 +170,7 @@ Themes load custom fonts via `@import url(...)` in their `globalCss`. Always inc
 
 ## Per-Song Vocal Effect Customization
 
-**When the user asks you to "set vocal effects for all the [Artist] songs" (or similar)** — i.e., hand-tune per-song, per-role effects beyond the generic artist preset — follow the workflow below. Precedents: [scripts/travis-per-song.js](scripts/travis-per-song.js), [scripts/kanye-per-song.js](scripts/kanye-per-song.js). **Copy one of those scripts as a template**; don't reinvent the shape.
+**When the user asks you to "set vocal effects for all the [Artist] songs" (or similar)** — i.e., hand-tune per-song, per-role effects beyond the generic artist preset — follow the workflow below. Precedents: [packages/desktop/scripts/travis-per-song.js](packages/desktop/scripts/travis-per-song.js), [packages/desktop/scripts/kanye-per-song.js](packages/desktop/scripts/kanye-per-song.js). **Copy one of those scripts as a template**; don't reinvent the shape.
 
 ### Workflow (in order)
 
@@ -183,7 +183,7 @@ Themes load custom fonts via `@import url(...)` in their `globalCss`. Always inc
 4. **Leave LOW-confidence tracks on the generic preset.** List them explicitly in a `LOW_CONFIDENCE` object in the script (for the report output). Don't guess.
 5. **Skip "generic-is-already-optimal" tracks.** Some tracks are exactly what the generic preset was tuned for (Heartless → Kanye 808s preset). Customizing adds noise. Note these in `LOW_CONFIDENCE` with a comment like `"Heartless — generic 808s is already optimal"`.
 6. **Skip tracks that aren't actually by the artist.** Library artist-filter matches can pull false positives (e.g., a track where the artist is only sampled, not performing). Verify by checking `roles[]` for the artist's name.
-7. **Write `scripts/{artist}-per-song.js`** following the template.
+7. **Write `packages/desktop/scripts/{artist}-per-song.js`** following the template.
 8. **Dry run** (no flags) to verify every role name matches the library's `meta.roles` exactly. Any mismatch = bad role name spelling.
 9. **Apply** (`--apply` flag) once the dry run is clean. Each modified `meta.json` gets a `.pertrack.bak` backup on first write.
 10. **Verify build**: `npx tsc --noEmit` + `npx electron-vite build` must both pass (these scripts are pure JS and shouldn't affect the app build, but run them to catch any regressions from other recent changes).

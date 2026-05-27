@@ -89,7 +89,11 @@ export function useKaraokeSession() {
             vocalTrack: i === 0 ? 'lead' as const : 'backing' as const,
             roleIndices: sc.roleIndices,
             whitePersonCheck: sc.whitePersonCheck || false,
-            profilePicture: sc.profilePicture || undefined
+            profilePicture: sc.profilePicture || undefined,
+            // Preserve the guestId carried by the mobile/website so the
+            // round-trip back to now_playing_singer_configs lets remote
+            // clients match by stable id (see syncNowPlaying below).
+            guestId: sc.guestId || undefined,
         }))
 
         return {
@@ -225,7 +229,8 @@ export function useKaraokeSession() {
                         vocalTrack: i === 0 ? 'lead' as const : 'backing' as const,
                         roleIndices: sc.roleIndices,
                         whitePersonCheck: sc.whitePersonCheck || false,
-                        profilePicture: sc.profilePicture || undefined
+                        profilePicture: sc.profilePicture || undefined,
+                        guestId: sc.guestId || undefined,
                     }))
                     dispatch({
                         type: 'APPLY_REMOTE_EDIT',
@@ -307,7 +312,12 @@ export function useKaraokeSession() {
                 artUrl: state.nowPlaying.track.album.images[0]?.url || null,
                 singerConfigs: state.nowPlaying.singers.map(s => ({
                     name: s.name, color: s.color, colorGlow: s.colorGlow,
-                    roleIndices: s.roleIndices, profilePicture: s.profilePicture
+                    roleIndices: s.roleIndices, profilePicture: s.profilePicture,
+                    // Round-trip the guestId so the mobile app can match
+                    // "is this me singing?" by stable session-scoped UUID
+                    // rather than by display name (which can drift if the
+                    // user edits their profile after joining).
+                    ...(s.guestId ? { guestId: s.guestId } : {}),
                 })),
                 stageTheme: state.nowPlaying.stageTheme || null
             })

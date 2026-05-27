@@ -39,6 +39,10 @@ export interface Singer {
     roleIndices?: number[]
     whitePersonCheck?: boolean
     profilePicture?: string
+    /** Stable session-scoped guest UUID when the singer is a known remote
+     *  guest. Carried through the SingerConfig round-trip so mobile can
+     *  match "is this me singing?" by id instead of by display name. */
+    guestId?: string
 }
 
 export interface MicSlotConfig {

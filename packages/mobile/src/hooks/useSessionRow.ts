@@ -95,19 +95,44 @@ export function useSessionRow(sessionId: string | undefined): FullSessionRow | n
   return row
 }
 
-// Whether the local guest is "up" — i.e., their name appears in the current
-// now_playing singer configs. Mirrors the website's
-// `isSinging = !!(matchedSinger && nowPlaying)` check from docs/js/render/stage.js.
+// Whether the local guest is "up" — i.e., they appear in the current
+// now_playing singer configs.
+//
+// Matching strategy (in order):
+//   1. guestId — stable session-scoped UUID. Most reliable, immune to
+//      profile-name edits, and what the wizard now writes onto every
+//      locally-added singer.
+//   2. name (case-insensitive) — fallback for songs that predate the
+//      guestId carry-through, and for singers added from the website /
+//      desktop that don't have a guestId yet.
+//
+// The previous version ONLY matched on name, which caused a silent bug:
+// the mobile wizard stamps each singer's `name` from `profile.name`, but
+// `guestIsUp` was called with `session.guestName` (the name captured at
+// session-join time). The two strings drift apart any time the user edits
+// their profile after joining, and the user's own songs stop being
+// recognized as "theirs" — so the React tab never auto-flips to Stage and
+// "who's singing" can't render the YoureUp panel for the local user.
 export function guestIsUp(
   row: FullSessionRow | null,
   guestName: string | undefined,
+  guestId?: string,
 ): SingerConfig | null {
   if (!row) return null
   if (!row.now_playing_track_id && !row.now_playing_name) return null
-  if (!guestName) return null
   const configs = row.now_playing_singer_configs
   if (!Array.isArray(configs)) return null
-  const gn = guestName.toLowerCase()
-  const match = configs.find((s) => (s?.name || '').toLowerCase() === gn)
-  return match ?? null
+
+  if (guestId) {
+    const idMatch = configs.find((s) => s?.guestId && s.guestId === guestId)
+    if (idMatch) return idMatch
+  }
+
+  if (guestName) {
+    const gn = guestName.toLowerCase()
+    const nameMatch = configs.find((s) => (s?.name || '').toLowerCase() === gn)
+    if (nameMatch) return nameMatch
+  }
+
+  return null
 }

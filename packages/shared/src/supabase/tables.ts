@@ -8,6 +8,13 @@ export interface SingerConfig {
   roleIndices: number[]
   profilePicture?: string
   whitePersonCheck?: boolean
+  /** Stable session-scoped guest UUID for whoever this singer is, when
+   *  known. Lets the mobile app match "is the local guest a singer in the
+   *  current song" by identity instead of by display name — important
+   *  because `profile.name` (used to stamp the singer at wizard time) can
+   *  drift away from `session.guestName` (used by guestIsUp() callsites)
+   *  whenever the user edits their profile after joining. */
+  guestId?: string
 }
 
 export interface KaraokeSessionRow {

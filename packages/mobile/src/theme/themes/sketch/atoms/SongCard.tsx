@@ -35,7 +35,6 @@ export function SongCard({ track, onPress }: SongCardProps) {
       onPress={onPress}
       style={({ pressed }) => ({
         flex: 1,
-        maxWidth: '50%',
         marginBottom: 12,
         transform: [
           { rotate: `${angle}deg` },

@@ -13,7 +13,7 @@ const AnimatedCircle = Animated.createAnimatedComponent(Circle)
 function useStageLabel(): string {
   const { session } = useSession()
   const row = useSessionRow(session?.sessionId)
-  return guestIsUp(row, session?.guestName) ? 'Stage' : 'React'
+  return guestIsUp(row, session?.guestName, session?.guestId) ? 'Stage' : 'React'
 }
 
 // Hand-drawn sketch icons — single-stroke marker paths over a 24×24 grid.

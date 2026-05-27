@@ -25,7 +25,6 @@ export function CyberpunkSongCard({ track, onPress }: SongCardProps) {
       onPress={onPress}
       style={({ pressed }) => ({
         flex: 1,
-        maxWidth: '50%',
         backgroundColor: tokens.white,
         borderWidth: tokens.cardBorderWidth,
         borderColor: tokens.dimBorder,

@@ -23,7 +23,6 @@ export function SongCard({ track, onPress }: SongCardProps) {
       onPress={onPress}
       style={({ pressed }) => ({
         flex: 1,
-        maxWidth: '50%',
         backgroundColor: t.white,
         borderWidth: t.cardBorderWidth,
         borderColor: t.black,

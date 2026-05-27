@@ -31,7 +31,7 @@ export function UrbanGenreTabs({
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ paddingHorizontal: 24, paddingVertical: 8, gap: 10 }}
+      contentContainerStyle={{ paddingHorizontal: 24, paddingVertical: 14, gap: 10 }}
     >
       {list.map((g) => {
         const active = g === value

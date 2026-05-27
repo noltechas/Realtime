@@ -56,6 +56,20 @@ export function SongsScreen() {
     [session, navigation],
   )
 
+  // Stable keyExtractor + renderItem so memoized SongCard/ItemFloater can
+  // bail out across filter/search changes. Without this, FlatList runs a
+  // fresh renderItem closure on every keystroke and the theme's heavy SVG
+  // chrome (steampunk gears, space orbits) repaints in lockstep.
+  const keyExtractor = useCallback((item: KaraokeCatalogRow) => item.track_id, [])
+  const renderItem = useCallback(
+    ({ item }: { item: KaraokeCatalogRow }) => (
+      <ui.ItemFloater style={{ flex: 1, maxWidth: '50%' }}>
+        <ui.SongCard track={item} onPress={() => onTapSong(item)} />
+      </ui.ItemFloater>
+    ),
+    [ui, onTapSong],
+  )
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true)
     try {
@@ -96,8 +110,20 @@ export function SongsScreen() {
       ) : (
         <FlatList
           data={filtered}
-          keyExtractor={(item) => item.track_id}
+          keyExtractor={keyExtractor}
+          renderItem={renderItem}
           numColumns={2}
+          // Keep every catalog card mounted across filter/search changes.
+          // The steampunk gears (and other themes' continuous animations)
+          // are cheap to keep alive on the native driver but expensive to
+          // tear down + rebuild, which is what produced the freeze on
+          // genre/search toggles. We size the window large enough to cover
+          // a typical catalog and disable clipped-subview unmounting.
+          removeClippedSubviews={false}
+          windowSize={21}
+          initialNumToRender={20}
+          maxToRenderPerBatch={20}
+          updateCellsBatchingPeriod={50}
           columnWrapperStyle={{ gap: 12, paddingHorizontal: 24 }}
           style={{ marginTop: 16 }}
           contentContainerStyle={{
@@ -130,11 +156,6 @@ export function SongsScreen() {
               </Text>
             </View>
           }
-          renderItem={({ item, index }) => (
-            <ui.ItemFloater delay={(index * 150) % 1000} style={{ flex: 1, maxWidth: '50%' }}>
-              <ui.SongCard track={item} onPress={() => onTapSong(item)} />
-            </ui.ItemFloater>
-          )}
         />
       )}
     </SafeAreaView>
