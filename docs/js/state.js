@@ -2,6 +2,14 @@
 export const SB_URL="https://hnnbxwitjkeijvoldfuv.supabase.co";
 export const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhubmJ4d2l0amtlaWp2b2xkZnV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MjcwMTQsImV4cCI6MjA5MDUwMzAxNH0.ENzZ2VLxszHr9StjFds06In7CyGkiyPvu6Jh1LUMMvA";
 export const sb=supabase.createClient(SB_URL,SB_KEY);
+
+// Mobile app distribution URLs. Update these when a new build is released.
+// Android: build with EAS, drop the APK at docs/downloads/realtime-karaoke.apk,
+// commit, and push — GitHub Pages will serve it directly.
+// iOS: paste a TestFlight invite URL or App Store link here. Leave "" to hide
+// the iOS download button (iOS users still get "Continue in browser").
+export const ANDROID_APP_URL="downloads/realtime-karaoke.apk";
+export const IOS_APP_URL="";
 export const NC=[
 {c:"#22d3ee",g:"rgba(34,211,238,0.3)"},
 {c:"#f472b6",g:"rgba(244,114,182,0.3)"},

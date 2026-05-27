@@ -12,7 +12,8 @@
       "bundleIdentifier": "com.noltechas.realtimekaraoke",
       "infoPlist": {
         "NSCameraUsageDescription": "Used to scan the host's QR code so you can join the session.",
-        "NSPhotoLibraryUsageDescription": "Choose a profile photo to show on stage and in the queue."
+        "NSPhotoLibraryUsageDescription": "Choose a profile photo to show on stage and in the queue.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -23,7 +24,11 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -43,6 +48,18 @@
         }
       ],
       "expo-video"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "98da3795-cb1a-457d-80d7-a662090b1b84"
+      }
+    },
+    "owner": "chasnolte",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/98da3795-cb1a-457d-80d7-a662090b1b84"
+    }
   }
 }

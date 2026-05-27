@@ -1,5 +1,58 @@
-import { S, NC } from '../state.js';
+import { S, NC, ANDROID_APP_URL, IOS_APP_URL } from '../state.js';
 import { esc, avatarHTML } from '../utils.js';
+
+// Detect the visitor's mobile OS from the user agent. Used by the download
+// prompt to pick the right call-to-action.
+export function detectPlatform(){
+  var ua=navigator.userAgent||"";
+  if(/Android/i.test(ua))return"android";
+  // iPadOS 13+ reports as Mac with touch — treat as iOS so iPads see the
+  // iOS download path, not the desktop fallback.
+  if(/iPhone|iPad|iPod/i.test(ua))return"ios";
+  if(/Macintosh/i.test(ua)&&navigator.maxTouchPoints>1)return"ios";
+  return"desktop";
+}
+
+export function renderDownloadPrompt(){
+  var plat=detectPlatform();
+  var primaryHtml="";
+  var helper="";
+  if(plat==="android"){
+    primaryHtml='<a class="join-btn dl-btn-primary" id="dl-download" href="'+esc(ANDROID_APP_URL)+'" download>'+
+      '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-4px;margin-right:8px"><path d="M17.523 15.341a1.025 1.025 0 1 1 0-2.05 1.025 1.025 0 0 1 0 2.05Zm-11.046 0a1.025 1.025 0 1 1 0-2.05 1.025 1.025 0 0 1 0 2.05Zm11.412-6.142 2.047-3.546a.426.426 0 0 0-.738-.427l-2.072 3.589A12.811 12.811 0 0 0 12 7.5a12.81 12.81 0 0 0-5.126 1.315L4.802 5.226a.426.426 0 1 0-.738.427l2.047 3.546C2.582 11.119.357 14.443 0 18.5h24c-.357-4.057-2.582-7.381-6.111-9.301Z"/></svg>'+
+      'Download for Android</a>';
+    helper="APK installs in a few seconds. You may need to allow installs from your browser.";
+  }else if(plat==="ios"){
+    if(IOS_APP_URL){
+      primaryHtml='<a class="join-btn dl-btn-primary" id="dl-download" href="'+esc(IOS_APP_URL)+'">'+
+        '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-4px;margin-right:8px"><path d="M17.05 12.04c-.03-3.16 2.58-4.68 2.7-4.75-1.47-2.15-3.76-2.45-4.57-2.48-1.95-.2-3.8 1.15-4.79 1.15-1.01 0-2.52-1.13-4.14-1.1-2.13.03-4.1 1.24-5.2 3.14-2.21 3.84-.57 9.52 1.59 12.64 1.06 1.53 2.32 3.24 3.97 3.18 1.6-.06 2.21-1.03 4.14-1.03 1.93 0 2.48 1.03 4.17 1 1.72-.03 2.81-1.55 3.86-3.08 1.21-1.77 1.71-3.48 1.74-3.57-.04-.02-3.34-1.28-3.37-5.1ZM13.9 2.86c.88-1.07 1.47-2.55 1.31-4.03-1.27.05-2.81.85-3.72 1.92-.81.94-1.52 2.45-1.33 3.9 1.42.11 2.86-.72 3.74-1.79Z"/></svg>'+
+        'Download for iOS</a>';
+    }else{
+      primaryHtml='<button class="join-btn dl-btn-primary" id="dl-ios-soon" disabled style="opacity:0.5;cursor:not-allowed">iOS app coming soon</button>';
+      helper="iOS app isn't published yet — continue in your browser below.";
+    }
+  }else{
+    helper="The app is mobile-only. Scan the QR code from your phone, or continue in your browser below.";
+  }
+  return '<div class="join-screen screen download-prompt-screen">'+
+    '<div class="dl-app-icon" aria-hidden="true">'+
+      '<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">'+
+        '<rect width="64" height="64" rx="14" fill="url(#dl-grad)"/>'+
+        '<defs><linearGradient id="dl-grad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">'+
+          '<stop stop-color="#a78bfa"/><stop offset="1" stop-color="#22d3ee"/>'+
+        '</linearGradient></defs>'+
+        '<path d="M24 18v18.5a6 6 0 1 1-4-5.66V18h4Zm14 0v22.5a6 6 0 1 1-4-5.66V18h4Z" fill="white"/>'+
+      '</svg>'+
+    '</div>'+
+    '<div class="join-logo">Realtime</div>'+
+    '<div class="join-title">Get the App</div>'+
+    '<p class="join-sub">Smoother performance, voice effects, and notifications.</p>'+
+    primaryHtml+
+    '<button class="dl-btn-secondary" id="dl-continue-web" type="button">Continue in browser</button>'+
+    (helper?'<div class="dl-helper">'+esc(helper)+'</div>':'')+
+    '<div class="join-session-code">'+esc(S.sessionCode||"")+'</div>'+
+  '</div>';
+}
 
 export function renderJoin(){
   var avInner=S.profilePicture?'<img src="'+S.profilePicture+'" alt="">':'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>';

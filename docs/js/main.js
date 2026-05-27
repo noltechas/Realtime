@@ -14,6 +14,14 @@ function init(){
   if(dp&&typeof dp.prefersSanitize==="boolean")S.prefersSanitize=dp.prefersSanitize;
   if(dp&&dp.defaultColor&&!S.defaultColor)S.defaultColor=dp.defaultColor;
   initHistory(render);
+  // Show the download prompt unless the user previously chose to continue on
+  // the web on this device, has an existing guest record for this session
+  // (returning user — skip friction), or explicitly bypasses via ?web=1.
+  var preferWeb=false;
+  try{preferWeb=localStorage.getItem("karaoke_prefer_web")==="1";}catch(e){}
+  if(p.get("web")==="1")preferWeb=true;
+  if(saved)preferWeb=true;
+  if(!preferWeb){S.screen="download-prompt";render();return;}
   validateSession();
 }
 

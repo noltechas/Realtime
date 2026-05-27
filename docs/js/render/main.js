@@ -1,7 +1,7 @@
 import { S } from '../state.js';
 import { esc } from '../utils.js';
 import { applyTheme } from '../themes.js';
-import { renderJoin, renderRejoin, renderJoining, renderProfile } from './auth.js';
+import { renderJoin, renderRejoin, renderJoining, renderProfile, renderDownloadPrompt } from './auth.js';
 import { renderSongs, renderRequest } from './songs.js';
 import { renderWizardShell, renderWizardSingers, renderWizardRoles, renderWizardStage, renderWizardFooter, renderSingerPickerOverlay } from './wizard.js';
 import { renderQueue } from './queue.js';
@@ -15,7 +15,7 @@ export function render(){
   // unknown value, log and bail rather than silently leaving the page
   // stuck on a stale DOM with an empty bottom nav.
   var VALID_SCREENS={
-    loading:1,join:1,rejoin:1,joining:1,songs:1,request:1,
+    loading:1,"download-prompt":1,join:1,rejoin:1,joining:1,songs:1,request:1,
     "wizard-singers":1,"wizard-roles":1,"wizard-stage":1,
     queue:1,stage:1,profile:1,youreup:1,awards:1,error:1
   };
@@ -42,6 +42,7 @@ export function render(){
   var navActive=null;
   switch(S.screen){
     case"loading":a.innerHTML='<div class="loading-center"><div class="spinner"></div></div>';break;
+    case"download-prompt":a.innerHTML=renderDownloadPrompt();break;
     case"join":a.innerHTML=renderJoin();break;
     case"rejoin":a.innerHTML=renderRejoin();break;
     case"joining":a.innerHTML=renderJoining();break;

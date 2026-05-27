@@ -2,7 +2,7 @@ import { sb, S, caches } from '../state.js';
 import { filterGifs, restoreMemeSearch, resizeImage } from '../utils.js';
 import { clearDeviceProfile, saveDeviceProfile } from '../persistence.js';
 import { initWizardFromTrack, initWizardFromQueueItem, addSinger, removeSinger, setSingerColor, wizardHasAnyChanges, wizardBack, nextWizardStep } from '../wizard.js';
-import { castVote, sendReaction, joinSession, rejoinAsGuest, updateProfile, runRequestSearch, submitSongRequest, loadAwards, loadGuests, loadQueue } from '../supabase.js';
+import { castVote, sendReaction, joinSession, rejoinAsGuest, updateProfile, runRequestSearch, submitSongRequest, loadAwards, loadGuests, loadQueue, validateSession } from '../supabase.js';
 import { render } from '../render/main.js';
 import { filterCatalog, renderGenreTabs, renderRequest, renderSongCards, songCardHtml, SONGS_BATCH_SIZE } from '../render/songs.js';
 import { bindAwardsEvents } from './awards.js';
@@ -81,6 +81,17 @@ export function bindEvents(){
     return;
   }
   _lastBoundFirstChild=_fc;
+  // Download-prompt screen: pick "Continue in browser" to skip the prompt on
+  // future scans from this device. The "Download" button is a plain <a> with
+  // href + download, so no JS click handler is needed for that path.
+  var dlContinue=document.getElementById("dl-continue-web");
+  if(dlContinue){
+    dlContinue.addEventListener("click",function(){
+      try{localStorage.setItem("karaoke_prefer_web","1");}catch(e){}
+      S.screen="loading";render();
+      validateSession();
+    });
+  }
   var ni=document.getElementById("name-input"),jb=document.getElementById("join-btn");
   if(ni&&jb){
     jb.disabled=!ni.value.trim();
