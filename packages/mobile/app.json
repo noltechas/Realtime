@@ -47,7 +47,8 @@
           "cameraPermission": "Take a profile photo to show on stage and in the queue."
         }
       ],
-      "expo-video"
+      "expo-video",
+      "expo-font"
     ],
     "extra": {
       "eas": {
