@@ -14,7 +14,7 @@ const RootStack = createNativeStackNavigator<RootStackParamList>()
 
 export function RootNavigator() {
   const { tokens } = useTheme()
-  const { loading } = useSession()
+  const { loading, session } = useSession()
 
   if (loading) {
     return (
@@ -31,9 +31,16 @@ export function RootNavigator() {
     )
   }
 
+  // If we have a cached session from a previous launch, drop the user
+  // straight back into the session tabs instead of forcing them through the
+  // home → join flow again. Sign-out / leave-session paths call clearSession()
+  // which will flip this back to "Main" on next launch.
+  const initialRoute: keyof RootStackParamList = session ? 'Session' : 'Main'
+
   return (
     <NavigationContainer>
       <RootStack.Navigator
+        initialRouteName={initialRoute}
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: tokens.appBg },

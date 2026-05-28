@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useLayoutEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp, QueueItem, NEON_COLORS } from '../context/AppContext'
 import { DEFAULT_VOICE_EFFECTS, normalizeMicLevel } from '../audio/VoiceEffectsTypes'
@@ -483,10 +483,10 @@ function SetupPanel() {
 }
 
 // ---- Now Playing Banner (info only, no playback controls) ----
-function NowPlayingBanner() {
+function NowPlayingBanner({ npOverride }: { npOverride?: QueueItem } = {}) {
     const { state } = useApp()
     const theme = useTheme()
-    const np = state.nowPlaying
+    const np = npOverride ?? state.nowPlaying
     if (!np) return null
 
     const track = np.track
@@ -586,6 +586,59 @@ export default function QueuePage() {
     const theme = useTheme()
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+
+    // Advance animation: when nowPlaying changes (queue advance or end-of-queue),
+    // fly the previous now-playing banner up off-screen and FLIP-slide every
+    // surviving queue card from its old position to its new one. Drag-drop
+    // reorders are intentionally NOT animated here — they already have their
+    // own visual feedback while dragging.
+    const elementRefs = useRef<Map<string, HTMLDivElement | null>>(new Map())
+    const prevPositionsRef = useRef<Map<string, DOMRect>>(new Map())
+    const prevNpRef = useRef<QueueItem | null>(null)
+    const [flyingNp, setFlyingNp] = useState<{ np: QueueItem; rect: DOMRect; key: number } | null>(null)
+
+    useLayoutEffect(() => {
+        const prevNp = prevNpRef.current
+        const currentNp = state.nowPlaying
+        const advanced = prevNp !== null && (currentNp === null || prevNp.track.id !== currentNp.track.id)
+
+        if (advanced) {
+            const oldRect = prevNp ? prevPositionsRef.current.get('np-' + prevNp.track.id) : undefined
+            if (oldRect && prevNp) {
+                setFlyingNp({ np: prevNp, rect: oldRect, key: Date.now() })
+            }
+
+            elementRefs.current.forEach((el, id) => {
+                if (!el) return
+                if (id.startsWith('np-')) return
+                const prevRect = prevPositionsRef.current.get(id)
+                if (!prevRect) return
+                const newRect = el.getBoundingClientRect()
+                const dy = prevRect.top - newRect.top
+                if (Math.abs(dy) < 1) return
+                el.animate(
+                    [
+                        { transform: 'translateY(' + dy + 'px)' },
+                        { transform: 'translateY(0)' },
+                    ],
+                    { duration: 550, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'none' },
+                )
+            })
+        }
+
+        const newPositions = new Map<string, DOMRect>()
+        elementRefs.current.forEach((el, id) => {
+            if (el) newPositions.set(id, el.getBoundingClientRect())
+        })
+        prevPositionsRef.current = newPositions
+        prevNpRef.current = currentNp
+    }, [state.nowPlaying, state.queue])
+
+    useEffect(() => {
+        if (!flyingNp) return
+        const t = setTimeout(() => setFlyingNp(null), 700)
+        return () => clearTimeout(t)
+    }, [flyingNp])
 
     const handleDragStart = (index: number) => {
         setDraggedIndex(index)
@@ -711,7 +764,44 @@ export default function QueuePage() {
             {state.currentTrack && <SetupPanel />}
 
             {/* Now Playing Banner */}
-            <NowPlayingBanner />
+            {state.nowPlaying && (
+                <div
+                    ref={(el) => {
+                        const id = 'np-' + state.nowPlaying!.track.id
+                        if (el) elementRefs.current.set(id, el)
+                        else elementRefs.current.delete(id)
+                    }}
+                >
+                    <NowPlayingBanner />
+                </div>
+            )}
+
+            {/* Flying ghost of the previous now-playing banner (queue advance) */}
+            {flyingNp && (
+                <div
+                    key={flyingNp.key}
+                    ref={(el) => {
+                        if (!el) return
+                        el.animate(
+                            [
+                                { transform: 'translateY(0)', opacity: 1 },
+                                { transform: 'translateY(-160%)', opacity: 0 },
+                            ],
+                            { duration: 600, easing: 'cubic-bezier(0.55, 0, 0.7, 0)', fill: 'forwards' },
+                        )
+                    }}
+                    style={{
+                        position: 'fixed',
+                        left: flyingNp.rect.left,
+                        top: flyingNp.rect.top,
+                        width: flyingNp.rect.width,
+                        zIndex: 1000,
+                        pointerEvents: 'none',
+                    }}
+                >
+                    <NowPlayingBanner npOverride={flyingNp.np} />
+                </div>
+            )}
 
             {/* Queue Header */}
             <div style={{ marginBottom: 24, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
@@ -810,6 +900,10 @@ export default function QueuePage() {
                         return (
                             <div
                                 key={item.id}
+                                ref={(el) => {
+                                    if (el) elementRefs.current.set(item.id, el)
+                                    else elementRefs.current.delete(item.id)
+                                }}
                                 draggable={!isLocked}
                                 onDragStart={() => !isLocked && handleDragStart(index)}
                                 onDragOver={(e) => handleDragOver(e, index)}
