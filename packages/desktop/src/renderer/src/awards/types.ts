@@ -10,6 +10,7 @@ export interface Award {
     sessionId: string
     slug: AwardSlug | null
     title: string
+    description: string
     subjectType: AwardSubjectType
     iconId: string | null
     iconDataUrl: string | null

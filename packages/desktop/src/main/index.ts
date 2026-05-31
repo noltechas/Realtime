@@ -751,11 +751,12 @@ ipcMain.handle('karaoke:list-award-results', async () => {
     return listAwardResults(activeSession.id)
 })
 
-ipcMain.handle('karaoke:create-award', async (_event, input: { title: string; subjectType: 'performance' | 'singer' | 'group'; iconId: string | null; iconDataUrl: string | null; createdByGuestId: string }) => {
+ipcMain.handle('karaoke:create-award', async (_event, input: { title: string; description: string; subjectType: 'performance' | 'singer' | 'group'; iconId: string | null; iconDataUrl: string | null; createdByGuestId: string }) => {
     if (!activeSession) return { error: 'No active session' }
     return createCustomAward({
         sessionId: activeSession.id,
         title: input.title,
+        description: input.description,
         subjectType: input.subjectType,
         iconId: input.iconId,
         iconDataUrl: input.iconDataUrl,
@@ -763,7 +764,7 @@ ipcMain.handle('karaoke:create-award', async (_event, input: { title: string; su
     })
 })
 
-ipcMain.handle('karaoke:update-award', async (_event, awardId: string, fields: { title?: string; iconId?: string | null; iconDataUrl?: string | null }) => {
+ipcMain.handle('karaoke:update-award', async (_event, awardId: string, fields: { title?: string; description?: string; iconId?: string | null; iconDataUrl?: string | null }) => {
     return updateAward(awardId, fields)
 })
 

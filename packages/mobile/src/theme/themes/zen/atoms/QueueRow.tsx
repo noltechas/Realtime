@@ -466,10 +466,13 @@ function lanternNameStyle(t: ThemeTokens): TextStyle {
   }
 }
 const voteColStyle: ViewStyle = {
-  flexDirection: 'column',
+  // Row layout — score sits to the LEFT of the stacked up/down buttons,
+  // matching the visual the other themes use. Previously this was a column
+  // and the score landed directly on top of the buttons.
+  flexDirection: 'row',
   alignItems: 'center',
   justifyContent: 'center',
-  gap: 4,
+  gap: 8,
   marginLeft: 4,
   alignSelf: 'center',
 }
@@ -478,9 +481,9 @@ function scoreStyle(t: ThemeTokens): TextStyle {
     fontFamily: t.fontDisplay,
     fontWeight: '900',
     fontSize: 16,
-    minWidth: 28,
+    minWidth: 20,
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 22,
   }
 }
 const voteButtonsStyle: ViewStyle = {

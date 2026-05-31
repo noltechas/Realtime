@@ -15,6 +15,7 @@ export interface KaraokeAwardRow {
   session_id: string
   slug: string | null
   title: string
+  description: string
   subject_type: AwardSubjectType
   icon_id: string | null
   icon_data_url: string | null
@@ -81,12 +82,13 @@ export async function loadAwards(
     .eq('session_id', sessionId)
     .order('is_default', { ascending: false })
     .order('created_at', { ascending: true })
-  const hP = client
-    .from('karaoke_queue')
-    .select('id,track_id,track_name,track_artist,track_art_url,singer_configs,created_at')
-    .eq('session_id', sessionId)
-    .eq('status', 'played')
-    .order('created_at', { ascending: true })
+  // RPC over a direct SELECT so the server strips the base64 profilePicture
+  // from each singer_configs entry. With photo-uploaded avatars in
+  // singer_configs, the un-stripped payload reached ~24 MB on busy sessions
+  // and made the Awards tab take 20+ seconds to load over cellular. The
+  // Awards tab matches singers by name and pulls the live profile picture
+  // from karaoke_guests separately, so profilePicture is dead weight here.
+  const hP = client.rpc('karaoke_played_lean', { p_session_id: sessionId })
   const gP = client
     .from('karaoke_guests')
     .select('id,name,profile_picture')
@@ -165,6 +167,7 @@ export interface CreateAwardInput {
   sessionId: string
   guestId: string
   title: string
+  description?: string
   subjectType: AwardSubjectType
   iconId?: string | null
   iconDataUrl?: string | null
@@ -178,6 +181,7 @@ export async function createCustomAward(
     session_id: input.sessionId,
     slug: null,
     title: input.title,
+    description: input.description ?? '',
     subject_type: input.subjectType,
     icon_id: input.iconId ?? null,
     icon_data_url: input.iconDataUrl ?? null,
@@ -200,6 +204,7 @@ export async function createCustomAward(
 
 export interface UpdateAwardInput {
   title?: string
+  description?: string
   iconId?: string | null
   iconDataUrl?: string | null
 }
@@ -211,6 +216,7 @@ export async function updateMyAward(
 ): Promise<void> {
   const upd: Record<string, unknown> = { updated_at: new Date().toISOString() }
   if (updates.title !== undefined) upd.title = updates.title
+  if (updates.description !== undefined) upd.description = updates.description
   if (updates.iconId !== undefined) upd.icon_id = updates.iconId
   if (updates.iconDataUrl !== undefined) upd.icon_data_url = updates.iconDataUrl
   // Mutually exclusive: clear the other when one is set (mirrors companion site).

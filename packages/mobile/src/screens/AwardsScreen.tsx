@@ -60,11 +60,30 @@ type Sub = 'list' | 'detail' | 'create' | 'edit'
 
 interface CreateDraft {
   title: string
+  description: string
   subjectType: AwardSubjectType
   iconId: string | null
   iconDataUrl: string | null
   visualMode: 'icon' | 'photo'
 }
+
+// Step 2 typewriter inscription. The 4 chars at the end is the trailing space —
+// keep them in sync with descriptionMeetsMinimum() and the web typewriter.
+const AWARDED_TO_PREFIX = 'Awarded to '
+const AWARD_DESCRIPTION_MAX = 180
+
+// "Did the guest write something meaningful?" — strips the typewriter prefix
+// first so guests aren't credited for just leaving "Awarded to " in the field.
+function descriptionMeetsMinimum(value: string): boolean {
+  const body = value.startsWith(AWARDED_TO_PREFIX)
+    ? value.slice(AWARDED_TO_PREFIX.length)
+    : value
+  return body.trim().length >= 3
+}
+
+// Latin-numeral helper for the "STEP II OF IV" eyebrow. Only ever called with
+// 1..4 so a tiny lookup is plenty.
+const ROMAN: Record<number, string> = { 1: 'I', 2: 'II', 3: 'III', 4: 'IV' }
 
 export function AwardsScreen() {
   const { session } = useSession()
@@ -86,6 +105,10 @@ export function AwardsScreen() {
   // entrance animation on the "Your Vote" card. Cleared automatically after
   // ~1.2s so re-opening the same detail screen later doesn't re-animate.
   const [recentlyVotedAwardId, setRecentlyVotedAwardId] = useState<string | null>(null)
+  // Set by submitDraft when a new (or edited) award lands in the list — the
+  // AwardCard runs an entrance animation when this matches its id. Cleared
+  // ~1.8s later so re-rendering the list later doesn't re-animate the row.
+  const [recentlyCreatedAwardId, setRecentlyCreatedAwardId] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
     if (!session) return
@@ -144,6 +167,7 @@ export function AwardsScreen() {
       setEditingId(existing.id)
       setDraft({
         title: existing.title,
+        description: existing.description ?? '',
         subjectType: existing.subject_type,
         iconId: existing.icon_id,
         iconDataUrl: existing.icon_data_url,
@@ -154,6 +178,7 @@ export function AwardsScreen() {
       setEditingId(null)
       setDraft({
         title: '',
+        description: '',
         subjectType: 'performance',
         iconId: null,
         iconDataUrl: null,
@@ -237,21 +262,77 @@ export function AwardsScreen() {
     castVoteOptimistic(award, subject)
   }
 
+  // Optimistic submit: the wizard already gates the Continue button on each
+  // step so all fields are validated by the time we get here. We insert
+  // (or update) the row in local state immediately, transition back to the
+  // list, and only then fire the server call in the background. Refresh
+  // reconciles the optimistic temp row with the real one once Supabase
+  // responds. No alerts on failure — the user just sees their award stick;
+  // if the server rejected it, the next refresh removes it silently.
   const submitDraft = async () => {
     if (!draft) return
     const title = draft.title.trim()
-    if (!title) {
-      Alert.alert('Missing title', 'Give your award a name.')
+    const description = draft.description.trim()
+    // Defensive guard — canAdvance already enforces these on the wizard side.
+    if (!title || !descriptionMeetsMinimum(description) || (!draft.iconId && !draft.iconDataUrl)) {
       return
     }
-    if (!draft.iconId && !draft.iconDataUrl) {
-      Alert.alert('Pick a visual', 'Pick an icon or upload a photo.')
-      return
-    }
+    const isEditFlow = sub === 'edit' && !!editingId
+    const editTarget = editingId
+    const now = new Date().toISOString()
+    const tempId = 'tmp_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
+
+    setBundle((prev) => {
+      if (!prev) return prev
+      if (isEditFlow && editTarget) {
+        return {
+          ...prev,
+          awards: prev.awards.map((a) =>
+            a.id === editTarget
+              ? {
+                  ...a,
+                  title,
+                  description,
+                  icon_id: draft.iconId,
+                  icon_data_url: draft.iconDataUrl,
+                  updated_at: now,
+                }
+              : a,
+          ),
+        }
+      }
+      const optimistic: KaraokeAwardRow = {
+        id: tempId,
+        session_id: session.sessionId,
+        slug: null,
+        title,
+        description,
+        subject_type: draft.subjectType,
+        icon_id: draft.iconId,
+        icon_data_url: draft.iconDataUrl,
+        is_default: false,
+        created_by_guest_id: session.guestId,
+        finalized_at: null,
+        created_at: now,
+        updated_at: now,
+      }
+      return { ...prev, awards: [...prev.awards, optimistic] }
+    })
+
+    const freshId = isEditFlow && editTarget ? editTarget : tempId
+    setRecentlyCreatedAwardId(freshId)
+    setTimeout(() => {
+      setRecentlyCreatedAwardId((id) => (id === freshId ? null : id))
+    }, 1800)
+
+    goToList()
+
+    // Background sync; failures are quiet — refresh() will reconcile.
     try {
-      if (sub === 'edit' && editingId) {
-        await updateMyAward(supabase, editingId, {
+      if (isEditFlow && editTarget) {
+        await updateMyAward(supabase, editTarget, {
           title,
+          description,
           iconId: draft.iconId,
           iconDataUrl: draft.iconDataUrl,
         })
@@ -260,15 +341,24 @@ export function AwardsScreen() {
           sessionId: session.sessionId,
           guestId: session.guestId,
           title,
+          description,
           subjectType: draft.subjectType,
           iconId: draft.iconId,
           iconDataUrl: draft.iconDataUrl,
         })
       }
       await refresh()
-      goToList()
     } catch (err: any) {
-      Alert.alert('Save failed', err?.message ?? 'Try again.')
+      console.warn('[Awards] save failed:', err?.message ?? err)
+      // For create, drop the optimistic temp row so the UI doesn't lie.
+      // For edit, refresh restores the prior server state.
+      if (!isEditFlow) {
+        setBundle((prev) =>
+          prev ? { ...prev, awards: prev.awards.filter((a) => a.id !== tempId) } : prev,
+        )
+      } else {
+        await refresh()
+      }
     }
   }
 
@@ -304,6 +394,7 @@ export function AwardsScreen() {
           awards={awards}
           votes={votes}
           ownGuestId={session.guestId}
+          freshAwardId={recentlyCreatedAwardId}
           onCardPress={(id) => {
             setActiveId(id)
             setSub('detail')
@@ -509,6 +600,7 @@ function AwardsList({
   awards,
   votes,
   ownGuestId,
+  freshAwardId,
   onCardPress,
   onCreatePress,
   bottomPadding,
@@ -516,6 +608,7 @@ function AwardsList({
   awards: KaraokeAwardRow[]
   votes: AwardsBundle['votes']
   ownGuestId: string
+  freshAwardId: string | null
   onCardPress: (id: string) => void
   onCreatePress: () => void
   bottomPadding: number
@@ -568,6 +661,7 @@ function AwardsList({
               voted={!!votes[aw.id]}
               finalized={!!aw.finalized_at}
               isOwn={aw.created_by_guest_id === ownGuestId}
+              isFresh={aw.id === freshAwardId}
               onPress={() => onCardPress(aw.id)}
             />
           ))}
@@ -700,12 +794,14 @@ function AwardCard({
   voted,
   finalized,
   isOwn,
+  isFresh,
   onPress,
 }: {
   award: KaraokeAwardRow
   voted: boolean
   finalized: boolean
   isOwn: boolean
+  isFresh: boolean
   onPress: () => void
 }) {
   const subjectLabel =
@@ -719,7 +815,55 @@ function AwardCard({
     : finalized
       ? P.goldEdge
       : P.goldHairline
+
+  // Entrance animation for a freshly-created/edited award. Plays once on
+  // mount when isFresh starts true — the parent flag flips off after ~1.8s
+  // so the card stays in its resting state for subsequent renders.
+  const enterScale = useRef(new Animated.Value(isFresh ? 0.86 : 1)).current
+  const enterOpacity = useRef(new Animated.Value(isFresh ? 0 : 1)).current
+  const glow = useRef(new Animated.Value(isFresh ? 1 : 0)).current
+  useEffect(() => {
+    if (!isFresh) return
+    Animated.parallel([
+      Animated.spring(enterScale, {
+        toValue: 1,
+        friction: 7,
+        tension: 70,
+        useNativeDriver: true,
+      }),
+      Animated.timing(enterOpacity, {
+        toValue: 1,
+        duration: 320,
+        useNativeDriver: true,
+      }),
+      Animated.sequence([
+        Animated.timing(glow, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+        Animated.timing(glow, {
+          toValue: 0,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start()
+  }, [isFresh, enterScale, enterOpacity, glow])
+
   return (
+    <Animated.View
+      style={{
+        marginBottom: 12,
+        opacity: enterOpacity,
+        transform: [{ scale: enterScale }],
+        shadowColor: P.gold,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: glow.interpolate({ inputRange: [0, 1], outputRange: [0, 0.7] }),
+        shadowRadius: 22,
+        elevation: 0,
+      }}
+    >
     <Pressable
       onPress={onPress}
       style={({ pressed }) => ({
@@ -733,7 +877,6 @@ function AwardCard({
         backgroundColor: P.surface,
         borderWidth: 1,
         borderColor,
-        marginBottom: 12,
         overflow: 'hidden',
         opacity: finalized ? 0.78 : 1,
         transform: [{ scale: pressed ? 0.985 : 1 }],
@@ -814,6 +957,7 @@ function AwardCard({
 
       <StatusIndicator voted={voted} finalized={finalized} />
     </Pressable>
+    </Animated.View>
   )
 }
 
@@ -1206,7 +1350,7 @@ function AwardDetail({
 
       {/* Hero — gilded medallion + serif title centered. Sets the screen up
           as "this is the award you're voting on" before the candidate list. */}
-      <View style={{ alignItems: 'center', marginTop: 16, marginBottom: 28 }}>
+      <View style={{ alignItems: 'center', marginTop: 16, marginBottom: 12 }}>
         <DetailMedallion award={award} finalized={finalized} />
         <View style={{ alignSelf: 'stretch', marginTop: 22, marginBottom: 4 }}>
           <GoldRule glyph="✦" />
@@ -1237,17 +1381,35 @@ function AwardDetail({
         >
           {subjectLabel}
         </Text>
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 6,
-            marginTop: 14,
-          }}
-        >
-          <MetaPill label={award.is_default ? 'Default' : 'Audience'} tone="gold" />
-          {finalized ? <MetaPill label="Voting closed" tone="goldFilled" /> : null}
-        </View>
+        {award.description ? (
+          <Text
+            numberOfLines={6}
+            style={{
+              marginTop: 14,
+              paddingHorizontal: 14,
+              fontFamily: P.fontSerif,
+              fontStyle: 'italic',
+              fontSize: 22,
+              lineHeight: 30,
+              color: P.creamMuted,
+              textAlign: 'center',
+            }}
+          >
+            {award.description}
+          </Text>
+        ) : null}
+        {finalized ? (
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              marginTop: 14,
+            }}
+          >
+            <MetaPill label="Voting closed" tone="goldFilled" />
+          </View>
+        ) : null}
       </View>
 
       {voted ? (
@@ -1606,8 +1768,20 @@ function BackButton({ onPress }: { onPress: () => void }) {
 }
 
 // -----------------------------------------------------------------------
-// AwardCreate — title/subject/visual/icon-picker/photo-upload form.
+// AwardCreate — 4-step Oscar-program wizard (Name → Description →
+// Subject → Visual). Each step lives in the same component; only the body
+// region animates between steps so the header (step indicator + gilded
+// title) reads as a fixed program banner. See plans/we-need-to-add-nested-curry.md.
 // -----------------------------------------------------------------------
+type WizardStep = 1 | 2 | 3 | 4
+
+const STEP_META: Record<WizardStep, { title: string; caption: string }> = {
+  1: { title: 'Name your award', caption: 'What shall the world call this honor?' },
+  2: { title: 'Describe the honor', caption: 'A line in the program — the kind that gets read aloud.' },
+  3: { title: 'Choose its subject', caption: 'Who or what will it celebrate?' },
+  4: { title: 'Bestow it a face', caption: 'Pick an icon or upload a photograph.' },
+}
+
 function AwardCreate({
   isEdit,
   draft,
@@ -1625,14 +1799,31 @@ function AwardCreate({
   onDelete?: () => void
   bottomPadding: number
 }) {
+  // Wizard step state (1..4). Lives inside AwardCreate — `sub: 'create'|'edit'`
+  // at the parent already gates the wizard; step is a sub-concern.
+  const [step, setStep] = useState<WizardStep>(1)
+  const slideX = useRef(new Animated.Value(0)).current
+  const fade = useRef(new Animated.Value(1)).current
+  // latestDraft is read inside the typewriter so the user typing mid-animation
+  // extends rather than gets overwritten by a stale-closure setDraft.
+  const latestDraft = useRef(draft)
+  useEffect(() => {
+    latestDraft.current = draft
+  }, [draft])
+
   const [manifestReady, setManifestReady] = useState(!!getAwardsManifest())
   const [shuffled, setShuffled] = useState<AwardsIcon[]>([])
   const [search, setSearch] = useState('')
   const [visibleCount, setVisibleCount] = useState(AWARDS_ICON_PAGE_SIZE)
 
+  // Lazy-load the icon manifest the first time the visual step is entered.
+  // Previously this ran on mount; deferring it to step 4 saves work for guests
+  // who bail before reaching the visual picker.
   useEffect(() => {
     let alive = true
+    if (step !== 4) return
     if (draft.visualMode !== 'icon') return
+    if (manifestReady) return
     ensureAwardsManifest()
       .then(({ icons }) => {
         if (!alive) return
@@ -1643,7 +1834,7 @@ function AwardCreate({
     return () => {
       alive = false
     }
-  }, [draft.visualMode])
+  }, [step, draft.visualMode, manifestReady])
 
   const filtered = useMemo(() => {
     if (!manifestReady) return []
@@ -1678,7 +1869,7 @@ function AwardCreate({
       const asset = result.assets[0]
       const mime = asset.mimeType ?? 'image/jpeg'
       setDraft({
-        ...draft,
+        ...latestDraft.current,
         iconDataUrl: `data:${mime};base64,${asset.base64}`,
         iconId: null,
         visualMode: 'photo',
@@ -1686,18 +1877,198 @@ function AwardCreate({
     } catch (err: any) {
       Alert.alert('Photo error', err?.message ?? String(err))
     }
-  }, [draft, setDraft])
+  }, [setDraft])
 
-  // Fixed-column layout: header + form fields stay pinned, the icon picker
-  // takes the remaining vertical space and scrolls internally, and the
-  // submit row sits above the tab bar. Mirrors the website's
-  // .awards-create-shell { flex: column; min-height: calc(100dvh - 80px) }
-  // approach so the screen never overflows past the viewport.
+  // Step 2 typewriter: types "Awarded to " into the description field on
+  // entry, but only on a *fresh* create (or returning to step 2 from elsewhere
+  // with the field empty). Edit drafts have a pre-filled description, so the
+  // length check below short-circuits and no typewriter runs.
+  useEffect(() => {
+    if (step !== 2) return
+    if (latestDraft.current.description.length > 0) return
+    let cancelled = false
+    let i = 0
+    let tickTimer: ReturnType<typeof setTimeout> | null = null
+    const start = setTimeout(function tick() {
+      if (cancelled) return
+      if (i >= AWARDED_TO_PREFIX.length) return
+      setDraft({ ...latestDraft.current, description: AWARDED_TO_PREFIX.slice(0, i + 1) })
+      i += 1
+      tickTimer = setTimeout(tick, 65)
+    }, 280)
+    return () => {
+      cancelled = true
+      clearTimeout(start)
+      if (tickTimer) clearTimeout(tickTimer)
+    }
+  }, [step, setDraft])
+
+  // Per-step "can the user advance?" — also used to disable the Continue
+  // button's pressable while the field is invalid, so guests get immediate
+  // visual feedback rather than an alert after tapping.
+  const canAdvance = useMemo(() => {
+    if (step === 1) return draft.title.trim().length >= 2
+    if (step === 2) return descriptionMeetsMinimum(draft.description)
+    if (step === 3) return true
+    return !!draft.iconId || !!draft.iconDataUrl
+  }, [step, draft.title, draft.description, draft.iconId, draft.iconDataUrl])
+
+  const animateTo = useCallback(
+    (next: WizardStep, direction: 'forward' | 'back') => {
+      const dx = direction === 'forward' ? -28 : 28
+      Animated.parallel([
+        Animated.timing(slideX, {
+          toValue: dx,
+          duration: 180,
+          easing: Easing.in(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(fade, { toValue: 0, duration: 180, useNativeDriver: true }),
+      ]).start(() => {
+        setStep(next)
+        slideX.setValue(-dx)
+        Animated.parallel([
+          Animated.timing(slideX, {
+            toValue: 0,
+            duration: 220,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+          Animated.timing(fade, { toValue: 1, duration: 220, useNativeDriver: true }),
+        ]).start()
+      })
+    },
+    [slideX, fade],
+  )
+
+  const onContinue = useCallback(() => {
+    if (!canAdvance) return
+    if (step === 4) {
+      onSubmit()
+      return
+    }
+    animateTo((step + 1) as WizardStep, 'forward')
+  }, [canAdvance, step, animateTo, onSubmit])
+
+  const onStepBack = useCallback(() => {
+    if (step === 1) {
+      onBack()
+      return
+    }
+    animateTo((step - 1) as WizardStep, 'back')
+  }, [step, animateTo, onBack])
+
+  const stepMeta = STEP_META[step]
+  const eyebrow = isEdit
+    ? 'Edit Your Nomination'
+    : 'Step ' + ROMAN[step] + ' of IV'
+  const showDelete = step === 4 && !!onDelete
+  const continueLabel = step === 4 ? (isEdit ? 'Save' : 'Submit Nomination') : 'Continue'
+  const backLabel = step === 1 ? 'Cancel' : 'Back'
+
+  // Footer is rendered inline at the end of each step body — that way the
+  // Continue/Back row sits *directly* below the input on steps with a
+  // keyboard (name, citation), instead of being pinned to the bottom of the
+  // screen where the soft keyboard would cover it. On step 4 the icon grid
+  // flex-grows above this row so the row still ends up near the bottom there.
+  const footer = (
+    <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+      {showDelete ? (
+        <Pressable
+          onPress={onDelete}
+          style={{
+            flex: 1,
+            paddingVertical: 14,
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: P.red,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text
+            style={{
+              color: P.red,
+              fontFamily: P.fontSerif,
+              fontSize: 15,
+              letterSpacing: 0.4,
+            }}
+          >
+            Delete
+          </Text>
+        </Pressable>
+      ) : null}
+      <Pressable
+        onPress={onStepBack}
+        style={{
+          flex: 1,
+          paddingVertical: 14,
+          borderRadius: 10,
+          borderWidth: 1,
+          borderColor: P.goldHairline,
+          backgroundColor: 'transparent',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text
+          style={{
+            color: P.creamMuted,
+            fontFamily: P.fontSerif,
+            fontSize: 15,
+            letterSpacing: 0.4,
+          }}
+        >
+          {backLabel}
+        </Text>
+      </Pressable>
+      <Pressable
+        onPress={onContinue}
+        disabled={!canAdvance}
+        style={{
+          flex: 1,
+          borderRadius: 10,
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
+          shadowColor: P.gold,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: canAdvance ? 0.55 : 0,
+          shadowRadius: 18,
+          elevation: canAdvance ? 10 : 0,
+          opacity: canAdvance ? 1 : 0.45,
+        }}
+      >
+        <LinearGradient
+          colors={[P.goldBright, P.gold, P.goldDeep]}
+          locations={[0, 0.5, 1]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <Text
+          style={{
+            color: '#1a140a',
+            fontFamily: P.fontSerif,
+            fontSize: 15,
+            fontWeight: '700',
+            letterSpacing: 0.4,
+            paddingVertical: 14,
+          }}
+        >
+          {continueLabel}
+        </Text>
+      </Pressable>
+    </View>
+  )
+
+  // Fixed-column layout: header + footer stay pinned, only the body region
+  // animates between steps. Keeps the gold rule + step indicator + title
+  // steady — reads as "the program is the same; only the page turns."
   //
-  // Intentionally NOT wrapped in KeyboardAvoidingView: when the user taps
-  // the icon search input we want the keyboard to slide over the submit row,
-  // not push it upward. The form is short enough that the search box stays
-  // above the keyboard, and the FlatList still scrolls inside its bounds.
+  // Intentionally NOT wrapped in KeyboardAvoidingView: same rationale as
+  // the old single-screen form — we want the keyboard to slide over the
+  // submit row rather than push it.
   return (
     <View style={{ flex: 1 }}>
       <View
@@ -1708,9 +2079,11 @@ function AwardCreate({
           paddingBottom: bottomPadding,
         }}
       >
-        <View style={{ marginBottom: 18 }}>
-          <BackButton onPress={onBack} />
+        {/* HEADER — fixed across all steps */}
+        <View style={{ marginBottom: 16 }}>
+          <BackButton onPress={onStepBack} />
           <View style={{ alignItems: 'center', marginTop: 10 }}>
+            <StepIndicator step={step} />
             <Text
               style={{
                 color: P.gold,
@@ -1718,10 +2091,11 @@ function AwardCreate({
                 letterSpacing: 3,
                 fontWeight: '700',
                 textTransform: 'uppercase',
+                marginTop: 10,
                 marginBottom: 6,
               }}
             >
-              {isEdit ? 'Edit Your Nomination' : 'Submit a Nomination'}
+              {eyebrow}
             </Text>
             <View style={{ alignSelf: 'stretch' }}>
               <GoldRule glyph="✦" />
@@ -1735,7 +2109,7 @@ function AwardCreate({
                 textAlign: 'center',
               }}
             >
-              {isEdit ? 'Refine your award' : 'Add a category'}
+              {stepMeta.title}
             </Text>
             <Text
               style={{
@@ -1745,289 +2119,325 @@ function AwardCreate({
                 fontFamily: P.fontSerif,
                 lineHeight: 18,
                 textAlign: 'center',
+                paddingHorizontal: 8,
               }}
             >
-              Make it memorable — everyone can vote on it
+              {stepMeta.caption}
             </Text>
           </View>
         </View>
 
-        {/* Award name */}
-        <View style={{ marginBottom: 14 }}>
-          <FieldLabel>Award name</FieldLabel>
-          <TextInput
-            value={draft.title}
-            onChangeText={(v) => setDraft({ ...draft, title: v })}
-            placeholder="e.g. Most Dramatic Solo"
-            placeholderTextColor={P.creamFaint}
-            maxLength={40}
-            style={{
-              paddingHorizontal: 14,
-              paddingVertical: 12,
-              borderWidth: 1,
-              borderColor: P.goldHairline,
-              borderRadius: 10,
-              backgroundColor: P.surface,
-              fontFamily: P.fontSerif,
-              color: P.cream,
-              fontSize: 16,
-            }}
-          />
-        </View>
-
-        {/* Subject segmented */}
-        <View style={{ marginBottom: 14 }}>
-          <Segmented
-            value={draft.subjectType}
-            onChange={(v) => setDraft({ ...draft, subjectType: v })}
-            options={[
-              { value: 'performance', label: 'A performance' },
-              { value: 'singer', label: 'A singer' },
-              { value: 'group', label: 'A duo/group' },
-            ]}
-            disabled={isEdit}
-          />
-        </View>
-
-        {/* Visual toggle */}
-        <View
+        {/* BODY — animated step content */}
+        <Animated.View
           style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 14,
-            marginBottom: 12,
+            flex: 1,
+            minHeight: 0,
+            opacity: fade,
+            transform: [{ translateX: slideX }],
           }}
         >
-          <VisualToggleButton
-            label="Pick an icon"
-            active={draft.visualMode === 'icon'}
-            onPress={() =>
-              setDraft({
-                ...draft,
-                visualMode: 'icon',
-                iconDataUrl: null,
-              })
-            }
-          />
-          <Text
-            style={{
-              fontFamily: P.fontDisplay,
-              fontWeight: '800',
-              fontSize: 11,
-              letterSpacing: 2,
-              color: P.whiteMuted,
-            }}
-          >
-            OR
-          </Text>
-          <VisualToggleButton
-            label="Upload a photo"
-            active={draft.visualMode === 'photo'}
-            onPress={async () => {
-              setDraft({ ...draft, visualMode: 'photo', iconId: null })
-              await pickPhoto()
-            }}
-          />
-        </View>
+          {step === 1 ? (
+            <View>
+              <FieldLabel>Award name</FieldLabel>
+              <TextInput
+                value={draft.title}
+                onChangeText={(v) => setDraft({ ...draft, title: v })}
+                onSubmitEditing={onContinue}
+                returnKeyType="next"
+                placeholder="e.g. Most Dramatic Solo"
+                placeholderTextColor={P.creamFaint}
+                maxLength={40}
+                style={{
+                  paddingHorizontal: 14,
+                  paddingVertical: 12,
+                  borderWidth: 1,
+                  borderColor: P.goldHairline,
+                  borderRadius: 10,
+                  backgroundColor: P.surface,
+                  fontFamily: P.fontSerif,
+                  color: P.cream,
+                  fontSize: 16,
+                  textAlign: 'center',
+                }}
+                autoFocus
+              />
+              {footer}
+            </View>
+          ) : null}
 
-        {/* Search box (icon mode only) — fixed, doesn't scroll with picker */}
-        {draft.visualMode === 'icon' ? (
-          <TextInput
-            value={search}
-            onChangeText={(v) => {
-              setSearch(v)
-              setVisibleCount(AWARDS_ICON_PAGE_SIZE)
-            }}
-            placeholder={
-              manifestReady
-                ? `Search ${getAwardsManifest()?.icons.length ?? 0} icons…`
-                : 'Loading icons…'
-            }
-            placeholderTextColor={P.creamFaint}
-            style={{
-              paddingHorizontal: 14,
-              paddingVertical: 11,
-              borderWidth: 1,
-              borderColor: P.goldHairline,
-              borderRadius: 10,
-              backgroundColor: P.surface,
-              color: P.cream,
-              fontFamily: P.fontSerif,
-              fontSize: 14,
-              marginBottom: 10,
-            }}
-          />
-        ) : null}
-
-        {/* Flexible region — icon grid OR photo upload card. Takes whatever
-            vertical room is left between the fixed form above and the submit
-            row below. min-height: 0 lets it shrink on small screens so the
-            submit row stays visible. */}
-        <View style={{ flex: 1, minHeight: 0 }}>
-          {draft.visualMode === 'photo' ? (
-            <Pressable
-              onPress={() => void pickPhoto()}
-              style={{
-                alignItems: 'center',
-                justifyContent: 'center',
-                flex: 1,
-                padding: 22,
-                borderRadius: 12,
-                borderWidth: 1,
-                borderColor: P.goldHairline,
-                borderStyle: 'dashed',
-                backgroundColor: P.surface,
-              }}
-            >
-              {draft.iconDataUrl ? (
-                <Image
-                  source={{ uri: draft.iconDataUrl }}
-                  style={{ width: 128, height: 128, borderRadius: 16 }}
-                />
-              ) : (
-                <View
+          {step === 2 ? (
+            <View>
+              <FieldLabel>The citation</FieldLabel>
+              {/* Four CornerBracket glyphs frame the textarea so it reads as
+                  an inscribed plaque, not a chat input. */}
+              <View
+                style={{
+                  borderWidth: 1,
+                  borderColor: P.goldHairline,
+                  borderRadius: 10,
+                  backgroundColor: P.surface,
+                  paddingHorizontal: 14,
+                  paddingVertical: 12,
+                  position: 'relative',
+                }}
+              >
+                <CornerBracket corner="tl" size={10} />
+                <CornerBracket corner="tr" size={10} />
+                <CornerBracket corner="bl" size={10} />
+                <CornerBracket corner="br" size={10} />
+                <TextInput
+                  value={draft.description}
+                  onChangeText={(v) =>
+                    setDraft({ ...draft, description: v.slice(0, AWARD_DESCRIPTION_MAX) })
+                  }
+                  multiline
+                  textAlignVertical="top"
+                  maxLength={AWARD_DESCRIPTION_MAX}
+                  placeholder={isEdit ? '' : 'Awarded to the…'}
+                  placeholderTextColor={P.creamFaint}
                   style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 4,
-                    borderWidth: 2,
-                    borderColor: P.whiteMuted,
+                    minHeight: 160,
+                    fontFamily: P.fontSerif,
+                    fontStyle: 'italic',
+                    color: P.cream,
+                    fontSize: 30,
+                    lineHeight: 40,
+                    padding: 0,
                   }}
                 />
-              )}
-              <Text style={{ marginTop: 12, color: P.whiteMuted, fontSize: 13 }}>
-                {draft.iconDataUrl ? 'Tap to change' : 'Tap to upload a photo'}
+              </View>
+              <Text
+                style={{
+                  marginTop: 6,
+                  fontSize: 11,
+                  color: P.creamFaint,
+                  fontFamily: P.fontSerif,
+                  textAlign: 'right',
+                }}
+              >
+                {draft.description.length}/{AWARD_DESCRIPTION_MAX}
               </Text>
-            </Pressable>
-          ) : !manifestReady ? (
+              {footer}
+            </View>
+          ) : null}
+
+          {step === 3 ? (
+            <View>
+              <FieldLabel>What it honors</FieldLabel>
+              <Segmented
+                value={draft.subjectType}
+                onChange={(v) => setDraft({ ...draft, subjectType: v })}
+                options={[
+                  { value: 'performance', label: 'A performance' },
+                  { value: 'singer', label: 'A singer' },
+                  { value: 'group', label: 'A duo/group' },
+                ]}
+                disabled={isEdit}
+              />
+              {isEdit ? (
+                <Text
+                  style={{
+                    marginTop: 10,
+                    fontSize: 12,
+                    color: P.creamFaint,
+                    fontFamily: P.fontSerif,
+                    fontStyle: 'italic',
+                    textAlign: 'center',
+                  }}
+                >
+                  The subject can't change once an award has been cast.
+                </Text>
+              ) : null}
+              {footer}
+            </View>
+          ) : null}
+
+          {step === 4 ? (
+            <View style={{ flex: 1, minHeight: 0 }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 14,
+                  marginBottom: 12,
+                }}
+              >
+                <VisualToggleButton
+                  label="Pick an icon"
+                  active={draft.visualMode === 'icon'}
+                  onPress={() =>
+                    setDraft({
+                      ...draft,
+                      visualMode: 'icon',
+                      iconDataUrl: null,
+                    })
+                  }
+                />
+                <Text
+                  style={{
+                    fontFamily: P.fontDisplay,
+                    fontWeight: '800',
+                    fontSize: 11,
+                    letterSpacing: 2,
+                    color: P.whiteMuted,
+                  }}
+                >
+                  OR
+                </Text>
+                <VisualToggleButton
+                  label="Upload a photo"
+                  active={draft.visualMode === 'photo'}
+                  onPress={async () => {
+                    setDraft({ ...draft, visualMode: 'photo', iconId: null })
+                    await pickPhoto()
+                  }}
+                />
+              </View>
+
+              {draft.visualMode === 'icon' ? (
+                <TextInput
+                  value={search}
+                  onChangeText={(v) => {
+                    setSearch(v)
+                    setVisibleCount(AWARDS_ICON_PAGE_SIZE)
+                  }}
+                  placeholder={manifestReady ? 'Search…' : 'Loading icons…'}
+                  placeholderTextColor={P.creamFaint}
+                  style={{
+                    paddingHorizontal: 14,
+                    paddingVertical: 11,
+                    borderWidth: 1,
+                    borderColor: P.goldHairline,
+                    borderRadius: 10,
+                    backgroundColor: P.surface,
+                    color: P.cream,
+                    fontFamily: P.fontSerif,
+                    fontSize: 14,
+                    marginBottom: 10,
+                    textAlign: 'center',
+                  }}
+                />
+              ) : null}
+
+              <View style={{ flex: 1, minHeight: 0 }}>
+                {draft.visualMode === 'photo' ? (
+                  <Pressable
+                    onPress={() => void pickPhoto()}
+                    style={{
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flex: 1,
+                      padding: 22,
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: P.goldHairline,
+                      borderStyle: 'dashed',
+                      backgroundColor: P.surface,
+                    }}
+                  >
+                    {draft.iconDataUrl ? (
+                      <Image
+                        source={{ uri: draft.iconDataUrl }}
+                        style={{ width: 128, height: 128, borderRadius: 16 }}
+                      />
+                    ) : (
+                      <View
+                        style={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: 4,
+                          borderWidth: 2,
+                          borderColor: P.whiteMuted,
+                        }}
+                      />
+                    )}
+                    <Text style={{ marginTop: 12, color: P.whiteMuted, fontSize: 13 }}>
+                      {draft.iconDataUrl ? 'Tap to change' : 'Tap to upload a photo'}
+                    </Text>
+                  </Pressable>
+                ) : !manifestReady ? (
+                  <View
+                    style={{
+                      flex: 1,
+                      padding: 32,
+                      borderRadius: 12,
+                      backgroundColor: P.surface,
+                      borderWidth: 1,
+                      borderColor: P.goldHairline,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <ActivityIndicator color={P.gold} />
+                    <Text
+                      style={{
+                        marginTop: 10,
+                        color: P.creamMuted,
+                        fontFamily: P.fontSerif,
+                        fontSize: 13,
+                      }}
+                    >
+                      Loading icon library…
+                    </Text>
+                  </View>
+                ) : (
+                  <IconGrid
+                    icons={pageIcons}
+                    activeId={draft.iconId}
+                    onPick={(id) =>
+                      setDraft({ ...draft, iconId: id, iconDataUrl: null, visualMode: 'icon' })
+                    }
+                    hasMore={hasMore}
+                    onEndReached={() => {
+                      if (hasMore) setVisibleCount((n) => n + AWARDS_ICON_PAGE_SIZE)
+                    }}
+                  />
+                )}
+              </View>
+              {footer}
+            </View>
+          ) : null}
+        </Animated.View>
+      </View>
+    </View>
+  )
+}
+
+// Four-diamond step indicator. Filled glyph = completed/current; outlined =
+// upcoming. Short gold rules between them tie the cluster to the existing
+// GoldRule language already used as section dividers.
+function StepIndicator({ step }: { step: WizardStep }) {
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginBottom: 2,
+      }}
+    >
+      {[1, 2, 3, 4].map((n, idx) => (
+        <React.Fragment key={n}>
+          <Text
+            style={{
+              fontSize: 9,
+              color: n <= step ? P.gold : P.goldHairline,
+              letterSpacing: 1,
+            }}
+          >
+            ◆
+          </Text>
+          {idx < 3 ? (
             <View
               style={{
-                flex: 1,
-                padding: 32,
-                borderRadius: 12,
-                backgroundColor: P.surface,
-                borderWidth: 1,
-                borderColor: P.goldHairline,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <ActivityIndicator color={P.gold} />
-              <Text
-                style={{
-                  marginTop: 10,
-                  color: P.creamMuted,
-                  fontFamily: P.fontSerif,
-                  fontSize: 13,
-                }}
-              >
-                Loading icon library…
-              </Text>
-            </View>
-          ) : (
-            <IconGrid
-              icons={pageIcons}
-              activeId={draft.iconId}
-              onPick={(id) =>
-                setDraft({ ...draft, iconId: id, iconDataUrl: null, visualMode: 'icon' })
-              }
-              hasMore={hasMore}
-              onEndReached={() => {
-                if (hasMore) setVisibleCount((n) => n + AWARDS_ICON_PAGE_SIZE)
+                width: 14,
+                height: 1,
+                backgroundColor: n < step ? P.gold : P.goldHairline,
               }}
             />
-          )}
-        </View>
-
-        {/* Submit row — pinned at the bottom of the screen so it never gets
-            pushed off-screen by the icon grid. */}
-        <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
-          {onDelete ? (
-            <Pressable
-              onPress={onDelete}
-              style={{
-                flex: 1,
-                paddingVertical: 14,
-                borderRadius: 10,
-                borderWidth: 1,
-                borderColor: P.red,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Text
-                style={{
-                  color: P.red,
-                  fontFamily: P.fontSerif,
-                  fontSize: 15,
-                  letterSpacing: 0.4,
-                }}
-              >
-                Delete
-              </Text>
-            </Pressable>
           ) : null}
-          <Pressable
-            onPress={onBack}
-            style={{
-              flex: 1,
-              paddingVertical: 14,
-              borderRadius: 10,
-              borderWidth: 1,
-              borderColor: P.goldHairline,
-              backgroundColor: 'transparent',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Text
-              style={{
-                color: P.creamMuted,
-                fontFamily: P.fontSerif,
-                fontSize: 15,
-                letterSpacing: 0.4,
-              }}
-            >
-              Cancel
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={onSubmit}
-            style={{
-              flex: 1,
-              borderRadius: 10,
-              alignItems: 'center',
-              justifyContent: 'center',
-              overflow: 'hidden',
-              shadowColor: P.gold,
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.55,
-              shadowRadius: 18,
-              elevation: 10,
-            }}
-          >
-            <LinearGradient
-              colors={[P.goldBright, P.gold, P.goldDeep]}
-              locations={[0, 0.5, 1]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-            />
-            <Text
-              style={{
-                color: '#1a140a',
-                fontFamily: P.fontSerif,
-                fontSize: 15,
-                fontWeight: '700',
-                letterSpacing: 0.4,
-                paddingVertical: 14,
-              }}
-            >
-              {isEdit ? 'Save' : 'Submit Nomination'}
-            </Text>
-          </Pressable>
-        </View>
-      </View>
+        </React.Fragment>
+      ))}
     </View>
   )
 }

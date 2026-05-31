@@ -1,4 +1,4 @@
-import { S, AWARDS_FALLBACK_SVG, AWARDS_ICON_PAGE_SIZE } from '../state.js';
+import { S, AWARDS_FALLBACK_SVG, AWARDS_ICON_PAGE_SIZE, AWARDS_DESCRIPTION_MAX } from '../state.js';
 import { esc, avatarHTML } from '../utils.js';
 
 // ============================================================
@@ -186,7 +186,8 @@ export function renderAwardDetail(aw){
         '<h2>'+esc(aw.title)+'</h2>'+
         '<p>'+esc(subjectLabel)+(aw.is_default?" · Default award":" · Custom award")+(finalized?" · Voting closed":"")+'</p>'+
       '</div>'+
-    '</div>';
+    '</div>'+
+    (aw.description?'<div class="awards-detail-citation">'+esc(aw.description)+'</div>':"");
   if(voted){
     html+='<div class="awards-section-label">Your Vote</div>'+
       '<div class="awards-your-vote-card">'+
@@ -230,50 +231,90 @@ export function renderCandidateAvatarBlock(c){
   }
   return '<div class="awards-candidate__avatar'+sq+'">'+esc((c.label||"?").charAt(0).toUpperCase())+'</div>';
 }
-export function renderAwardCreateScreen(){
-  var draft=S.awardCreateDraft||{title:"",subjectType:"performance",iconId:null,iconDataUrl:null};
-  var isEdit=S.awardScreen==="edit"&&!!S.awardEditingId;
-  var searchQ=S.awardIconSearch||"";
-  var filtered=awardsFilteredIcons(searchQ);
-  // Infinite-scroll: keep growing `awardIconVisibleCount` as the user scrolls.
-  // 0 means "first paint" — show the initial batch. Clamp to filtered length
-  // so a stale count from a previous (larger) filter doesn't overshoot.
-  var visibleCount=S.awardIconVisibleCount||AWARDS_ICON_PAGE_SIZE;
-  if(visibleCount>filtered.length)visibleCount=filtered.length;
-  if(visibleCount<AWARDS_ICON_PAGE_SIZE)visibleCount=Math.min(AWARDS_ICON_PAGE_SIZE,filtered.length);
-  var pageIcons=filtered.slice(0,visibleCount);
-  var hasMore=visibleCount<filtered.length;
-  // visualMode is the source of truth for which UI to show. Fall back to
-  // iconDataUrl presence for backwards-compat with legacy drafts.
+// ---------------------------------------------------------------------
+// renderAwardCreateScreen — 4-step Oscar-program wizard
+//   Step 1: Name
+//   Step 2: Description (with "Awarded to " typewriter on entry)
+//   Step 3: What it's for (subject_type)
+//   Step 4: Icon / photo
+// Each step is a small string-builder helper; the dispatcher composes
+// header + one step body + footer. All concatenation, no template literals
+// (per CLAUDE.md — companion JS hard rule).
+// ---------------------------------------------------------------------
+var WIZARD_STEP_META={
+  1:{title:"Name your award",caption:"What shall the world call this honor?"},
+  2:{title:"Describe the honor",caption:"A line in the program — the kind that gets read aloud."},
+  3:{title:"Choose its subject",caption:"Who or what will it celebrate?"},
+  4:{title:"Bestow it a face",caption:"Pick an icon or upload a photograph."}
+};
+var ROMAN_NUMERAL={1:"I",2:"II",3:"III",4:"IV"};
+
+function renderWizardHeader(step,isEdit){
+  var meta=WIZARD_STEP_META[step];
+  var eyebrow=isEdit?"Edit Your Nomination":"Step "+ROMAN_NUMERAL[step]+" of IV";
+  // Four-diamond step indicator. Filled = current/done, hollow = upcoming.
+  var dots="";
+  for(var i=1;i<=4;i++){
+    var filled=i<=step;
+    dots+='<span class="awards-step-dot'+(filled?" is-on":"")+'">◆</span>';
+    if(i<4){
+      dots+='<span class="awards-step-rule'+(i<step?" is-on":"")+'"></span>';
+    }
+  }
+  return '<div class="awards-wizard-header">'+
+    '<button class="awards-detail-back" id="awards-wizard-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>'+
+    '<div class="awards-wizard-header-center">'+
+      '<div class="awards-step-indicator">'+dots+'</div>'+
+      '<div class="awards-step-eyebrow">'+esc(eyebrow)+'</div>'+
+      '<div class="awards-step-rule-wide"></div>'+
+      '<h2 class="awards-step-title">'+esc(meta.title)+'</h2>'+
+      '<p class="awards-step-caption">'+esc(meta.caption)+'</p>'+
+    '</div>'+
+  '</div>';
+}
+
+function renderStep1Name(draft){
+  return '<div class="awards-field">'+
+    '<div class="awards-field-label">Award name</div>'+
+    '<input class="awards-text-input" id="awards-name-input" maxlength="40" placeholder="e.g. Most Dramatic Solo" value="'+esc(draft.title||"")+'" autofocus>'+
+  '</div>';
+}
+
+function renderStep2Description(draft){
+  var len=(draft.description||"").length;
+  return '<div class="awards-field">'+
+    '<div class="awards-field-label">The citation</div>'+
+    '<div class="awards-bracket-frame">'+
+      '<span class="awards-bracket awards-bracket--tl"></span>'+
+      '<span class="awards-bracket awards-bracket--tr"></span>'+
+      '<span class="awards-bracket awards-bracket--bl"></span>'+
+      '<span class="awards-bracket awards-bracket--br"></span>'+
+      '<textarea class="awards-text-area" id="awards-desc-input" maxlength="'+AWARDS_DESCRIPTION_MAX+'" rows="4" placeholder="Awarded to the…">'+esc(draft.description||"")+'</textarea>'+
+    '</div>'+
+    '<div class="awards-field-counter" id="awards-desc-counter">'+len+'/'+AWARDS_DESCRIPTION_MAX+'</div>'+
+  '</div>';
+}
+
+function renderStep3Subject(draft,isEdit){
+  return '<div class="awards-field">'+
+    '<div class="awards-field-label">What it honors</div>'+
+    '<div class="awards-segmented'+(isEdit?" awards-segmented--disabled":"")+'">'+
+      '<button data-subject="performance"'+(draft.subjectType==="performance"?' class="active"':"")+(isEdit?' disabled':"")+'>A performance</button>'+
+      '<button data-subject="singer"'+(draft.subjectType==="singer"?' class="active"':"")+(isEdit?' disabled':"")+'>A singer</button>'+
+      '<button data-subject="group"'+(draft.subjectType==="group"?' class="active"':"")+(isEdit?' disabled':"")+'>A duo/group</button>'+
+    '</div>'+
+    (isEdit?'<div class="awards-field-hint">The subject can\'t change once an award has been cast.</div>':"")+
+  '</div>';
+}
+
+function renderStep4Visual(draft,searchQ,pageIcons,hasMore){
   var usingPhoto=draft.visualMode?draft.visualMode==="photo":!!draft.iconDataUrl;
-  var html='<div class="awards-create-shell screen">'+
-    '<div class="awards-detail-header">'+
-      '<button class="awards-detail-back" id="awards-back-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>'+
-      '<div class="awards-detail-info">'+
-        '<h2>'+(isEdit?"Edit your award":"Create an award")+'</h2>'+
-        '<p>Make it memorable — everyone can vote on it</p>'+
-      '</div>'+
-    '</div>'+
-
-    '<div class="awards-field">'+
-      '<div class="awards-field-label">Award name</div>'+
-      '<input class="awards-text-input" id="awards-name-input" maxlength="40" placeholder="e.g. Most Dramatic Solo" value="'+esc(draft.title||"")+'">'+
-    '</div>'+
-
-    '<div class="awards-field">'+
-      '<div class="awards-segmented">'+
-        '<button data-subject="performance"'+(draft.subjectType==="performance"?' class="active"':"")+'>A performance</button>'+
-        '<button data-subject="singer"'+(draft.subjectType==="singer"?' class="active"':"")+'>A singer</button>'+
-        '<button data-subject="group"'+(draft.subjectType==="group"?' class="active"':"")+'>A duo/group</button>'+
-      '</div>'+
-    '</div>'+
-
-    '<div class="awards-field awards-field--visual">'+
-      '<div class="awards-visual-toggle">'+
-        '<button data-visual="icon"'+(usingPhoto?"":' class="active"')+'>Pick an icon</button>'+
-        '<span class="awards-or">OR</span>'+
-        '<button data-visual="photo"'+(usingPhoto?' class="active"':"")+'>Upload a photo</button>'+
-      '</div>';
+  var html='<div class="awards-field awards-field--visual">'+
+    '<div class="awards-visual-toggle">'+
+      '<button data-visual="icon"'+(usingPhoto?"":' class="active"')+'>Pick an icon</button>'+
+      '<span class="awards-or">OR</span>'+
+      '<button data-visual="photo"'+(usingPhoto?' class="active"':"")+'>Upload a photo</button>'+
+    '</div>';
   if(usingPhoto){
     html+='<label class="awards-photo-upload" id="awards-photo-upload">'+
       (draft.iconDataUrl?'<img src="'+esc(draft.iconDataUrl)+'" alt="">':'<svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>')+
@@ -285,7 +326,7 @@ export function renderAwardCreateScreen(){
     html+='<div class="awards-icon-grid" id="awards-icon-grid">';
     if(pageIcons.length===0){
       html+='<div style="grid-column:1/-1;padding:24px;text-align:center;color:var(--white-faint);font-size:13px">No icons match. Try a different word.</div>';
-    } else {
+    }else{
       for(var i=0;i<pageIcons.length;i++){
         var ic=pageIcons[i];
         html+='<button data-icon-id="'+esc(ic.id)+'"'+(draft.iconId===ic.id?' class="active"':"")+' title="'+esc(ic.label)+'">'+awardsPickerThumb(ic)+'</button>';
@@ -299,16 +340,52 @@ export function renderAwardCreateScreen(){
     }
     html+='</div>';
   }
-  html+='</div>'+
-    '<div class="awards-submit-row">';
-  if(isEdit){
+  html+='</div>';
+  return html;
+}
+
+function renderWizardFooter(step,isEdit){
+  var backLabel=step===1?"Cancel":"Back";
+  var continueLabel=step===4?(isEdit?"Save":"Submit Nomination"):"Continue";
+  var html='<div class="awards-submit-row">';
+  if(step===4&&isEdit){
     html+='<button class="awards-btn awards-btn--danger" id="awards-delete-btn">Delete</button>';
   }
-  html+='<button class="awards-btn" id="awards-cancel-btn">Cancel</button>'+
-    '<button class="awards-btn awards-btn--primary" id="awards-submit-btn">'+(isEdit?"Save":"Create Award")+'</button>'+
-    '</div>'+
-  '</div>';
+  html+='<button class="awards-btn" id="awards-wizard-cancel">'+backLabel+'</button>'+
+    '<button class="awards-btn awards-btn--primary" id="awards-wizard-continue" data-step="'+step+'">'+continueLabel+'</button>'+
+    '</div>';
   return html;
+}
+
+export function renderAwardCreateScreen(){
+  var draft=S.awardCreateDraft||{title:"",description:"",subjectType:"performance",iconId:null,iconDataUrl:null};
+  var isEdit=S.awardScreen==="edit"&&!!S.awardEditingId;
+  var step=S.awardCreateStep||1;
+  if(step<1)step=1;
+  if(step>4)step=4;
+  var bodyHtml="";
+  if(step===1){
+    bodyHtml=renderStep1Name(draft);
+  }else if(step===2){
+    bodyHtml=renderStep2Description(draft);
+  }else if(step===3){
+    bodyHtml=renderStep3Subject(draft,isEdit);
+  }else{
+    // Step 4 needs the icon-picker preload computations.
+    var searchQ=S.awardIconSearch||"";
+    var filtered=awardsFilteredIcons(searchQ);
+    var visibleCount=S.awardIconVisibleCount||AWARDS_ICON_PAGE_SIZE;
+    if(visibleCount>filtered.length)visibleCount=filtered.length;
+    if(visibleCount<AWARDS_ICON_PAGE_SIZE)visibleCount=Math.min(AWARDS_ICON_PAGE_SIZE,filtered.length);
+    var pageIcons=filtered.slice(0,visibleCount);
+    var hasMore=visibleCount<filtered.length;
+    bodyHtml=renderStep4Visual(draft,searchQ,pageIcons,hasMore);
+  }
+  return '<div class="awards-create-shell screen">'+
+    renderWizardHeader(step,isEdit)+
+    '<div class="awards-wizard-body" data-wizard-step="'+step+'">'+bodyHtml+'</div>'+
+    renderWizardFooter(step,isEdit)+
+  '</div>';
 }
 export function renderVoteConfirmOverlay(){
   if(!S.awardVoteConfirm)return"";

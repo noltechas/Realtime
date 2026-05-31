@@ -257,6 +257,17 @@ export function AdminAwardsTab() {
                                 )}
                             </div>
 
+                            {award.description ? (
+                                <div style={{
+                                    fontSize: 12, lineHeight: '17px', color: theme.faint, fontFamily: theme.fontBody,
+                                    fontStyle: 'italic',
+                                    borderLeft: '2px solid ' + theme.creamDark,
+                                    paddingLeft: 10,
+                                }}>
+                                    {award.description}
+                                </div>
+                            ) : null}
+
                             {tally.byCandidate.length === 0 ? (
                                 <div style={{ fontSize: 12, color: theme.faint, padding: '8px 0' }}>
                                     {candidates.length === 0

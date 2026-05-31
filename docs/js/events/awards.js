@@ -1,9 +1,57 @@
-import { S, AWARDS_ICON_PAGE_SIZE } from '../state.js';
+import { S, AWARDS_ICON_PAGE_SIZE, AWARDS_AWARDED_TO_PREFIX, AWARDS_DESCRIPTION_MAX } from '../state.js';
 import { resizeImage, esc } from '../utils.js';
 import { render } from '../render/main.js';
 import { shuffleAwardIcons, buildAwardCandidates, awardCandidateBanned, awardOwnVote, matchCandidateByVote, awardsFilteredIcons, awardsPickerThumb } from '../render/awards.js';
 import { ensureAwardsManifest } from '../awards-manifest.js';
 import { castAwardVote, createCustomAward, updateMyAward, deleteMyAward, loadAwards } from '../supabase.js';
+
+// Mirror of descriptionMeetsMinimum() in mobile/AwardsScreen.tsx — strips the
+// "Awarded to " prefix before measuring so leaving the typewritered text alone
+// doesn't pass validation.
+function descriptionMeetsMinimum(value){
+  var v=value||"";
+  var body=v.indexOf(AWARDS_AWARDED_TO_PREFIX)===0?v.slice(AWARDS_AWARDED_TO_PREFIX.length):v;
+  return body.replace(/^\s+|\s+$/g,"").length>=3;
+}
+
+// Tracks the currently-running typewriter interval so we don't double-start
+// on render() reentry or leak intervals if the user races back out of step 2.
+var awardDescTypewriterInterval=null;
+function stopDescriptionTypewriter(){
+  if(awardDescTypewriterInterval){
+    clearInterval(awardDescTypewriterInterval);
+    awardDescTypewriterInterval=null;
+  }
+}
+function maybeStartDescriptionTypewriter(){
+  stopDescriptionTypewriter();
+  if(S.awardCreateStep!==2)return;
+  if(!S.awardCreateDraft)return;
+  if(S.awardCreateDraft.description)return;
+  var ta=document.getElementById("awards-desc-input");
+  if(!ta)return;
+  try{ta.focus();}catch(e){/* iOS Safari can refuse — non-fatal */}
+  var text=AWARDS_AWARDED_TO_PREFIX;
+  var i=0;
+  // Initial delay lets the step body finish its CSS slide-in.
+  setTimeout(function(){
+    awardDescTypewriterInterval=setInterval(function(){
+      // Cancel if the textarea has been unmounted (user navigated away).
+      if(!document.body.contains(ta)){stopDescriptionTypewriter();return;}
+      // Cancel if the user beat us to it and started typing — never overwrite.
+      if(S.awardCreateDraft&&S.awardCreateDraft.description.length>text.length){
+        stopDescriptionTypewriter();
+        return;
+      }
+      if(i>=text.length){stopDescriptionTypewriter();return;}
+      i+=1;
+      if(S.awardCreateDraft)S.awardCreateDraft.description=text.slice(0,i);
+      ta.value=text.slice(0,i);
+      var c=document.getElementById("awards-desc-counter");
+      if(c)c.textContent=ta.value.length+"/"+AWARDS_DESCRIPTION_MAX;
+    },65);
+  },280);
+}
 
 // Holds the most recent infinite-scroll sentinel observer for the icon
 // picker, so we can disconnect it before binding a new one on re-render.
@@ -82,14 +130,17 @@ export function bindAwardsEvents(){
       if(existing){
         S.awardScreen="edit";S.awardEditingId=existing.id;
         S.awardCreateDraft={
-          title:existing.title,subjectType:existing.subject_type,
+          title:existing.title,
+          description:existing.description||"",
+          subjectType:existing.subject_type,
           iconId:existing.icon_id||null,iconDataUrl:existing.icon_data_url||null,
           visualMode: existing.icon_data_url ? "photo" : "icon"
         };
       } else {
         S.awardScreen="create";S.awardEditingId=null;
-        S.awardCreateDraft={title:"",subjectType:"performance",iconId:null,iconDataUrl:null,visualMode:"icon"};
+        S.awardCreateDraft={title:"",description:"",subjectType:"performance",iconId:null,iconDataUrl:null,visualMode:"icon"};
       }
+      S.awardCreateStep=1;
       S.awardIconSearch="";S.awardIconVisibleCount=0;
       // Make sure the icon catalog is loaded before shuffleAwardIcons runs —
       // it reads window.AWARDS_ICONS. If it isn't here yet (user hasn't been
@@ -153,8 +204,25 @@ export function bindAwardsEvents(){
   // Create / edit form
   var ni=document.getElementById("awards-name-input");
   if(ni)ni.addEventListener("input",function(){if(S.awardCreateDraft)S.awardCreateDraft.title=ni.value;});
+
+  // Description textarea — mutate state in place, never call render() on
+  // input (would steal focus + cursor position from the user mid-type).
+  // Counter updates as a side effect from the keystroke handler.
+  var di=document.getElementById("awards-desc-input");
+  if(di){
+    di.addEventListener("input",function(){
+      if(!S.awardCreateDraft)return;
+      S.awardCreateDraft.description=di.value;
+      // Stop the typewriter if the user starts editing manually.
+      stopDescriptionTypewriter();
+      var c=document.getElementById("awards-desc-counter");
+      if(c)c.textContent=di.value.length+"/"+AWARDS_DESCRIPTION_MAX;
+    });
+  }
+
   document.querySelectorAll("[data-subject]").forEach(function(b){
     b.addEventListener("click",function(){
+      if(b.disabled)return;
       if(S.awardCreateDraft){S.awardCreateDraft.subjectType=b.getAttribute("data-subject");render();}
     });
   });
@@ -210,30 +278,67 @@ export function bindAwardsEvents(){
       }catch(e){console.error("[Awards] photo upload failed:",e);}
     });
   }
-  var cancelBtn=document.getElementById("awards-cancel-btn");
-  if(cancelBtn)cancelBtn.addEventListener("click",function(){
-    S.awardScreen="list";S.awardCreateDraft=null;S.awardEditingId=null;render();
-  });
-  var submitBtn=document.getElementById("awards-submit-btn");
-  if(submitBtn)submitBtn.addEventListener("click",async function(){
+  // Wizard navigation. The header "back" arrow + footer "Cancel/Back" button
+  // both share onStepBack semantics: step 1 exits, else decrement.
+  function exitWizard(){
+    stopDescriptionTypewriter();
+    S.awardScreen="list";S.awardCreateDraft=null;S.awardEditingId=null;S.awardCreateStep=1;
+    render();
+  }
+  function onStepBack(){
+    if(!S.awardCreateStep||S.awardCreateStep<=1){exitWizard();return;}
+    stopDescriptionTypewriter();
+    S.awardCreateStep=S.awardCreateStep-1;
+    render();
+  }
+  var wizBack=document.getElementById("awards-wizard-back");
+  if(wizBack)wizBack.addEventListener("click",onStepBack);
+  var wizCancel=document.getElementById("awards-wizard-cancel");
+  if(wizCancel)wizCancel.addEventListener("click",onStepBack);
+
+  var wizContinue=document.getElementById("awards-wizard-continue");
+  if(wizContinue)wizContinue.addEventListener("click",async function(){
     var d=S.awardCreateDraft;if(!d)return;
-    var title=(d.title||"").trim();
-    if(!title){alert("Give your award a name.");return;}
-    if(!d.iconId&&!d.iconDataUrl){alert("Pick an icon or upload a photo.");return;}
-    submitBtn.disabled=true;
-    if(S.awardScreen==="edit"&&S.awardEditingId){
-      await updateMyAward(S.awardEditingId,{title:title,iconId:d.iconId,iconDataUrl:d.iconDataUrl});
-    } else {
-      await createCustomAward({title:title,subjectType:d.subjectType,iconId:d.iconId,iconDataUrl:d.iconDataUrl});
+    var step=S.awardCreateStep||1;
+    // Per-step validation (mirrors descriptionMeetsMinimum() rules from the
+    // mobile wizard — see plans/we-need-to-add-nested-curry.md §6).
+    if(step===1){
+      var title=(d.title||"").trim();
+      if(title.length<2){alert("Give your award a name (2+ characters).");return;}
+    }else if(step===2){
+      if(!descriptionMeetsMinimum(d.description||"")){alert("Write a sentence describing what this honor recognizes.");return;}
+    }else if(step===4){
+      if(!d.iconId&&!d.iconDataUrl){alert("Pick an icon or upload a photo.");return;}
     }
-    S.awardScreen="list";S.awardCreateDraft=null;S.awardEditingId=null;
+    stopDescriptionTypewriter();
+    if(step<4){
+      S.awardCreateStep=step+1;
+      render();
+      return;
+    }
+    // Step 4 → submit
+    wizContinue.disabled=true;
+    var title2=(d.title||"").trim();
+    var description=(d.description||"").trim();
+    if(S.awardScreen==="edit"&&S.awardEditingId){
+      await updateMyAward(S.awardEditingId,{title:title2,description:description,iconId:d.iconId,iconDataUrl:d.iconDataUrl});
+    }else{
+      await createCustomAward({title:title2,description:description,subjectType:d.subjectType,iconId:d.iconId,iconDataUrl:d.iconDataUrl});
+    }
+    exitWizard();
     await loadAwards();render();
   });
+
   var deleteBtn=document.getElementById("awards-delete-btn");
   if(deleteBtn)deleteBtn.addEventListener("click",async function(){
     if(!confirm("Delete this award?"))return;
     if(S.awardEditingId)await deleteMyAward(S.awardEditingId);
-    S.awardScreen="list";S.awardCreateDraft=null;S.awardEditingId=null;
+    exitWizard();
     await loadAwards();render();
   });
+
+  // Kick off the step-2 typewriter when the screen has freshly mounted with
+  // step=2 and a fresh draft. Safe to call every bind pass — it no-ops when
+  // the description is already populated.
+  maybeStartDescriptionTypewriter();
 }

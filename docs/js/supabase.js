@@ -335,7 +335,11 @@ export async function loadAwards(){
   if(!S.sessionId)return;
   // Fetch awards, own votes, played history, and guest list in parallel.
   var awP=sb.from("karaoke_awards").select("*").eq("session_id",S.sessionId).order("is_default",{ascending:false}).order("created_at",{ascending:true});
-  var hP=sb.from("karaoke_queue").select("id,track_id,track_name,track_artist,track_art_url,singer_configs,created_at").eq("session_id",S.sessionId).eq("status","played").order("created_at",{ascending:true});
+  // RPC over a direct SELECT so the server strips the base64 profilePicture
+  // from each singer_configs entry — see karaoke_played_lean migration for
+  // the rationale. Without this, busy sessions ship 10+ MB of dead photo
+  // data to every Awards-tab load.
+  var hP=sb.rpc("karaoke_played_lean",{p_session_id:S.sessionId});
   var gP=sb.from("karaoke_guests").select("id,name,profile_picture").eq("session_id",S.sessionId);
   var rP=sb.from("karaoke_award_results").select("*").eq("session_id",S.sessionId);
   var awR=await awP, hR=await hP, gR=await gP, rR=await rP;
@@ -369,7 +373,7 @@ export async function castAwardVote(awardId,subject){
 export async function createCustomAward(draft){
   if(!S.guestId)return;
   var row={
-    session_id:S.sessionId,slug:null,title:draft.title,subject_type:draft.subjectType,
+    session_id:S.sessionId,slug:null,title:draft.title,description:draft.description||"",subject_type:draft.subjectType,
     icon_id:draft.iconId||null,icon_data_url:draft.iconDataUrl||null,
     is_default:false,created_by_guest_id:S.guestId
   };
@@ -386,6 +390,7 @@ export async function createCustomAward(draft){
 export async function updateMyAward(awardId,fields){
   var upd={updated_at:new Date().toISOString()};
   if(fields.title!==undefined)upd.title=fields.title;
+  if(fields.description!==undefined)upd.description=fields.description;
   if(fields.iconId!==undefined)upd.icon_id=fields.iconId;
   if(fields.iconDataUrl!==undefined)upd.icon_data_url=fields.iconDataUrl;
   // Mutually exclusive: clear the other when one is set.

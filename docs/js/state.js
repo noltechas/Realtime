@@ -26,7 +26,7 @@ export const NC=[
 {c:"#e11d48",g:"rgba(225,29,72,0.3)"}
 ];
 export const S={screen:"loading",sessionCode:null,sessionId:null,sessionName:null,guestId:null,guestName:"",profilePicture:null,defaultColor:null,guests:[],catalog:[],searchQuery:"",selectedGenre:"All Songs",selectedTrack:null,singers:[],wizardStep:2,singerPickerOpen:false,customSingerName:"",queue:[],nowPlaying:null,errorMessage:"",theme_name:"neo-brutal",stage_theme:null,hide_song:false,customEmoji:null,emojiPickerOpen:false,textInputOpen:false,memePickerOpen:false,memeSearchQuery:"",memeGifs:[],memeLoading:false,isPlaying:false,nowPlayingSingerConfigs:null,matchedSinger:null,nowPlayingStageTheme:null,joining:false,joinName:"",addingToQueue:false,vocalFxEnabled:true,autotuneEnabled:true,skipConfirmOpen:false,prefersSanitize:true,spotifyToken:null,requestQuery:"",requestResults:[],requestSearching:false,requestSubmittingId:null,requestConfirm:null,
-awards:[],awardVotes:{},awardResults:[],awardActiveId:null,awardScreen:"list",awardCreateDraft:null,awardEditingId:null,awardIconSearch:"",awardIconVisibleCount:0,awardIconShuffled:[],awardVoteConfirm:null,awardsRevealStep:null,awardsHistory:[],awardsGuestsCache:[],
+awards:[],awardVotes:{},awardResults:[],awardActiveId:null,awardScreen:"list",awardCreateDraft:null,awardCreateStep:1,awardEditingId:null,awardIconSearch:"",awardIconVisibleCount:0,awardIconShuffled:[],awardVoteConfirm:null,awardsRevealStep:null,awardsHistory:[],awardsGuestsCache:[],
 songsVisibleCount:30,editQueueRowId:null};
 
 export const EMOJI_LIST=[
@@ -47,6 +47,11 @@ export const GENRE_ORDER=["Hip Hop","R&B","Pop","Rock","Indie","Electronic","Fol
 export const AWARDS_FALLBACK_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 9a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4H6Zm-3 0V3h2v6a4 4 0 0 0 4 4h6a4 4 0 0 0 4-4V3h2v6a6 6 0 0 1-6 6h-1v3h3v2H8v-2h3v-3h-1a6 6 0 0 1-6-6Z"/></svg>';
 
 export const AWARDS_ICON_PAGE_SIZE=60;
+
+// Citation prefix typewritered onto the description field when step 2 mounts.
+// Must stay in sync with mobile (AWARDED_TO_PREFIX in AwardsScreen.tsx).
+export const AWARDS_AWARDED_TO_PREFIX="Awarded to ";
+export const AWARDS_DESCRIPTION_MAX=180;
 
 // Shared caches written by supabase.js, read by utils.js and render/*.
 // Object-wrap so reassignment crosses module boundaries.

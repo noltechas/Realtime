@@ -441,6 +441,7 @@ export interface AwardRow {
     sessionId: string
     slug: string | null
     title: string
+    description: string
     subjectType: 'performance' | 'singer' | 'group'
     iconId: string | null
     iconDataUrl: string | null
@@ -467,6 +468,7 @@ function mapAward(r: any): AwardRow {
         sessionId: r.session_id,
         slug: r.slug,
         title: r.title,
+        description: r.description ?? '',
         subjectType: r.subject_type,
         iconId: r.icon_id,
         iconDataUrl: r.icon_data_url,
@@ -490,16 +492,27 @@ function mapVote(r: any): AwardVoteRow {
     }
 }
 
+// Curated Oscar-style descriptions for the three default categories. These
+// must stay in sync with the SQL migration `add_description_to_karaoke_awards`
+// — same strings, single source of truth here for client-side seeding.
+export const DEFAULT_AWARD_DESCRIPTION_BEST_PERFORMANCE =
+    'Awarded to the performance that brought the house to its feet — the moment everyone will still be talking about on the drive home.'
+export const DEFAULT_AWARD_DESCRIPTION_SINGER_OF_THE_NIGHT =
+    'Awarded to the voice that owned the room tonight — pitch, presence, and a stage they refused to share.'
+export const DEFAULT_AWARD_DESCRIPTION_BEST_DUO_GROUP =
+    'Awarded to the duo or group who sang as one — every harmony locked, every cue caught, every glance a rehearsal we missed.'
+
 // Stable seed list (must match DEFAULT_AWARD_ICONS keys in icons/manifest.ts).
 const DEFAULT_AWARD_SEEDS: Array<{
     slug: string
     title: string
+    description: string
     subject_type: 'performance' | 'singer' | 'group'
     icon_id: string
 }> = [
-    { slug: 'best-performance', title: 'Best Performance', subject_type: 'performance', icon_id: 'game-icons__trophy-cup' },
-    { slug: 'singer-of-the-night', title: 'Singer of the Night', subject_type: 'singer', icon_id: 'game-icons__microphone' },
-    { slug: 'best-duo-group', title: 'Best Duo / Group', subject_type: 'group', icon_id: 'game-icons__high-five' }
+    { slug: 'best-performance', title: 'Best Performance', description: DEFAULT_AWARD_DESCRIPTION_BEST_PERFORMANCE, subject_type: 'performance', icon_id: 'game-icons__trophy-cup' },
+    { slug: 'singer-of-the-night', title: 'Singer of the Night', description: DEFAULT_AWARD_DESCRIPTION_SINGER_OF_THE_NIGHT, subject_type: 'singer', icon_id: 'game-icons__microphone' },
+    { slug: 'best-duo-group', title: 'Best Duo / Group', description: DEFAULT_AWARD_DESCRIPTION_BEST_DUO_GROUP, subject_type: 'group', icon_id: 'game-icons__high-five' }
 ]
 
 export async function ensureDefaultAwards(sessionId: string): Promise<void> {
@@ -514,6 +527,7 @@ export async function ensureDefaultAwards(sessionId: string): Promise<void> {
         session_id: sessionId,
         slug: s.slug,
         title: s.title,
+        description: s.description,
         subject_type: s.subject_type,
         icon_id: s.icon_id,
         is_default: true
@@ -559,6 +573,7 @@ export async function listAwardVotes(sessionId: string): Promise<AwardVoteRow[]>
 export interface CreateCustomAwardInput {
     sessionId: string
     title: string
+    description: string
     subjectType: 'performance' | 'singer' | 'group'
     iconId: string | null
     iconDataUrl: string | null
@@ -570,6 +585,7 @@ export async function createCustomAward(input: CreateCustomAwardInput): Promise<
         session_id: input.sessionId,
         slug: null,
         title: input.title,
+        description: input.description,
         subject_type: input.subjectType,
         icon_id: input.iconId,
         icon_data_url: input.iconDataUrl,
@@ -585,9 +601,10 @@ export async function createCustomAward(input: CreateCustomAwardInput): Promise<
     return { id: data.id }
 }
 
-export async function updateAward(awardId: string, fields: { title?: string; iconId?: string | null; iconDataUrl?: string | null }): Promise<{ error?: string }> {
+export async function updateAward(awardId: string, fields: { title?: string; description?: string; iconId?: string | null; iconDataUrl?: string | null }): Promise<{ error?: string }> {
     const upd: any = { updated_at: new Date().toISOString() }
     if (fields.title !== undefined) upd.title = fields.title
+    if (fields.description !== undefined) upd.description = fields.description
     if (fields.iconId !== undefined) upd.icon_id = fields.iconId
     if (fields.iconDataUrl !== undefined) upd.icon_data_url = fields.iconDataUrl
     const { error } = await supabase.from('karaoke_awards').update(upd).eq('id', awardId)

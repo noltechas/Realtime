@@ -366,7 +366,11 @@ function scoreStyle(font: string): TextStyle {
     fontSize: 16,
     minWidth: 28,
     textAlign: 'center',
-    lineHeight: 18,
+    // Handwritten display fonts have tall ascenders; lineHeight 18 used to
+    // clip the top of the digit. 24 gives the glyph room without changing
+    // the visual baseline meaningfully.
+    lineHeight: 24,
+    paddingTop: 2,
   }
 }
 
