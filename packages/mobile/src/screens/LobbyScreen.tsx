@@ -311,6 +311,7 @@ export function LobbyScreen() {
             <Text
               style={{
                 fontFamily: tokens.fontDisplay,
+                textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
                 fontWeight: '900',
                 fontSize: 34,
                 lineHeight: 38,
@@ -468,6 +469,7 @@ function GuestAvatar({ guest }: { guest: KaraokeGuestRow }) {
           <Text
             style={{
               fontFamily: tokens.fontDisplay,
+              textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
               fontWeight: '800',
               fontSize: 18,
               color: tokens.black,

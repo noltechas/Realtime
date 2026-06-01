@@ -6,6 +6,7 @@ import { createClient } from '@supabase/supabase-js'
 import {
     Award,
     AwardCandidate,
+    AwardStanding,
     AwardSubjectType,
     AwardTally,
     AwardVote,
@@ -152,37 +153,86 @@ export function canVote(voter: { guestId: string; name: string } | null, candida
 
 // --- Tally computation -----------------------------------------------------
 
+// Points per ranked position: 1st = 3, 2nd = 2, 3rd = 1.
+export function pointsForRank(rank: number): number {
+    return rank === 1 ? 3 : rank === 2 ? 2 : rank === 3 ? 1 : 0
+}
+
 export function computeTally(award: Award, votes: AwardVote[], candidates: AwardCandidate[]): AwardTally {
     const candidatesByKey = new Map<string, AwardCandidate>()
     for (const c of candidates) candidatesByKey.set(c.subjectKey, c)
-    const counts = new Map<string, { candidate: AwardCandidate | null; count: number }>()
-    for (const v of votes) {
-        const key = (award.subjectType === 'singer'
-            ? (v.subjectGuestId || (v.subjectQueueRowId ? '' : ''))
-            : (v.subjectQueueRowId || ''))
-        if (!key) continue
-        const existing = counts.get(key)
-        if (existing) {
-            existing.count += 1
-        } else {
-            // For singer awards, the key is a guest id. We also store the
-            // synthetic "name:NAME" form — match either.
-            const candidate = candidatesByKey.get(key) || candidatesByKey.get('name:' + key) || null
-            counts.set(key, { candidate, count: 1 })
+    const resolveCandidate = (key: string): AwardCandidate | null =>
+        candidatesByKey.get(key) || candidatesByKey.get('name:' + key) || null
+
+    interface Acc {
+        subjectKey: string
+        candidate: AwardCandidate | null
+        score: number
+        adjustment: number
+        firstPlaceVotes: number
+        secondPlaceVotes: number
+        thirdPlaceVotes: number
+        totalVotes: number
+    }
+    const acc = new Map<string, Acc>()
+    const voters = new Set<string>()
+    const ensure = (key: string): Acc => {
+        let a = acc.get(key)
+        if (!a) {
+            a = { subjectKey: key, candidate: resolveCandidate(key), score: 0, adjustment: 0, firstPlaceVotes: 0, secondPlaceVotes: 0, thirdPlaceVotes: 0, totalVotes: 0 }
+            acc.set(key, a)
         }
+        return a
     }
-    const byCandidate = Array.from(counts.values()).sort((a, b) => b.count - a.count)
-    const top = byCandidate[0]?.count ?? 0
-    const winners = top > 0
-        ? byCandidate.filter(e => e.count === top).map(e => e.candidate).filter((c): c is AwardCandidate => !!c)
-        : []
-    return {
-        awardId: award.id,
-        votes,
-        byCandidate,
-        winners,
-        totalVotes: votes.length
+
+    for (const v of votes) {
+        const key = award.subjectType === 'singer' ? (v.subjectGuestId || '') : (v.subjectQueueRowId || '')
+        if (!key) continue
+        voters.add(v.voterGuestId)
+        const a = ensure(key)
+        const rank = v.rank || 1
+        a.score += pointsForRank(rank)
+        a.totalVotes += 1
+        if (rank === 1) a.firstPlaceVotes += 1
+        else if (rank === 2) a.secondPlaceVotes += 1
+        else if (rank === 3) a.thirdPlaceVotes += 1
     }
+
+    // Apply the admin's manual per-candidate score adjustments.
+    const adj = award.scoreAdjustments || {}
+    for (const key of Object.keys(adj)) {
+        const delta = Math.round(adj[key]) || 0
+        if (!delta) continue
+        const a = ensure(key)
+        a.adjustment += delta
+        a.score += delta
+    }
+
+    const standings: AwardStanding[] = Array.from(acc.values()).map(a => ({
+        candidate: a.candidate,
+        subjectKey: a.subjectKey,
+        score: a.score,
+        adjustment: a.adjustment,
+        firstPlaceVotes: a.firstPlaceVotes,
+        secondPlaceVotes: a.secondPlaceVotes,
+        thirdPlaceVotes: a.thirdPlaceVotes,
+        totalVotes: a.totalVotes
+    }))
+    // Best-first. Ties broken by 1st-place votes, then 2nd, then 3rd, then label.
+    standings.sort((x, y) =>
+        y.score - x.score ||
+        y.firstPlaceVotes - x.firstPlaceVotes ||
+        y.secondPlaceVotes - x.secondPlaceVotes ||
+        y.thirdPlaceVotes - x.thirdPlaceVotes ||
+        (x.candidate?.label || '').localeCompare(y.candidate?.label || '')
+    )
+
+    // Finalists / winner only consider resolvable candidates with positive score.
+    const ranked = standings.filter(s => s.score > 0 && s.candidate)
+    const finalists = ranked.slice(0, 3)
+    const winner = ranked[0] || null
+
+    return { awardId: award.id, votes, standings, finalists, winner, totalBallots: voters.size }
 }
 
 // --- Vote fetching (admin-only path) ---------------------------------------
@@ -203,9 +253,30 @@ export async function fetchVotesForAwards(awardIds: string[]): Promise<AwardVote
         voterGuestId: r.voter_guest_id,
         subjectQueueRowId: r.subject_queue_row_id,
         subjectGuestId: r.subject_guest_id,
+        rank: r.rank ?? 1,
         createdAt: r.created_at,
         updatedAt: r.updated_at
     }))
+}
+
+// Songs a given singer finalist performed, newest last. Used by the stage to
+// scroll a singer's set during their finalist spotlight.
+export function buildFinalistSongs(
+    history: PlayedPerformance[],
+    candidate: AwardCandidate
+): Array<{ trackName: string; trackArtist: string; artUrl: string | null }> {
+    const isNameKey = candidate.subjectKey.startsWith('name:')
+    const gid = isNameKey ? null : candidate.subjectKey
+    const name = candidate.label
+    const out: Array<{ trackName: string; trackArtist: string; artUrl: string | null }> = []
+    const seen = new Set<string>()
+    for (const p of history) {
+        const inIt = p.singers.some(s => (gid && s.guestId === gid) || (!!s.name && s.name === name))
+        if (!inIt || seen.has(p.queueRowId)) continue
+        seen.add(p.queueRowId)
+        out.push({ trackName: p.trackName, trackArtist: p.trackArtist, artUrl: p.trackArtUrl })
+    }
+    return out
 }
 
 export async function fetchOwnVotesForGuest(guestId: string, awardIds: string[]): Promise<Record<string, AwardVote>> {
@@ -227,6 +298,7 @@ export async function fetchOwnVotesForGuest(guestId: string, awardIds: string[])
             voterGuestId: r.voter_guest_id,
             subjectQueueRowId: r.subject_queue_row_id,
             subjectGuestId: r.subject_guest_id,
+            rank: r.rank ?? 1,
             createdAt: r.created_at,
             updatedAt: r.updated_at
         }
@@ -288,7 +360,8 @@ export function buildPersistedResults(opts: {
     sessionCode: string
 }) {
     const { award, tally, sessionId, sessionCode } = opts
-    if (tally.winners.length === 0) {
+    const winner = tally.winner
+    if (!winner || !winner.candidate) {
         return [{
             awardId: award.id,
             sessionId,
@@ -301,49 +374,69 @@ export function buildPersistedResults(opts: {
             voteCount: 0
         }]
     }
-    const voteCount = tally.byCandidate[0]?.count ?? 0
-    return tally.winners.map(w => {
-        // The persisted result is an audit trail (the live reveal step carries
-        // resolved faces). Keep it lean: reference singers by id/name only — no
-        // base64 — and don't persist a base64 winner avatar. Singer winners
-        // stay resolvable from subjectKey (the guestId); song-subject winners
-        // keep their track-art URL.
-        const leanSingers = w.singers
-            ? w.singers.map(s => ({ name: s.name, color: s.color ?? null, guestId: (s as { guestId?: string | null }).guestId ?? null }))
-            : null
-        const avatarIsDataUrl = typeof w.avatarUrl === 'string' && w.avatarUrl.startsWith('data:')
-        return {
-            awardId: award.id,
-            sessionId,
-            sessionCode,
-            rank: 1,
-            winnerLabel: w.label,
-            winnerSubtitle: w.subtitle ?? null,
-            winnerAvatarUrl: avatarIsDataUrl ? null : (w.avatarUrl ?? null),
-            winnerMeta: {
-                subjectType: w.subjectType,
-                subjectKey: w.subjectKey,
-                singers: leanSingers,
-                trackName: w.trackName || null,
-                trackArtist: w.trackArtist || null
-            },
-            voteCount
-        }
-    })
+    const w = winner.candidate
+    // The persisted result is an audit trail (the live reveal step carries
+    // resolved faces). Keep it lean: reference singers by id/name only — no
+    // base64 — and don't persist a base64 winner avatar. Singer winners
+    // stay resolvable from subjectKey (the guestId); song-subject winners
+    // keep their track-art URL.
+    const leanSingers = w.singers
+        ? w.singers.map(s => ({ name: s.name, color: s.color ?? null, guestId: (s as { guestId?: string | null }).guestId ?? null }))
+        : null
+    const avatarIsDataUrl = typeof w.avatarUrl === 'string' && w.avatarUrl.startsWith('data:')
+    return [{
+        awardId: award.id,
+        sessionId,
+        sessionCode,
+        rank: 1,
+        winnerLabel: w.label,
+        winnerSubtitle: w.subtitle ?? null,
+        winnerAvatarUrl: avatarIsDataUrl ? null : (w.avatarUrl ?? null),
+        winnerMeta: {
+            subjectType: w.subjectType,
+            subjectKey: w.subjectKey,
+            singers: leanSingers,
+            trackName: w.trackName || null,
+            trackArtist: w.trackArtist || null,
+            score: winner.score,
+            firstPlaceVotes: winner.firstPlaceVotes,
+            totalVotes: winner.totalVotes
+        },
+        voteCount: winner.score
+    }]
 }
 
 // --- Reveal sequencer ------------------------------------------------------
 // Drives the broadcast-step timeline. The caller owns cancellation.
 
+// One finalist with the data the stage needs to spotlight them.
+export interface RevealFinalistItem {
+    candidate: AwardCandidate
+    score: number
+    firstPlaceVotes: number
+    totalVotes: number
+    songs?: Array<{ trackName: string; trackArtist: string; artUrl: string | null }>
+}
+
 export interface RevealSequenceItem {
     award: Award
-    candidates: AwardCandidate[]
-    winners: AwardCandidate[]
-    voteCount: number
+    finalists: RevealFinalistItem[]   // in standings (best-first) order
+    winnerKey: string | null
+    winnerStats: { score: number; firstPlaceVotes: number; totalVotes: number } | null
 }
 
 export interface RevealSequenceController {
     cancel: () => void
+}
+
+// Fisher–Yates shuffle (renderer-side; Math.random is fine here).
+function shuffled<T>(arr: T[]): T[] {
+    const a = arr.slice()
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1))
+        ;[a[i], a[j]] = [a[j], a[i]]
+    }
+    return a
 }
 
 export function runRevealSequence(opts: {
@@ -376,26 +469,66 @@ export function runRevealSequence(opts: {
         await broadcast('opening', { awardIndex: 0 })
         await wait(REVEAL_TIMING.opening)
 
-        // Per award
+        // Per award: finalists one-by-one (random order) → lineup → winner grows.
         for (let i = 0; i < opts.items.length; i++) {
             if (cancelled) break
             const item = opts.items[i]
-            await broadcast('nominees', { awardIndex: i, award: item.award, candidates: item.candidates })
-            await wait(REVEAL_TIMING.nominees)
+            const finalists = item.finalists
+            const lineup = finalists.map(f => f.candidate)         // standings order
+            const winnerCandidate =
+                finalists.find(f => f.candidate.subjectKey === item.winnerKey)?.candidate
+                ?? finalists[0]?.candidate ?? null
+
+            if (finalists.length > 0) {
+                // Spotlight each finalist in a randomized order so the reveal
+                // order doesn't betray the standings.
+                const order = shuffled(finalists)
+                for (let k = 0; k < order.length; k++) {
+                    if (cancelled) break
+                    const f = order[k]
+                    await broadcast('finalist', {
+                        awardIndex: i,
+                        award: item.award,
+                        finalist: {
+                            candidate: f.candidate,
+                            score: f.score,
+                            firstPlaceVotes: f.firstPlaceVotes,
+                            totalVotes: f.totalVotes,
+                            order: k,
+                            count: order.length,
+                            songs: f.songs
+                        }
+                    })
+                    await wait(REVEAL_TIMING.finalist)
+                }
+                if (cancelled) break
+                await broadcast('lineup', { awardIndex: i, award: item.award, lineup })
+                await wait(REVEAL_TIMING.lineup)
+            }
             if (cancelled) break
-            await broadcast('drumroll', { awardIndex: i, award: item.award })
-            await wait(REVEAL_TIMING.drumroll)
-            if (cancelled) break
-            await broadcast('winner', { awardIndex: i, award: item.award, winners: item.winners, voteCount: item.voteCount })
+            await broadcast('winner', {
+                awardIndex: i,
+                award: item.award,
+                lineup,
+                winners: winnerCandidate ? [winnerCandidate] : [],
+                winnerKey: item.winnerKey ?? undefined,
+                winnerStats: item.winnerStats ?? undefined,
+                voteCount: item.winnerStats?.score ?? 0
+            })
             await wait(REVEAL_TIMING.winner)
             if (i < opts.items.length - 1) await wait(REVEAL_TIMING.gap)
         }
         if (cancelled) return
 
-        // Finale
+        // Finale — montage of all winners
         await broadcast('finale', {
             awardIndex: opts.items.length,
-            finaleSummary: opts.items.map(it => ({ award: it.award, winners: it.winners }))
+            finaleSummary: opts.items.map(it => {
+                const winnerCandidate =
+                    it.finalists.find(f => f.candidate.subjectKey === it.winnerKey)?.candidate
+                    ?? it.finalists[0]?.candidate ?? null
+                return { award: it.award, winners: winnerCandidate ? [winnerCandidate] : [] }
+            })
         })
         await wait(REVEAL_TIMING.finale)
         await broadcast('done', { awardIndex: opts.items.length })

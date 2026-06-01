@@ -63,10 +63,10 @@ export function CyberpunkGenreTabs({
               style={{
                 fontFamily: tokens.fontDisplay,
                 fontWeight: '800',
-                fontSize: 15,
+                fontSize: 17,
                 lineHeight: 22,
                 color: active ? activeText : tokens.black,
-                letterSpacing: 1.5,
+                letterSpacing: 1.2,
                 textTransform: 'uppercase',
                 includeFontPadding: false,
               }}
@@ -88,7 +88,9 @@ export function CyberpunkGenreTabs({
             >
               <Text
                 style={{
-                  fontFamily: tokens.fontDisplay,
+                  // Genre count is numeric — SD Glitch display has no digit
+                  // glyphs, so use the full-coverage Glitch body face.
+                  fontFamily: tokens.fontBody,
                   fontWeight: '800',
                   fontSize: 13,
                   lineHeight: 18,

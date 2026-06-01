@@ -14,6 +14,8 @@ import { CyberpunkReactionCell } from './atoms/ReactionCell'
 import { CyberpunkStageTabIcon } from './atoms/StageTabIcon'
 import { CyberpunkStagePlayButton } from './atoms/StagePlayButton'
 import { CyberpunkStageToggleBox } from './atoms/StageToggleBox'
+import { CyberYoureUpHero } from './atoms/YoureUpHero'
+import { CyberArtOverlay } from './atoms/Crt'
 
 // Cyberpunk theme UI module. Screens read `useTheme().ui.{atom}` to pull
 // these without ever branching on `tokens.name === 'cyberpunk'`. Static
@@ -38,6 +40,8 @@ export const CYBERPUNK_UI: ThemeUIModule = {
   StageTabIcon: CyberpunkStageTabIcon,
   StagePlayButton: CyberpunkStagePlayButton,
   StageToggleBox: CyberpunkStageToggleBox,
+  YoureUpHero: CyberYoureUpHero,
+  ArtOverlay: CyberArtOverlay,
   reactionIconColors: {
     iconColor: CYBERPUNK_MOBILE.black,
     plusIconColor: CYBERPUNK_MOBILE.faint,

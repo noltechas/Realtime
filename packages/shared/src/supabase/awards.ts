@@ -24,6 +24,8 @@ export interface KaraokeAwardRow {
   finalized_at: string | null
   created_at: string
   updated_at: string | null
+  // Admin manual score adjustments, keyed by candidate subjectKey -> point delta.
+  score_adjustments?: Record<string, number>
 }
 
 export interface KaraokeAwardVoteRow {
@@ -32,6 +34,8 @@ export interface KaraokeAwardVoteRow {
   voter_guest_id: string
   subject_guest_id: string | null
   subject_queue_row_id: string | null
+  // Ranked ballot position: 1 = first place (3 pts), 2 = second (2), 3 = third (1).
+  rank?: number
   created_at?: string
   updated_at?: string
 }
@@ -68,7 +72,9 @@ export interface AwardsBundle {
   history: AwardHistoryRow[]
   guests: AwardGuestRow[]
   results: KaraokeAwardResultRow[]
-  votes: Record<string, KaraokeAwardVoteRow>
+  // The voter's own ranked ballot per award, sorted by rank (1 first). Empty
+  // array (or missing key) = no ballot cast for that award yet.
+  votes: Record<string, KaraokeAwardVoteRow[]>
 }
 
 export async function loadAwards(
@@ -122,7 +128,7 @@ export async function loadAwards(
   }>).map((g) => ({ id: g.id, name: g.name, profilePicture: g.profile_picture }))
   const results = ((rR.data ?? []) as KaraokeAwardResultRow[]) || []
 
-  let votes: Record<string, KaraokeAwardVoteRow> = {}
+  const votes: Record<string, KaraokeAwardVoteRow[]> = {}
   if (guestId && awards.length) {
     const ids = awards.map((a) => a.id)
     const v = await client
@@ -131,8 +137,12 @@ export async function loadAwards(
       .in('award_id', ids)
       .eq('voter_guest_id', guestId)
     ;(v.data ?? []).forEach((vt: KaraokeAwardVoteRow) => {
-      votes[vt.award_id] = vt
+      ;(votes[vt.award_id] ||= []).push(vt)
     })
+    // Keep each ballot sorted by rank (1 first).
+    for (const id of Object.keys(votes)) {
+      votes[id].sort((a, b) => (a.rank ?? 1) - (b.rank ?? 1))
+    }
   }
 
   return { awards, history, guests, results, votes }
@@ -154,13 +164,57 @@ export async function castAwardVote(
     voter_guest_id: input.guestId,
     subject_queue_row_id: input.subjectQueueRowId ?? null,
     subject_guest_id: input.subjectGuestId ?? null,
+    rank: 1,
     updated_at: new Date().toISOString(),
   }
   const { error } = await client
     .from('karaoke_award_votes')
-    .upsert(row, { onConflict: 'award_id,voter_guest_id' })
+    .upsert(row, { onConflict: 'award_id,voter_guest_id,rank' })
   if (error) throw new Error(`Failed to cast vote: ${error.message}`)
   return row
+}
+
+// A single ranked pick on a ballot. Exactly one of subjectGuestId /
+// subjectQueueRowId is populated, matching the award's subject_type.
+export interface BallotPick {
+  rank: number // 1 | 2 | 3
+  subjectGuestId?: string | null
+  subjectQueueRowId?: string | null
+}
+
+export interface SetAwardBallotInput {
+  awardId: string
+  guestId: string
+  picks: BallotPick[] // 0..3 picks; empty clears the ballot
+}
+
+// Replace a voter's entire ranked ballot for an award. Delete-then-insert so
+// adding, removing, or reordering picks all converge to exactly `picks`.
+export async function setAwardBallot(
+  client: KaraokeClient,
+  input: SetAwardBallotInput,
+): Promise<KaraokeAwardVoteRow[]> {
+  const { error: delErr } = await client
+    .from('karaoke_award_votes')
+    .delete()
+    .eq('award_id', input.awardId)
+    .eq('voter_guest_id', input.guestId)
+  if (delErr) throw new Error(`Failed to update ballot: ${delErr.message}`)
+
+  const rows: KaraokeAwardVoteRow[] = input.picks
+    .filter((p) => p.subjectGuestId || p.subjectQueueRowId)
+    .map((p) => ({
+      award_id: input.awardId,
+      voter_guest_id: input.guestId,
+      subject_guest_id: p.subjectGuestId ?? null,
+      subject_queue_row_id: p.subjectQueueRowId ?? null,
+      rank: p.rank,
+      updated_at: new Date().toISOString(),
+    }))
+  if (rows.length === 0) return []
+  const { error: insErr } = await client.from('karaoke_award_votes').insert(rows)
+  if (insErr) throw new Error(`Failed to update ballot: ${insErr.message}`)
+  return rows
 }
 
 export interface CreateAwardInput {
@@ -369,6 +423,25 @@ export function matchCandidateByVote(
   return null
 }
 
+// Resolve a voter's full ranked ballot into the chosen candidates, sorted by
+// rank (1 first). Votes whose candidate no longer resolves are dropped.
+export function matchBallot(
+  award: Pick<KaraokeAwardRow, 'subject_type'>,
+  votes: KaraokeAwardVoteRow[] | null | undefined,
+  candidates: AwardCandidate[],
+): Array<{ rank: number; candidate: AwardCandidate }> {
+  if (!votes || votes.length === 0) return []
+  const byKey = new Map(candidates.map((c) => [c.key, c]))
+  const out: Array<{ rank: number; candidate: AwardCandidate }> = []
+  for (const v of votes) {
+    const key = award.subject_type === 'singer' ? v.subject_guest_id : v.subject_queue_row_id
+    if (!key) continue
+    const candidate = byKey.get(key)
+    if (candidate) out.push({ rank: v.rank ?? 1, candidate })
+  }
+  return out.sort((a, b) => a.rank - b.rank)
+}
+
 export function resolveSubjectFromCandidate(
   award: Pick<KaraokeAwardRow, 'subject_type'>,
   c: AwardCandidate,
@@ -383,23 +456,43 @@ export function resolveSubjectFromCandidate(
 //  Realtime subscriptions
 // ============================================================
 
+// Candidate shape carried in reveal broadcasts. Mirrors the fields the desktop
+// AwardCandidate serializes (it sends `subjectKey`, not `key`).
+export interface RevealCandidate {
+  subjectKey: string
+  subjectType?: AwardSubjectType
+  label: string
+  subtitle?: string | null
+  avatarUrl?: string | null
+  singers?: Array<{ name: string; color?: string | null; profilePicture?: string | null }>
+  trackName?: string
+  trackArtist?: string
+}
+
 export interface AwardsRevealStep {
-  phase: 'opening' | 'nominees' | 'drumroll' | 'winner' | 'finale'
+  // 'finalist' = one of the top-3 in random order; 'lineup' = all finalists in
+  // a row; 'winner' = the chosen finalist grows full-screen. Companions render
+  // a simplified synced view from this; the rich animation is desktop-only.
+  phase: 'opening' | 'finalist' | 'lineup' | 'winner' | 'finale'
   awardIndex?: number
   totalAwards?: number
   award?: KaraokeAwardRow
-  candidates?: Array<{
-    key: string
-    label: string
-    avatarUrl: string | null
-    singers?: SingerConfig[]
-  }>
-  winners?: Array<{
-    label: string
-    subtitle?: string | null
-    avatarUrl: string | null
-    singers?: SingerConfig[]
-  }>
+  // finalist phase — a single spotlighted finalist + their stats
+  finalist?: {
+    candidate: RevealCandidate
+    score: number
+    firstPlaceVotes: number
+    totalVotes: number
+    order: number
+    count: number
+    songs?: Array<{ trackName: string; trackArtist: string; artUrl: string | null }>
+  }
+  // lineup phase (and carried into winner) — the ≤3 finalists in display order
+  lineup?: RevealCandidate[]
+  // winner phase
+  winners?: RevealCandidate[]
+  winnerKey?: string
+  winnerStats?: { score: number; firstPlaceVotes: number; totalVotes: number }
   voteCount?: number
   finaleSummary?: Array<{
     award: KaraokeAwardRow

@@ -2081,10 +2081,13 @@ export default function KaraokePage() {
                                             inlineStyle['--sketch-fill'] = activeHighlight
                                         } else if (theme.name === 'cyberpunk') {
                                             cls += ' k-line--cyber k-line--cyber-active'
-                                            inlineStyle.padding = '0.18em 0.9em'
+                                            inlineStyle.padding = '0.2em 1em'
                                             inlineStyle.borderRadius = '0'
-                                            inlineStyle.clipPath = 'polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)'
-                                            inlineStyle.boxShadow = `0 0 18px ${activeSingerColor}, 0 0 38px ${activeSingerColor}`
+                                            inlineStyle.clipPath = 'polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%)'
+                                            // Punchier neon bloom + a crisp dark inset frame so the plate
+                                            // reads as a framed HUD readout (the rolling scanlines live in
+                                            // the ::before/::after of .k-line--cyber-active).
+                                            inlineStyle.boxShadow = `0 0 22px ${activeSingerColor}, 0 0 54px ${activeSingerColor}, inset 0 0 0 2px rgba(0,0,0,0.55), inset 0 0 16px rgba(0,0,0,0.4)`
                                         } else if (theme.name === 'urban') {
                                             cls += ' k-line--urban-active'
                                             // @ts-ignore (CSS variables)

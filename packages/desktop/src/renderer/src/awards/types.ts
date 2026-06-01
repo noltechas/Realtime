@@ -19,6 +19,8 @@ export interface Award {
     finalizedAt: string | null
     createdAt: string
     updatedAt: string
+    // Admin manual per-candidate score adjustments: subjectKey -> point delta.
+    scoreAdjustments: Record<string, number>
 }
 
 // A vote cast by a single guest on a single award. Exactly one of
@@ -30,6 +32,8 @@ export interface AwardVote {
     voterGuestId: string
     subjectQueueRowId: string | null
     subjectGuestId: string | null
+    // Ranked ballot position: 1 = first place (3 pts), 2 = second (2), 3 = third (1).
+    rank: number
     createdAt: string
     updatedAt: string
 }
@@ -53,16 +57,29 @@ export interface AwardCandidate {
     bannedVoterNames?: string[]
 }
 
+// A candidate's standing in an award: weighted score plus the per-rank
+// breakdown used for display and tie-breaking.
+export interface AwardStanding {
+    candidate: AwardCandidate | null   // null = candidate no longer resolvable (deleted)
+    subjectKey: string
+    score: number                      // weighted points (3/2/1) incl. admin adjustment
+    adjustment: number                 // the admin manual delta applied
+    firstPlaceVotes: number
+    secondPlaceVotes: number
+    thirdPlaceVotes: number
+    totalVotes: number                 // distinct ballots that ranked this candidate
+}
+
 // Tally snapshot used for the admin's live preview AND for the reveal payload.
+// Ranked-ballot scoring: 1st = 3 pts, 2nd = 2, 3rd = 1. Winner is the highest
+// score, ties broken by 1st-place votes (then 2nd, then 3rd).
 export interface AwardTally {
     awardId: string
     votes: AwardVote[]                 // detailed vote rows (admin only)
-    byCandidate: Array<{
-        candidate: AwardCandidate | null  // null = candidate no longer resolvable (deleted)
-        count: number
-    }>
-    winners: AwardCandidate[]          // could be 0 (no votes) or >1 (tie)
-    totalVotes: number
+    standings: AwardStanding[]         // sorted best-first
+    finalists: AwardStanding[]         // top ≤3 with score > 0
+    winner: AwardStanding | null       // single winner (null = no votes)
+    totalBallots: number               // distinct voters who ranked anyone
 }
 
 // Persisted reveal result (one row per winner per award).
@@ -85,21 +102,36 @@ export interface AwardResult {
 // both render the same view from this payload.
 export type RevealPhase =
     | 'opening'      // intro card ("Tonight's Awards")
-    | 'nominees'     // show award title + candidate names
-    | 'drumroll'     // build-up
-    | 'winner'       // reveal winner(s) with confetti
+    | 'finalist'     // spotlight ONE top-3 finalist (random order, one at a time)
+    | 'lineup'       // all ≤3 finalists shown together in a row
+    | 'winner'       // the winning finalist grows full-screen + stats
     | 'finale'       // montage of all winners
     | 'done'         // teardown
     | 'idle'         // not active
+
+// A finalist's payload for the spotlight phase: the candidate, their stats,
+// and (for singer awards) the list of songs they sang, scrolled on stage.
+export interface RevealFinalist {
+    candidate: AwardCandidate
+    score: number
+    firstPlaceVotes: number
+    totalVotes: number
+    order: number                    // 0-based reveal order (already randomized)
+    count: number                    // how many finalists this award has
+    songs?: Array<{ trackName: string; trackArtist: string; artUrl: string | null }>
+}
 
 export interface RevealStep {
     phase: RevealPhase
     awardIndex: number               // 0-based among the award list
     totalAwards: number
-    award?: Award                    // populated for nominees/drumroll/winner
-    candidates?: AwardCandidate[]    // nominees being considered (for nominees phase)
+    award?: Award                    // populated for finalist/lineup/winner
+    finalist?: RevealFinalist        // for the finalist spotlight phase
+    lineup?: AwardCandidate[]        // the ≤3 finalists (lineup + winner phases)
     winners?: AwardCandidate[]       // who won (may be empty -> "no winner")
-    voteCount?: number               // only on winner phase
+    winnerKey?: string               // subjectKey of the winner (for the grow)
+    winnerStats?: { score: number; firstPlaceVotes: number; totalVotes: number }
+    voteCount?: number               // winner score (kept for back-compat)
     finaleSummary?: Array<{          // for finale phase
         award: Award
         winners: AwardCandidate[]
@@ -111,10 +143,10 @@ export interface RevealStep {
 // animation agree.
 export const REVEAL_TIMING = {
     opening: 3000,
-    nominees: 2500,
-    drumroll: 2000,
-    winner: 4500,
-    gap: 800,            // pause between awards
+    finalist: 5200,     // per finalist spotlight (songs scroll here)
+    lineup: 3200,       // all finalists in a row
+    winner: 6500,       // winner grows full-screen + stats linger
+    gap: 900,           // pause between awards
     finale: 5000,
     done: 1500
 } as const

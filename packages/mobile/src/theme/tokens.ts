@@ -30,33 +30,45 @@ export const NEO_BRUTAL_MOBILE: ThemeTokens = withMobileFonts(
   'System',
 )
 
-// Cyberpunk-Mobile — monospace fallback chain. On iOS, "Menlo" is the
-// built-in monospace; "Courier" is the universal fallback.
+// Cyberpunk-Mobile — custom glitch faces loaded via expo-font in App.tsx.
+// Display = "SD Glitch" (SDGlitchDemo-Regular.ttf, a corrupted-CRT display
+// face, all-caps); body = "Glitch" (Glitch-Regular.ttf), the matching torn /
+// datamoshed text face. Both evoke the early-2000s digital-decay aesthetic
+// the theme leans into. (Previously fell back to the system Menlo monospace.)
 export const CYBERPUNK_MOBILE: ThemeTokens = withMobileFonts(
   CYBERPUNK_TOKENS,
-  'Menlo',
-  'Menlo',
+  'SDGlitch',
+  'Glitch',
 )
 
-// Sketch-Mobile — Custom loaded Google fonts (Kalam)
+// Sketch-Mobile — custom hand-drawn pencil faces loaded via expo-font in
+// App.tsx. Display = "Pencil Trace" (PencilTrace-Regular.otf, a traced/outline
+// pencil face) for headings; body = "Thin Pencil Handwriting"
+// (ThinPencilHandwriting-Regular.ttf), a light handwritten face. Both have full
+// glyph coverage. (Previously the Google font Kalam.)
 export const SKETCH_MOBILE: ThemeTokens = withMobileFonts(
   SKETCH_TOKENS,
-  'Kalam_700Bold',
-  'Kalam_400Regular',
+  'PencilTrace',
+  'ThinPencil',
 )
 
-// Urban-Mobile — Custom loaded Google fonts.
+// Urban-Mobile — display headings use BomberUrban (a heavy graffiti/bomber
+// face shipped under assets/fonts/BomberUrban-Regular.otf, loaded via
+// expo-font in App.tsx); body falls back to Permanent Marker (the theme's
+// previous display face) for a hand-tagged feel.
 export const URBAN_MOBILE: ThemeTokens = withMobileFonts(
   URBAN_TOKENS,
+  'BomberUrban',
   'PermanentMarker_400Regular',
-  'Oswald_400Regular',
 )
 
-// Deep-Sea-Mobile — Custom loaded Google fonts.
+// Deep-Sea-Mobile — the playful "Krabby Patty" face (custom .ttf under
+// assets/fonts, loaded via expo-font in App.tsx) is used for ALL text on this
+// theme: both display headings and body share it, per request.
 export const DEEP_SEA_MOBILE: ThemeTokens = withMobileFonts(
   DEEP_SEA_TOKENS,
-  'LuckiestGuy_400Regular',
-  'Nunito_400Regular',
+  'KrabbyPatty',
+  'KrabbyPatty',
 )
 
 // Psychedelic-Mobile — Remalos (groovy custom display face shipped under

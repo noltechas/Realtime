@@ -3,6 +3,9 @@
 // bioluminescent accents, floating bubble particles, caustic light ripples.
 
 import type { Theme } from './theme'
+// Local "Krabby Patty" display face (same .ttf the mobile deep-sea theme uses).
+// Vite resolves this to a bundled asset URL we drop into an @font-face below.
+import KRABBY_PATTY_URL from '../assets/fonts/KrabbyPatty-Regular.ttf'
 
 // ── Palette ──────────────────────────────────────────────────────────────────
 const ABYSS       = '#040918'
@@ -19,14 +22,20 @@ const tealGlow   = (spread = 8, a = 0.4) => `0 0 ${spread}px rgba(0,255,200,${a}
 const violetGlow = (spread = 8, a = 0.3) => `0 0 ${spread}px rgba(180,77,255,${a})`
 const coralGlow  = (spread = 6, a = 0.25) => `0 0 ${spread}px rgba(255,107,138,${a})`
 
-const FONT_DISPLAY = "'Quicksand', 'Nunito', sans-serif"
-const FONT_BODY    = "'Nunito', 'Quicksand', sans-serif"
+// All deep-sea text uses Krabby Patty (matches the mobile deep-sea theme).
+const FONT_DISPLAY = "'KrabbyPatty', 'Quicksand', sans-serif"
+const FONT_BODY    = "'KrabbyPatty', 'Quicksand', sans-serif"
 
 // ── Singer colors — ocean creature palette ───────────────────────────────────
 // ── Global CSS injected when deep-sea theme is active ────────────────────────
 const GLOBAL_CSS = `
 /* ── Custom fonts ────────────────────────────────────────────────────────── */
 @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:wght@400;500;600;700&display=swap');
+@font-face {
+  font-family: 'KrabbyPatty';
+  src: url('${KRABBY_PATTY_URL}') format('truetype');
+  font-display: swap;
+}
 
 [data-theme="deep-sea"] * {
   font-family: ${FONT_BODY};

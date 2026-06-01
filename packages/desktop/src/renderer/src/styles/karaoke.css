@@ -389,22 +389,88 @@
     text-shadow: 1px 0 0 rgba(0, 229, 255, 0.45);
 }
 [data-theme="cyberpunk"] .k-line--now .k-syl--now {
-    /* Fill = lightened singer color (so the word visibly pops against the
-       same-color line bg via lightness contrast). The iconic cyberpunk
-       red+cyan chromatic split stays — it's the genre signature — but the
-       outer glow now matches the singer's color. */
-    color: color-mix(in srgb, var(--syl-singer, #fff), white 55%);
+    /* Bright near-white fill for MAXIMUM legibility on the green plate — the
+       previous lightened-singer fill was low-contrast green-on-green. A crisp
+       dark edge anchors the letters; the red+cyan chromatic split (the genre
+       signature) is kept but tightened to ±1px so the word stays readable. */
+    color: #f4fffa;
     text-shadow:
-        -1.5px 0 0 #ff0055,
-         1.5px 0 0 #00e5ff,
-         0 0 6px var(--syl-singer, #fff),
-         0 0 18px color-mix(in srgb, var(--syl-singer, #fff), transparent 35%);
-    animation: cyber-syl-jitter 0.4s steps(5, end) infinite;
+        0 0 1px rgba(0, 0, 0, 0.8),
+        0 0 2px rgba(0, 0, 0, 0.55),
+        -1px 0 0 #ff0055,
+         1px 0 0 #00e5ff,
+         0 0 12px var(--syl-singer, #fff);
+    animation: cyber-syl-jitter 0.5s steps(5, end) infinite;
 }
 [data-theme="cyberpunk"] .k-line--now .k-syl--future {
     opacity: 1;
-    color: rgba(10, 10, 10, 0.45);
+    color: rgba(8, 8, 8, 0.55);
     text-shadow: 0 1px 0 rgba(0, 229, 255, 0.18);
+}
+
+/* ── Cyberpunk active plate: rolling-scanline camcorder feed ─────────────────
+   The active lyric plate is filmed like an old camcorder: fine horizontal
+   scanlines crawl downward (::before) and a soft luminance "tracking band"
+   drifts vertically (::after) — the analog vertical-hold roll. Both sit at
+   z-index 0; the syllables are lifted to z-index 1 so the rolling texture is
+   strictly BEHIND the words and never hurts legibility. clipPath on the line
+   (set inline) clips the texture to the angled plate. */
+[data-theme="cyberpunk"] .k-line--cyber-active {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+}
+[data-theme="cyberpunk"] .k-line--cyber-active::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    z-index: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.32) 0px,
+        rgba(0, 0, 0, 0.32) 1px,
+        transparent 1px,
+        transparent 4px
+    );
+    background-size: 100% 4px;
+    mix-blend-mode: multiply;
+    opacity: 0.6;
+    animation: cyber-scanroll 0.75s linear infinite;
+}
+[data-theme="cyberpunk"] .k-line--cyber-active::after {
+    content: '';
+    position: absolute;
+    left: -2px;
+    right: -2px;
+    top: 0;
+    height: 42%;
+    z-index: 0;
+    pointer-events: none;
+    background: linear-gradient(
+        180deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.14) 45%,
+        rgba(255, 255, 255, 0.22) 50%,
+        rgba(255, 255, 255, 0.14) 55%,
+        transparent 100%
+    );
+    mix-blend-mode: screen;
+    animation: cyber-bandroll 4.6s linear infinite;
+}
+[data-theme="cyberpunk"] .k-line--cyber-active .k-syl {
+    position: relative;
+    z-index: 1;
+}
+/* Scrolls the line pattern exactly one period (4px) → seamless loop. */
+@keyframes cyber-scanroll {
+    from { background-position: 0 0; }
+    to   { background-position: 0 4px; }
+}
+/* Band feathers to transparent at both ends, so the wrap is invisible. */
+@keyframes cyber-bandroll {
+    from { transform: translateY(-110%); }
+    to   { transform: translateY(330%); }
 }
 
 /* ── Deep Sea — bioluminescent flash ────────────────────────────────────── */

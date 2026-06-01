@@ -4,15 +4,16 @@ import {
   Text,
   Image,
   Pressable,
+  Animated,
   type ViewStyle,
   type TextStyle,
-  type ImageStyle,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import type { SingerConfig, ThemeTokens } from '@karaoke/shared'
 import { useTheme } from '../../../ThemeContext'
 import { hexToRgba } from '../../../helpers'
 import type { QueueRowProps } from '../../../types'
+import { CRTOverlay, GlitchBars, useGlitch, jitterStyle } from './Crt'
 
 // Cyberpunk queue row — void-black panel with a 1px translucent neon border
 // and a soft glow shadow, sharp corners throughout. Singer pills, vote
@@ -29,6 +30,7 @@ export function CyberpunkQueueRow({
   onEdit,
 }: QueueRowProps) {
   const { tokens } = useTheme()
+  const glitch = useGlitch({ minMs: 8000, maxMs: 20000 })
   const score = (item.score ?? 0) + (item.bonus_points ?? 0)
   const singers = useMemo<SingerConfig[]>(
     () =>
@@ -76,10 +78,19 @@ export function CyberpunkQueueRow({
           <View style={hiddenArtStyle(tokens)}>
             <Text style={hiddenArtGlyphStyle(tokens)}>?</Text>
           </View>
-        ) : item.track_art_url ? (
-          <Image source={{ uri: item.track_art_url }} style={artStyle(tokens)} />
         ) : (
-          <View style={[artStyle(tokens) as ViewStyle, { backgroundColor: tokens.creamDark }]} />
+          <Animated.View style={[artWellStyle(tokens), jitterStyle(glitch, 2)]}>
+            {item.track_art_url ? (
+              <Image
+                source={{ uri: item.track_art_url }}
+                style={{ width: '100%', height: '100%' }}
+              />
+            ) : (
+              <View style={{ flex: 1, backgroundColor: tokens.creamDark }} />
+            )}
+            <CRTOverlay coverage={64} snowCount={16} seed={seedFromId(item.id)} lineStep={3} tint={tokens.accentA} />
+            <GlitchBars g={glitch} />
+          </Animated.View>
         )}
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>
@@ -246,7 +257,8 @@ function tint(t: ThemeTokens, opacity: number): string {
 
 function positionStyle(t: ThemeTokens): TextStyle {
   return {
-    fontFamily: t.fontDisplay,
+    // Glitch (body) face — SD Glitch display has no digit glyphs.
+    fontFamily: t.fontBody,
     fontWeight: '800',
     fontSize: 18,
     color: t.faint,
@@ -254,14 +266,29 @@ function positionStyle(t: ThemeTokens): TextStyle {
     textAlign: 'center',
   }
 }
-function artStyle(t: ThemeTokens): ImageStyle {
+// Clipped 48px screen well for the queue thumbnail — holds the album art plus
+// the CRT/glitch overlays. overflow:'hidden' so scanlines + tear bars stay
+// inside the frame.
+function artWellStyle(t: ThemeTokens): ViewStyle {
   return {
     width: 48,
     height: 48,
     borderRadius: 0,
     borderWidth: 1,
     borderColor: t.dimBorder,
+    backgroundColor: t.creamDark,
+    overflow: 'hidden',
   }
+}
+// Stable per-row seed so each thumbnail's TV-snow differs but is consistent.
+function seedFromId(id: string | undefined): number {
+  let h = 2166136261
+  const s = id || 'q'
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return (h >>> 0) || 1
 }
 function hiddenArtStyle(t: ThemeTokens): ViewStyle {
   return {
@@ -282,7 +309,8 @@ function hiddenArtStyle(t: ThemeTokens): ViewStyle {
 function hiddenArtGlyphStyle(t: ThemeTokens): TextStyle {
   return {
     color: t.accentA,
-    fontFamily: t.fontDisplay,
+    // Glitch (body) face — SD Glitch display has no '?' glyph.
+    fontFamily: t.fontBody,
     fontSize: 24,
     fontWeight: '900',
     lineHeight: 28,
@@ -292,8 +320,13 @@ function titleStyle(t: ThemeTokens): TextStyle {
   return {
     fontFamily: t.fontDisplay,
     fontWeight: '800',
-    fontSize: 14,
+    // Bumped vs other themes — SD Glitch's short cap-height reads small.
+    fontSize: 16,
     color: t.black,
+    // SD Glitch is uppercase-only; uppercase the title so its letters render
+    // in the display face (matching the song card) instead of falling back.
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   }
 }
 function artistStyle(t: ThemeTokens): TextStyle {
@@ -345,7 +378,9 @@ function singerInitialStyle(t: ThemeTokens): TextStyle {
 function singerNameStyle(t: ThemeTokens): TextStyle {
   return {
     color: t.black,
-    fontFamily: t.fontDisplay,
+    // Singer names are free-text mixed case — use the full-coverage Glitch
+    // body face so they stay legible (SD Glitch has no lowercase glyphs).
+    fontFamily: t.fontBody,
     fontWeight: '700',
     fontSize: 11,
   }
@@ -360,7 +395,8 @@ const voteColStyle: ViewStyle = {
 }
 function scoreStyle(t: ThemeTokens): TextStyle {
   return {
-    fontFamily: t.fontDisplay,
+    // Glitch (body) face — SD Glitch display has no digits or '-' glyph.
+    fontFamily: t.fontBody,
     fontWeight: '900',
     fontSize: 16,
     minWidth: 28,

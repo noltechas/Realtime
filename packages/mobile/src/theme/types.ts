@@ -146,6 +146,15 @@ export interface ThemeUIModule {
   StageTabIcon: React.ComponentType<StageTabIconProps>
   StagePlayButton: React.ComponentType<PlayButtonProps>
   StageToggleBox: React.ComponentType<ToggleBoxProps>
+  // Optional bespoke "You're Up!" hero for the Stage idle banner. When a theme
+  // provides one, StageScreen renders it instead of the generic styled text
+  // (see `yupHeroStyle`). Lets a theme do things a single Text can't —
+  // chromatic-aberration glitch, animation, HUD framing, etc.
+  YoureUpHero?: React.ComponentType<{}>
+  // Optional decorative overlay layered over the Stage now-playing album art
+  // (rendered as the last child of the clipped art well). Cyberpunk uses it to
+  // film the art as a rolling-scanline CRT. Themes without one render nothing.
+  ArtOverlay?: React.ComponentType<{}>
   // Colors that the screen needs for inline icon renders (Ionicons inside
   // reaction cells). Each theme provides its own readable foreground.
   reactionIconColors: ReactionGridIconColorProps

@@ -15,7 +15,7 @@ import {
     bumpBonusPointsForRemaining, lockQueueItem, adjustQueueBonusPoints,
     ensureDefaultAwards, listAwards, listAwardVotes,
     createCustomAward, updateAward, deleteAward,
-    castAwardVote, clearAwardVote,
+    castAwardVote, clearAwardVote, setAwardAdjustments,
     persistAwardResults, listAwardResults, unfinalizeAwards,
     broadcastRevealStep,
     CatalogItem
@@ -778,6 +778,10 @@ ipcMain.handle('karaoke:cast-award-vote', async (_event, input: { awardId: strin
 
 ipcMain.handle('karaoke:clear-award-vote', async (_event, awardId: string, voterGuestId: string) => {
     await clearAwardVote(awardId, voterGuestId)
+})
+
+ipcMain.handle('karaoke:set-award-adjustments', async (_event, awardId: string, adjustments: Record<string, number>) => {
+    return setAwardAdjustments(awardId, adjustments)
 })
 
 ipcMain.handle('karaoke:persist-award-results', async (_event, results: any[]) => {

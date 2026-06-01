@@ -42,7 +42,7 @@ export function CyberpunkButton({
     color: fgColor,
     fontFamily: tokens.fontDisplay,
     fontWeight: '800',
-    fontSize: variant === 'primary' ? 18 : 18,
+    fontSize: 20,
     letterSpacing: 2,
     textTransform: 'uppercase',
   }

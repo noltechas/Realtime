@@ -12,10 +12,10 @@ import type { AwardsRevealStep } from '@karaoke/shared'
 import { AWARDS_PALETTE as P } from './palette'
 import { AwardIcon } from './AwardIcon'
 
-// Full-screen Oscars-style reveal overlay. Mirrors the 5-phase sequence in
-// docs/js/render/awards.js → renderRevealOverlay() (opening, nominees,
-// drumroll, winner, finale). The host broadcasts the current step over a
-// Supabase channel; every companion shows the same UI in lockstep.
+// Full-screen reveal overlay — the companion's simplified, synced view of the
+// host's stage reveal. Phases: opening → (per award) finalist ×N → lineup →
+// winner → finale. The rich cinematic version (scrolling set lists, winner
+// grow) runs on the desktop Stage; phones show this lighter lockstep view.
 
 export function RevealOverlay({
   step,
@@ -57,8 +57,8 @@ export function RevealOverlay({
 
 function PhaseContent({ step }: { step: AwardsRevealStep }) {
   if (step.phase === 'opening') return <Opening step={step} />
-  if (step.phase === 'nominees') return <Nominees step={step} />
-  if (step.phase === 'drumroll') return <Drumroll step={step} />
+  if (step.phase === 'finalist') return <Finalist step={step} />
+  if (step.phase === 'lineup') return <Lineup step={step} />
   if (step.phase === 'winner') return <Winner step={step} />
   if (step.phase === 'finale') return <Finale step={step} />
   return null
@@ -87,267 +87,68 @@ function Opening({ step }: { step: AwardsRevealStep }) {
   )
 }
 
-function Nominees({ step }: { step: AwardsRevealStep }) {
+// One finalist spotlight (random order). For singer awards we list the songs
+// they sang; for performances/groups we show the song + who was in it. Stats
+// stay hidden here — they're revealed on the winner card.
+function Finalist({ step }: { step: AwardsRevealStep }) {
   const award = step.award
-  const isPerf = award?.subject_type === 'performance' || award?.subject_type === 'group'
-  const maxCount = isPerf ? 5 : 8
-  const allCands = step.candidates || []
-  const cands = allCands.slice(0, maxCount)
-  if (!award) return null
+  const f = step.finalist
+  if (!award || !f) return null
+  const isSinger = award.subject_type === 'singer'
+  const c = f.candidate
+  const songs = f.songs || []
   return (
     <ScrollView
       contentContainerStyle={{ alignItems: 'center', paddingVertical: 24 }}
       style={{ maxHeight: '100%' }}
     >
-      <View
-        style={{
-          width: 72,
-          height: 72,
-          borderRadius: 36,
-          backgroundColor: P.violet,
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginBottom: 14,
-        }}
-      >
-        <AwardIcon
-          iconId={award.icon_id}
-          iconDataUrl={award.icon_data_url}
-          color="#fff"
-          size={40}
-        />
-      </View>
       <Text
         style={{
-          color: P.whiteFaint,
-          fontSize: 11,
-          letterSpacing: 2,
-          fontWeight: '700',
-          textTransform: 'uppercase',
-          marginBottom: 6,
-        }}
-      >
-        Award {(step.awardIndex ?? 0) + 1} of {step.totalAwards ?? 0}
-      </Text>
-      <Text
-        style={{
-          fontFamily: P.fontDisplay,
-          fontWeight: '900',
-          fontSize: 32,
-          color: '#fff',
-          textAlign: 'center',
-          letterSpacing: -0.5,
-          marginBottom: 18,
-          paddingHorizontal: 16,
-        }}
-      >
-        {award.title}
-      </Text>
-      <Text
-        style={{
-          color: P.whiteFaint,
-          fontSize: 11,
-          letterSpacing: 2,
-          fontWeight: '700',
+          color: P.amberLight,
+          fontSize: 12,
+          letterSpacing: 3,
+          fontWeight: '800',
           textTransform: 'uppercase',
           marginBottom: 12,
         }}
       >
-        Nominees
+        Finalist {f.order + 1} of {f.count}
       </Text>
-      <View style={{ alignSelf: 'stretch', paddingHorizontal: 8 }}>
-        {cands.length === 0 ? (
-          <Text style={{ color: P.whiteFaint, fontSize: 13, textAlign: 'center' }}>
-            No candidates
-          </Text>
-        ) : isPerf ? (
-          cands.map((c, i) => <NomineeRich key={c.key + i} c={c} index={i} />)
-        ) : (
-          cands.map((c, i) => <NomineeSimple key={c.key + i} c={c} index={i} />)
-        )}
-        {allCands.length > maxCount ? (
-          <Text
-            style={{
-              color: P.whiteFaint,
-              fontSize: 13,
-              textAlign: 'center',
-              marginTop: 10,
-            }}
-          >
-            +{allCands.length - maxCount} more
-          </Text>
-        ) : null}
-      </View>
-    </ScrollView>
-  )
-}
+      <Text
+        style={{
+          color: P.whiteFaint,
+          fontSize: 11,
+          letterSpacing: 2,
+          fontWeight: '700',
+          textTransform: 'uppercase',
+          marginBottom: 14,
+        }}
+      >
+        {award.title}
+      </Text>
 
-function NomineeRich({
-  c,
-  index,
-}: {
-  c: NonNullable<AwardsRevealStep['candidates']>[number]
-  index: number
-}) {
-  const visible = useFadeIn(index * 100)
-  return (
-    <Animated.View
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        backgroundColor: 'rgba(255,255,255,0.06)',
-        borderRadius: 14,
-        padding: 12,
-        marginBottom: 10,
-        opacity: visible,
-      }}
-    >
       {c.avatarUrl ? (
         <Image
           source={{ uri: c.avatarUrl }}
-          style={{ width: 56, height: 56, borderRadius: 10 }}
+          style={{ width: 130, height: 130, borderRadius: isSinger ? 65 : 18, marginBottom: 14 }}
         />
       ) : (
         <View
           style={{
-            width: 56,
-            height: 56,
-            borderRadius: 10,
+            width: 130,
+            height: 130,
+            borderRadius: isSinger ? 65 : 18,
             backgroundColor: P.violet,
             alignItems: 'center',
             justifyContent: 'center',
+            marginBottom: 14,
           }}
         >
-          <Text style={{ color: '#fff', fontSize: 22, fontWeight: '800' }}>
+          <Text style={{ color: '#fff', fontSize: 52, fontWeight: '900' }}>
             {(c.label || '?').charAt(0).toUpperCase()}
           </Text>
         </View>
       )}
-      <View style={{ flex: 1 }}>
-        <Text
-          style={{
-            color: '#fff',
-            fontFamily: P.fontDisplay,
-            fontWeight: '800',
-            fontSize: 15,
-          }}
-          numberOfLines={1}
-        >
-          {c.label}
-        </Text>
-        {c.singers && c.singers.length ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
-            {c.singers.slice(0, 4).map((s, si) => (
-              <View
-                key={si}
-                style={{
-                  width: 22,
-                  height: 22,
-                  borderRadius: 11,
-                  backgroundColor: s.color || P.violet,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginRight: -4,
-                  borderWidth: 1.5,
-                  borderColor: '#020206',
-                }}
-              >
-                {s.profilePicture ? (
-                  <Image
-                    source={{ uri: s.profilePicture }}
-                    style={{ width: 22, height: 22, borderRadius: 11 }}
-                  />
-                ) : (
-                  <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>
-                    {(s.name || '?').charAt(0).toUpperCase()}
-                  </Text>
-                )}
-              </View>
-            ))}
-            <Text
-              style={{ marginLeft: 8, color: P.whiteMuted, fontSize: 12 }}
-              numberOfLines={1}
-            >
-              {c.singers.map((s) => s.name).join(', ')}
-            </Text>
-          </View>
-        ) : null}
-      </View>
-    </Animated.View>
-  )
-}
-
-function NomineeSimple({
-  c,
-  index,
-}: {
-  c: NonNullable<AwardsRevealStep['candidates']>[number]
-  index: number
-}) {
-  const visible = useFadeIn(index * 80)
-  return (
-    <Animated.View
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        backgroundColor: 'rgba(255,255,255,0.06)',
-        borderRadius: 999,
-        paddingVertical: 8,
-        paddingHorizontal: 12,
-        marginBottom: 8,
-        opacity: visible,
-      }}
-    >
-      {c.avatarUrl ? (
-        <Image source={{ uri: c.avatarUrl }} style={{ width: 36, height: 36, borderRadius: 18 }} />
-      ) : (
-        <View
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: 18,
-            backgroundColor: P.violet,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Text style={{ color: '#fff', fontWeight: '800' }}>
-            {(c.label || '?').charAt(0).toUpperCase()}
-          </Text>
-        </View>
-      )}
-      <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }} numberOfLines={1}>
-        {c.label}
-      </Text>
-    </Animated.View>
-  )
-}
-
-function Drumroll({ step }: { step: AwardsRevealStep }) {
-  if (!step.award) return null
-  const dots = [0, 1, 2, 3, 4]
-  return (
-    <View style={{ alignItems: 'center' }}>
-      <View
-        style={{
-          width: 96,
-          height: 96,
-          borderRadius: 48,
-          backgroundColor: P.violet,
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginBottom: 18,
-        }}
-      >
-        <AwardIcon
-          iconId={step.award.icon_id}
-          iconDataUrl={step.award.icon_data_url}
-          color="#fff"
-          size={56}
-        />
-      </View>
       <Text
         style={{
           fontFamily: P.fontDisplay,
@@ -355,66 +156,192 @@ function Drumroll({ step }: { step: AwardsRevealStep }) {
           fontSize: 30,
           color: '#fff',
           textAlign: 'center',
-          marginBottom: 18,
+          letterSpacing: -0.5,
           paddingHorizontal: 16,
         }}
       >
-        {step.award.title}
+        {isSinger ? c.label : c.trackName || c.label}
       </Text>
-      <Text
-        style={{
-          color: P.whiteMuted,
-          fontSize: 18,
-          fontWeight: '600',
-          letterSpacing: 1,
-          marginBottom: 22,
-        }}
-      >
-        And the winner is…
-      </Text>
-      <View style={{ flexDirection: 'row', gap: 10 }}>
-        {dots.map((d) => (
-          <BouncingDot key={d} delay={d * 120} />
-        ))}
-      </View>
-    </View>
+      {!isSinger && c.subtitle ? (
+        <Text style={{ color: P.whiteMuted, fontSize: 14, marginTop: 4, textAlign: 'center' }}>
+          {c.subtitle}
+        </Text>
+      ) : null}
+
+      {isSinger ? (
+        <View style={{ alignSelf: 'stretch', paddingHorizontal: 8, marginTop: 18 }}>
+          <Text
+            style={{
+              color: P.whiteFaint,
+              fontSize: 11,
+              letterSpacing: 2,
+              fontWeight: '700',
+              textTransform: 'uppercase',
+              textAlign: 'center',
+              marginBottom: 12,
+            }}
+          >
+            {songs.length ? 'Songs they sang' : 'Took the mic tonight'}
+          </Text>
+          {songs.map((s, i) => (
+            <SongRow key={i} song={s} index={i} />
+          ))}
+        </View>
+      ) : c.singers && c.singers.length ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 16, flexWrap: 'wrap', justifyContent: 'center' }}>
+          {c.singers.slice(0, 5).map((s, si) => (
+            <View
+              key={si}
+              style={{
+                width: 30,
+                height: 30,
+                borderRadius: 15,
+                backgroundColor: s.color || P.violet,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: -6,
+                borderWidth: 1.5,
+                borderColor: '#020206',
+              }}
+            >
+              {s.profilePicture ? (
+                <Image source={{ uri: s.profilePicture }} style={{ width: 30, height: 30, borderRadius: 15 }} />
+              ) : (
+                <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>
+                  {(s.name || '?').charAt(0).toUpperCase()}
+                </Text>
+              )}
+            </View>
+          ))}
+          <Text style={{ marginLeft: 14, color: P.whiteMuted, fontSize: 13 }} numberOfLines={2}>
+            {c.singers.map((s) => s.name).join(', ')}
+          </Text>
+        </View>
+      ) : null}
+    </ScrollView>
   )
 }
 
-function BouncingDot({ delay }: { delay: number }) {
-  const v = useRef(new Animated.Value(0)).current
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.delay(delay),
-        Animated.timing(v, {
-          toValue: 1,
-          duration: 350,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(v, {
-          toValue: 0,
-          duration: 350,
-          easing: Easing.in(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ]),
-    )
-    loop.start()
-    return () => loop.stop()
-  }, [v, delay])
-  const translateY = v.interpolate({ inputRange: [0, 1], outputRange: [0, -10] })
+function SongRow({
+  song,
+  index,
+}: {
+  song: { trackName: string; trackArtist: string; artUrl: string | null }
+  index: number
+}) {
+  const visible = useFadeIn(index * 90)
   return (
     <Animated.View
       style={{
-        width: 10,
-        height: 10,
-        borderRadius: 5,
-        backgroundColor: P.violet,
-        transform: [{ translateY }],
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        backgroundColor: 'rgba(255,255,255,0.06)',
+        borderRadius: 12,
+        padding: 10,
+        marginBottom: 8,
+        opacity: visible,
       }}
-    />
+    >
+      {song.artUrl ? (
+        <Image source={{ uri: song.artUrl }} style={{ width: 44, height: 44, borderRadius: 8 }} />
+      ) : (
+        <View
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 8,
+            backgroundColor: P.violet,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text style={{ color: '#fff', fontSize: 18 }}>♪</Text>
+        </View>
+      )}
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14 }} numberOfLines={1}>
+          {song.trackName}
+        </Text>
+        <Text style={{ color: P.whiteMuted, fontSize: 12 }} numberOfLines={1}>
+          {song.trackArtist}
+        </Text>
+      </View>
+    </Animated.View>
+  )
+}
+
+// All ≤3 finalists shown together before the winner is revealed.
+function Lineup({ step }: { step: AwardsRevealStep }) {
+  const award = step.award
+  const lineup = step.lineup || []
+  const isSinger = award?.subject_type === 'singer'
+  return (
+    <View style={{ alignItems: 'center', alignSelf: 'stretch' }}>
+      <Text
+        style={{
+          color: P.amberLight,
+          fontSize: 12,
+          letterSpacing: 3,
+          fontWeight: '800',
+          textTransform: 'uppercase',
+          marginBottom: 6,
+        }}
+      >
+        {lineup.length === 1 ? 'Your finalist' : 'Your finalists'}
+      </Text>
+      {award ? (
+        <Text
+          style={{
+            color: P.whiteFaint,
+            fontSize: 11,
+            letterSpacing: 2,
+            fontWeight: '700',
+            textTransform: 'uppercase',
+            marginBottom: 18,
+          }}
+        >
+          {award.title}
+        </Text>
+      ) : null}
+      <View style={{ flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', gap: 12 }}>
+        {lineup.map((c) => (
+          <View
+            key={c.subjectKey}
+            style={{
+              width: 110,
+              backgroundColor: 'rgba(255,255,255,0.06)',
+              borderRadius: 16,
+              padding: 12,
+              alignItems: 'center',
+            }}
+          >
+            {c.avatarUrl ? (
+              <Image source={{ uri: c.avatarUrl }} style={{ width: 64, height: 64, borderRadius: 32, marginBottom: 8 }} />
+            ) : (
+              <View
+                style={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: 32,
+                  backgroundColor: P.violet,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: 8,
+                }}
+              >
+                <Text style={{ color: '#fff', fontSize: 26, fontWeight: '900' }}>
+                  {(c.label || '?').charAt(0).toUpperCase()}
+                </Text>
+              </View>
+            )}
+            <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13, textAlign: 'center' }} numberOfLines={2}>
+              {isSinger ? c.label : c.trackName || c.label}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
   )
 }
 
@@ -529,14 +456,14 @@ function Winner({ step }: { step: AwardsRevealStep }) {
               style={{
                 fontFamily: P.fontDisplay,
                 fontWeight: '900',
-                fontSize: winners.length === 1 ? 32 : 24,
+                fontSize: 32,
                 color: '#fff',
                 textAlign: 'center',
               }}
             >
-              {winners.map((w) => w.label).join(' · ')}
+              {winners[0].label}
             </Text>
-            {winners.length === 1 && winners[0].subtitle ? (
+            {winners[0].subtitle ? (
               <Text
                 style={{
                   color: P.whiteMuted,
@@ -547,29 +474,49 @@ function Winner({ step }: { step: AwardsRevealStep }) {
               >
                 {winners[0].subtitle}
               </Text>
-            ) : winners.length > 1 ? (
-              <Text style={{ color: P.whiteMuted, marginTop: 4, fontSize: 14 }}>
-                Tied with {step.voteCount ?? 0} vote
-                {(step.voteCount ?? 0) === 1 ? '' : 's'} each
-              </Text>
             ) : null}
-            {winners.length === 1 ? (
-              <Text
-                style={{
-                  color: P.amberLight,
-                  marginTop: 10,
-                  fontWeight: '800',
-                  fontSize: 14,
-                  letterSpacing: 1,
-                }}
-              >
-                {step.voteCount ?? 0} vote{(step.voteCount ?? 0) === 1 ? '' : 's'}
-              </Text>
+            {step.winnerStats ? (
+              <View style={{ flexDirection: 'row', gap: 22, marginTop: 18 }}>
+                <Stat num={step.winnerStats.score} cap="total score" />
+                <Stat
+                  num={step.winnerStats.firstPlaceVotes}
+                  cap={`1st-place vote${step.winnerStats.firstPlaceVotes === 1 ? '' : 's'}`}
+                />
+                <Stat
+                  num={step.winnerStats.totalVotes}
+                  cap={`total vote${step.winnerStats.totalVotes === 1 ? '' : 's'}`}
+                />
+              </View>
             ) : null}
           </>
         )}
       </View>
     </ScrollView>
+  )
+}
+
+// A single winner stat (big amber number + uppercase caption).
+function Stat({ num, cap }: { num: number; cap: string }) {
+  return (
+    <View style={{ alignItems: 'center' }}>
+      <Text style={{ color: P.amberLight, fontWeight: '900', fontSize: 34, fontFamily: P.fontDisplay }}>
+        {num}
+      </Text>
+      <Text
+        style={{
+          color: P.whiteFaint,
+          fontSize: 10,
+          letterSpacing: 1.2,
+          textTransform: 'uppercase',
+          fontWeight: '700',
+          marginTop: 2,
+          textAlign: 'center',
+          maxWidth: 80,
+        }}
+      >
+        {cap}
+      </Text>
+    </View>
   )
 }
 

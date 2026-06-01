@@ -1,9 +1,9 @@
 import { S, AWARDS_ICON_PAGE_SIZE, AWARDS_AWARDED_TO_PREFIX, AWARDS_DESCRIPTION_MAX } from '../state.js';
 import { resizeImage, esc } from '../utils.js';
 import { render } from '../render/main.js';
-import { shuffleAwardIcons, buildAwardCandidates, awardCandidateBanned, awardOwnVote, matchCandidateByVote, awardsFilteredIcons, awardsPickerThumb } from '../render/awards.js';
+import { shuffleAwardIcons, buildAwardCandidates, awardCandidateBanned, awardBallot, matchBallot, awardsFilteredIcons, awardsPickerThumb } from '../render/awards.js';
 import { ensureAwardsManifest } from '../awards-manifest.js';
-import { castAwardVote, createCustomAward, updateMyAward, deleteMyAward, loadAwards } from '../supabase.js';
+import { setAwardBallot, createCustomAward, updateMyAward, deleteMyAward, loadAwards } from '../supabase.js';
 
 // Mirror of descriptionMeetsMinimum() in mobile/AwardsScreen.tsx — strips the
 // "Awarded to " prefix before measuring so leaving the typewritered text alone
@@ -121,6 +121,24 @@ export function resolveSubjectFromCandidate(award,c){
   return {guestId:null,queueRowId:c.key};
 }
 
+// The award currently open in the detail view.
+function activeAward(){
+  for(var i=0;i<S.awards.length;i++)if(S.awards[i].id===S.awardActiveId)return S.awards[i];
+  return null;
+}
+// The voter's current picks (ordered candidates) for an award.
+function currentSelected(award,candidates){
+  return matchBallot(award,awardBallot(award.id),candidates).map(function(x){return x.candidate;});
+}
+// Persist a reordered ballot (ordered candidates; index 0 = 1st place).
+function commitBallot(award,ordered){
+  var picks=ordered.slice(0,3).map(function(c,i){
+    var subj=resolveSubjectFromCandidate(award,c);
+    return {rank:i+1,subjectGuestId:subj.guestId,subjectQueueRowId:subj.queueRowId};
+  });
+  setAwardBallot(award.id,picks);
+}
+
 export function bindAwardsEvents(){
   // Awards list
   var createBtn=document.getElementById("awards-create-btn");
@@ -165,40 +183,42 @@ export function bindAwardsEvents(){
       render();
     });
   }
+  // Ranked ballot — tapping a nominee adds it to the next open rank; tapping a
+  // ranked nominee removes it. The whole ballot is replaced on each change.
   document.querySelectorAll("[data-candidate-key]").forEach(function(btn){
     btn.addEventListener("click",function(){
       var key=btn.getAttribute("data-candidate-key");
-      var award=null;for(var i=0;i<S.awards.length;i++)if(S.awards[i].id===S.awardActiveId){award=S.awards[i];break;}
-      if(!award)return;
+      var award=activeAward();
+      if(!award||award.finalized_at)return;
       var candidates=buildAwardCandidates(award);
       var chosen=null;for(var j=0;j<candidates.length;j++)if(candidates[j].key===key){chosen=candidates[j];break;}
-      if(!chosen)return;
-      if(awardCandidateBanned(chosen))return;
-      if(award.finalized_at)return;
-      var existingVote=awardOwnVote(award.id);
-      var voted=matchCandidateByVote(award,existingVote,candidates);
-      if(voted){
-        // Show confirm modal
-        S.awardVoteConfirm={awardId:award.id,newLabel:chosen.label,oldLabel:voted.label,subject:resolveSubjectFromCandidate(award,chosen)};
-        render();
-      } else {
-        castAwardVote(award.id,resolveSubjectFromCandidate(award,chosen));
+      if(!chosen||awardCandidateBanned(chosen))return;
+      var selected=currentSelected(award,candidates);
+      var pos=-1;for(var k=0;k<selected.length;k++)if(selected[k].key===chosen.key){pos=k;break;}
+      if(pos>=0){
+        selected.splice(pos,1);
+      }else{
+        if(selected.length>=3)return;
+        selected.push(chosen);
       }
+      commitBallot(award,selected);
     });
   });
 
-  // Vote-confirm modal
-  var vcb=document.getElementById("vote-confirm-backdrop");
-  if(vcb){
-    vcb.addEventListener("click",function(e){if(e.target===vcb){S.awardVoteConfirm=null;render();}});
-  }
-  var vcc=document.getElementById("vote-confirm-cancel");
-  if(vcc)vcc.addEventListener("click",function(){S.awardVoteConfirm=null;render();});
-  var vcy=document.getElementById("vote-confirm-yes");
-  if(vcy)vcy.addEventListener("click",function(){
-    var c=S.awardVoteConfirm;if(!c)return;
-    S.awardVoteConfirm=null;
-    castAwardVote(c.awardId,c.subject);
+  // Ballot slot remove (×) buttons
+  document.querySelectorAll("[data-remove-rank]").forEach(function(btn){
+    btn.addEventListener("click",function(e){
+      e.stopPropagation();
+      var award=activeAward();
+      if(!award||award.finalized_at)return;
+      var rank=parseInt(btn.getAttribute("data-remove-rank"),10);
+      var candidates=buildAwardCandidates(award);
+      var selected=currentSelected(award,candidates);
+      if(rank>=1&&rank<=selected.length){
+        selected.splice(rank-1,1);
+        commitBallot(award,selected);
+      }
+    });
   });
 
   // Create / edit form

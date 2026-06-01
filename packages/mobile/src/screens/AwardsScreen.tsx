@@ -27,13 +27,13 @@ import Svg, {
 } from 'react-native-svg'
 import {
   loadAwards,
-  castAwardVote,
+  setAwardBallot,
   createCustomAward,
   updateMyAward,
   deleteMyAward,
   buildAwardCandidates,
   awardCandidateBanned,
-  matchCandidateByVote,
+  matchBallot,
   resolveSubjectFromCandidate,
   subscribeToAwards,
   AWARDS_ICON_PAGE_SIZE,
@@ -42,6 +42,7 @@ import {
   type AwardCandidate,
   type AwardsRevealStep,
   type KaraokeAwardRow,
+  type KaraokeAwardVoteRow,
 } from '@karaoke/shared'
 import { useSession } from '../hooks/useSession'
 import { supabase } from '../supabase/client'
@@ -94,16 +95,9 @@ export function AwardsScreen() {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState<CreateDraft | null>(null)
-  const [voteConfirm, setVoteConfirm] = useState<{
-    awardId: string
-    newLabel: string
-    oldLabel: string
-    subject: { guestId: string | null; queueRowId: string | null }
-  } | null>(null)
   const [revealStep, setRevealStep] = useState<AwardsRevealStep | null>(null)
-  // Set by castVoteOptimistic; AwardDetail listens for changes and plays an
-  // entrance animation on the "Your Vote" card. Cleared automatically after
-  // ~1.2s so re-opening the same detail screen later doesn't re-animate.
+  // Set by setBallot when a ballot changes; AwardDetail plays a brief flash on
+  // the ballot strip. Cleared automatically after ~1.2s.
   const [recentlyVotedAwardId, setRecentlyVotedAwardId] = useState<string | null>(null)
   // Set by submitDraft when a new (or edited) award lands in the list — the
   // AwardCard runs an entrance animation when this matches its id. Cleared
@@ -187,79 +181,45 @@ export function AwardsScreen() {
     }
   }
 
-  // Apply (or roll back) a vote in local state without waiting for the DB.
-  // The detail screen re-renders immediately with the new "Your Vote" card,
-  // and the entrance animation tied to `recentlyVotedAwardId` plays. Errors
-  // restore the previous vote and surface an alert.
-  const applyOptimisticVote = (
-    awardId: string,
-    nextVote: typeof votes[string] | null,
-  ) => {
+  // Apply (or roll back) a full ranked ballot in local state without waiting
+  // for the DB. The detail screen re-renders immediately with the new slots.
+  const applyOptimisticBallot = (awardId: string, rows: KaraokeAwardVoteRow[]) => {
     setBundle((prev) => {
       if (!prev) return prev
       const newVotes = { ...prev.votes }
-      if (nextVote) newVotes[awardId] = nextVote
+      if (rows.length) newVotes[awardId] = rows
       else delete newVotes[awardId]
       return { ...prev, votes: newVotes }
     })
   }
 
-  const castVoteOptimistic = (
-    award: KaraokeAwardRow,
-    subj: { guestId: string | null; queueRowId: string | null },
-  ) => {
-    const prevVote = bundle?.votes[award.id] ?? null
-    const nextVote = {
+  // Persist a reordered ballot. `ordered` is the chosen candidates in rank
+  // order (index 0 = 1st place). Writes optimistically, then the whole ballot
+  // is replaced server-side; a failure rolls back and alerts.
+  const setBallot = (award: KaraokeAwardRow, ordered: AwardCandidate[]) => {
+    const prev = bundle?.votes[award.id] ?? []
+    const picks = ordered.slice(0, 3).map((c, i) => {
+      const subj = resolveSubjectFromCandidate(award, c)
+      return { rank: i + 1, subjectGuestId: subj.guestId, subjectQueueRowId: subj.queueRowId }
+    })
+    const rows: KaraokeAwardVoteRow[] = picks.map((p) => ({
       award_id: award.id,
       voter_guest_id: session.guestId,
-      subject_guest_id: subj.guestId,
-      subject_queue_row_id: subj.queueRowId,
-    }
-    applyOptimisticVote(award.id, nextVote)
+      subject_guest_id: p.subjectGuestId,
+      subject_queue_row_id: p.subjectQueueRowId,
+      rank: p.rank,
+    }))
+    applyOptimisticBallot(award.id, rows)
     setRecentlyVotedAwardId(award.id)
-    // Auto-clear the animation flag so re-entering the screen later doesn't
-    // re-trigger the entrance animation.
     setTimeout(() => {
       setRecentlyVotedAwardId((id) => (id === award.id ? null : id))
     }, 1200)
-    castAwardVote(supabase, {
-      awardId: award.id,
-      guestId: session.guestId,
-      subjectGuestId: subj.guestId,
-      subjectQueueRowId: subj.queueRowId,
-    }).catch((err: any) => {
-      applyOptimisticVote(award.id, prevVote)
-      Alert.alert('Vote failed', err?.message ?? 'Try again.')
-    })
-  }
-
-  const onCandidatePress = (award: KaraokeAwardRow, c: AwardCandidate) => {
-    if (award.finalized_at) return
-    if (awardCandidateBanned(c, session.guestId, session.guestName)) return
-    const candidates = buildAwardCandidates(award, history, guests)
-    const existing = votes[award.id] || null
-    const voted = matchCandidateByVote(award, existing, candidates)
-    const subj = resolveSubjectFromCandidate(award, c)
-    if (voted && voted.key !== c.key) {
-      setVoteConfirm({
-        awardId: award.id,
-        newLabel: c.label,
-        oldLabel: voted.label,
-        subject: subj,
-      })
-      return
-    }
-    if (voted && voted.key === c.key) return
-    castVoteOptimistic(award, subj)
-  }
-
-  const confirmVoteSwitch = () => {
-    if (!voteConfirm) return
-    const { awardId, subject } = voteConfirm
-    const award = awards.find((a) => a.id === awardId)
-    setVoteConfirm(null)
-    if (!award) return
-    castVoteOptimistic(award, subject)
+    setAwardBallot(supabase, { awardId: award.id, guestId: session.guestId, picks }).catch(
+      (err: any) => {
+        applyOptimisticBallot(award.id, prev)
+        Alert.alert('Vote failed', err?.message ?? 'Try again.')
+      },
+    )
   }
 
   // Optimistic submit: the wizard already gates the Continue button on each
@@ -411,7 +371,7 @@ export function AwardsScreen() {
           guestId={session.guestId}
           guestName={session.guestName}
           onBack={goToList}
-          onCandidatePress={onCandidatePress}
+          onSetBallot={setBallot}
           bottomPadding={insets.bottom + 110}
           justVoted={recentlyVotedAwardId === activeId}
         />
@@ -426,12 +386,6 @@ export function AwardsScreen() {
           bottomPadding={insets.bottom + 110}
         />
       ) : null}
-
-      <VoteConfirmModal
-        confirm={voteConfirm}
-        onCancel={() => setVoteConfirm(null)}
-        onConfirm={confirmVoteSwitch}
-      />
 
       <RevealOverlay step={revealStep} onDismiss={() => setRevealStep(null)} />
     </SafeAreaView>
@@ -658,7 +612,7 @@ function AwardsList({
             <AwardCard
               key={aw.id}
               award={aw}
-              voted={!!votes[aw.id]}
+              voteCount={votes[aw.id]?.length ?? 0}
               finalized={!!aw.finalized_at}
               isOwn={aw.created_by_guest_id === ownGuestId}
               isFresh={aw.id === freshAwardId}
@@ -791,19 +745,20 @@ function CreateAwardCta({
 // hairline border + corner brackets to evoke a printed certificate.
 function AwardCard({
   award,
-  voted,
+  voteCount,
   finalized,
   isOwn,
   isFresh,
   onPress,
 }: {
   award: KaraokeAwardRow
-  voted: boolean
+  voteCount: number
   finalized: boolean
   isOwn: boolean
   isFresh: boolean
   onPress: () => void
 }) {
+  const voted = voteCount > 0
   const subjectLabel =
     award.subject_type === 'performance'
       ? 'Performance'
@@ -955,7 +910,7 @@ function AwardCard({
         </View>
       </View>
 
-      <StatusIndicator voted={voted} finalized={finalized} />
+      <StatusIndicator voteCount={voteCount} finalized={finalized} />
     </Pressable>
     </Animated.View>
   )
@@ -974,7 +929,7 @@ function Dot() {
   )
 }
 
-function StatusIndicator({ voted, finalized }: { voted: boolean; finalized: boolean }) {
+function StatusIndicator({ voteCount, finalized }: { voteCount: number; finalized: boolean }) {
   if (finalized) {
     return (
       <View
@@ -1001,17 +956,18 @@ function StatusIndicator({ voted, finalized }: { voted: boolean; finalized: bool
       </View>
     )
   }
-  if (voted) {
-    // Voted = sealed envelope. Filled gold circle with a checkmark — the
-    // visual hook the user gets a tiny "thank you for your ballot" cue from.
+  if (voteCount > 0) {
+    // Ballot cast — a filled gold pill showing how many of the 3 ranks are
+    // used so guests can tell at a glance whether they finished ranking.
     return (
       <View
         style={{
-          width: 32,
-          height: 32,
-          borderRadius: 16,
+          flexDirection: 'row',
           alignItems: 'center',
-          justifyContent: 'center',
+          gap: 5,
+          paddingHorizontal: 9,
+          paddingVertical: 5,
+          borderRadius: 999,
           overflow: 'hidden',
           borderWidth: 1,
           borderColor: P.goldEdge,
@@ -1023,7 +979,10 @@ function StatusIndicator({ voted, finalized }: { voted: boolean; finalized: bool
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
-        <Check tint="#1a140a" />
+        <Check tint="#1a140a" size={11} />
+        <Text style={{ color: '#1a140a', fontWeight: '800', fontSize: 11, letterSpacing: 1 }}>
+          {voteCount}/3
+        </Text>
       </View>
     )
   }
@@ -1299,7 +1258,7 @@ function AwardDetail({
   guestId,
   guestName,
   onBack,
-  onCandidatePress,
+  onSetBallot,
   bottomPadding,
   justVoted,
 }: {
@@ -1310,7 +1269,7 @@ function AwardDetail({
   guestId: string
   guestName: string
   onBack: () => void
-  onCandidatePress: (award: KaraokeAwardRow, c: AwardCandidate) => void
+  onSetBallot: (award: KaraokeAwardRow, ordered: AwardCandidate[]) => void
   bottomPadding: number
   justVoted: boolean
 }) {
@@ -1318,15 +1277,26 @@ function AwardDetail({
     () => buildAwardCandidates(award, history, guests),
     [award, history, guests],
   )
-  const vote = votes[award.id] || null
-  const voted = matchCandidateByVote(award, vote, candidates)
+  const ballotRows = votes[award.id] || []
+  // The voter's current picks, in rank order (index 0 = 1st place).
+  const selected = useMemo(
+    () => matchBallot(award, ballotRows, candidates).map((x) => x.candidate),
+    [award, ballotRows, candidates],
+  )
+  const selectedIndex = useMemo(() => {
+    const m = new Map<string, number>()
+    selected.forEach((c, i) => m.set(c.key, i))
+    return m
+  }, [selected])
+  const finalized = !!award.finalized_at
+  const full = selected.length >= 3
+
   const subjectLabel =
     award.subject_type === 'performance'
-      ? 'Pick the best performance'
+      ? 'Rank the best performances'
       : award.subject_type === 'singer'
-        ? 'Pick a singer'
-        : 'Pick the best duo or group'
-  const finalized = !!award.finalized_at
+        ? 'Rank your top singers'
+        : 'Rank the best duos & groups'
 
   const emptyMsg =
     award.subject_type === 'singer'
@@ -1334,6 +1304,18 @@ function AwardDetail({
       : award.subject_type === 'group'
         ? 'No multi-singer performances yet.'
         : 'No performances yet — check back after a song plays.'
+
+  const toggle = (c: AwardCandidate) => {
+    if (finalized) return
+    if (awardCandidateBanned(c, guestId, guestName)) return
+    if (selectedIndex.has(c.key)) {
+      onSetBallot(award, selected.filter((x) => x.key !== c.key))
+    } else if (!full) {
+      onSetBallot(award, [...selected, c])
+    }
+  }
+  const removeAt = (i: number) =>
+    onSetBallot(award, selected.filter((_, idx) => idx !== i))
 
   return (
     <ScrollView
@@ -1349,7 +1331,7 @@ function AwardDetail({
       </View>
 
       {/* Hero — gilded medallion + serif title centered. Sets the screen up
-          as "this is the award you're voting on" before the candidate list. */}
+          as "this is the award you're voting on" before the ballot. */}
       <View style={{ alignItems: 'center', marginTop: 16, marginBottom: 12 }}>
         <DetailMedallion award={award} finalized={finalized} />
         <View style={{ alignSelf: 'stretch', marginTop: 22, marginBottom: 4 }}>
@@ -1412,14 +1394,6 @@ function AwardDetail({
         ) : null}
       </View>
 
-      {voted ? (
-        <YourVoteCard
-          voted={voted}
-          finalized={finalized}
-          animateEntrance={justVoted}
-        />
-      ) : null}
-
       {candidates.length === 0 ? (
         <View
           style={{
@@ -1446,34 +1420,80 @@ function AwardDetail({
         </View>
       ) : (
         <>
-          <SectionLabel>{voted ? 'Other candidates' : 'Candidates'}</SectionLabel>
+          {/* How ranked voting works */}
+          {!finalized ? (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                padding: 12,
+                borderRadius: 12,
+                backgroundColor: P.surfaceDeep,
+                borderWidth: 1,
+                borderColor: P.goldHairline,
+                marginBottom: 14,
+              }}
+            >
+              <Text style={{ fontSize: 18 }}>🏅</Text>
+              <Text
+                style={{
+                  flex: 1,
+                  color: P.creamMuted,
+                  fontSize: 12.5,
+                  lineHeight: 17,
+                  fontFamily: P.fontSerif,
+                }}
+              >
+                Rank up to 3.  1st = 3 pts · 2nd = 2 · 3rd = 1.  Tap a nominee to
+                add it; tap again to remove.
+              </Text>
+            </View>
+          ) : null}
+
+          {/* The ballot — three ranked slots */}
+          <SectionLabel>Your Ballot</SectionLabel>
+          <BallotStrip
+            selected={selected}
+            finalized={finalized}
+            onRemove={removeAt}
+            flash={justVoted}
+          />
+
+          {/* Nominees */}
+          <SectionLabel>Nominees</SectionLabel>
           {candidates.map((c) => {
-            if (voted && c.key === voted.key) return null
+            const idx = selectedIndex.get(c.key)
+            const isSelected = idx !== undefined
             const banned = awardCandidateBanned(c, guestId, guestName)
-            const disabled = finalized || banned
+            const blockedByFull = full && !isSelected
+            const disabledTap = finalized || banned || blockedByFull
             const hint = finalized
               ? 'Voting closed'
               : banned
                 ? "Can't vote for yourself"
-                : 'Tap to vote'
+                : blockedByFull
+                  ? 'Ballot full'
+                  : 'Tap to rank'
+            const dim = finalized || banned || blockedByFull
             return (
               <Pressable
                 key={c.key}
-                onPress={() => onCandidatePress(award, c)}
-                disabled={disabled}
+                onPress={() => toggle(c)}
+                disabled={disabledTap}
                 style={({ pressed }) => ({
                   flexDirection: 'row',
                   alignItems: 'center',
                   gap: 14,
                   padding: 14,
                   borderRadius: 12,
-                  backgroundColor: P.surface,
+                  backgroundColor: isSelected ? P.goldWash : P.surface,
                   borderWidth: 1,
-                  borderColor: P.goldHairline,
+                  borderColor: isSelected ? P.gold : P.goldHairline,
                   marginBottom: 10,
                   minHeight: 84,
-                  opacity: disabled ? 0.45 : 1,
-                  transform: [{ scale: pressed && !disabled ? 0.985 : 1 }],
+                  opacity: dim ? 0.45 : 1,
+                  transform: [{ scale: pressed && !disabledTap ? 0.985 : 1 }],
                 })}
               >
                 <CandidateAvatar c={c} />
@@ -1487,7 +1507,9 @@ function AwardDetail({
                     </Text>
                   ) : null}
                 </View>
-                {disabled ? (
+                {isSelected ? (
+                  <SelectedRankChip rank={(idx as number) + 1} />
+                ) : dim ? (
                   <Text style={candidateHintStyle}>{hint}</Text>
                 ) : (
                   <Chevron color={P.gold} />
@@ -1527,119 +1549,181 @@ const candidateHintStyle = {
   maxWidth: 96,
 }
 
-// Your-Vote card with an entrance animation. Triggered whenever the voted
-// candidate's key changes (initial render after a fresh vote) AND the parent
-// signals `animateEntrance` — both gates so re-entering an already-voted
-// screen doesn't replay the spring. The animation is:
-//   • scale 0.92 → 1.04 → 1.0 (soft overshoot, like a stamp settling)
-//   • opacity 0 → 1
-//   • a transient gold glow ring on top of the card that fades out
-function YourVoteCard({
-  voted,
+// The ranked ballot: three slots (1st / 2nd / 3rd). Filled slots show the
+// chosen nominee with a remove button; empty slots prompt the voter. A brief
+// gold pulse plays when `flash` flips true right after a pick changes.
+function BallotStrip({
+  selected,
   finalized,
-  animateEntrance,
+  onRemove,
+  flash,
 }: {
-  voted: AwardCandidate
+  selected: AwardCandidate[]
   finalized: boolean
-  animateEntrance: boolean
+  onRemove: (index: number) => void
+  flash: boolean
 }) {
-  const enter = useRef(new Animated.Value(animateEntrance ? 0 : 1)).current
   const glow = useRef(new Animated.Value(0)).current
-  const lastKey = useRef(voted.key)
   useEffect(() => {
-    // Only play on first render with this voted key while the parent flag is
-    // set. Subsequent re-renders (e.g. unrelated state changes) keep the
-    // animation done.
-    if (!animateEntrance) return
-    if (lastKey.current !== voted.key) {
-      // The voted candidate changed — reset and replay.
-      enter.setValue(0)
-      glow.setValue(0)
-    }
-    lastKey.current = voted.key
-    Animated.parallel([
-      Animated.spring(enter, {
-        toValue: 1,
-        damping: 12,
-        stiffness: 180,
-        mass: 1,
-        useNativeDriver: true,
-      }),
-      Animated.sequence([
-        Animated.timing(glow, {
-          toValue: 1,
-          duration: 220,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(glow, {
-          toValue: 0,
-          duration: 520,
-          easing: Easing.in(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ]),
+    if (!flash) return
+    glow.setValue(0)
+    Animated.sequence([
+      Animated.timing(glow, { toValue: 1, duration: 160, useNativeDriver: true }),
+      Animated.timing(glow, { toValue: 0, duration: 520, useNativeDriver: true }),
     ]).start()
-  }, [animateEntrance, voted.key, enter, glow])
-
-  const scale = enter.interpolate({
-    inputRange: [0, 0.6, 1],
-    outputRange: [0.92, 1.04, 1],
-  })
+  }, [flash, glow])
 
   return (
-    <>
-      <SectionLabel>Your Vote</SectionLabel>
-      <Animated.View
+    <View style={{ marginBottom: 16 }}>
+      {[0, 1, 2].map((i) => {
+        const c = selected[i]
+        const filled = !!c
+        const placeholder =
+          i === 0
+            ? 'Tap a nominee for 1st place'
+            : i === 1
+              ? 'Tap a nominee for 2nd place'
+              : 'Tap a nominee for 3rd place'
+        return (
+          <Animated.View
+            key={i}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+              padding: 12,
+              borderRadius: 12,
+              minHeight: 76,
+              marginBottom: 8,
+              overflow: 'hidden',
+              backgroundColor: filled ? P.goldWash : P.surfaceDeep,
+              borderWidth: 1,
+              borderColor: filled ? P.gold : P.goldHairline,
+              borderStyle: filled ? 'solid' : 'dashed',
+            }}
+          >
+            {filled ? (
+              <Animated.View
+                pointerEvents="none"
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundColor: P.gold,
+                  opacity: glow.interpolate({ inputRange: [0, 1], outputRange: [0, 0.18] }),
+                }}
+              />
+            ) : null}
+            <RankBadge rank={i + 1} />
+            {filled ? (
+              <>
+                <CandidateAvatar c={c} />
+                <View style={{ flex: 1 }}>
+                  <Text style={candidateLabelStyle} numberOfLines={1}>
+                    {c.label}
+                  </Text>
+                  {c.subtitle ? (
+                    <Text style={candidateSubStyle} numberOfLines={1}>
+                      {c.subtitle}
+                    </Text>
+                  ) : null}
+                </View>
+                {!finalized ? <RemoveButton onPress={() => onRemove(i)} /> : null}
+              </>
+            ) : (
+              <Text
+                style={{
+                  flex: 1,
+                  color: P.creamFaint,
+                  fontFamily: P.fontSerif,
+                  fontStyle: 'italic',
+                  fontSize: 14,
+                }}
+              >
+                {placeholder}
+              </Text>
+            )}
+          </Animated.View>
+        )
+      })}
+    </View>
+  )
+}
+
+// Rank medallion shown on the left of each ballot slot (outline + points).
+function RankBadge({ rank }: { rank: number }) {
+  const pts = 4 - rank
+  return (
+    <View style={{ alignItems: 'center', width: 44 }}>
+      <View
         style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 12,
-          padding: 14,
-          borderRadius: 12,
-          backgroundColor: P.goldWash,
-          borderWidth: 1,
+          width: 36,
+          height: 36,
+          borderRadius: 18,
+          borderWidth: 1.5,
           borderColor: P.gold,
-          marginBottom: 6,
-          overflow: 'hidden',
-          opacity: enter,
-          transform: [{ scale }],
+          backgroundColor: P.goldWash,
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
       >
-        {/* Transient gold glow overlay — fades in then out during the
-            entrance to sell the "stamped / accepted" beat. */}
-        <Animated.View
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: P.gold,
-            opacity: glow.interpolate({ inputRange: [0, 1], outputRange: [0, 0.18] }),
-          }}
-        />
-        <CornerBracket corner="tl" size={10} color={P.gold} />
-        <CornerBracket corner="tr" size={10} color={P.gold} />
-        <CornerBracket corner="bl" size={10} color={P.gold} />
-        <CornerBracket corner="br" size={10} color={P.gold} />
-        <CandidateAvatar c={voted} />
-        <View style={{ flex: 1 }}>
-          <Text style={candidateLabelStyle} numberOfLines={1}>
-            {voted.label}
-          </Text>
-          {voted.subtitle ? (
-            <Text style={candidateSubStyle} numberOfLines={1}>
-              {voted.subtitle}
-            </Text>
-          ) : null}
-        </View>
-        {!finalized ? (
-          <Text style={candidateHintStyle}>Tap to{'\n'}change</Text>
-        ) : null}
-      </Animated.View>
-    </>
+        <Text style={{ color: P.gold, fontWeight: '800', fontSize: 15, fontFamily: P.fontSerif }}>
+          {rank}
+        </Text>
+      </View>
+      <Text style={{ color: P.gold, fontSize: 9, fontWeight: '700', marginTop: 3, letterSpacing: 0.4 }}>
+        {pts} PTS
+      </Text>
+    </View>
+  )
+}
+
+// Filled gold rank chip shown on a nominee row that's on the ballot.
+function SelectedRankChip({ rank }: { rank: number }) {
+  return (
+    <View
+      style={{
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        overflow: 'hidden',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: P.goldEdge,
+      }}
+    >
+      <LinearGradient
+        colors={[P.goldBright, P.goldDeep]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <Text style={{ color: '#1a140a', fontWeight: '800', fontSize: 16 }}>{rank}</Text>
+    </View>
+  )
+}
+
+function RemoveButton({ onPress }: { onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={10}
+      style={{
+        width: 30,
+        height: 30,
+        borderRadius: 15,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: P.goldHairline,
+        backgroundColor: P.surface,
+      }}
+    >
+      <Text style={{ color: P.gold, fontSize: 18, lineHeight: 20, marginTop: -2 }}>×</Text>
+    </Pressable>
   )
 }
 

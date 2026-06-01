@@ -289,13 +289,15 @@ function CyberpunkCard({ label, selected, onPress }: CardProps) {
         <CardLabel
           text={label}
           color="#00ff88"
-          font="Menlo"
+          font="SDGlitch"
           style={{
             flex: 1,
             fontWeight: '700',
             letterSpacing: 1.2,
             textTransform: 'uppercase',
-            fontSize: 12,
+            // SD Glitch reads smaller than a normal face at the same px, so the
+            // nameplate label is bumped up to match the other theme cards.
+            fontSize: 17,
             textShadowColor: 'rgba(0,255,136,0.85)',
             textShadowRadius: 6,
             textShadowOffset: { width: 0, height: 0 },
@@ -334,7 +336,7 @@ function SketchCard({ label, selected, onPress }: CardProps) {
       }}
     >
       <Row>
-        <CardLabel text={label} color="#2d5da1" font="Kalam_700Bold" style={{ flex: 1, fontSize: 16 }} />
+        <CardLabel text={label} color="#2d5da1" font="PencilTrace" style={{ flex: 1, fontSize: 18 }} />
         <SketchStar />
       </Row>
     </BaseCard>

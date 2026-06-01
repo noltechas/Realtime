@@ -8,7 +8,6 @@ import { RootNavigator } from './src/navigation/RootNavigator'
 import { useFonts } from 'expo-font'
 import { Oswald_400Regular, Oswald_700Bold } from '@expo-google-fonts/oswald'
 import { PermanentMarker_400Regular } from '@expo-google-fonts/permanent-marker'
-import { Kalam_400Regular, Kalam_700Bold } from '@expo-google-fonts/kalam'
 import { Quicksand_700Bold } from '@expo-google-fonts/quicksand'
 import { Nunito_400Regular } from '@expo-google-fonts/nunito'
 import { LuckiestGuy_400Regular } from '@expo-google-fonts/luckiest-guy'
@@ -60,8 +59,6 @@ export default function App() {
     Oswald_400Regular,
     Oswald_700Bold,
     PermanentMarker_400Regular,
-    Kalam_400Regular,
-    Kalam_700Bold,
     Quicksand_700Bold,
     Nunito_400Regular,
     LuckiestGuy_400Regular,
@@ -81,6 +78,17 @@ export default function App() {
     Monoton_400Regular,
     Audiowide_400Regular,
     Remalos: require('./assets/fonts/Remalos-Regular.ttf'),
+    // Cyberpunk theme — glitch display + body faces (custom .ttf, fontspace).
+    SDGlitch: require('./assets/fonts/SDGlitchDemo-Regular.ttf'),
+    Glitch: require('./assets/fonts/Glitch-Regular.ttf'),
+    // Sketch theme — hand-drawn pencil faces (custom, fontspace). PencilTrace
+    // (outline/traced display) for headings, Thin Pencil Handwriting for body.
+    PencilTrace: require('./assets/fonts/PencilTrace-Regular.otf'),
+    ThinPencil: require('./assets/fonts/ThinPencilHandwriting-Regular.ttf'),
+    // Urban theme — heavy graffiti/bomber display face for headings.
+    BomberUrban: require('./assets/fonts/BomberUrban-Regular.otf'),
+    // Deep-sea theme — playful "Krabby Patty" display face for headings.
+    KrabbyPatty: require('./assets/fonts/KrabbyPatty-Regular.ttf'),
   })
 
   // Render once fonts are loaded OR once we know they failed. Without the

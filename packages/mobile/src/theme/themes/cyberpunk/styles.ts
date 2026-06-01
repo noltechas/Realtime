@@ -30,9 +30,12 @@ export function buildCyberpunkStyles(t: ThemeTokens): ThemeUIStyles {
       backgroundColor: t.appBg,
       flexGrow: 1,
     },
+    // The SD Glitch display face has a short cap-height, so it reads smaller
+    // than a normal font at the same px — these sizes are bumped up vs the
+    // other themes to compensate.
     h1: {
       fontFamily: t.fontDisplay,
-      fontSize: 32,
+      fontSize: 40,
       fontWeight: '900',
       color: t.black,
       letterSpacing: t.displayLetterSpacing,
@@ -40,7 +43,7 @@ export function buildCyberpunkStyles(t: ThemeTokens): ThemeUIStyles {
     },
     h2: {
       fontFamily: t.fontDisplay,
-      fontSize: 22,
+      fontSize: 28,
       fontWeight: '800',
       color: t.black,
       letterSpacing: t.displayLetterSpacing,

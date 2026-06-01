@@ -122,15 +122,29 @@ export function awardCandidateBanned(c){
   if(c.bannedNames&&c.bannedNames.indexOf(S.guestName)!==-1)return true;
   return false;
 }
-export function awardOwnVote(awardId){return S.awardVotes[awardId]||null;}
-export function matchCandidateByVote(award,vote,candidates){
-  if(!vote)return null;
-  var key=award.subject_type==="singer"?vote.subject_guest_id:vote.subject_queue_row_id;
-  for(var i=0;i<candidates.length;i++){
-    if(candidates[i].key===key)return candidates[i];
-    if(award.subject_type==="singer"&&candidates[i].key==="name:"+key)return candidates[i];
+// The voter's own ranked ballot for an award, sorted by rank (1 first). Always
+// an array now (tolerates a legacy single-object value just in case).
+export function awardBallot(awardId){
+  var v=S.awardVotes[awardId];
+  if(!v)return [];
+  var arr=Array.isArray(v)?v.slice():[v];
+  arr.sort(function(a,b){return (a.rank||1)-(b.rank||1);});
+  return arr;
+}
+// Resolve a ballot's rows to ordered candidates [{rank,candidate}].
+export function matchBallot(award,votes,candidates){
+  if(!votes||!votes.length)return [];
+  var byKey={};for(var i=0;i<candidates.length;i++)byKey[candidates[i].key]=candidates[i];
+  var out=[];
+  for(var j=0;j<votes.length;j++){
+    var vt=votes[j];
+    var key=award.subject_type==="singer"?vt.subject_guest_id:vt.subject_queue_row_id;
+    if(!key)continue;
+    var c=byKey[key]||byKey["name:"+key];
+    if(c)out.push({rank:vt.rank||1,candidate:c});
   }
-  return null;
+  out.sort(function(a,b){return a.rank-b.rank;});
+  return out;
 }
 export function renderAwardsScreen(){
   if(S.awardScreen==="detail"&&S.awardActiveId){
@@ -162,11 +176,12 @@ export function renderAwardsList(){
   }else{
     for(var j=0;j<S.awards.length;j++){
       var aw=S.awards[j];
-      var voted=!!awardOwnVote(aw.id);
+      var ballotCount=awardBallot(aw.id).length;
+      var voted=ballotCount>0;
       var finalized=!!aw.finalized_at;
       var subjectLabel=aw.subject_type==="performance"?"Performance":aw.subject_type==="singer"?"Singer":"Duo / Group";
       var iconHtml='<div class="awards-card__icon"><span class="awards-card__icon-shape">'+awardsIconBody(aw)+'</span></div>';
-      var badge=finalized?'<div class="awards-card__finalized-badge">Closed</div>':(voted?'<div class="awards-card__voted-badge">Voted</div>':"");
+      var badge=finalized?'<div class="awards-card__finalized-badge">Closed</div>':(voted?'<div class="awards-card__voted-badge">'+ballotCount+'/3</div>':"");
       var cls="awards-card"+(voted?" awards-card--voted":"")+(finalized?" awards-card--finalized":"");
       html+='<button class="'+cls+'" data-award-id="'+esc(aw.id)+'">'+
         badge+iconHtml+
@@ -181,10 +196,12 @@ export function renderAwardsList(){
 }
 export function renderAwardDetail(aw){
   var candidates=buildAwardCandidates(aw);
-  var vote=awardOwnVote(aw.id);
-  var voted=matchCandidateByVote(aw,vote,candidates);
-  var subjectLabel=aw.subject_type==="performance"?"Pick the best performance":aw.subject_type==="singer"?"Pick a singer":"Pick the best duo or group";
+  var ballotRows=awardBallot(aw.id);
+  var selected=matchBallot(aw,ballotRows,candidates).map(function(x){return x.candidate;});
+  var selectedIndex={};selected.forEach(function(c,i){selectedIndex[c.key]=i;});
   var finalized=!!aw.finalized_at;
+  var full=selected.length>=3;
+  var subjectLabel=aw.subject_type==="performance"?"Rank the best performances":aw.subject_type==="singer"?"Rank your top singers":"Rank the best duos & groups";
   var html='<div class="awards-screen screen">'+
     '<div class="awards-detail-header">'+
       '<button class="awards-detail-back" id="awards-back-btn"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>'+
@@ -195,35 +212,51 @@ export function renderAwardDetail(aw){
       '</div>'+
     '</div>'+
     (aw.description?'<div class="awards-detail-citation">'+esc(aw.description)+'</div>':"");
-  if(voted){
-    html+='<div class="awards-section-label">Your Vote</div>'+
-      '<div class="awards-your-vote-card">'+
-        renderCandidateAvatarBlock(voted)+
-        '<div class="awards-candidate__info">'+
-          '<div class="awards-candidate__label">'+esc(voted.label)+'</div>'+
-          (voted.subtitle?'<div class="awards-candidate__sub">'+esc(voted.subtitle)+'</div>':"")+
-        '</div>'+
-        (finalized?"":'<div class="awards-candidate__hint">Tap below to change</div>')+
-      '</div>';
-  }
   if(candidates.length===0){
     var emptyMsg=aw.subject_type==="singer"?"No singers yet — once someone takes the mic they'll appear here.":aw.subject_type==="group"?"No multi-singer performances yet.":"No performances yet — check back after a song plays.";
     html+='<div class="awards-empty-state">'+esc(emptyMsg)+'</div>';
   }else{
-    html+='<div class="awards-section-label">'+(voted?"Other candidates":"Candidates")+'</div>';
+    if(!finalized){
+      html+='<div class="awards-ballot-hint">🏅 Rank up to 3.  1st = 3 pts · 2nd = 2 · 3rd = 1.  Tap a nominee to add it; tap again to remove.</div>';
+    }
+    // The ballot — three ranked slots
+    html+='<div class="awards-section-label">Your Ballot</div><div class="awards-ballot">';
+    for(var r=0;r<3;r++){
+      var sc=selected[r];
+      var medal=r===0?"1st":r===1?"2nd":"3rd";
+      var pts=3-r;
+      var rankBlock='<div class="awards-ballot-rank"><span class="awards-ballot-rank-num">'+(r+1)+'</span><span class="awards-ballot-rank-pts">'+pts+' PTS</span></div>';
+      if(sc){
+        html+='<div class="awards-ballot-slot awards-ballot-slot--filled">'+rankBlock+
+          renderCandidateAvatarBlock(sc)+
+          '<div class="awards-candidate__info"><div class="awards-candidate__label">'+esc(sc.label)+'</div>'+(sc.subtitle?'<div class="awards-candidate__sub">'+esc(sc.subtitle)+'</div>':"")+'</div>'+
+          (finalized?"":'<button class="awards-ballot-remove" data-remove-rank="'+(r+1)+'">×</button>')+
+        '</div>';
+      }else{
+        html+='<div class="awards-ballot-slot">'+rankBlock+
+          '<div class="awards-ballot-empty">Tap a nominee for '+medal+' place</div>'+
+        '</div>';
+      }
+    }
+    html+='</div>';
+    // Nominees
+    html+='<div class="awards-section-label">Nominees</div>';
     for(var i=0;i<candidates.length;i++){
       var c=candidates[i];
-      if(voted&&c.key===voted.key)continue;
+      var idx=selectedIndex[c.key];
+      var isSel=idx!==undefined;
       var banned=awardCandidateBanned(c);
-      var disabled=finalized||banned;
-      var hint=finalized?'Voting closed':(banned?"Can't vote for yourself":"Tap to vote");
-      html+='<button class="awards-candidate'+(disabled?" awards-candidate--disabled":"")+'" data-candidate-key="'+esc(c.key)+'"'+(disabled?' disabled':"")+'>'+
+      var blockedByFull=full&&!isSel;
+      var disabled=finalized||banned||blockedByFull;
+      var hint=finalized?'Voting closed':(banned?"Can't vote for yourself":(blockedByFull?'Ballot full':'Tap to rank'));
+      var cls="awards-candidate"+(isSel?" awards-candidate--selected":"")+(disabled&&!isSel?" awards-candidate--disabled":"");
+      html+='<button class="'+cls+'" data-candidate-key="'+esc(c.key)+'"'+(disabled?' disabled':"")+'>'+
         renderCandidateAvatarBlock(c)+
         '<div class="awards-candidate__info">'+
           '<div class="awards-candidate__label">'+esc(c.label)+'</div>'+
           (c.subtitle?'<div class="awards-candidate__sub">'+esc(c.subtitle)+'</div>':"")+
         '</div>'+
-        '<div class="awards-candidate__hint">'+esc(hint)+'</div>'+
+        (isSel?'<div class="awards-rank-chip">'+(idx+1)+'</div>':'<div class="awards-candidate__hint">'+esc(hint)+'</div>')+
       '</button>';
     }
   }
@@ -416,63 +449,59 @@ export function renderRevealOverlay(){
       '<div class="awards-reveal__opening-title">Tonight\'s Awards</div>'+
       '<div class="awards-reveal__opening-sub">'+step.totalAwards+' categor'+(step.totalAwards===1?"y":"ies")+' to reveal</div>'+
     '</div>';
-  } else if(step.phase==="nominees"&&step.award){
-    var isPerf=step.award.subject_type==="performance"||step.award.subject_type==="group";
-    var allCands=step.candidates||[];
-    var maxCount=isPerf?5:8;
-    var cands=allCands.slice(0,maxCount);
-    var nomList="";
-    if(isPerf){
-      // Rich rows: album art + track name + singer profile pics + names
-      for(var i=0;i<cands.length;i++){
-        var c=cands[i];
-        var initial=esc((c.label||"?").charAt(0).toUpperCase());
-        var art=c.avatarUrl
-          ? '<img class="awards-reveal__nominee-art" src="'+esc(c.avatarUrl)+'" alt="">'
-          : '<div class="awards-reveal__nominee-art" style="display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:22px">'+initial+'</div>';
-        var singers=c.singers||[];
-        var singerAvatars="";
-        var visibleSingers=singers.slice(0,4);
-        for(var si=0;si<visibleSingers.length;si++){
-          var s=visibleSingers[si];
-          var bg=s.color?'background:linear-gradient(135deg,'+s.color+','+s.color+'aa)':"";
-          singerAvatars+='<div class="awards-reveal__nominee-singer-avatar" style="'+bg+'">'+
-            (s.profilePicture?'<img src="'+esc(s.profilePicture)+'" alt="">':esc((s.name||"?").charAt(0).toUpperCase()))+
-          '</div>';
-        }
-        var singerLine=singers.length
-          ? '<div class="awards-reveal__nominee-singers"><div class="awards-reveal__nominee-singers-avatars">'+singerAvatars+'</div><div class="awards-reveal__nominee-singer-names">'+esc(singers.map(function(x){return x.name;}).join(", "))+'</div></div>'
-          : "";
-        nomList+='<div class="awards-reveal__nominee--rich" style="animation-delay:'+(i*0.1)+'s">'+
-          art+
-          '<div class="awards-reveal__nominee-meta">'+
-            '<div class="awards-reveal__nominee-track">'+esc(c.label)+'</div>'+
-            singerLine+
-          '</div>'+
-        '</div>';
+  } else if(step.phase==="finalist"&&step.award&&step.finalist){
+    var f=step.finalist;
+    var fc=f.candidate;
+    var isSingerF=step.award.subject_type==="singer";
+    var faceCls=isSingerF?"awards-reveal__finalist-face":"awards-reveal__finalist-art";
+    var faceInitial=esc((fc.label||"?").charAt(0).toUpperCase());
+    var face=fc.avatarUrl?'<img class="'+faceCls+'" src="'+esc(fc.avatarUrl)+'" alt="">':'<div class="'+faceCls+'">'+faceInitial+'</div>';
+    var body="";
+    if(isSingerF){
+      var songs=f.songs||[];
+      var songHtml="";
+      for(var sgi=0;sgi<songs.length;sgi++){
+        var sg=songs[sgi];
+        var sgArt=sg.artUrl?'<img class="awards-reveal__song-art" src="'+esc(sg.artUrl)+'" alt="">':'<div class="awards-reveal__song-art awards-reveal__song-art--ph">♪</div>';
+        songHtml+='<div class="awards-reveal__song">'+sgArt+'<div class="awards-reveal__song-meta"><div class="awards-reveal__song-title">'+esc(sg.trackName)+'</div><div class="awards-reveal__song-artist">'+esc(sg.trackArtist)+'</div></div></div>';
       }
-      if(allCands.length>maxCount)nomList+='<div class="awards-reveal__nominee">+'+(allCands.length-maxCount)+' more</div>';
+      var trackCls="awards-reveal__songmarquee-track"+(songs.length>3?" awards-reveal__songmarquee-track--scroll":"");
+      if(songs.length>3)songHtml=songHtml+songHtml; // duplicate for seamless loop
+      body='<div class="awards-reveal__finalist-name">'+esc(fc.label)+'</div>'+
+        '<div class="awards-reveal__songmarquee"><div class="awards-reveal__songmarquee-label">'+(songs.length?"Songs they sang":"Took the mic tonight")+'</div>'+
+        '<div class="awards-reveal__songmarquee-mask"><div class="'+trackCls+'">'+songHtml+'</div></div></div>';
     } else {
-      for(var i=0;i<cands.length;i++){
-        var c=cands[i];
-        var av=c.avatarUrl?'<img src="'+esc(c.avatarUrl)+'" alt="">':'<div class="awards-reveal__nominee-avatar">'+esc((c.label||"?").charAt(0).toUpperCase())+'</div>';
-        nomList+='<div class="awards-reveal__nominee" style="animation-delay:'+(i*0.08)+'s">'+av+'<span>'+esc(c.label)+'</span></div>';
+      var fsingers=fc.singers||[];
+      var memAvatars="";
+      var visMem=fsingers.slice(0,5);
+      for(var mi=0;mi<visMem.length;mi++){
+        var ms=visMem[mi];
+        var mbg=ms.color?'background:linear-gradient(135deg,'+ms.color+','+ms.color+'aa)':"";
+        memAvatars+='<div class="awards-reveal__member-avatar" style="'+mbg+'">'+(ms.profilePicture?'<img src="'+esc(ms.profilePicture)+'" alt="">':esc((ms.name||"?").charAt(0).toUpperCase()))+'</div>';
       }
-      if(allCands.length>maxCount)nomList+='<div class="awards-reveal__nominee">+'+(allCands.length-maxCount)+' more</div>';
+      var memLine=fsingers.length?'<div class="awards-reveal__members"><div class="awards-reveal__members-avatars">'+memAvatars+'</div><div class="awards-reveal__member-names">'+esc(fsingers.map(function(x){return x.name;}).join(", "))+'</div></div>':"";
+      body='<div class="awards-reveal__finalist-track">'+esc(fc.trackName||fc.label)+'</div>'+(fc.subtitle?'<div class="awards-reveal__finalist-sub">'+esc(fc.subtitle)+'</div>':"")+memLine;
     }
-    var listCls=isPerf?"awards-reveal__nominees-list awards-reveal__nominees-list--rich":"awards-reveal__nominees-list";
-    inner='<div class="awards-reveal__nominees">'+
-      '<div class="awards-reveal__award-icon">'+awardsIconBody(step.award)+'</div>'+
-      '<div><div class="awards-reveal__nominees-label">Award '+(step.awardIndex+1)+' of '+step.totalAwards+'</div>'+
-      '<div class="awards-reveal__award-title">'+esc(step.award.title)+'</div></div>'+
-      (cands.length?'<div class="awards-reveal__nominees-label">Nominees</div><div class="'+listCls+'">'+nomList+'</div>':'<div class="awards-reveal__nominees-label" style="opacity:0.6">No candidates</div>')+
+    inner='<div class="awards-reveal__finalist">'+
+      '<div class="awards-reveal__finalist-badge">Finalist '+(f.order+1)+' of '+f.count+'</div>'+
+      '<div class="awards-reveal__finalist-sub">'+esc(step.award.title)+'</div>'+
+      face+body+
     '</div>';
-  } else if(step.phase==="drumroll"&&step.award){
-    inner='<div class="awards-reveal__drumroll">'+
-      '<div class="awards-reveal__award-icon">'+awardsIconHtmlFor(step.award)+'</div>'+
-      '<div class="awards-reveal__award-title">'+esc(step.award.title)+'</div>'+
-      '<div class="awards-reveal__drumroll-text">And the winner is…</div>'+
-      '<div class="awards-reveal__drumroll-dots"><span></span><span></span><span></span><span></span><span></span></div>'+
+  } else if(step.phase==="lineup"){
+    var lineup=step.lineup||[];
+    var isSingerL=step.award&&step.award.subject_type==="singer";
+    var lcards="";
+    for(var li=0;li<lineup.length;li++){
+      var lc=lineup[li];
+      var lface=lc.avatarUrl?'<img class="awards-reveal__lineup-face" src="'+esc(lc.avatarUrl)+'" alt="">':'<div class="awards-reveal__lineup-face">'+esc((lc.label||"?").charAt(0).toUpperCase())+'</div>';
+      lcards+='<div class="awards-reveal__lineup-card awards-reveal__lineup-enter" style="animation-delay:'+(li*0.18)+'s">'+lface+
+        '<div class="awards-reveal__lineup-name">'+esc(isSingerL?lc.label:(lc.trackName||lc.label))+'</div></div>';
+    }
+    inner='<div class="awards-reveal__lineupwrap">'+
+      (step.award?'<div class="awards-reveal__award-icon">'+awardsIconBody(step.award)+'</div>':"")+
+      (step.award?'<div class="awards-reveal__award-title">'+esc(step.award.title)+'</div>':"")+
+      '<div class="awards-reveal__lineup-label">'+(lineup.length===1?"Your finalist":"Your finalists")+'…</div>'+
+      '<div class="awards-reveal__lineup">'+lcards+'</div>'+
     '</div>';
   } else if(step.phase==="winner"&&step.award){
     var winners=step.winners||[];
@@ -487,28 +516,33 @@ export function renderRevealOverlay(){
         '</div>'+
       '</div>';
     } else {
+      var w=winners[0];
+      var isSingerW=step.award.subject_type==="singer";
       var avHtml="";
-      winners.forEach(function(w){
-        if(w.singers&&w.singers.length>1){
-          w.singers.forEach(function(s){
-            avHtml+='<div class="awards-reveal__winner-avatar">'+(s.profilePicture?'<img src="'+esc(s.profilePicture)+'" style="width:100%;height:100%;object-fit:cover">':esc((s.name||"?").charAt(0).toUpperCase()))+'</div>';
-          });
-        } else {
-          avHtml+=w.avatarUrl?'<img class="awards-reveal__winner-avatar" src="'+esc(w.avatarUrl)+'" alt="">':'<div class="awards-reveal__winner-avatar">'+esc((w.label||"?").charAt(0).toUpperCase())+'</div>';
-        }
-      });
-      var names=winners.length===1?esc(winners[0].label):winners.map(function(w){return esc(w.label);}).join(" · ");
-      var sub=winners.length===1&&winners[0].subtitle?'<div class="awards-reveal__winner-sub">'+esc(winners[0].subtitle)+'</div>':"";
-      if(winners.length>1){
-        sub='<div class="awards-reveal__winner-sub">Tied with '+(step.voteCount||0)+' vote'+((step.voteCount||0)===1?"":"s")+' each</div>';
+      if(!isSingerW&&w.singers&&w.singers.length>1){
+        w.singers.forEach(function(s){
+          avHtml+='<div class="awards-reveal__winner-avatar">'+(s.profilePicture?'<img src="'+esc(s.profilePicture)+'" style="width:100%;height:100%;object-fit:cover">':esc((s.name||"?").charAt(0).toUpperCase()))+'</div>';
+        });
+      } else {
+        avHtml+=w.avatarUrl?'<img class="awards-reveal__winner-avatar" src="'+esc(w.avatarUrl)+'" alt="">':'<div class="awards-reveal__winner-avatar">'+esc((w.label||"?").charAt(0).toUpperCase())+'</div>';
       }
-      var votes=winners.length===1?'<div class="awards-reveal__winner-votes">'+(step.voteCount||0)+' vote'+((step.voteCount||0)===1?"":"s")+'</div>':"";
+      var st=step.winnerStats;
+      var stats="";
+      if(st){
+        stats='<div class="awards-reveal__winnerstats">'+
+          '<div class="awards-reveal__winnerstat"><div class="awards-reveal__winnerstat-num">'+st.score+'</div><div class="awards-reveal__winnerstat-cap">total score</div></div>'+
+          '<div class="awards-reveal__winnerstat"><div class="awards-reveal__winnerstat-num">'+st.firstPlaceVotes+'</div><div class="awards-reveal__winnerstat-cap">1st-place vote'+(st.firstPlaceVotes===1?"":"s")+'</div></div>'+
+          '<div class="awards-reveal__winnerstat"><div class="awards-reveal__winnerstat-num">'+st.totalVotes+'</div><div class="awards-reveal__winnerstat-cap">total vote'+(st.totalVotes===1?"":"s")+'</div></div>'+
+        '</div>';
+      }
+      var wname=esc(isSingerW?w.label:(w.trackName||w.label));
+      var wsub=w.subtitle?'<div class="awards-reveal__winner-sub">'+esc(w.subtitle)+'</div>':"";
       inner='<div class="awards-reveal__winner">'+
         awardCrest+
         '<div class="awards-reveal__winner-label">Winner · '+esc(step.award.title)+'</div>'+
         '<div class="awards-reveal__winner-card">'+
           '<div class="awards-reveal__winner-avatars">'+avHtml+'</div>'+
-          '<div class="awards-reveal__winner-name">'+names+'</div>'+sub+votes+
+          '<div class="awards-reveal__winner-name">'+wname+'</div>'+wsub+stats+
         '</div>'+
       '</div>';
       // Confetti

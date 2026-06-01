@@ -5,9 +5,9 @@ import { blobCornerRadii } from '../../helpers'
 
 // Sketch-specific stylesheet. Mirrors the legacy `mobileStyles(t)` `isSketch`
 // branch — cream paper bg, asymmetric blob corner radii on cards and inputs,
-// dashed border on inputs (so the field reads as "fill-in-the-blank"), Kalam
-// for display, Patrick Hand for body. Hard offset shadow so cards float just
-// above the paper like a Polaroid pinned to a corkboard.
+// dashed border on inputs (so the field reads as "fill-in-the-blank"), Pencil
+// Trace for display, Thin Pencil Handwriting for body. Hard offset shadow so
+// cards float just above the paper like a Polaroid pinned to a corkboard.
 export function buildSketchStyles(t: ThemeTokens): ThemeUIStyles {
   // Paper shadow — soft drop, like a card resting on the page. Not the hard
   // pixel offset neo-brutal uses; sketch wants a slightly diffuse feel.

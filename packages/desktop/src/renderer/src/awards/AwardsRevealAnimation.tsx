@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { FEATURED_SVGS, awardIconCdnUrl } from './icons/manifest'
-import { Award, AwardCandidate, RevealStep } from './types'
+import { Award, AwardCandidate, RevealFinalist, RevealStep } from './types'
 import '../styles/awards.css'
 
 // Helper: render an award's icon. Tries (in order) uploaded photo, inlined
@@ -55,7 +55,8 @@ function useStageSfx(phase: string | null) {
             case 'opening':
                 playSynth('fanfare')
                 break
-            case 'drumroll':
+            case 'lineup':
+                // Build suspense once the finalists are lined up.
                 playSynth('drumroll')
                 break
             case 'winner':
@@ -169,14 +170,23 @@ export function AwardsRevealAnimation({ step }: Props) {
     return createPortal((
         <div className="awards-reveal" role="dialog" aria-label="Awards reveal">
             <div className="awards-reveal__spotlight" />
-            {step.phase === 'winner' && <ConfettiBurst key={step.startedAt} />}
+            {step.phase === 'winner' && (step.winners?.length ?? 0) > 0 && <ConfettiBurst key={step.startedAt} />}
             {step.phase === 'opening' && <OpeningCard total={step.totalAwards} />}
-            {step.phase === 'nominees' && step.award && (
-                <NomineesCard award={step.award} candidates={step.candidates || []} awardIndex={step.awardIndex} total={step.totalAwards} />
+            {step.phase === 'finalist' && step.award && step.finalist && (
+                <FinalistCard key={step.startedAt} award={step.award} finalist={step.finalist} awardIndex={step.awardIndex} total={step.totalAwards} />
             )}
-            {step.phase === 'drumroll' && step.award && <DrumrollCard award={step.award} />}
+            {step.phase === 'lineup' && step.award && (
+                <LineupCard award={step.award} lineup={step.lineup || []} />
+            )}
             {step.phase === 'winner' && step.award && (
-                <WinnerCard award={step.award} winners={step.winners || []} voteCount={step.voteCount ?? 0} />
+                <WinnerReveal
+                    key={step.startedAt}
+                    award={step.award}
+                    lineup={step.lineup || []}
+                    winners={step.winners || []}
+                    winnerKey={step.winnerKey}
+                    stats={step.winnerStats}
+                />
             )}
             {step.phase === 'finale' && <FinaleCard summary={step.finaleSummary || []} />}
         </div>
@@ -198,105 +208,136 @@ function AwardIconSlot({ award }: { award: Award }) {
     return <div className="awards-reveal__award-icon"><AwardIconBody award={award} /></div>
 }
 
-function CandidateAvatar({ c }: { c: AwardCandidate }) {
-    const initial = (c.label || '?').charAt(0).toUpperCase()
-    if (c.avatarUrl) {
-        return <img src={c.avatarUrl} alt="" />
-    }
-    return <div className="awards-reveal__nominee-avatar">{initial}</div>
+// A circular face for a candidate: profile photo / album art, else initial.
+function CandidateFace({ c, className }: { c: AwardCandidate; className: string }) {
+    if (c.avatarUrl) return <img className={className} src={c.avatarUrl} alt="" />
+    return <div className={className}>{(c.label || '?').charAt(0).toUpperCase()}</div>
 }
 
-function NomineesCard({ award, candidates, awardIndex, total }: { award: Award; candidates: AwardCandidate[]; awardIndex: number; total: number }) {
-    const isPerf = award.subjectType === 'performance' || award.subjectType === 'group'
+// Row of member avatars for a performance / group candidate.
+function SingerRow({ c }: { c: AwardCandidate }) {
+    const singers = c.singers || []
+    if (singers.length === 0) return null
     return (
-        <div className="awards-reveal__nominees">
-            <AwardIconSlot award={award} />
-            <div>
-                <div className="awards-reveal__nominees-label">Award {awardIndex + 1} of {total}</div>
-                <div className="awards-reveal__award-title">{award.title}</div>
+        <div className="awards-reveal__members">
+            <div className="awards-reveal__members-avatars">
+                {singers.slice(0, 5).map((s, si) => (
+                    <div key={si} className="awards-reveal__member-avatar"
+                         style={{ background: s.color ? 'linear-gradient(135deg,' + s.color + ',' + s.color + 'aa)' : undefined }}>
+                        {s.profilePicture
+                            ? <img src={s.profilePicture} alt="" />
+                            : (s.name || '?').charAt(0).toUpperCase()}
+                    </div>
+                ))}
             </div>
-            {candidates.length > 0 ? (
-                <>
-                    <div className="awards-reveal__nominees-label">Nominees</div>
-                    {isPerf ? (
-                        <div className="awards-reveal__nominees-list awards-reveal__nominees-list--rich">
-                            {candidates.slice(0, 5).map((c, i) => (
-                                <PerformanceNomineeRow key={c.subjectKey} c={c} index={i} />
-                            ))}
-                            {candidates.length > 5 && (
-                                <div className="awards-reveal__nominee">+{candidates.length - 5} more</div>
-                            )}
-                        </div>
-                    ) : (
-                        <div className="awards-reveal__nominees-list">
-                            {candidates.slice(0, 8).map((c, i) => (
-                                <div key={c.subjectKey} className="awards-reveal__nominee" style={{ animationDelay: (i * 0.08) + 's' }}>
-                                    <CandidateAvatar c={c} />
-                                    <span>{c.label}</span>
-                                </div>
-                            ))}
-                            {candidates.length > 8 && (
-                                <div className="awards-reveal__nominee">+{candidates.length - 8} more</div>
-                            )}
-                        </div>
-                    )}
-                </>
+            <div className="awards-reveal__member-names">{singers.map(s => s.name).join(', ')}</div>
+        </div>
+    )
+}
+
+// ---- Finalist spotlight (one at a time, random order) --------------------
+
+function FinalistCard({ award, finalist, awardIndex, total }: { award: Award; finalist: RevealFinalist; awardIndex: number; total: number }) {
+    const c = finalist.candidate
+    const isSinger = award.subjectType === 'singer'
+    return (
+        <div className="awards-reveal__finalist">
+            <div className="awards-reveal__finalist-top">
+                <AwardIconSlot award={award} />
+                <div>
+                    <div className="awards-reveal__finalist-badge">Finalist {finalist.order + 1} of {finalist.count}</div>
+                    <div className="awards-reveal__award-title">{award.title}</div>
+                    <div className="awards-reveal__finalist-sub">Award {awardIndex + 1} of {total}</div>
+                </div>
+            </div>
+
+            {isSinger ? (
+                <div className="awards-reveal__finalist-singer">
+                    <CandidateFace c={c} className="awards-reveal__finalist-face" />
+                    <div className="awards-reveal__finalist-name">{c.label}</div>
+                    <SongMarquee songs={finalist.songs || []} />
+                </div>
             ) : (
-                <div className="awards-reveal__nominees-label" style={{ opacity: 0.6 }}>No candidates</div>
+                <div className="awards-reveal__finalist-perf">
+                    <CandidateFace c={c} className="awards-reveal__finalist-art" />
+                    <div className="awards-reveal__finalist-track">{c.trackName || c.label}</div>
+                    {c.subtitle && <div className="awards-reveal__finalist-sub">{c.subtitle}</div>}
+                    <SingerRow c={c} />
+                </div>
             )}
         </div>
     )
 }
 
-function PerformanceNomineeRow({ c, index }: { c: AwardCandidate; index: number }) {
-    const initial = (c.label || '?').charAt(0).toUpperCase()
-    const singers = c.singers || []
+// Vertically scrolling list of a singer's performances.
+function SongMarquee({ songs }: { songs: Array<{ trackName: string; trackArtist: string; artUrl: string | null }> }) {
+    if (songs.length === 0) {
+        return <div className="awards-reveal__songs-empty">Took the mic tonight</div>
+    }
+    // Duplicate the list so the upward scroll loops seamlessly.
+    const loop = songs.length > 3 ? songs.concat(songs) : songs
     return (
-        <div className="awards-reveal__nominee--rich" style={{ animationDelay: (index * 0.1) + 's' }}>
-            {c.avatarUrl
-                ? <img className="awards-reveal__nominee-art" src={c.avatarUrl} alt="" />
-                : <div className="awards-reveal__nominee-art" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 22 }}>{initial}</div>}
-            <div className="awards-reveal__nominee-meta">
-                <div className="awards-reveal__nominee-track">{c.label}</div>
-                {singers.length > 0 && (
-                    <div className="awards-reveal__nominee-singers">
-                        <div className="awards-reveal__nominee-singers-avatars">
-                            {singers.slice(0, 4).map((s, si) => (
-                                <div key={si} className="awards-reveal__nominee-singer-avatar"
-                                     style={{ background: s.color ? 'linear-gradient(135deg,' + s.color + ',' + s.color + 'aa)' : undefined }}>
-                                    {s.profilePicture
-                                        ? <img src={s.profilePicture} alt="" />
-                                        : (s.name || '?').charAt(0).toUpperCase()}
-                                </div>
-                            ))}
+        <div className="awards-reveal__songmarquee">
+            <div className="awards-reveal__songmarquee-label">Songs they sang</div>
+            <div className="awards-reveal__songmarquee-mask">
+                <div className={'awards-reveal__songmarquee-track' + (songs.length > 3 ? ' awards-reveal__songmarquee-track--scroll' : '')}>
+                    {loop.map((s, i) => (
+                        <div key={i} className="awards-reveal__song">
+                            {s.artUrl
+                                ? <img className="awards-reveal__song-art" src={s.artUrl} alt="" />
+                                : <div className="awards-reveal__song-art awards-reveal__song-art--ph">♪</div>}
+                            <div className="awards-reveal__song-meta">
+                                <div className="awards-reveal__song-title">{s.trackName}</div>
+                                <div className="awards-reveal__song-artist">{s.trackArtist}</div>
+                            </div>
                         </div>
-                        <div className="awards-reveal__nominee-singer-names">{singers.map(s => s.name).join(', ')}</div>
-                    </div>
-                )}
+                    ))}
+                </div>
             </div>
         </div>
     )
 }
 
-function DrumrollCard({ award }: { award: Award }) {
+// ---- Lineup: all finalists in a row --------------------------------------
+
+function LineupCardItem({ c, highlight, isSinger }: { c: AwardCandidate; highlight?: boolean; isSinger: boolean }) {
     return (
-        <div className="awards-reveal__drumroll">
+        <div className={'awards-reveal__lineup-card' + (highlight ? ' awards-reveal__lineup-card--win' : '')}>
+            <CandidateFace c={c} className="awards-reveal__lineup-face" />
+            <div className="awards-reveal__lineup-name">{isSinger ? c.label : (c.trackName || c.label)}</div>
+            {!isSinger && c.subtitle && <div className="awards-reveal__lineup-sub">{c.subtitle}</div>}
+        </div>
+    )
+}
+
+function LineupCard({ award, lineup }: { award: Award; lineup: AwardCandidate[] }) {
+    const isSinger = award.subjectType === 'singer'
+    return (
+        <div className="awards-reveal__lineupwrap">
             <AwardIconSlot award={award} />
             <div className="awards-reveal__award-title">{award.title}</div>
-            <div className="awards-reveal__drumroll-text">And the winner is…</div>
-            <div className="awards-reveal__drumroll-dots">
-                <span /><span /><span /><span /><span />
+            <div className="awards-reveal__lineup-label">Your {lineup.length === 1 ? 'finalist' : 'finalists'}…</div>
+            <div className="awards-reveal__lineup">
+                {lineup.map((c, i) => (
+                    <div key={c.subjectKey} className="awards-reveal__lineup-enter" style={{ animationDelay: (i * 0.18) + 's' }}>
+                        <LineupCardItem c={c} isSinger={isSinger} />
+                    </div>
+                ))}
             </div>
         </div>
     )
 }
 
-function WinnerAvatar({ c }: { c: AwardCandidate }) {
-    if (c.avatarUrl) return <img className="awards-reveal__winner-avatar" src={c.avatarUrl} alt="" />
-    return <div className="awards-reveal__winner-avatar">{(c.label || '?').charAt(0).toUpperCase()}</div>
-}
+// ---- Winner: finalists row, then the winner grows to full screen ---------
 
-function WinnerCard({ award, winners, voteCount }: { award: Award; winners: AwardCandidate[]; voteCount: number }) {
+function WinnerReveal({ award, lineup, winners, winnerKey, stats }: {
+    award: Award
+    lineup: AwardCandidate[]
+    winners: AwardCandidate[]
+    winnerKey?: string
+    stats?: { score: number; firstPlaceVotes: number; totalVotes: number }
+}) {
+    const isSinger = award.subjectType === 'singer'
     if (winners.length === 0) {
         return (
             <div className="awards-reveal__winner">
@@ -309,36 +350,56 @@ function WinnerCard({ award, winners, voteCount }: { award: Award; winners: Awar
             </div>
         )
     }
+    const winner = winners[0]
+    const row = lineup.length > 0 ? lineup : [winner]
     return (
-        <div className="awards-reveal__winner">
-            <div className="awards-reveal__winner-crest"><AwardIconSlot award={award} /></div>
-            <div className="awards-reveal__winner-label">Winner · {award.title}</div>
-            <div className="awards-reveal__winner-card">
-                <div className="awards-reveal__winner-avatars">
-                    {winners.flatMap((w, wi) => {
-                        if (w.singers && w.singers.length > 1) {
-                            return w.singers.map((s, si) => (
-                                <div key={`${wi}-${si}`} className="awards-reveal__winner-avatar">
+        <div className="awards-reveal__winnerstage">
+            {/* The finalist row sits behind and dims as the winner grows in. */}
+            {row.length > 1 && (
+                <div className="awards-reveal__lineup awards-reveal__lineup--dim">
+                    {row.map(c => (
+                        <LineupCardItem key={c.subjectKey} c={c} isSinger={isSinger} highlight={c.subjectKey === winnerKey} />
+                    ))}
+                </div>
+            )}
+
+            {/* Winner card grows to fill. */}
+            <div className="awards-reveal__winnerbig">
+                <div className="awards-reveal__winner-crest"><AwardIconSlot award={award} /></div>
+                <div className="awards-reveal__winner-label">Winner · {award.title}</div>
+                <div className="awards-reveal__winnerbig-face-wrap">
+                    {isSinger || !winner.singers || winner.singers.length <= 1 ? (
+                        <CandidateFace c={winner} className="awards-reveal__winnerbig-face" />
+                    ) : (
+                        <div className="awards-reveal__winnerbig-faces">
+                            {winner.singers.slice(0, 5).map((s, si) => (
+                                <div key={si} className="awards-reveal__winnerbig-face awards-reveal__winnerbig-face--multi"
+                                     style={{ background: s.color ? 'linear-gradient(135deg,' + s.color + ',' + s.color + 'aa)' : undefined }}>
                                     {s.profilePicture
                                         ? <img src={s.profilePicture} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                         : (s.name || '?').charAt(0).toUpperCase()}
                                 </div>
-                            ))
-                        }
-                        return [<WinnerAvatar key={wi} c={w} />]
-                    })}
+                            ))}
+                        </div>
+                    )}
                 </div>
-                <div className="awards-reveal__winner-name">
-                    {winners.length === 1 ? winners[0].label : winners.map(w => w.label).join(' · ')}
-                </div>
-                {winners.length === 1 && winners[0].subtitle && (
-                    <div className="awards-reveal__winner-sub">{winners[0].subtitle}</div>
-                )}
-                {winners.length > 1 && (
-                    <div className="awards-reveal__winner-sub">Tied with {voteCount} vote{voteCount === 1 ? '' : 's'} each</div>
-                )}
-                {winners.length === 1 && (
-                    <div className="awards-reveal__winner-votes">{voteCount} vote{voteCount === 1 ? '' : 's'}</div>
+                <div className="awards-reveal__winnerbig-name">{isSinger ? winner.label : (winner.trackName || winner.label)}</div>
+                {winner.subtitle && <div className="awards-reveal__winnerbig-sub">{winner.subtitle}</div>}
+                {stats && (
+                    <div className="awards-reveal__winnerstats">
+                        <div className="awards-reveal__winnerstat">
+                            <div className="awards-reveal__winnerstat-num">{stats.score}</div>
+                            <div className="awards-reveal__winnerstat-cap">total score</div>
+                        </div>
+                        <div className="awards-reveal__winnerstat">
+                            <div className="awards-reveal__winnerstat-num">{stats.firstPlaceVotes}</div>
+                            <div className="awards-reveal__winnerstat-cap">1st-place vote{stats.firstPlaceVotes === 1 ? '' : 's'}</div>
+                        </div>
+                        <div className="awards-reveal__winnerstat">
+                            <div className="awards-reveal__winnerstat-num">{stats.totalVotes}</div>
+                            <div className="awards-reveal__winnerstat-cap">total vote{stats.totalVotes === 1 ? '' : 's'}</div>
+                        </div>
+                    </div>
                 )}
             </div>
         </div>

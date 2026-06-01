@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, type CSSProperties } from 'react'
 import { useApp } from '../context/AppContext'
 import { useTheme } from '../context/ThemeContext'
 import { FEATURED_SVGS, awardIconCdnUrl } from './icons/manifest'
@@ -7,6 +7,7 @@ import {
     AwardCandidate,
     AwardVote,
     AwardSubjectType,
+    AwardStanding,
     RevealStep
 } from './types'
 import {
@@ -16,6 +17,7 @@ import {
     fetchPlayedHistory,
     fetchGuests,
     buildPersistedResults,
+    buildFinalistSongs,
     runRevealSequence,
     getRevealBroadcastChannel,
     sendRevealStepBroadcast,
@@ -25,6 +27,7 @@ import {
 } from './AwardsManager'
 
 const REFRESH_MS = 4000
+const MEDALS = ['🥇', '🥈', '🥉']
 
 export function AdminAwardsTab() {
     const { state, dispatch } = useApp()
@@ -35,6 +38,7 @@ export function AdminAwardsTab() {
     const [history, setHistory] = useState<PlayedPerformance[]>([])
     const [guests, setGuests] = useState<KnownGuest[]>([])
     const [revealStatus, setRevealStatus] = useState<'idle' | 'running'>('idle')
+    const [expandedBallots, setExpandedBallots] = useState<Record<string, boolean>>({})
     const sequenceRef = useRef<{ cancel: () => void } | null>(null)
 
     // Periodic refresh of votes, history, guests so admin sees a live tally
@@ -63,24 +67,42 @@ export function AdminAwardsTab() {
         )
     }
 
+    const guestNameById = new Map(guests.map(g => [g.id, g.name]))
+
     const candidatesFor = (subjectType: AwardSubjectType): AwardCandidate[] =>
         buildCandidates({ subjectType, history, guests })
 
     const tallies = state.awards.map(a => ({
         award: a,
+        candidates: candidatesFor(a.subjectType),
         tally: computeTally(a, votes.filter(v => v.awardId === a.id), candidatesFor(a.subjectType))
     }))
+
+    const buildRevealItems = (): RevealSequenceItem[] =>
+        tallies.map(({ award, tally }) => ({
+            award,
+            finalists: tally.finalists
+                .filter(s => s.candidate)
+                .map(s => ({
+                    candidate: s.candidate as AwardCandidate,
+                    score: s.score,
+                    firstPlaceVotes: s.firstPlaceVotes,
+                    totalVotes: s.totalVotes,
+                    songs: award.subjectType === 'singer'
+                        ? buildFinalistSongs(history, s.candidate as AwardCandidate)
+                        : undefined
+                })),
+            winnerKey: tally.winner?.candidate?.subjectKey ?? null,
+            winnerStats: tally.winner
+                ? { score: tally.winner.score, firstPlaceVotes: tally.winner.firstPlaceVotes, totalVotes: tally.winner.totalVotes }
+                : null
+        }))
 
     const handleRevealClick = async () => {
         if (revealStatus === 'running') return
         if (!sessionCode) return
 
-        const items: RevealSequenceItem[] = tallies.map(({ award, tally }) => ({
-            award,
-            candidates: candidatesFor(award.subjectType),
-            winners: tally.winners,
-            voteCount: tally.byCandidate[0]?.count ?? 0
-        }))
+        const items = buildRevealItems()
 
         // Persist results immediately so they survive a refresh / replay
         const allResults = tallies.flatMap(({ award, tally }) =>
@@ -99,9 +121,6 @@ export function AdminAwardsTab() {
                 // Drive the local admin/stage windows immediately via IPC.
                 dispatch({ type: 'SET_REVEAL_STEP', payload: step })
                 // Send the supabase broadcast directly from this renderer.
-                // (Doing this from main was unreliable — the main-process
-                // supabase client opened a new socket per broadcast and racing
-                // the SUBSCRIBED handshake meant phones got nothing.)
                 sendRevealStepBroadcast(sessionId, step)
             },
             onComplete: () => {
@@ -134,11 +153,23 @@ export function AdminAwardsTab() {
             alert(`Failed to delete award: ${result.error}`)
             return
         }
-        // Optimistically remove from local state. Postgres realtime DELETE
-        // events are unreliable (REPLICA IDENTITY default + RLS), so we can't
-        // count on the subscription to update state.awards.
         dispatch({ type: 'REMOVE_AWARD', payload: award.id })
         refresh()
+    }
+
+    // Bump a candidate's manual score adjustment by +/- 1 point. Persists the
+    // whole adjustments map (keyed by subjectKey) and updates state optimistically.
+    const adjustScore = async (award: Award, subjectKey: string, delta: number) => {
+        const next = { ...(award.scoreAdjustments || {}) }
+        const v = (next[subjectKey] || 0) + delta
+        if (v === 0) delete next[subjectKey]
+        else next[subjectKey] = v
+        dispatch({ type: 'UPSERT_AWARD', payload: { ...award, scoreAdjustments: next } })
+        const res = await window.electronAPI?.setAwardAdjustments(award.id, next)
+        if (res?.error) {
+            alert(`Failed to adjust score: ${res.error}`)
+            refresh()
+        }
     }
 
     const finalized = state.awards.some(a => a.finalizedAt)
@@ -153,7 +184,10 @@ export function AdminAwardsTab() {
                         Awards Overview
                     </div>
                     <div style={{ fontSize: 12, color: theme.faint, fontFamily: theme.fontBody }}>
-                        {state.awards.length} award{state.awards.length === 1 ? '' : 's'} · {totalVotes} vote{totalVotes === 1 ? '' : 's'} cast · {history.length} performance{history.length === 1 ? '' : 's'} played
+                        {state.awards.length} award{state.awards.length === 1 ? '' : 's'} · {totalVotes} ranked vote{totalVotes === 1 ? '' : 's'} cast · {history.length} performance{history.length === 1 ? '' : 's'} played
+                    </div>
+                    <div style={{ fontSize: 11, color: theme.faint, fontFamily: theme.fontBody, marginTop: 2 }}>
+                        Scoring: 1st place = 3 pts · 2nd = 2 · 3rd = 1
                     </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -202,13 +236,14 @@ export function AdminAwardsTab() {
             </div>
 
             {/* Live tallies grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 16 }}>
-                {tallies.map(({ award, tally }) => {
-                    const candidates = candidatesFor(award.subjectType)
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: 16 }}>
+                {tallies.map(({ award, candidates, tally }) => {
                     const subjectLabel = award.subjectType === 'performance'
                         ? 'Performance'
                         : award.subjectType === 'singer' ? 'Singer' : 'Group'
                     const featuredSvg = award.iconId ? FEATURED_SVGS[award.iconId] : undefined
+                    const ranked = tally.standings.filter(s => s.score !== 0 || s.totalVotes > 0)
+                    const ballotsOpen = !!expandedBallots[award.id]
                     return (
                         <div key={award.id} style={{ ...theme.card, border: theme.border, padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -241,7 +276,7 @@ export function AdminAwardsTab() {
                                         {award.title}
                                     </div>
                                     <div style={{ fontSize: 11, color: theme.faint, fontFamily: theme.fontBody }}>
-                                        {subjectLabel} · {award.isDefault ? 'Default' : 'Custom'}{award.finalizedAt ? ' · Finalized' : ''}
+                                        {subjectLabel} · {award.isDefault ? 'Default' : 'Custom'}{award.finalizedAt ? ' · Finalized' : ''} · {tally.totalBallots} voter{tally.totalBallots === 1 ? '' : 's'}
                                     </div>
                                 </div>
                                 {!award.isDefault && (
@@ -257,47 +292,98 @@ export function AdminAwardsTab() {
                                 )}
                             </div>
 
-                            {award.description ? (
-                                <div style={{
-                                    fontSize: 12, lineHeight: '17px', color: theme.faint, fontFamily: theme.fontBody,
-                                    fontStyle: 'italic',
-                                    borderLeft: '2px solid ' + theme.creamDark,
-                                    paddingLeft: 10,
-                                }}>
-                                    {award.description}
-                                </div>
-                            ) : null}
-
-                            {tally.byCandidate.length === 0 ? (
+                            {/* Standings */}
+                            {ranked.length === 0 ? (
                                 <div style={{ fontSize: 12, color: theme.faint, padding: '8px 0' }}>
-                                    {candidates.length === 0
-                                        ? 'No eligible candidates yet'
-                                        : 'No votes cast yet'}
+                                    {candidates.length === 0 ? 'No eligible candidates yet' : 'No votes cast yet'}
                                 </div>
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                    {tally.byCandidate.slice(0, 5).map((entry, i) => {
-                                        const isWinner = entry.count > 0 && entry.count === tally.byCandidate[0].count
+                                    {ranked.map((entry, i) => {
+                                        const isWinner = tally.winner?.subjectKey === entry.subjectKey
                                         const label = entry.candidate?.label || '(deleted)'
                                         return (
-                                            <div key={i} style={{
-                                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                            <div key={entry.subjectKey} style={{
+                                                display: 'flex', alignItems: 'center', gap: 8,
                                                 padding: '6px 10px', borderRadius: theme.radiusSmall,
                                                 background: isWinner ? `${theme.accentA}24` : theme.creamDark,
                                                 border: isWinner ? `1px solid ${theme.accentA}` : `1px solid transparent`
                                             }}>
-                                                <span style={{ fontSize: 13, fontWeight: isWinner ? 700 : 500, color: theme.black, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                    {isWinner && '🏆 '}{label}
+                                                <span style={{ fontSize: 12, fontWeight: 700, color: theme.faint, width: 18, textAlign: 'center', fontFamily: theme.fontDisplay }}>
+                                                    {i + 1}
                                                 </span>
-                                                <span style={{ fontSize: 12, color: theme.black, fontWeight: 700, fontFamily: theme.fontDisplay }}>
-                                                    {entry.count}
-                                                </span>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ fontSize: 13, fontWeight: isWinner ? 700 : 500, color: theme.black, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                        {isWinner && '🏆 '}{label}
+                                                    </div>
+                                                    <div style={{ fontSize: 10.5, color: theme.faint, fontFamily: theme.fontBody, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                                        <span>🥇{entry.firstPlaceVotes}</span>
+                                                        <span>🥈{entry.secondPlaceVotes}</span>
+                                                        <span>🥉{entry.thirdPlaceVotes}</span>
+                                                        {entry.adjustment !== 0 && (
+                                                            <span style={{ color: theme.accentA, fontWeight: 700 }}>
+                                                                {entry.adjustment > 0 ? '+' : ''}{entry.adjustment} adj
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                {/* +/- score adjustment */}
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                    <button
+                                                        onClick={() => adjustScore(award, entry.subjectKey, -1)}
+                                                        title="Subtract a point"
+                                                        style={adjBtnStyle(theme)}
+                                                    >−</button>
+                                                    <span style={{ fontSize: 16, fontWeight: 800, color: theme.black, fontFamily: theme.fontDisplay, minWidth: 26, textAlign: 'center' }}>
+                                                        {entry.score}
+                                                    </span>
+                                                    <button
+                                                        onClick={() => adjustScore(award, entry.subjectKey, +1)}
+                                                        title="Add a point"
+                                                        style={adjBtnStyle(theme)}
+                                                    >+</button>
+                                                </div>
                                             </div>
                                         )
                                     })}
-                                    {tally.byCandidate.length > 5 && (
-                                        <div style={{ fontSize: 11, color: theme.faint, textAlign: 'center' }}>
-                                            + {tally.byCandidate.length - 5} more
+                                    {/* Allow nudging candidates that have no score yet (manual award). */}
+                                    {candidates.length > ranked.length && (
+                                        <AddPointPicker
+                                            theme={theme}
+                                            candidates={candidates.filter(c => !ranked.some(r => r.subjectKey === c.subjectKey))}
+                                            onAdd={(key) => adjustScore(award, key, +1)}
+                                        />
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Ballots */}
+                            {tally.totalBallots > 0 && (
+                                <div>
+                                    <button
+                                        onClick={() => setExpandedBallots(s => ({ ...s, [award.id]: !s[award.id] }))}
+                                        style={{
+                                            fontSize: 11, fontWeight: 700, fontFamily: theme.fontDisplay,
+                                            color: theme.black, background: 'transparent', border: 'none', cursor: 'pointer',
+                                            padding: '4px 0', display: 'flex', alignItems: 'center', gap: 6
+                                        }}
+                                    >
+                                        {ballotsOpen ? '▾' : '▸'} {ballotsOpen ? 'Hide' : 'Show'} individual ballots ({tally.totalBallots})
+                                    </button>
+                                    {ballotsOpen && (
+                                        <div style={{ maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+                                            {groupBallots(award, votes.filter(v => v.awardId === award.id), candidates).map(b => (
+                                                <div key={b.voterGuestId} style={{ background: theme.creamDark, borderRadius: theme.radiusSmall, padding: '6px 10px' }}>
+                                                    <div style={{ fontSize: 12, fontWeight: 700, color: theme.black, fontFamily: theme.fontDisplay, marginBottom: 2 }}>
+                                                        {guestNameById.get(b.voterGuestId) || 'Guest ' + b.voterGuestId.slice(0, 4)}
+                                                    </div>
+                                                    <div style={{ fontSize: 11.5, color: theme.faint, fontFamily: theme.fontBody, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                                        {b.picks.map(p => (
+                                                            <span key={p.rank}>{MEDALS[p.rank - 1] || p.rank + ')'} {p.label}</span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
                                     )}
                                 </div>
@@ -311,6 +397,76 @@ export function AdminAwardsTab() {
                 <div style={{ ...theme.card, border: theme.border, padding: 32, textAlign: 'center', color: theme.faint }}>
                     No awards yet. Default awards seed automatically when the session opens.
                     Guests can create custom awards from the companion site.
+                </div>
+            )}
+        </div>
+    )
+}
+
+function adjBtnStyle(theme: ReturnType<typeof useTheme>): CSSProperties {
+    return {
+        width: 24, height: 24, lineHeight: '20px', fontSize: 16, fontWeight: 800,
+        cursor: 'pointer', border: theme.border, borderRadius: theme.radiusSmall,
+        background: theme.cream, color: theme.black, padding: 0
+    }
+}
+
+// Group a session's award votes by voter into ranked ballots, resolving each
+// pick to its candidate label.
+function groupBallots(
+    award: Award,
+    votes: AwardVote[],
+    candidates: AwardCandidate[]
+): Array<{ voterGuestId: string; picks: Array<{ rank: number; label: string }> }> {
+    const byKey = new Map<string, AwardCandidate>()
+    for (const c of candidates) { byKey.set(c.subjectKey, c); }
+    const byVoter = new Map<string, Array<{ rank: number; label: string }>>()
+    for (const v of votes) {
+        const key = award.subjectType === 'singer' ? v.subjectGuestId : v.subjectQueueRowId
+        if (!key) continue
+        const cand = byKey.get(key) || byKey.get('name:' + key)
+        const label = cand?.label || '(removed)'
+        const list = byVoter.get(v.voterGuestId) || []
+        list.push({ rank: v.rank || 1, label })
+        byVoter.set(v.voterGuestId, list)
+    }
+    return Array.from(byVoter.entries()).map(([voterGuestId, picks]) => ({
+        voterGuestId,
+        picks: picks.sort((a, b) => a.rank - b.rank)
+    }))
+}
+
+// A tiny dropdown to grant a starting point to a candidate that has no votes —
+// lets the admin manually seat a finalist that polling missed.
+function AddPointPicker({ theme, candidates, onAdd }: {
+    theme: ReturnType<typeof useTheme>
+    candidates: AwardCandidate[]
+    onAdd: (subjectKey: string) => void
+}) {
+    const [open, setOpen] = useState(false)
+    if (candidates.length === 0) return null
+    return (
+        <div style={{ marginTop: 2 }}>
+            <button
+                onClick={() => setOpen(o => !o)}
+                style={{
+                    fontSize: 11, fontWeight: 700, fontFamily: theme.fontDisplay, color: theme.faint,
+                    background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px 0'
+                }}
+            >{open ? '▾' : '▸'} Add points to another candidate</button>
+            {open && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4, maxHeight: 160, overflowY: 'auto' }}>
+                    {candidates.map(c => (
+                        <button
+                            key={c.subjectKey}
+                            onClick={() => { onAdd(c.subjectKey); setOpen(false) }}
+                            style={{
+                                textAlign: 'left', fontSize: 12, color: theme.black, fontFamily: theme.fontBody,
+                                background: theme.creamDark, border: 'none', borderRadius: theme.radiusSmall,
+                                padding: '5px 10px', cursor: 'pointer'
+                            }}
+                        >+1 · {c.label}</button>
+                    ))}
                 </div>
             )}
         </div>

@@ -539,12 +539,17 @@ function YoureUp({
     <View style={{ flex: 1, paddingBottom: bottomPadding }}>
       <View style={yupWrapStyle}>
         {!isPlaying ? (
-          <Text style={yupHeroStyle(tokens)}>You're Up!</Text>
+          ui.YoureUpHero ? (
+            <ui.YoureUpHero />
+          ) : (
+            <Text style={yupHeroStyle(tokens)}>You're Up!</Text>
+          )
         ) : null}
 
         {!isPlaying && artUrl ? (
           <View style={yupArtStyle(tokens)}>
             <Image source={{ uri: artUrl }} style={{ width: '100%', height: '100%' }} />
+            {ui.ArtOverlay ? <ui.ArtOverlay /> : null}
           </View>
         ) : null}
 
@@ -838,6 +843,26 @@ function yupHeroStyle(t: ThemeTokens): TextStyle {
       textShadowColor: 'rgba(0,255,200,0.45)',
       textShadowOffset: { width: 0, height: 0 },
       textShadowRadius: 10,
+    }
+  }
+  // Urban: BomberUrban is already a heavy graffiti face — forcing fontWeight
+  // 900 faux-bolds it into a muddy blob (the old "horrible" look). Render it at
+  // its native weight, big, in the theme's signature toxic-lime with a matching
+  // glow on the void background.
+  if (t.name === 'urban') {
+    return {
+      fontFamily: t.fontDisplay,
+      fontWeight: 'normal',
+      fontSize: 60,
+      lineHeight: 64,
+      color: t.accentA,
+      letterSpacing: 1,
+      textAlign: 'center',
+      marginBottom: 4,
+      textTransform: 'uppercase',
+      textShadowColor: 'rgba(212,255,0,0.4)',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 16,
     }
   }
   return {

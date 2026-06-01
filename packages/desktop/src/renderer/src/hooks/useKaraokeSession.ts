@@ -706,7 +706,8 @@ function mapAwardRow(r: any): import('../awards/types').Award {
         createdByGuestId: r.createdByGuestId ?? r.created_by_guest_id ?? null,
         finalizedAt: r.finalizedAt ?? r.finalized_at ?? null,
         createdAt: r.createdAt ?? r.created_at,
-        updatedAt: r.updatedAt ?? r.updated_at
+        updatedAt: r.updatedAt ?? r.updated_at,
+        scoreAdjustments: r.scoreAdjustments ?? r.score_adjustments ?? {}
     }
 }
 

@@ -245,8 +245,8 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
                       color,
                       fontFamily: tokens.fontDisplay,
                       fontWeight: focused ? '900' : '700',
-                      fontSize: 10,
-                      letterSpacing: 2.4,
+                      fontSize: 12,
+                      letterSpacing: 2,
                       textShadowColor: focused
                         ? tokens.accentGlowColor
                         : 'transparent',
@@ -265,7 +265,9 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
                     style={{
                       marginTop: 2,
                       color: 'rgba(0,255,136,0.32)',
-                      fontFamily: tokens.fontDisplay,
+                      // "CH01" carries digits — SD Glitch display has none, so
+                      // use the full-coverage Glitch body face here.
+                      fontFamily: tokens.fontBody,
                       fontSize: 8,
                       letterSpacing: 1.2,
                     }}

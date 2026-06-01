@@ -1,7 +1,8 @@
 import React from 'react'
-import { View, Text, Image, Pressable } from 'react-native'
+import { View, Text, Image, Pressable, Animated } from 'react-native'
 import { useTheme } from '../../../ThemeContext'
 import type { SongCardProps } from '../../../types'
+import { CRTOverlay, GlitchBars, useGlitch, jitterStyle } from './Crt'
 
 function formatDuration(ms: number | null | undefined): string {
   if (!ms || ms <= 0) return ''
@@ -11,14 +12,29 @@ function formatDuration(ms: number | null | undefined): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
+// Cheap stable seed from the track id so each card's TV-snow field is
+// different but consistent across re-renders.
+function seedFrom(id: string | undefined): number {
+  let h = 2166136261
+  const s = id || 'x'
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return (h >>> 0) || 1
+}
+
 // Cyberpunk song card — sharp-cornered void-black panel with a 1px neon
 // accent border, soft outer glow, and a thumbnail well bordered in the same
-// dim accent. Title prints in monospace caps + neon foreground; artist falls
-// back to muted green. Press dims (no slide) — dark themes never slide into
-// an offset shadow.
+// dim accent. The art well is filmed as an early-2000s CRT screen: fine
+// scanlines, drifting TV-snow, a rolling refresh band, and rare RGB "tear"
+// glitch bursts that also shake the well. Title prints in the SD-glitch
+// display caps; artist in the Glitch body face. Press dims (no slide).
 export function CyberpunkSongCard({ track, onPress }: SongCardProps) {
   const { tokens } = useTheme()
   const duration = formatDuration(track.duration_ms)
+  const glitch = useGlitch({ minMs: 6000, maxMs: 17000 })
+  const seed = seedFrom(track.track_id)
 
   return (
     <Pressable
@@ -37,17 +53,20 @@ export function CyberpunkSongCard({ track, onPress }: SongCardProps) {
         opacity: pressed ? 0.85 : 1,
       })}
     >
-      <View
-        style={{
-          width: '100%',
-          aspectRatio: 1,
-          borderRadius: 0,
-          borderWidth: 1,
-          borderColor: tokens.dimBorder,
-          backgroundColor: tokens.creamDark,
-          overflow: 'hidden',
-          marginBottom: 8,
-        }}
+      <Animated.View
+        style={[
+          {
+            width: '100%',
+            aspectRatio: 1,
+            borderRadius: 0,
+            borderWidth: 1,
+            borderColor: tokens.dimBorder,
+            backgroundColor: tokens.creamDark,
+            overflow: 'hidden',
+            marginBottom: 8,
+          },
+          jitterStyle(glitch, 3),
+        ]}
       >
         {track.art_url ? (
           <Image
@@ -66,14 +85,18 @@ export function CyberpunkSongCard({ track, onPress }: SongCardProps) {
             <NoteGlyph color={tokens.muted} />
           </View>
         )}
-      </View>
+        <CRTOverlay coverage={240} snowCount={42} seed={seed} tint={tokens.accentA} />
+        <GlitchBars g={glitch} />
+      </Animated.View>
       <Text
         style={{
           fontFamily: tokens.fontDisplay,
           fontWeight: '900',
-          fontSize: 14,
+          // SD Glitch reads small for its px — bumped up vs other themes.
+          fontSize: 17,
+          lineHeight: 19,
           color: tokens.black,
-          letterSpacing: 1,
+          letterSpacing: 0.5,
           textTransform: 'uppercase',
         }}
         numberOfLines={2}
@@ -94,11 +117,15 @@ export function CyberpunkSongCard({ track, onPress }: SongCardProps) {
       {duration ? (
         <Text
           style={{
-            fontFamily: tokens.fontDisplay,
+            // Glitch (body) face, not SD Glitch — the SD Glitch display font
+            // has no digits or ':' glyph, so a duration set in it would render
+            // entirely in the system fallback.
+            fontFamily: tokens.fontBody,
             fontWeight: '700',
             fontSize: 11,
             color: tokens.faint,
             marginTop: 4,
+            letterSpacing: 1,
           }}
         >
           {duration}

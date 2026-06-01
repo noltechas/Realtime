@@ -477,6 +477,7 @@ function SessionRow({
         <Text
           style={{
             fontFamily: tokens.fontDisplay,
+            textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
             fontWeight: '900',
             fontSize: 20,
             color: featured ? tokens.white : live ? tokens.white : tokens.black,
@@ -489,6 +490,7 @@ function SessionRow({
         <Text
           style={{
             fontFamily: tokens.fontDisplay,
+            textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
             fontWeight: '900',
             fontSize: 16,
             color: titleColor,
@@ -526,6 +528,7 @@ function SessionRow({
           <Text
             style={{
               fontFamily: tokens.fontDisplay,
+              textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
               fontWeight: '900',
               fontSize: 12,
               letterSpacing: 1,
@@ -559,6 +562,7 @@ function SessionRow({
           <Text
             style={{
               fontFamily: tokens.fontDisplay,
+              textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
               fontWeight: '800',
               fontSize: 11,
               letterSpacing: 1,

@@ -363,23 +363,38 @@ export async function loadAwards(){
   });
   S.awardsGuestsCache=(gR.data||[]).map(function(g){return {id:g.id,name:g.name,profilePicture:g.profile_picture};});
   S.awardResults=(rR.data)||[];
-  // Own votes only
+  // Own votes only — grouped into a ranked ballot array per award, rank-sorted.
   if(S.guestId&&S.awards.length){
     var ids=S.awards.map(function(a){return a.id;});
     var v=await sb.from("karaoke_award_votes").select("*").in("award_id",ids).eq("voter_guest_id",S.guestId);
-    var map={};
-    (v.data||[]).forEach(function(vt){map[vt.award_id]=vt;});
-    S.awardVotes=map;
+    S.awardVotes=groupBallots(v.data||[]);
   }
 }
-export async function castAwardVote(awardId,subject){
+// Group raw vote rows into { awardId: [rows sorted by rank] }.
+function groupBallots(rows){
+  var map={};
+  rows.forEach(function(vt){(map[vt.award_id]=map[vt.award_id]||[]).push(vt);});
+  Object.keys(map).forEach(function(id){map[id].sort(function(a,b){return (a.rank||1)-(b.rank||1);});});
+  return map;
+}
+// Replace the voter's entire ranked ballot for an award. `picks` is an array of
+// {rank, subjectGuestId, subjectQueueRowId}. Delete-then-insert so add/remove/
+// reorder all converge. Updates local state optimistically then re-renders.
+export async function setAwardBallot(awardId,picks){
   if(!S.guestId)return;
-  var row={award_id:awardId,voter_guest_id:S.guestId,subject_queue_row_id:subject.queueRowId||null,subject_guest_id:subject.guestId||null,updated_at:new Date().toISOString()};
-  var r=await sb.from("karaoke_award_votes").upsert(row,{onConflict:"award_id,voter_guest_id"});
-  if(r.error){alert("Failed to cast vote. Try again.");return;}
-  // Cache the vote locally for immediate UI feedback
-  S.awardVotes[awardId]={award_id:awardId,voter_guest_id:S.guestId,subject_queue_row_id:row.subject_queue_row_id,subject_guest_id:row.subject_guest_id};
+  var rows=(picks||[]).filter(function(p){return p.subjectGuestId||p.subjectQueueRowId;}).map(function(p){
+    return {award_id:awardId,voter_guest_id:S.guestId,subject_guest_id:p.subjectGuestId||null,subject_queue_row_id:p.subjectQueueRowId||null,rank:p.rank,updated_at:new Date().toISOString()};
+  });
+  // Optimistic local update first so the ballot strip responds instantly.
+  if(rows.length)S.awardVotes[awardId]=rows.slice();
+  else delete S.awardVotes[awardId];
   render();
+  var del=await sb.from("karaoke_award_votes").delete().eq("award_id",awardId).eq("voter_guest_id",S.guestId);
+  if(del.error){alert("Failed to update ballot. Try again.");loadAwards().then(render);return;}
+  if(rows.length){
+    var r=await sb.from("karaoke_award_votes").insert(rows);
+    if(r.error){alert("Failed to update ballot. Try again.");loadAwards().then(render);return;}
+  }
 }
 export async function createCustomAward(draft){
   if(!S.guestId)return;
@@ -432,7 +447,7 @@ export function subAwardsRealtime(){
       if(!S.guestId||!S.awards.length)return;
       var ids=S.awards.map(function(a){return a.id;});
       sb.from("karaoke_award_votes").select("*").in("award_id",ids).eq("voter_guest_id",S.guestId).then(function(r){
-        var map={};(r.data||[]).forEach(function(v){map[v.award_id]=v;});S.awardVotes=map;
+        S.awardVotes=groupBallots(r.data||[]);
         if(S.screen==="awards")render();
       });
     }).subscribe();

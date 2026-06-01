@@ -675,6 +675,7 @@ function WizardBody() {
                 <Text
                   style={{
                     fontFamily: tokens.fontDisplay,
+                    textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
                     fontWeight: '900',
                     fontSize: 18,
                     color: tokens.black,
@@ -738,6 +739,7 @@ function WizardBody() {
               <Text
                 style={{
                   fontFamily: tokens.fontDisplay,
+                  textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
                   fontWeight: '900',
                   fontSize: 14,
                   color: tokens.black,
@@ -922,6 +924,7 @@ function SingersStep({
       <Text
         style={{
           fontFamily: tokens.fontDisplay,
+          textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
           fontWeight: '900',
           fontSize: 24,
           color: tokens.black,
@@ -964,6 +967,7 @@ function SingersStep({
                     <Text
                       style={{
                         fontFamily: tokens.fontDisplay,
+                        textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
                         fontWeight: '900',
                         fontSize: 18,
                         color: '#08080F',
@@ -987,6 +991,7 @@ function SingersStep({
                     <Text
                       style={{
                         fontFamily: tokens.fontDisplay,
+                        textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
                         fontWeight: '900',
                         fontSize: 18,
                         color: '#1F1108',
@@ -1046,6 +1051,7 @@ function SingersStep({
                   <Text
                     style={{
                       fontFamily: tokens.fontDisplay,
+                      textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
                       fontWeight: '900',
                       fontSize: 18,
                       color: tokens.black,
@@ -1061,6 +1067,7 @@ function SingersStep({
                 <Text
                   style={{
                     fontFamily: tokens.fontDisplay,
+                    textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
                     fontWeight: '900',
                     fontSize: 16,
                     color: tokens.black,
@@ -1083,6 +1090,7 @@ function SingersStep({
                     <Text
                       style={{
                         fontFamily: tokens.fontDisplay,
+                        textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
                         fontWeight: '900',
                         fontSize: 10,
                         letterSpacing: 0.5,
@@ -1227,6 +1235,7 @@ function SingersStep({
             <Text
               style={{
                 fontFamily: tokens.fontDisplay,
+                textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
                 fontWeight: '900',
                 fontSize: 22,
                 color: tokens.black,
@@ -1238,6 +1247,7 @@ function SingersStep({
             <Text
               style={{
                 fontFamily: tokens.fontDisplay,
+                textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
                 fontWeight: '800',
                 fontSize: 14,
                 color: tokens.black,
@@ -1288,6 +1298,7 @@ function RolesStep({
       <Text
         style={{
           fontFamily: tokens.fontDisplay,
+          textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
           fontWeight: '900',
           fontSize: 24,
           color: tokens.black,
@@ -1342,6 +1353,7 @@ function RolesStep({
           <Text
             style={{
               fontFamily: tokens.fontDisplay,
+              textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
               fontWeight: '900',
               fontSize: 18,
               color: tokens.black,
@@ -1393,6 +1405,7 @@ function RolesStep({
                       <Text
                         style={{
                           fontFamily: tokens.fontDisplay,
+                          textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
                           fontWeight: '900',
                           fontSize: 11,
                           color: tokens.black,
@@ -1406,6 +1419,7 @@ function RolesStep({
                   <Text
                     style={{
                       fontFamily: tokens.fontDisplay,
+                      textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
                       fontWeight: '800',
                       fontSize: 13,
                       color: tokens.black,
@@ -1460,6 +1474,7 @@ function StageStep({
       <Text
         style={{
           fontFamily: tokens.fontDisplay,
+          textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
           fontWeight: '900',
           fontSize: 24,
           color: tokens.black,
@@ -1544,6 +1559,7 @@ function StageStep({
             <Text
               style={{
                 fontFamily: tokens.fontDisplay,
+                textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
                 fontWeight: '800',
                 fontSize: 14,
                 color: tokens.black,
@@ -1629,6 +1645,7 @@ function SingerPicker({
         <Text
           style={{
             fontFamily: tokens.fontDisplay,
+            textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
             fontWeight: '900',
             fontSize: 20,
             color: tokens.black,
@@ -1696,6 +1713,7 @@ function SingerPicker({
                     <Text
                       style={{
                         fontFamily: tokens.fontDisplay,
+                        textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
                         fontWeight: '900',
                         fontSize: 15,
                         color: tokens.black,
@@ -1709,6 +1727,7 @@ function SingerPicker({
                   style={{
                     flex: 1,
                     fontFamily: tokens.fontDisplay,
+                    textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
                     fontWeight: '800',
                     fontSize: 15,
                     color: tokens.black,
@@ -1778,6 +1797,7 @@ function SingerPicker({
             <Text
               style={{
                 fontFamily: tokens.fontDisplay,
+                textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
                 fontWeight: '900',
                 fontSize: 14,
                 color: customName.trim() ? tokens.white : tokens.muted,

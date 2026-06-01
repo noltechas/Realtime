@@ -1,62 +1,69 @@
 import React from 'react'
-import { Pressable, View } from 'react-native'
+import { Pressable, View, Image } from 'react-native'
 import { useTheme } from '../../../ThemeContext'
 import type { PlayButtonProps } from '../../../types'
 
-// Deep-sea stage play/pause button — a rounded 120px disc with a translucent
-// navy fill, faint cyan border (heavier on the bottom edge), and a singer-
-// color wash when idle. Press dims (dark theme).
+// The same bubble PNG the deep-sea backdrop + tab bar use — a glossy 3D
+// highlight with a transparent center, so a glyph layered on top stays visible.
+const bubbleImg = require('../../../../../assets/bubble.png')
+
+// Deep-sea stage play/pause button — an underwater air bubble. A translucent
+// disc tinted by the singer colour (idle) / vivid yellow (playing) sits under
+// the shared bubble PNG for a glassy 3D highlight, with the play/pause glyph
+// floating inside. Press makes the bubble "squish" slightly.
 export function StagePlayButton({ isPlaying, singerColor, onPress }: PlayButtonProps) {
   const { tokens } = useTheme()
+  const SIZE = 132
+  const glyph = tokens.appBg // deep navy — reads on the bright bubble fill
+
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [
-        {
-          width: 120,
-          height: 120,
-          borderRadius: 60,
-          borderWidth: 1,
-          borderColor: 'rgba(0,255,200,0.5)',
-          borderBottomWidth: 4,
-          backgroundColor: isPlaying ? tokens.vividYellow : singerColor,
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
-        pressed ? { opacity: 0.85 } : null,
+        { width: SIZE, height: SIZE, alignItems: 'center', justifyContent: 'center' },
+        pressed ? { transform: [{ scale: 0.94 }], opacity: 0.92 } : null,
       ]}
     >
+      {/* Watery fill + cyan rim + bioluminescent glow */}
+      <View
+        style={{
+          position: 'absolute',
+          width: SIZE,
+          height: SIZE,
+          borderRadius: SIZE / 2,
+          backgroundColor: isPlaying ? tokens.vividYellow : singerColor,
+          borderWidth: 1.5,
+          borderColor: 'rgba(0,255,200,0.6)',
+          shadowColor: '#00ffc8',
+          shadowOpacity: 0.5,
+          shadowRadius: 18,
+          shadowOffset: { width: 0, height: 0 },
+        }}
+      />
+      {/* Bubble PNG overlay — the glossy 3D highlight */}
+      <Image
+        source={bubbleImg}
+        resizeMode="contain"
+        style={{ position: 'absolute', width: SIZE, height: SIZE, opacity: 0.9 }}
+      />
+      {/* Play / pause glyph, floating on top of the bubble */}
       {isPlaying ? (
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          <View
-            style={{
-              width: 14,
-              height: 44,
-              backgroundColor: tokens.appBg,
-              borderRadius: 2,
-            }}
-          />
-          <View
-            style={{
-              width: 14,
-              height: 44,
-              backgroundColor: tokens.appBg,
-              borderRadius: 2,
-            }}
-          />
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          <View style={{ width: 15, height: 46, backgroundColor: glyph, borderRadius: 3 }} />
+          <View style={{ width: 15, height: 46, backgroundColor: glyph, borderRadius: 3 }} />
         </View>
       ) : (
         <View
           style={{
             width: 0,
             height: 0,
-            borderTopWidth: 24,
-            borderBottomWidth: 24,
-            borderLeftWidth: 40,
+            borderTopWidth: 26,
+            borderBottomWidth: 26,
+            borderLeftWidth: 42,
             borderTopColor: 'transparent',
             borderBottomColor: 'transparent',
-            borderLeftColor: tokens.appBg,
-            marginLeft: 8,
+            borderLeftColor: glyph,
+            marginLeft: 10,
           }}
         />
       )}

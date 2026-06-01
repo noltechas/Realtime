@@ -450,6 +450,7 @@ export interface AwardRow {
     finalizedAt: string | null
     createdAt: string
     updatedAt: string
+    scoreAdjustments: Record<string, number>
 }
 
 export interface AwardVoteRow {
@@ -458,6 +459,7 @@ export interface AwardVoteRow {
     voterGuestId: string
     subjectQueueRowId: string | null
     subjectGuestId: string | null
+    rank: number
     createdAt: string
     updatedAt: string
 }
@@ -476,7 +478,8 @@ function mapAward(r: any): AwardRow {
         createdByGuestId: r.created_by_guest_id,
         finalizedAt: r.finalized_at,
         createdAt: r.created_at,
-        updatedAt: r.updated_at
+        updatedAt: r.updated_at,
+        scoreAdjustments: (r.score_adjustments && typeof r.score_adjustments === 'object') ? r.score_adjustments : {}
     }
 }
 
@@ -487,6 +490,7 @@ function mapVote(r: any): AwardVoteRow {
         voterGuestId: r.voter_guest_id,
         subjectQueueRowId: r.subject_queue_row_id,
         subjectGuestId: r.subject_guest_id,
+        rank: r.rank ?? 1,
         createdAt: r.created_at,
         updatedAt: r.updated_at
     }
@@ -626,17 +630,29 @@ export interface CastVoteInput {
 }
 
 export async function castAwardVote(input: CastVoteInput): Promise<{ error?: string }> {
-    // Upsert on (award_id, voter_guest_id) unique constraint.
+    // Upsert on (award_id, voter_guest_id, rank) unique constraint. The host
+    // path casts a single first-place pick (rank 1, 3 pts).
     const row: any = {
         award_id: input.awardId,
         voter_guest_id: input.voterGuestId,
         subject_queue_row_id: input.subjectQueueRowId,
         subject_guest_id: input.subjectGuestId,
+        rank: 1,
         updated_at: new Date().toISOString()
     }
     const { error } = await supabase
         .from('karaoke_award_votes')
-        .upsert(row, { onConflict: 'award_id,voter_guest_id' })
+        .upsert(row, { onConflict: 'award_id,voter_guest_id,rank' })
+    return error ? { error: error.message } : {}
+}
+
+// Persist the admin's manual per-candidate score adjustments for an award.
+// `adjustments` is keyed by candidate subjectKey -> integer point delta.
+export async function setAwardAdjustments(awardId: string, adjustments: Record<string, number>): Promise<{ error?: string }> {
+    const { error } = await supabase
+        .from('karaoke_awards')
+        .update({ score_adjustments: adjustments, updated_at: new Date().toISOString() })
+        .eq('id', awardId)
     return error ? { error: error.message } : {}
 }
 
