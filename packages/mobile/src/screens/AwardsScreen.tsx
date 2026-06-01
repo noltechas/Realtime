@@ -1420,37 +1420,6 @@ function AwardDetail({
         </View>
       ) : (
         <>
-          {/* How ranked voting works */}
-          {!finalized ? (
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 8,
-                padding: 12,
-                borderRadius: 12,
-                backgroundColor: P.surfaceDeep,
-                borderWidth: 1,
-                borderColor: P.goldHairline,
-                marginBottom: 14,
-              }}
-            >
-              <Text style={{ fontSize: 18 }}>🏅</Text>
-              <Text
-                style={{
-                  flex: 1,
-                  color: P.creamMuted,
-                  fontSize: 12.5,
-                  lineHeight: 17,
-                  fontFamily: P.fontSerif,
-                }}
-              >
-                Rank up to 3.  1st = 3 pts · 2nd = 2 · 3rd = 1.  Tap a nominee to
-                add it; tap again to remove.
-              </Text>
-            </View>
-          ) : null}
-
           {/* The ballot — three ranked slots */}
           <SectionLabel>Your Ballot</SectionLabel>
           <BallotStrip
@@ -1652,9 +1621,8 @@ function BallotStrip({
   )
 }
 
-// Rank medallion shown on the left of each ballot slot (outline + points).
+// Rank medallion shown on the left of each ballot slot.
 function RankBadge({ rank }: { rank: number }) {
-  const pts = 4 - rank
   return (
     <View style={{ alignItems: 'center', width: 44 }}>
       <View
@@ -1673,9 +1641,6 @@ function RankBadge({ rank }: { rank: number }) {
           {rank}
         </Text>
       </View>
-      <Text style={{ color: P.gold, fontSize: 9, fontWeight: '700', marginTop: 3, letterSpacing: 0.4 }}>
-        {pts} PTS
-      </Text>
     </View>
   )
 }

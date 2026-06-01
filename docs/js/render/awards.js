@@ -216,16 +216,12 @@ export function renderAwardDetail(aw){
     var emptyMsg=aw.subject_type==="singer"?"No singers yet — once someone takes the mic they'll appear here.":aw.subject_type==="group"?"No multi-singer performances yet.":"No performances yet — check back after a song plays.";
     html+='<div class="awards-empty-state">'+esc(emptyMsg)+'</div>';
   }else{
-    if(!finalized){
-      html+='<div class="awards-ballot-hint">🏅 Rank up to 3.  1st = 3 pts · 2nd = 2 · 3rd = 1.  Tap a nominee to add it; tap again to remove.</div>';
-    }
     // The ballot — three ranked slots
     html+='<div class="awards-section-label">Your Ballot</div><div class="awards-ballot">';
     for(var r=0;r<3;r++){
       var sc=selected[r];
       var medal=r===0?"1st":r===1?"2nd":"3rd";
-      var pts=3-r;
-      var rankBlock='<div class="awards-ballot-rank"><span class="awards-ballot-rank-num">'+(r+1)+'</span><span class="awards-ballot-rank-pts">'+pts+' PTS</span></div>';
+      var rankBlock='<div class="awards-ballot-rank"><span class="awards-ballot-rank-num">'+(r+1)+'</span></div>';
       if(sc){
         html+='<div class="awards-ballot-slot awards-ballot-slot--filled">'+rankBlock+
           renderCandidateAvatarBlock(sc)+
