@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useLayoutEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp, useGuestsMap, QueueItem, NEON_COLORS } from '../context/AppContext'
 import { DEFAULT_VOICE_EFFECTS, normalizeMicLevel } from '../audio/VoiceEffectsTypes'
-import { useTheme } from '../context/ThemeContext'
+import { useTheme, THEMES, THEME_LIST } from '../context/ThemeContext'
+import type { KaraokeGuestRow } from '@karaoke/shared'
 import { HiddenSongQueueCard } from '../components/HiddenSongCard'
 import { useAudioDevices } from '../hooks/useAudioDevices'
 
@@ -91,7 +92,31 @@ function SetupPanel() {
     const { state, dispatch } = useApp()
     const navigate = useNavigate()
     const theme = useTheme()
+    const guestsMap = useGuestsMap()
     const { inputs: audioDevices, outputs: audioOutputs } = useAudioDevices()
+
+    // Add-Singer picker state.
+    const [pickerOpen, setPickerOpen] = useState(false)
+    const [customName, setCustomName] = useState('')
+    // Joined guests not already added to this song (linked by guestId).
+    const addedGuestIds = new Set(state.singers.map(s => s.guestId).filter(Boolean) as string[])
+    const availableGuests = state.guests.filter(g => !addedGuestIds.has(g.id))
+
+    const addGuestSinger = (g: KaraokeGuestRow) => {
+        // Carry the guest's saved colour through to a NEON pair when it matches
+        // one (keeps stage colours on-palette); otherwise the reducer picks the
+        // first free colour.
+        const pair = NEON_COLORS.find(c => c.color.toLowerCase() === (g.default_color || '').toLowerCase())
+        dispatch({ type: 'ADD_SINGER', payload: { name: g.name, guestId: g.id, color: pair?.color, colorGlow: pair?.colorGlow } })
+        setPickerOpen(false)
+    }
+    const addCustomSinger = () => {
+        const n = customName.trim()
+        if (!n) return
+        dispatch({ type: 'ADD_SINGER', payload: { name: n } })
+        setCustomName('')
+        setPickerOpen(false)
+    }
 
     const doesAnyRoleHaveOffensiveWord = (roleIndices: number[]) => {
         return state.lyrics.some(l =>
@@ -138,7 +163,7 @@ function SetupPanel() {
             // Preserve fields that aren't set in the SetupPanel UI so edits don't drop them
             addedBy: originalItem?.addedBy ?? null,
             remoteQueueId: originalItem?.remoteQueueId ?? null,
-            stageTheme: originalItem?.stageTheme ?? null,
+            stageTheme: state.stageTheme ?? null,
             isHidden: originalItem?.isHidden ?? false,
             // Stamp createdAt at the dispatch site (not in the reducer) so the
             // same value is relayed to the stage window. Generating it in the
@@ -242,42 +267,20 @@ function SetupPanel() {
                 </div>
             </div>
 
-            {/* Singer Count */}
-            <section style={{ ...theme.card, padding: '22px 26px', marginBottom: 20 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                    <div style={{
-                        width: 28, height: 28, borderRadius: 6,
-                        background: `${theme.softViolet}33`,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                        <IconMic size={14} />
-                    </div>
-                    <div>
-                        <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 14, color: theme.black }}>How many singers?</div>
-                        <div style={{ fontSize: 11, color: theme.black, opacity: 0.4 }}>Set up microphones for each singer</div>
-                    </div>
+            {/* Singers header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, marginTop: 4 }}>
+                <div style={{
+                    width: 28, height: 28, borderRadius: 6,
+                    background: `${theme.softViolet}33`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                    <IconMic size={14} />
                 </div>
-                <div style={{ display: 'flex', gap: 6 }}>
-                    {[0, 1, 2, 3, 4].map(n => (
-                        <button
-                            key={n}
-                            onClick={() => dispatch({ type: 'SET_SINGER_COUNT', payload: n })}
-                            style={{
-                                flex: 1, fontSize: 14, padding: '12px 0',
-                                fontFamily: theme.fontDisplay, fontWeight: 700,
-                                background: state.singerCount === n ? theme.accentA : theme.creamDark,
-                                border: state.singerCount === n ? theme.border : theme.borderThin,
-                                borderRadius: 6, cursor: 'pointer',
-                                boxShadow: state.singerCount === n ? theme.shadowPressed : 'none',
-                                color: state.singerCount === n ? '#1A1A1A' : theme.black,
-                                transition: 'all 0.1s',
-                            }}
-                        >
-                            {n === 0 ? 'None' : n}
-                        </button>
-                    ))}
+                <div>
+                    <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 14, color: theme.black }}>Who's singing?</div>
+                    <div style={{ fontSize: 11, color: theme.black, opacity: 0.4 }}>Add joined guests or a custom name, then set up each mic</div>
                 </div>
-            </section>
+            </div>
 
             {/* Per-singer config */}
             {state.singers.map((singer, i) => (
@@ -295,8 +298,26 @@ function SetupPanel() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
                         <SingerAvatar name={singer.name || `${i + 1}`} color={singer.color} size={24} guestId={singer.guestId} />
                         <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 15, color: theme.black }}>
-                            Singer {i + 1}
+                            {singer.guestId ? (guestsMap.get(singer.guestId)?.name ?? singer.name) : (singer.name || `Singer ${i + 1}`)}
                         </span>
+                        <span style={{
+                            fontSize: 9, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase',
+                            padding: '3px 8px', borderRadius: theme.radiusSmall, border: theme.borderThin, color: theme.black,
+                            opacity: 0.7, background: singer.guestId ? `${theme.mintGreen}55` : theme.creamDark,
+                        }}>
+                            {singer.guestId ? 'Guest' : 'Custom'}
+                        </span>
+                        <button
+                            onClick={() => dispatch({ type: 'REMOVE_SINGER', payload: singer.id })}
+                            title="Remove singer"
+                            style={{
+                                marginLeft: 'auto', width: 30, height: 30, borderRadius: 6,
+                                background: theme.creamDark, border: theme.borderThin, cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.black,
+                            }}
+                        >
+                            <IconTrash size={14} />
+                        </button>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: state.roles.length > 0 ? '1fr 1fr 1fr' : '1fr 1fr', gap: 20 }}>
                         <div>
@@ -304,16 +325,29 @@ function SetupPanel() {
                                 display: 'block', fontSize: 10, fontWeight: 700, letterSpacing: '0.05em',
                                 color: theme.black, opacity: 0.5, marginBottom: 8, textTransform: 'uppercase',
                             }}>Name</label>
-                            <input
-                                value={singer.name}
-                                onChange={(e) => dispatch({ type: 'UPDATE_SINGER', payload: { index: i, singer: { name: e.target.value } } })}
-                                style={{
-                                    ...theme.input,
-                                    width: '100%', padding: '12px 16px', fontSize: 14, marginBottom: 12,
-                                }}
-                                onFocus={e => (e.target.style.borderColor = singer.color)}
-                                onBlur={e => (e.target.style.borderColor = '#1A1A1A')}
-                            />
+                            {singer.guestId ? (
+                                <div style={{ marginBottom: 12 }}>
+                                    <div style={{
+                                        ...theme.input,
+                                        width: '100%', padding: '12px 16px', fontSize: 14,
+                                        display: 'flex', alignItems: 'center', opacity: 0.85, cursor: 'default',
+                                    }}>
+                                        {guestsMap.get(singer.guestId)?.name ?? singer.name}
+                                    </div>
+                                    <div style={{ fontSize: 10, color: theme.black, opacity: 0.4, marginTop: 4 }}>Synced from their profile</div>
+                                </div>
+                            ) : (
+                                <input
+                                    value={singer.name}
+                                    onChange={(e) => dispatch({ type: 'UPDATE_SINGER', payload: { index: i, singer: { name: e.target.value } } })}
+                                    style={{
+                                        ...theme.input,
+                                        width: '100%', padding: '12px 16px', fontSize: 14, marginBottom: 12,
+                                    }}
+                                    onFocus={e => (e.target.style.borderColor = singer.color)}
+                                    onBlur={e => (e.target.style.borderColor = '#1A1A1A')}
+                                />
+                            )}
                             <label style={{
                                 display: 'block', fontSize: 10, fontWeight: 700, letterSpacing: '0.05em',
                                 color: theme.black, opacity: 0.5, marginBottom: 8, textTransform: 'uppercase',
@@ -410,6 +444,75 @@ function SetupPanel() {
                 </section>
             ))}
 
+            {/* Add Singer */}
+            <section style={{ ...theme.card, padding: '18px 22px', marginBottom: 20 }}>
+                {!pickerOpen ? (
+                    <button
+                        onClick={() => setPickerOpen(true)}
+                        style={{
+                            ...theme.btnOutline, width: '100%', padding: '12px 16px', fontSize: 14,
+                            fontFamily: theme.fontDisplay, fontWeight: 700, color: theme.black, borderColor: theme.black,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer',
+                        }}
+                    >
+                        + Add Singer
+                    </button>
+                ) : (
+                    <div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                            <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 13, color: theme.black }}>Add a singer</div>
+                            <button onClick={() => { setPickerOpen(false); setCustomName('') }}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: theme.black, opacity: 0.6, fontSize: 20, lineHeight: 1 }}>×</button>
+                        </div>
+
+                        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: theme.black, opacity: 0.5, marginBottom: 8 }}>Joined guests</div>
+                        {availableGuests.length > 0 ? (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+                                {availableGuests.map(g => (
+                                    <button
+                                        key={g.id}
+                                        onClick={() => addGuestSinger(g)}
+                                        style={{
+                                            display: 'flex', alignItems: 'center', gap: 8, padding: '6px 14px 6px 6px',
+                                            background: theme.creamDark, border: theme.borderThin, borderRadius: 99,
+                                            cursor: 'pointer', color: theme.black, fontWeight: 600, fontSize: 13,
+                                        }}
+                                    >
+                                        <SingerAvatar name={g.name} color={g.default_color || theme.accentA} size={24} guestId={g.id} />
+                                        {g.name}
+                                    </button>
+                                ))}
+                            </div>
+                        ) : (
+                            <div style={{ fontSize: 12, color: theme.black, opacity: 0.45, marginBottom: 16 }}>
+                                {state.guests.length === 0 ? 'No one has joined yet — add a custom name below.' : 'Everyone who has joined is already added.'}
+                            </div>
+                        )}
+
+                        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: theme.black, opacity: 0.5, marginBottom: 8 }}>Or a custom name</div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            <input
+                                value={customName}
+                                onChange={e => setCustomName(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') addCustomSinger() }}
+                                placeholder="e.g. Surprise guest"
+                                style={{ ...theme.input, flex: 1, padding: '10px 14px', fontSize: 14 }}
+                            />
+                            <button
+                                onClick={addCustomSinger}
+                                disabled={!customName.trim()}
+                                style={{
+                                    ...theme.btnPrimary, padding: '10px 18px', fontSize: 14, fontFamily: theme.fontDisplay, fontWeight: 700,
+                                    cursor: customName.trim() ? 'pointer' : 'not-allowed', opacity: customName.trim() ? 1 : 0.5,
+                                }}
+                            >
+                                Add
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </section>
+
             {/* Monitor Outputs */}
             {state.stemsPath?.vocals && (
                 <section style={{ ...theme.card, padding: '22px 26px', marginBottom: 20 }}>
@@ -457,6 +560,73 @@ function SetupPanel() {
                     </div>
                 </section>
             )}
+
+            {/* Stage Theme */}
+            <section style={{ ...theme.card, padding: '22px 26px', marginBottom: 20 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                    <div style={{
+                        width: 28, height: 28, borderRadius: 6,
+                        background: `${theme.accentB}33`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                        <IconMusic size={14} />
+                    </div>
+                    <div>
+                        <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 14, color: theme.black }}>Stage Theme</div>
+                        <div style={{ fontSize: 11, color: theme.black, opacity: 0.4 }}>How this song looks on the big screen</div>
+                    </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
+                    {THEME_LIST.map(({ key, displayName }) => {
+                        const t = THEMES[key]
+                        const isDefault = key === 'neo-brutal'
+                        const selected = (state.stageTheme ?? 'neo-brutal') === key
+                        return (
+                            <button
+                                key={key}
+                                onClick={() => dispatch({ type: 'SET_STAGE_THEME', payload: isDefault ? null : key })}
+                                title={isDefault ? 'Default' : displayName}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: 10,
+                                    position: 'relative', textAlign: 'left', cursor: 'pointer',
+                                    padding: '10px 12px', borderRadius: 8,
+                                    background: theme.creamDark,
+                                    border: selected ? `3px solid ${theme.accentA}` : theme.borderThin,
+                                    boxShadow: selected ? theme.shadowPressed : 'none',
+                                    transition: 'all 0.12s',
+                                }}
+                            >
+                                {/* Mini "stage" preview of the theme's OWN colours — no text on it, so
+                                    legibility never depends on a theme's foreground/background contrast.
+                                    The label itself uses the active panel theme's colours so it's always readable. */}
+                                <div style={{
+                                    width: 38, height: 30, borderRadius: 6, flexShrink: 0, overflow: 'hidden',
+                                    background: t.appBg, border: theme.borderThin,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3,
+                                }}>
+                                    <span style={{ width: 12, height: 12, borderRadius: '50%', background: t.accentA }} />
+                                    <span style={{ width: 6, height: 12, borderRadius: 2, background: t.accentB }} />
+                                </div>
+                                <span style={{
+                                    fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 13, color: theme.black,
+                                    flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                }}>
+                                    {isDefault ? 'Default' : displayName}
+                                </span>
+                                {selected && (
+                                    <span style={{
+                                        position: 'absolute', top: -8, right: -8, width: 20, height: 20, borderRadius: '50%',
+                                        background: theme.accentA, border: theme.borderThin,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    }}>
+                                        <IconCheck size={11} color="#1A1A1A" />
+                                    </span>
+                                )}
+                            </button>
+                        )
+                    })}
+                </div>
+            </section>
 
             {/* Add / Update */}
             <div style={{ display: 'flex', justifyContent: 'center', marginTop: 32, paddingBottom: 24 }}>
@@ -741,6 +911,7 @@ export default function QueuePage() {
         dispatch({ type: 'SET_TRACK', payload: item.track })
         dispatch({ type: 'SET_LYRICS', payload: item.lyrics })
         dispatch({ type: 'SET_ROLES', payload: item.roles })
+        dispatch({ type: 'SET_STAGE_THEME', payload: item.stageTheme ?? null })
         dispatch({ type: 'SET_SINGER_COUNT', payload: item.singers.length })
         item.singers.forEach((singer, i) => {
             dispatch({ type: 'UPDATE_SINGER', payload: { index: i, singer } })

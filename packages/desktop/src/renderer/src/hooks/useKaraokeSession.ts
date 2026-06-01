@@ -48,10 +48,11 @@ export function useKaraokeSession() {
     // Live guest roster. Singers reference guests by id, so the renderer needs
     // each guest's canonical name + avatar to resolve singers at render time
     // (so a profile edit propagates to every queued song, now-playing, stage,
-    // and awards). Fetch once + subscribe and dispatch into state.guests, which
-    // the AppContext relay forwards to the stage window. Main window only.
+    // and awards). Runs in BOTH windows: the stage window renders the singer
+    // names/avatars on KaraokePage and must hold its own roster — relying on
+    // the SET_GUESTS IPC relay alone left it empty when the relay/INIT raced,
+    // so the stage showed the "Singer N" placeholders instead of real names.
     useEffect(() => {
-        if (window.electronAPI?.isStageWindow) return
         const sessionId = state.karaokeSessionId
         if (!sessionId) return
 
@@ -71,7 +72,7 @@ export function useKaraokeSession() {
         loadGuests()
 
         const ch = supabase
-            .channel('renderer-guests-' + sessionId)
+            .channel('renderer-guests-' + sessionId + (window.electronAPI?.isStageWindow ? '-stage' : '-main'))
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'karaoke_guests', filter: 'session_id=eq.' + sessionId },

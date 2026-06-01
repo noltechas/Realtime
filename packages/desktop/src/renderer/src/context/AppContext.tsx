@@ -120,6 +120,9 @@ export interface AppState {
     currentTrack: SpotifyTrack | null
     lyrics: LyricLine[]
     roles: string[]
+    // Per-song stage theme draft for the song being set up (null = inherit the
+    // session theme / "Default"). Baked onto the QueueItem on add/update.
+    stageTheme: string | null
     // Singers
     singers: Singer[]
     singerCount: number
@@ -208,6 +211,7 @@ const initialState: AppState = {
     currentTrack: null,
     lyrics: [],
     roles: [],
+    stageTheme: null,
     singers: [],
     singerCount: 0,
     queue: [],
@@ -253,6 +257,9 @@ type Action =
     | { type: 'SET_ROLES'; payload: string[] }
     | { type: 'SET_SINGER_COUNT'; payload: number }
     | { type: 'UPDATE_SINGER'; payload: { index: number; singer: Partial<Singer> } }
+    | { type: 'ADD_SINGER'; payload: { name: string; guestId?: string; color?: string; colorGlow?: string } }
+    | { type: 'REMOVE_SINGER'; payload: number }
+    | { type: 'SET_STAGE_THEME'; payload: string | null }
     | { type: 'SET_PLAYING'; payload: boolean }
     | { type: 'SET_CURRENT_TIME'; payload: number }
     | { type: 'SET_DURATION'; payload: number }
@@ -437,6 +444,7 @@ function reducer(state: AppState, action: Action): AppState {
                 currentTrack: action.payload,
                 lyrics: [],
                 roles: [],
+                stageTheme: null,
                 processingStatus: initialState.processingStatus,
                 songPath: null,
                 stemsPath: null,
@@ -467,6 +475,35 @@ function reducer(state: AppState, action: Action): AppState {
                     i === action.payload.index ? { ...s, ...action.payload.singer } : s
                 )
             }
+        case 'ADD_SINGER': {
+            // Append a singer — either a linked guest (guestId set; name/avatar
+            // resolve live from the roster) or a custom name-only singer. Pick
+            // the caller-supplied colour pair, else the first unused NEON colour.
+            const { name, guestId, color, colorGlow } = action.payload
+            const used = new Set(state.singers.map(s => s.color))
+            const chosen = (color && colorGlow)
+                ? { color, colorGlow }
+                : (NEON_COLORS.find(c => !used.has(c.color)) ?? NEON_COLORS[state.singers.length % NEON_COLORS.length])
+            const nextId = state.singers.reduce((m, s) => Math.max(m, s.id), -1) + 1
+            const singer: Singer = {
+                id: nextId,
+                name: name || `Singer ${state.singers.length + 1}`,
+                color: chosen.color,
+                colorGlow: chosen.colorGlow,
+                micDeviceId: '',
+                vocalTrack: state.singers.length === 0 ? 'lead' : 'backing',
+                roleIndices: [],
+                ...(guestId ? { guestId } : {}),
+            }
+            const singers = [...state.singers, singer]
+            return { ...state, singers, singerCount: singers.length }
+        }
+        case 'REMOVE_SINGER': {
+            const singers = state.singers.filter(s => s.id !== action.payload)
+            return { ...state, singers, singerCount: singers.length }
+        }
+        case 'SET_STAGE_THEME':
+            return { ...state, stageTheme: action.payload }
         case 'SET_PLAYING':
             return { ...state, isPlaying: action.payload }
         case 'SET_CURRENT_TIME':
