@@ -36,17 +36,8 @@ export function renderDownloadPrompt(){
   }
   return '<div class="join-screen screen download-prompt-screen">'+
     '<div class="dl-app-icon" aria-hidden="true">'+
-      '<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">'+
-        '<rect width="64" height="64" rx="14" fill="url(#dl-grad)"/>'+
-        '<defs><linearGradient id="dl-grad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">'+
-          '<stop stop-color="#a78bfa"/><stop offset="1" stop-color="#22d3ee"/>'+
-        '</linearGradient></defs>'+
-        '<path d="M24 18v18.5a6 6 0 1 1-4-5.66V18h4Zm14 0v22.5a6 6 0 1 1-4-5.66V18h4Z" fill="white"/>'+
-      '</svg>'+
+      '<img src="app-icon.png" alt="Karaoke">'+
     '</div>'+
-    '<div class="join-logo">Realtime</div>'+
-    '<div class="join-title">Get the App</div>'+
-    '<p class="join-sub">Smoother performance, voice effects, and notifications.</p>'+
     primaryHtml+
     '<button class="dl-btn-secondary" id="dl-continue-web" type="button">Continue in browser</button>'+
     (helper?'<div class="dl-helper">'+esc(helper)+'</div>':'')+

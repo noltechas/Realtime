@@ -13,7 +13,8 @@
       "infoPlist": {
         "NSCameraUsageDescription": "Used to scan the host's QR code so you can join the session.",
         "NSPhotoLibraryUsageDescription": "Choose a profile photo to show on stage and in the queue.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleDisplayName": "Karaoke"
       }
     },
     "android": {
