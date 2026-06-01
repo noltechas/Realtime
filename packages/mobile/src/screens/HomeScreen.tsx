@@ -155,7 +155,12 @@ export function HomeScreen() {
         guestId: entry.guestId,
         guestName: profile?.name ?? '',
       })
-      navigation.navigate('Session')
+      // Reset the ROOT stack (not the tab navigator this screen lives in) so
+      // Main is dropped — re-joining a recent session should leave nothing to
+      // swipe/back out to, same as a fresh join via the Lobby.
+      navigation
+        .getParent<NativeStackNavigationProp<RootStackParamList>>()
+        ?.reset({ index: 0, routes: [{ name: 'Session' }] })
     },
     [statuses, saveSession, profile?.name, navigation, removeEntry],
   )

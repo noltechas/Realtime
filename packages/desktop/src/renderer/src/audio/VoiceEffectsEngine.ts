@@ -42,6 +42,11 @@ export class VoiceEffectsEngine {
     private pitchCorrectionNode: AudioWorkletNode | null = null
     private pitchCorrectionReady = false
     private pitchCorrectionBypass: GainNode
+    // Whether the signal is currently routed THROUGH the worklet (true) or
+    // AROUND it via pitchCorrectionBypass (false). The PSOLA worklet adds ~32ms
+    // of latency even when not correcting, so we route around it when autotune
+    // is off to give that singer near-zero added latency.
+    private pitchActive = false
 
     private comp: DynamicsCompressorNode
 
@@ -69,6 +74,10 @@ export class VoiceEffectsEngine {
     private reverbDry: GainNode
     private reverbWet: GainNode
     private reverbNode: ConvolverNode
+    // Pre-delay: gap between the dry voice and the onset of the reverb tail.
+    // A real DelayNode in front of the convolver (the `reverb.preDelay` param
+    // was previously stored but never applied — it did nothing).
+    private reverbPreDelay: DelayNode
 
     // Vocoder (channel vocoder / talkbox, AudioWorklet). vocoderBypass
     // carries the signal at unity gain until the worklet is ready; if it
@@ -83,6 +92,25 @@ export class VoiceEffectsEngine {
     private distortionDry: GainNode
     private distortionWet: GainNode
     private distortionShaper: WaveShaperNode
+
+    // Doubler / thickener block (ADT-style). N detuned, short-delayed, panned
+    // copies of the tuned voice summed on top of the dry lead → wide thick
+    // "vocal stack" for hard-autotune artists. Sits after distortion.
+    private doublerIn: GainNode
+    private doublerDry: GainNode
+    private doublerWet: GainNode
+    private readonly DOUBLER_MAX_VOICES = 4
+    private doublerVoices: {
+        delay: DelayNode
+        lfo: OscillatorNode
+        lfoGain: GainNode
+        pan: StereoPannerNode
+        gain: GainNode
+    }[] = []
+    // Per-voice character (fixed): decorrelated LFO rates, delay spread, pans.
+    private readonly DOUBLER_RATES = [0.7, 1.3, 1.9, 0.5]
+    private readonly DOUBLER_DELAY_FACTORS = [1.0, 1.35, 0.7, 1.6]
+    private readonly DOUBLER_PANS = [-1, 1, -0.6, 0.6]
 
     // Noise Gate (downward expander, AudioWorklet). noiseGateBypass carries
     // the signal at unity gain until the worklet is ready; if loading fails
@@ -196,9 +224,14 @@ export class VoiceEffectsEngine {
         this.reverbDry = this.ctx.createGain()
         this.reverbWet = this.ctx.createGain()
         this.reverbNode = this.ctx.createConvolver()
+        // Pre-delay node (max 200 ms — the param caps at 100 ms). Sits between
+        // the wet send and the convolver so the reverb tail starts `preDelay`
+        // ms after the dry voice, the way a real room's first reflections do.
+        this.reverbPreDelay = this.ctx.createDelay(0.2)
 
         this.reverbIn.connect(this.reverbDry)
-        this.reverbIn.connect(this.reverbNode)
+        this.reverbIn.connect(this.reverbPreDelay)
+        this.reverbPreDelay.connect(this.reverbNode)
         this.reverbNode.connect(this.reverbWet)
 
         // 6.5. Vocoder bypass (replaced by worklet once it loads)
@@ -214,6 +247,36 @@ export class VoiceEffectsEngine {
         this.distortionIn.connect(this.distortionDry)
         this.distortionIn.connect(this.distortionShaper)
         this.distortionShaper.connect(this.distortionWet)
+
+        // 7.5 Doubler (ADT thickener). doublerIn -> dry (full lead) + N voices,
+        // each: short DelayNode (detune via a slow LFO on delayTime) -> stereo
+        // pan -> per-voice gain -> doublerWet. Built at MAX_VOICES; apply()
+        // enables/levels each voice. All voices start silent (gain 0).
+        this.doublerIn = this.ctx.createGain()
+        this.doublerDry = this.ctx.createGain()
+        this.doublerWet = this.ctx.createGain()
+        for (let i = 0; i < this.DOUBLER_MAX_VOICES; i++) {
+            const delay = this.ctx.createDelay(0.1)
+            delay.delayTime.value = 0.02 * this.DOUBLER_DELAY_FACTORS[i]
+            const lfo = this.ctx.createOscillator()
+            lfo.type = 'sine'
+            lfo.frequency.value = this.DOUBLER_RATES[i]
+            const lfoGain = this.ctx.createGain()
+            lfoGain.gain.value = 0
+            lfo.connect(lfoGain)
+            lfoGain.connect(delay.delayTime)
+            lfo.start()
+            const pan = this.ctx.createStereoPanner()
+            pan.pan.value = this.DOUBLER_PANS[i]
+            const gain = this.ctx.createGain()
+            gain.gain.value = 0
+            this.doublerIn.connect(delay)
+            delay.connect(pan)
+            pan.connect(gain)
+            gain.connect(this.doublerWet)
+            this.doublerVoices.push({ delay, lfo, lfoGain, pan, gain })
+        }
+        this.doublerIn.connect(this.doublerDry)
 
         // 8. Noise Gate bypass (replaced by worklet once it loads)
         this.noiseGateBypass = this.ctx.createGain()
@@ -235,7 +298,8 @@ export class VoiceEffectsEngine {
         //                                                                    |
         //                                                                    v
         //         [vocoder OR vocoderBypass] -> distortionIn
-        // distortionDry & distortionWet -> chorusIn
+        // distortionDry & distortionWet -> doublerIn
+        // doublerDry & doublerWet (N detuned/panned voices) -> chorusIn
         // chorusDry & chorusWet -> delayIn
         // delayDry & delayWet -> reverbIn
         // reverbDry & reverbWet -> gateGain -> masterGain -> analyser -> destination
@@ -254,8 +318,11 @@ export class VoiceEffectsEngine {
         this.eqHigh.connect(this.vocoderBypass)
         this.vocoderBypass.connect(this.distortionIn)
 
-        this.distortionDry.connect(this.chorusIn)
-        this.distortionWet.connect(this.chorusIn)
+        // distortion -> doubler -> chorus
+        this.distortionDry.connect(this.doublerIn)
+        this.distortionWet.connect(this.doublerIn)
+        this.doublerDry.connect(this.chorusIn)
+        this.doublerWet.connect(this.chorusIn)
 
         this.chorusDry.connect(this.delayIn)
         this.chorusWet.connect(this.delayIn)
@@ -328,6 +395,7 @@ export class VoiceEffectsEngine {
             this.pitchCorrectionNode.connect(this.eqLow)
 
             this.pitchCorrectionReady = true
+            this.pitchActive = true
 
             // Re-send params that were applied before the worklet was ready
             if (this.lastAppliedFx) {
@@ -338,6 +406,10 @@ export class VoiceEffectsEngine {
                     mode: this.lastAppliedFx.mode ?? 1,
                 })
             }
+
+            // If the current effects have autotune off, route around the
+            // worklet so this singer doesn't eat its latency for nothing.
+            this.updatePitchRouting()
         } catch (err) {
             const e = err as DOMException
             console.warn(
@@ -348,6 +420,39 @@ export class VoiceEffectsEngine {
                 'fullError=', err,
             )
             // Bypass remains connected, pitch correction just won't work
+        }
+    }
+
+    /**
+     * Route the mic either THROUGH the pitch-correction worklet or AROUND it
+     * via the unity bypass node. The PSOLA worklet imposes ~32 ms of latency
+     * even when it isn't correcting (its lookahead ring delays the signal), so
+     * when autotune is disabled for a singer we route around it entirely to
+     * give that mic near-zero added latency. Only re-wires on an actual state
+     * change to avoid graph churn / clicks.
+     */
+    private updatePitchRouting() {
+        if (!this.pitchCorrectionReady || !this.pitchCorrectionNode) return
+        const pc = this.lastAppliedFx?.pitchCorrection
+        const want = !!(pc?.enabled && (pc.strength ?? 0) > 0)
+        if (want === this.pitchActive) return
+        try {
+            if (want) {
+                // bypass → worklet
+                this.comp.disconnect(this.pitchCorrectionBypass)
+                this.pitchCorrectionBypass.disconnect(this.eqLow)
+                this.comp.connect(this.pitchCorrectionNode)
+                this.pitchCorrectionNode.connect(this.eqLow)
+            } else {
+                // worklet → bypass
+                this.comp.disconnect(this.pitchCorrectionNode)
+                this.pitchCorrectionNode.disconnect(this.eqLow)
+                this.comp.connect(this.pitchCorrectionBypass)
+                this.pitchCorrectionBypass.connect(this.eqLow)
+            }
+            this.pitchActive = want
+        } catch (e) {
+            console.warn('[VoiceEffectsEngine] pitch routing switch failed:', e)
         }
     }
 
@@ -571,6 +676,8 @@ export class VoiceEffectsEngine {
                 key: fx.key ?? -1,
                 mode: fx.mode ?? 1,
             })
+            // Route around the worklet when autotune is off (saves ~32ms latency)
+            this.updatePitchRouting()
         }
 
         // Compressor
@@ -605,7 +712,9 @@ export class VoiceEffectsEngine {
         // Delay (sync to tempo if possible, or direct ms)
         if (fx.delay.enabled) {
             this.delayNode.delayTime.setTargetAtTime(fx.delay.time / 1000, t, 0.05)
-            this.delayFeedback.gain.setTargetAtTime(fx.delay.feedback / 100, t, 0.05)
+            // Clamp feedback below unity so a preset at/near 100% can't drive
+            // the delay line into runaway self-oscillation (howl / clipping).
+            this.delayFeedback.gain.setTargetAtTime(Math.min(0.95, fx.delay.feedback / 100), t, 0.05)
             this.delayDry.gain.setTargetAtTime(1 - (fx.delay.mix / 100), t, 0.05)
             this.delayWet.gain.setTargetAtTime(fx.delay.mix / 100, t, 0.05)
         } else {
@@ -617,12 +726,17 @@ export class VoiceEffectsEngine {
         // Reverb
         if (fx.reverb.enabled) {
             const currentDecay = fx.reverb.decay
-            const currentPre = fx.reverb.preDelay
-            // Regenerate IR if decay changed significantly (expensive, only do if changed)
-            if (Math.abs(currentDecay - this.currentReverbConfig.decay) > 0.1 || currentPre !== this.currentReverbConfig.preDelay) {
-                this.currentReverbConfig = { decay: currentDecay, preDelay: currentPre }
+            // Regenerate the (expensive) IR only when decay changes. preDelay
+            // is now a cheap DelayNode in front of the convolver, so it no
+            // longer needs an IR rebuild.
+            if (Math.abs(currentDecay - this.currentReverbConfig.decay) > 0.1) {
+                this.currentReverbConfig = { decay: currentDecay, preDelay: fx.reverb.preDelay }
                 this.generateReverbIRAsync(currentDecay * 1000, 3.0)
             }
+            // Apply pre-delay (ms → s), clamped to the DelayNode's 200 ms max.
+            this.reverbPreDelay.delayTime.setTargetAtTime(
+                Math.min(0.2, Math.max(0, fx.reverb.preDelay / 1000)), t, 0.05
+            )
             this.reverbDry.gain.setTargetAtTime(1 - (fx.reverb.mix / 100), t, 0.05)
             this.reverbWet.gain.setTargetAtTime(fx.reverb.mix / 100, t, 0.05)
         } else {
@@ -638,6 +752,36 @@ export class VoiceEffectsEngine {
         } else {
             this.distortionDry.gain.setTargetAtTime(1, t, 0.05)
             this.distortionWet.gain.setTargetAtTime(0, t, 0.05)
+        }
+
+        // Doubler / thickener. The dry lead always stays at unity; the wet
+        // doubles are LAYERED on top (this is additive doubling, not a dry/wet
+        // crossfade). Each active voice gets a per-voice gain so the total
+        // added level ≈ mix regardless of voice count.
+        if (fx.doubler?.enabled) {
+            const voices = Math.max(2, Math.min(this.DOUBLER_MAX_VOICES, Math.round(fx.doubler.voices)))
+            // Peak fractional pitch deviation for `detune` cents. Modulating a
+            // delay of depth A at rate f gives peak deviation A·2πf, so to get a
+            // fixed deviation per voice we set depth = deviation / (2πf). All
+            // voices then detune by the same amount but with decorrelated rates.
+            const deviation = (fx.doubler.detune / 1200) * Math.LN2
+            const baseDelaySec = Math.min(0.09, Math.max(0.005, fx.doubler.delay / 1000))
+            const widthScale = Math.max(0, Math.min(1, fx.doubler.width / 100))
+            const perVoice = (Math.max(0, fx.doubler.mix) / 100) / Math.sqrt(voices)
+            this.doublerVoices.forEach((v, i) => {
+                const active = i < voices
+                const depth = active ? deviation / (2 * Math.PI * this.DOUBLER_RATES[i]) : 0
+                v.lfoGain.gain.setTargetAtTime(depth, t, 0.05)
+                v.delay.delayTime.setTargetAtTime(baseDelaySec * this.DOUBLER_DELAY_FACTORS[i], t, 0.05)
+                v.pan.pan.setTargetAtTime(this.DOUBLER_PANS[i] * widthScale, t, 0.05)
+                v.gain.gain.setTargetAtTime(active ? perVoice : 0, t, 0.05)
+            })
+            this.doublerDry.gain.setTargetAtTime(1.0, t, 0.05)
+            this.doublerWet.gain.setTargetAtTime(1.0, t, 0.05)
+        } else {
+            this.doublerVoices.forEach(v => v.gain.gain.setTargetAtTime(0, t, 0.05))
+            this.doublerDry.gain.setTargetAtTime(1.0, t, 0.05)
+            this.doublerWet.gain.setTargetAtTime(0, t, 0.05)
         }
 
         // Vocoder (channel vocoder via AudioWorklet — port-driven). The

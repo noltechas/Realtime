@@ -79,6 +79,22 @@ export interface VoiceEffects {
                            // at the cost of a small amount of noise on every frame.
         voicing: 'triad' | 'power' | 'octaves'
     }
+
+    // Doubler / thickener (ADT-style) — stacks N short-delay, lightly-detuned,
+    // panned copies of the (already pitch-corrected) voice ON TOP of the dry
+    // lead, turning one thin mono mic into a wide thick stack. This is the
+    // missing "vocal stack" texture behind hard-autotune artists (Travis,
+    // T-Pain, Carti, Future). Runs after distortion, before chorus/delay/reverb
+    // so the doubles share the same space. Optional for backwards-compat: a
+    // missing block is treated as disabled.
+    doubler?: {
+        enabled: boolean
+        voices: number   // 2-4 stacked copies
+        detune: number   // 0-30 cents of pitch spread (via per-voice delay modulation)
+        delay: number    // 8-40 ms base delay
+        width: number    // 0-100 stereo spread of the copies
+        mix: number      // 0-100 added wet level (lead always stays at full)
+    }
 }
 
 /** Normalize micLevel: treat 0.5 as legacy default, use 1.0 (full volume) */
@@ -100,5 +116,6 @@ export const DEFAULT_VOICE_EFFECTS: VoiceEffects = {
     reverb: { enabled: true, decay: 2.5, preDelay: 20, mix: 35 },
     distortion: { enabled: false, drive: 0, mix: 0 },
     noiseGate: { enabled: false, threshold: -50 },
-    vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' }
+    vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
+    doubler: { enabled: false, voices: 2, detune: 12, delay: 22, width: 70, mix: 35 }
 }

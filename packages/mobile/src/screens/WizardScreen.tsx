@@ -55,6 +55,7 @@ import {
   NeonOrbSwatch as RetrowaveNeonOrbSwatch,
   RetrowaveAddCrewButton,
 } from './wizard/RetrowaveWizardChrome'
+import { ThemeStageCard } from './wizard/ThemeStageCards'
 
 type WizardNav = NativeStackNavigationProp<RootStackParamList, 'Wizard'>
 type WizardRouteProp = RouteProp<RootStackParamList, 'Wizard'>
@@ -70,17 +71,21 @@ interface WizardSinger {
   guestId?: string
 }
 
+// Stage-theme picker entries. Each `key` maps to a fully bespoke, self-contained
+// card in ThemeStageCards.tsx — those cards hard-code every theme's own colors,
+// fonts and chrome, so they look identical regardless of the active session
+// theme. We only need the key + display label here.
 const STAGE_THEMES = [
-  { key: 'neo-brutal', label: 'Default', bg: '#FFF8EE', text: '#1A1A1A', accent: '#FFD60A' },
-  { key: 'cyberpunk', label: 'Cyberpunk', bg: '#0a0a1a', text: '#00ff88', accent: '#ff00ff' },
-  { key: 'sketch', label: 'Sketch', bg: '#fdfbf7', text: '#2d5da1', accent: '#2d5da1' },
-  { key: 'urban', label: 'Urban', bg: '#0a0a0a', text: '#D4FF00', accent: '#D4FF00' },
-  { key: 'deep-sea', label: 'Deep Sea', bg: '#040918', text: '#00ffc8', accent: '#00ffc8' },
-  { key: 'psychedelic', label: 'Psychedelic', bg: '#1a0a2e', text: '#ff2d95', accent: '#ff2d95' },
-  { key: 'zen', label: 'Zen', bg: '#1a1814', text: '#D4B85A', accent: '#D4B85A' },
-  { key: 'space', label: 'Space', bg: '#08080F', text: '#E040FB', accent: '#E040FB' },
-  { key: 'steampunk', label: 'Steampunk', bg: '#1F1108', text: '#E8A93B', accent: '#B8762D' },
-  { key: 'retrowave', label: 'Retrowave', bg: '#0A0420', text: '#FF2D95', accent: '#FF2D95' },
+  { key: 'neo-brutal', label: 'Default' },
+  { key: 'cyberpunk', label: 'Cyberpunk' },
+  { key: 'sketch', label: 'Sketch' },
+  { key: 'urban', label: 'Urban' },
+  { key: 'deep-sea', label: 'Deep Sea' },
+  { key: 'psychedelic', label: 'Psychedelic' },
+  { key: 'zen', label: 'Zen' },
+  { key: 'space', label: 'Space' },
+  { key: 'steampunk', label: 'Steampunk' },
+  { key: 'retrowave', label: 'Retrowave' },
 ]
 
 function formatDuration(ms: number | null | undefined): string {
@@ -1465,51 +1470,17 @@ function StageStep({
       >
         Stage theme
       </Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
-        {STAGE_THEMES.map((t, ti) => {
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 8 }}>
+        {STAGE_THEMES.map((t) => {
           const selected = stageTheme === t.key
           return (
-            <Pressable
+            <ThemeStageCard
               key={t.key}
+              themeKey={t.key}
+              label={t.label}
+              selected={selected}
               onPress={() => onStageThemeChange(selected ? null : t.key)}
-              style={wizardCardStyle(tokens, undefined, {
-                paddingHorizontal: 14,
-                paddingVertical: 12,
-                minWidth: '47%',
-                backgroundColor: t.bg,
-                borderWidth: selected ? 3 : tokens.isDark ? 1 : 1.5,
-                borderColor: selected ? (tokens.isDark ? tokens.accentA : tokens.black) : t.accent,
-                alignItems: 'center',
-                overflow: 'hidden',
-              })}
-            >
-              {tokens.name === 'space' ? (
-                <SpaceHudBrackets
-                  size={8}
-                  thickness={1.2}
-                  inset={3}
-                  topColor={t.accent}
-                  bottomColor={t.accent}
-                />
-              ) : tokens.name === 'steampunk' ? (
-                <SteampunkBrassFrame size={7} rivetColor={t.accent} filigree={false} />
-              ) : tokens.name === 'retrowave' ? (
-                <RetrowaveNeonFrame size={8} thickness={1.1} inset={3} topColor={t.accent} bottomColor={t.accent} />
-              ) : null}
-              <View style={wizardCardUnskew(tokens)}>
-                <Text
-                  style={{
-                    color: t.text,
-                    fontFamily: tokens.fontDisplay,
-                    fontWeight: '900',
-                    fontSize: 14,
-                    letterSpacing: 0.5,
-                  }}
-                >
-                  {t.label}
-                </Text>
-              </View>
-            </Pressable>
+            />
           )
         })}
       </View>

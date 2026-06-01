@@ -820,6 +820,24 @@ const yupWrapStyle: ViewStyle = {
   gap: 12,
 }
 function yupHeroStyle(t: ThemeTokens): TextStyle {
+  // Deep-sea: the generic hot-red pop color (a pink) clashes underwater, and
+  // pairing pink text with a wide teal halo reads as an ugly dark box. Use the
+  // theme's signature teal with a clean, same-hue bioluminescent glow so the
+  // hero matches the rest of the ocean UI (song title, toggles, nav).
+  if (t.name === 'deep-sea') {
+    return {
+      fontFamily: t.fontDisplay,
+      fontWeight: '900',
+      fontSize: 44,
+      color: '#00ffc8',
+      letterSpacing: -1,
+      textAlign: 'center',
+      marginBottom: 4,
+      textShadowColor: 'rgba(0,255,200,0.45)',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 10,
+    }
+  }
   return {
     fontFamily: t.fontDisplay,
     fontWeight: '900',

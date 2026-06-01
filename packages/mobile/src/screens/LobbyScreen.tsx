@@ -167,9 +167,12 @@ export function LobbyScreen() {
             joinedAt: new Date().toISOString(),
           }),
         ])
+        // Session becomes the ONLY route in the stack — no Main/Lobby beneath
+        // it — so the swipe-back gesture has nowhere to go. Leaving is handled
+        // exclusively by the Profile tab's "Leave Session" button.
         navigation.reset({
-          index: 1,
-          routes: [{ name: 'Main' }, { name: 'Session' }],
+          index: 0,
+          routes: [{ name: 'Session' }],
         })
       } catch (err: any) {
         Alert.alert("Couldn't join", err?.message ?? String(err))

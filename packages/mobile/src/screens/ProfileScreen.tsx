@@ -1,26 +1,33 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
   View,
   Text,
   TextInput,
+  Pressable,
+  Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { UNIVERSAL_SINGER_COLORS, findColorIndex } from '@karaoke/shared'
+import type { RootStackParamList } from '../navigation/types'
 import { useTheme } from '../theme/ThemeContext'
 import { useProfile } from '../hooks/useProfile'
+import { useSession } from '../hooks/useSession'
 import { AvatarPicker } from '../components/AvatarPicker'
 
 export function ProfileScreen() {
   const { tokens, ui } = useTheme()
   const insets = useSafeAreaInsets()
+  const navigation = useNavigation()
   const { profile, saveProfile } = useProfile()
+  const { session, clearSession } = useSession()
 
   const [name, setName] = useState('')
   const [colorIndex, setColorIndex] = useState(0)
   const [picture, setPicture] = useState<string | null>(null)
-  const [savedTick, setSavedTick] = useState<number | null>(null)
 
   // Seed local form state from the saved profile once it loads.
   const seeded = useRef(false)
@@ -45,16 +52,35 @@ export function ProfileScreen() {
         defaultColor: UNIVERSAL_SINGER_COLORS[colorIndex]?.color,
         profilePicture: picture ?? undefined,
       })
-      setSavedTick(Date.now())
     }, 500)
     return () => clearTimeout(timer)
   }, [name, colorIndex, picture, saveProfile])
 
-  useEffect(() => {
-    if (savedTick === null) return
-    const timer = setTimeout(() => setSavedTick(null), 1400)
-    return () => clearTimeout(timer)
-  }, [savedTick])
+  // Leaving a session is the ONLY supported exit — the swipe-back gesture is
+  // disabled on the Session screen. Clear the cached session (so the next app
+  // launch lands on the join screen, not back in here) then reset the root
+  // stack to Main. This button only renders while a session is active, so on
+  // the pre-session MainTabs Profile tab it's absent.
+  const handleLeaveSession = useCallback(() => {
+    Alert.alert(
+      'Leave session?',
+      'You can rejoin anytime from your recent sessions on the home screen.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Leave',
+          style: 'destructive',
+          onPress: () => {
+            void clearSession().then(() => {
+              navigation
+                .getParent<NativeStackNavigationProp<RootStackParamList>>()
+                ?.reset({ index: 0, routes: [{ name: 'Main' }] })
+            })
+          },
+        },
+      ],
+    )
+  }, [clearSession, navigation])
 
   const selectedColor = UNIVERSAL_SINGER_COLORS[colorIndex]?.color ?? tokens.hotRed
   const initial = (name.trim()[0] ?? '').toUpperCase()
@@ -65,33 +91,36 @@ export function ProfileScreen() {
 
   return (
     <SafeAreaView style={ui.styles.screen} edges={['top', 'left', 'right']}>
-      {savedTick !== null ? (
-        <View
-          style={{
+      {session ? (
+        <Pressable
+          onPress={handleLeaveSession}
+          style={({ pressed }) => ({
             position: 'absolute',
             top: insets.top + 12,
-            right: 24,
+            left: 16,
             zIndex: 10,
-            backgroundColor: tokens.mintGreen,
+            paddingHorizontal: 14,
+            paddingVertical: 8,
             borderRadius: 999,
-            paddingHorizontal: 10,
-            paddingVertical: 5,
             borderWidth: 2,
-            borderColor: tokens.black,
-          }}
+            borderColor: tokens.hotRed,
+            backgroundColor: 'transparent',
+            opacity: pressed ? 0.55 : 1,
+          })}
         >
           <Text
             style={{
               fontFamily: tokens.fontDisplay,
               fontWeight: '900',
-              fontSize: 11,
+              fontSize: 10,
               letterSpacing: 1,
-              color: tokens.black,
+              color: tokens.hotRed,
+              textTransform: 'uppercase',
             }}
           >
-            SAVED
+            Leave Session
           </Text>
-        </View>
+        </Pressable>
       ) : null}
 
       <KeyboardAvoidingView

@@ -133,7 +133,14 @@ function SetupPanel() {
             addedBy: originalItem?.addedBy ?? null,
             remoteQueueId: originalItem?.remoteQueueId ?? null,
             stageTheme: originalItem?.stageTheme ?? null,
-            isHidden: originalItem?.isHidden ?? false
+            isHidden: originalItem?.isHidden ?? false,
+            // Stamp createdAt at the dispatch site (not in the reducer) so the
+            // same value is relayed to the stage window. Generating it in the
+            // reducer made each window assign its own timestamp, which is the
+            // tiebreaker in sortQueueByScore — diverging the queue order, and
+            // thus which song each window treats as "next". Also preserves the
+            // original timestamp across edits instead of resetting queue order.
+            createdAt: originalItem?.createdAt ?? new Date().toISOString()
         }
         if (isEditing && originalId) {
             const index = state.queue.findIndex(q => q.id === originalId)

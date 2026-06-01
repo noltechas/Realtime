@@ -48,7 +48,15 @@ export function RootNavigator() {
       >
         <RootStack.Screen name="Main" component={MainTabs} />
         <RootStack.Screen name="Lobby" component={LobbyScreen} />
-        <RootStack.Screen name="Session" component={SessionTabs} />
+        <RootStack.Screen
+          name="Session"
+          component={SessionTabs}
+          // Once inside a session there's no backing out to the scan screen via
+          // the iOS swipe-back gesture (or Android hardware back). Leaving is a
+          // deliberate action: the "Leave Session" button on the Profile tab,
+          // which clears the cached session and resets the stack back to Main.
+          options={{ gestureEnabled: false }}
+        />
         <RootStack.Screen
           name="Wizard"
           component={WizardScreen}

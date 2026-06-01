@@ -76,6 +76,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             distortion: { enabled: true, drive: 8, mix: 6 },
             noiseGate: { enabled: false, threshold: -50 },
             vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
+            doubler: { enabled: true, voices: 2, detune: 10, delay: 18, width: 60, mix: 30 },
         }
     },
     {
@@ -94,6 +95,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             distortion: { enabled: true, drive: 18, mix: 18 },
             noiseGate: { enabled: false, threshold: -50 },
             vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
+            doubler: { enabled: true, voices: 3, detune: 16, delay: 26, width: 85, mix: 50 },
         }
     },
     {
@@ -112,6 +114,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             distortion: { enabled: false, drive: 0, mix: 0 },
             noiseGate: { enabled: false, threshold: -50 },
             vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
+            doubler: { enabled: true, voices: 2, detune: 8, delay: 20, width: 55, mix: 26 },
         }
     },
     {
@@ -148,6 +151,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             distortion: { enabled: true, drive: 38, mix: 28 },
             noiseGate: { enabled: false, threshold: -50 },
             vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
+            doubler: { enabled: true, voices: 3, detune: 18, delay: 15, width: 90, mix: 42 },
         }
     },
     {
@@ -275,6 +279,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
             distortion: { enabled: true, drive: 6, mix: 6 },
             noiseGate: { enabled: false, threshold: -50 },
             vocoder: { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' },
+            doubler: { enabled: true, voices: 3, detune: 14, delay: 24, width: 80, mix: 40 },
         }
     },
     {

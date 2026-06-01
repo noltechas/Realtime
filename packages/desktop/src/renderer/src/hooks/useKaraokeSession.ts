@@ -283,28 +283,55 @@ export function useKaraokeSession() {
         }
     }, [state.karaokeSessionId])
 
-    // Sync now-playing changes to Supabase
-    const prevNowPlayingTrackIdRef = useRef<string | null>(null)
+    // Sync now-playing changes to Supabase.
+    //
+    // Keyed on the queue-item id (NOT track.id). Two distinct queue rows can
+    // share a track_id — the classic case is the host queuing a song locally
+    // while a guest queues the SAME song from the app. If this effect were keyed
+    // on track.id, advancing from one copy to the other would not re-fire, so
+    // now_playing_singer_configs would keep the first copy's singers forever:
+    // the stage shows the wrong (or placeholder) singer and the guest never gets
+    // flipped to their Stage tab because their guestId never reaches the session
+    // row. Keying on the item id makes every advance publish the right config.
+    const prevNowPlayingRowRef = useRef<{ rowId: string | null; trackId: string | null } | null>(null)
 
     useEffect(() => {
         if (window.electronAPI?.isStageWindow) return
-        if (!state.karaokeSessionId) return
+        const sessionId = state.karaokeSessionId
+        if (!sessionId) return
 
-        // Mark the PREVIOUS now-playing track as played when advancing
-        const prevTrackId = prevNowPlayingTrackIdRef.current
-        if (prevTrackId && prevTrackId !== state.nowPlaying?.track?.id) {
-            supabase.from('karaoke_queue')
-                .update({ status: 'played' })
-                .eq('session_id', state.karaokeSessionId)
-                .eq('track_id', prevTrackId)
-                .eq('status', 'queued')
-                .then(res => {
-                    if (res.error) console.error('[Karaoke] Failed to mark previous track as played:', res.error)
-                })
+        // Retire a single queue row from the companion-site queue. Prefer the
+        // exact Supabase row id: marking played by track_id (as this used to do)
+        // also retires sibling rows that merely share the track — which silently
+        // consumes a guest's remote entry, dropping their singer config + guestId
+        // before that entry ever plays. Fall back to track_id only when the row
+        // id isn't wired up yet, and scope that fallback to source='local' so a
+        // guest's remote row is still never collaterally retired.
+        const markRowPlayed = (rowId: string | null | undefined, trackId: string | null) => {
+            const base = supabase.from('karaoke_queue').update({ status: 'played' }).eq('status', 'queued')
+            const query = rowId
+                ? base.eq('id', rowId)
+                : trackId
+                    ? base.eq('session_id', sessionId).eq('track_id', trackId).eq('source', 'local')
+                    : null
+            if (!query) return
+            query.then(res => {
+                if (res.error) console.error('[Karaoke] Failed to mark queue row as played:', res.error)
+            })
+        }
+
+        // Mark the PREVIOUS now-playing row as played when advancing to a
+        // different queue item (defensive: the row was already retired when it
+        // first became now-playing, but a transient failure there shouldn't
+        // strand it in the companion queue).
+        const prev = prevNowPlayingRowRef.current
+        const currentRowId = state.nowPlaying?.remoteQueueId ?? null
+        if (prev && (prev.rowId || prev.trackId) && prev.rowId !== currentRowId) {
+            markRowPlayed(prev.rowId, prev.trackId)
         }
 
         if (state.nowPlaying) {
-            prevNowPlayingTrackIdRef.current = state.nowPlaying.track.id
+            prevNowPlayingRowRef.current = { rowId: currentRowId, trackId: state.nowPlaying.track.id }
             window.electronAPI?.syncNowPlaying({
                 trackId: state.nowPlaying.track.id,
                 name: state.nowPlaying.track.name,
@@ -321,20 +348,15 @@ export function useKaraokeSession() {
                 })),
                 stageTheme: state.nowPlaying.stageTheme || null
             })
-            // Mark this track as played in Supabase so companion site removes it from queue
-            supabase.from('karaoke_queue')
-                .update({ status: 'played' })
-                .eq('session_id', state.karaokeSessionId)
-                .eq('track_id', state.nowPlaying.track.id)
-                .eq('status', 'queued')
-                .then(res => {
-                    if (res.error) console.error('[Karaoke] Failed to mark queue item as played:', res.error)
-                })
+            // Retire this row from the companion queue now that it's playing —
+            // by exact row id so a same-track sibling (e.g. a guest's remote
+            // copy) is left intact to play later with its own singer config.
+            markRowPlayed(currentRowId, state.nowPlaying.track.id)
         } else {
-            prevNowPlayingTrackIdRef.current = null
+            prevNowPlayingRowRef.current = null
             window.electronAPI?.syncNowPlaying(null)
         }
-    }, [state.nowPlaying?.track?.id, state.karaokeSessionId])
+    }, [state.nowPlaying?.id, state.karaokeSessionId])
 
     // When the host advances to a new song, bump bonus_points on every
     // remaining queued row so long-waiting songs eventually surface.

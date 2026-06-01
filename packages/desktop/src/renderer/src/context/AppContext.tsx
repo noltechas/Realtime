@@ -262,8 +262,13 @@ type Action =
     | { type: 'SET_VOICE_EFFECTS'; payload: VoiceEffects | VoiceEffects[] | null }
     | { type: 'SET_STAGE_MODE'; payload: StageMode }
     | { type: 'ENQUEUE_SONG'; payload: QueueItem }
-    | { type: 'NEXT_SONG' }
-    | { type: 'PREV_SONG' }
+    // NEXT_SONG / PREV_SONG carry an OPTIONAL precomputed result. The main
+    // window (authoritative for playback) resolves the transition from its
+    // live queue and attaches the result here before relaying, so the stage
+    // window applies the identical nowPlaying/queue instead of independently
+    // re-deriving it (see the dispatch wrapper in AppProvider).
+    | { type: 'NEXT_SONG'; payload?: Partial<AppState> }
+    | { type: 'PREV_SONG'; payload?: Partial<AppState> }
     | { type: 'CLEAR_QUEUE' }
     | { type: 'REMOVE_FROM_QUEUE'; payload: number }
     | { type: 'REPLACE_QUEUE_ITEM'; payload: { index: number; item: QueueItem } }
@@ -354,6 +359,66 @@ function ensureSlots(slots: MicSlotConfig[], minCount: number): MicSlotConfig[] 
     return result
 }
 
+// Resolve a NEXT_SONG transition into the set of state fields it changes.
+// Pure + deterministic given `state`, so the main window can compute it once
+// and broadcast the result for the stage window to apply verbatim.
+function resolveNextSong(state: AppState): Partial<AppState> {
+    // Save current mic assignments to persistent micSlots
+    const savedSlots = saveMicSlots(state)
+
+    const newHistory = state.nowPlaying
+        ? [...state.history, state.nowPlaying]
+        : state.history
+    if (state.queue.length === 0) {
+        return { isPlaying: false, nowPlaying: null, stageMode: 'idle', history: newHistory, micSlots: savedSlots }
+    }
+    const sorted = sortQueueByScore(state.queue)
+    const nextItem = mergeMicSlotsIntoItem(sorted[0], savedSlots)
+    // Award +1 bonus point to every remaining song so long-waiting tracks
+    // eventually surface, then re-sort and lock the new position-0.
+    const remaining = sorted.slice(1).map(item => ({
+        ...item,
+        bonusPoints: (item.bonusPoints ?? 0) + 1
+    }))
+    const resorted = sortQueueByScore(remaining)
+    if (resorted.length > 0) {
+        resorted[0] = { ...resorted[0], locked: true }
+    }
+    return {
+        queue: resorted,
+        nowPlaying: nextItem,
+        history: newHistory,
+        isPlaying: false,
+        currentTime: 0,
+        stageMode: 'ready',
+        processingStatus: { stage: 'idle', progress: 0, message: '' },
+        micSlots: ensureSlots(savedSlots, nextItem.singers.length)
+    }
+}
+
+// Resolve a PREV_SONG transition. Returns null when there's no history to go
+// back to (the reducer treats that as a no-op).
+function resolvePrevSong(state: AppState): Partial<AppState> | null {
+    if (state.history.length === 0) return null
+    // Save current mic assignments to persistent micSlots
+    const savedSlots = saveMicSlots(state)
+
+    const prevItem = mergeMicSlotsIntoItem(state.history[state.history.length - 1], savedSlots)
+    const newQueue = state.nowPlaying
+        ? [state.nowPlaying, ...state.queue]
+        : state.queue
+    return {
+        nowPlaying: prevItem,
+        queue: newQueue,
+        history: state.history.slice(0, -1),
+        isPlaying: false,
+        currentTime: 0,
+        stageMode: 'ready',
+        processingStatus: { stage: 'idle', progress: 0, message: '' },
+        micSlots: ensureSlots(savedSlots, prevItem.singers.length)
+    }
+}
+
 function reducer(state: AppState, action: Action): AppState {
     switch (action.type) {
         case 'SET_TOKEN':
@@ -437,6 +502,12 @@ function reducer(state: AppState, action: Action): AppState {
         case 'SET_STAGE_MODE':
             return { ...state, stageMode: action.payload }
         case 'ENQUEUE_SONG': {
+            // INVARIANT: callers MUST supply payload.createdAt (QueuePage and
+            // resolveRemoteRow both do). createdAt is the final tiebreaker in
+            // sortQueueByScore, so a per-window `new Date()` fallback here
+            // would make the main and stage windows order tied songs
+            // differently and disagree on which song is "next". The fallback
+            // below only exists to avoid an undefined timestamp.
             const incoming: QueueItem = {
                 ...action.payload,
                 score: action.payload.score ?? 0,
@@ -470,60 +541,15 @@ function reducer(state: AppState, action: Action): AppState {
         }
         case 'SET_EDITING_QUEUE_INDEX':
             return { ...state, editingQueueIndex: action.payload }
-        case 'NEXT_SONG': {
-            // Save current mic assignments to persistent micSlots
-            const savedSlots = saveMicSlots(state)
-
-            const newHistory = state.nowPlaying
-                ? [...state.history, state.nowPlaying]
-                : state.history
-            if (state.queue.length === 0) {
-                return { ...state, isPlaying: false, nowPlaying: null, stageMode: 'idle', history: newHistory, micSlots: savedSlots }
-            }
-            const sorted = sortQueueByScore(state.queue)
-            const nextItem = mergeMicSlotsIntoItem(sorted[0], savedSlots)
-            // Award +1 bonus point to every remaining song so long-waiting tracks
-            // eventually surface, then re-sort and lock the new position-0.
-            const remaining = sorted.slice(1).map(item => ({
-                ...item,
-                bonusPoints: (item.bonusPoints ?? 0) + 1
-            }))
-            const resorted = sortQueueByScore(remaining)
-            if (resorted.length > 0) {
-                resorted[0] = { ...resorted[0], locked: true }
-            }
-            return {
-                ...state,
-                queue: resorted,
-                nowPlaying: nextItem,
-                history: newHistory,
-                isPlaying: false,
-                currentTime: 0,
-                stageMode: 'ready',
-                processingStatus: { stage: 'idle', progress: 0, message: '' },
-                micSlots: ensureSlots(savedSlots, nextItem.singers.length)
-            }
-        }
+        case 'NEXT_SONG':
+            // Prefer the authoritative result computed by the main window
+            // (action.payload). Fall back to computing locally so the reducer
+            // stays correct if invoked without a precomputed payload.
+            return { ...state, ...(action.payload ?? resolveNextSong(state)) }
         case 'PREV_SONG': {
-            if (state.history.length === 0) return state
-            // Save current mic assignments to persistent micSlots
-            const savedSlots = saveMicSlots(state)
-
-            const prevItem = mergeMicSlotsIntoItem(state.history[state.history.length - 1], savedSlots)
-            const newQueue = state.nowPlaying
-                ? [state.nowPlaying, ...state.queue]
-                : state.queue
-            return {
-                ...state,
-                nowPlaying: prevItem,
-                queue: newQueue,
-                history: state.history.slice(0, -1),
-                isPlaying: false,
-                currentTime: 0,
-                stageMode: 'ready',
-                processingStatus: { stage: 'idle', progress: 0, message: '' },
-                micSlots: ensureSlots(savedSlots, prevItem.singers.length)
-            }
+            const resolved = action.payload ?? resolvePrevSong(state)
+            if (!resolved) return state
+            return { ...state, ...resolved }
         }
         case 'CLEAR_QUEUE':
             return { ...state, queue: [] }
@@ -698,15 +724,40 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const [state, rawDispatch] = useReducer(reducer, initialState)
     const stateRef = useRef(state)
     const isRemoteRef = useRef(false)
+    const isStageWindow = window.electronAPI?.isStageWindow ?? false
 
     useEffect(() => { stateRef.current = state }, [state])
 
     const dispatch = useCallback((action: Action) => {
-        rawDispatch(action)
-        if (!isRemoteRef.current && action.type !== 'INIT_STATE' && window.electronAPI) {
-            window.electronAPI.sendStateAction(action)
+        let outgoing: Action = action
+        // The main window is the single source of truth for playback
+        // transitions. Resolve NEXT_SONG / PREV_SONG against the live state
+        // here and attach the result to the action, so the relayed action
+        // carries an explicit nowPlaying/queue. Otherwise each window
+        // re-derives the transition from its own queue and they can disagree
+        // on tie-broken sort order — making the stage display one song while
+        // the (audio-owning) main window plays another.
+        if (
+            !isRemoteRef.current &&
+            !isStageWindow &&
+            (action.type === 'NEXT_SONG' || action.type === 'PREV_SONG') &&
+            !action.payload
+        ) {
+            const resolved = action.type === 'NEXT_SONG'
+                ? resolveNextSong(stateRef.current)
+                : resolvePrevSong(stateRef.current)
+            if (!resolved) {
+                // PREV_SONG with no history — nothing changes, don't relay.
+                rawDispatch(action)
+                return
+            }
+            outgoing = { type: action.type, payload: resolved } as Action
         }
-    }, [])
+        rawDispatch(outgoing)
+        if (!isRemoteRef.current && outgoing.type !== 'INIT_STATE' && window.electronAPI) {
+            window.electronAPI.sendStateAction(outgoing)
+        }
+    }, [isStageWindow])
 
     // Auto-pop queue when nothing is playing (main window only)
     useEffect(() => {

@@ -192,8 +192,9 @@ Themes load custom fonts via `@import url(...)` in their `globalCss`. Always inc
 
 **Signal chain order** (from [VoiceEffectsEngine.ts](src/renderer/src/audio/VoiceEffectsEngine.ts)):
 ```
-input → compressor → pitchCorrection → EQ → distortion → chorus → delay → reverb → noiseGate → output
+input → highpass → compressor → pitchCorrection → EQ → vocoder → distortion → doubler → chorus → delay → reverb → noiseGate → output
 ```
+(`pitchCorrection` is now a TD-PSOLA shifter — clean, formant-preserving, ~32 ms latency, octave-robust; it auto-bypasses when a role's autotune is off.)
 
 **The chorus-after-autotune gotcha** (most common mistake): for mechanical-autotune presets (T-Pain, Travis Scott, Kanye 808s, Future, Playboi Carti), chorus runs *after* pitch correction and creates a pitch-modulated second voice that *undoes* the hard-snap quality. Real records of these artists don't use analog chorus on the vocal — "doubling" is a separately-recorded second take. **Rule of thumb:**
 - `pitchCorrection.strength >= 80` → `chorus.enabled: false` (or `mix <= 10`)
@@ -201,6 +202,18 @@ input → compressor → pitchCorrection → EQ → distortion → chorus → de
 - `pitchCorrection.strength < 40` or disabled → chorus can go up to ~22 for pop/R&B width
 
 **Exceptions where chorus IS the character, keep it heavy:** Daft Punk (vocoder), Bon Iver (layered harmonies), Tame Impala (psychedelic modulation), Imogen Heap (crystalline harmonizer), Kevin-Parker-produced tracks like SKELETONS.
+
+**The doubler / thickener — the right tool for "the vocal stack" (use it, not chorus).** The chorus gotcha above notes that hard-autotune "doubling" is really a separately-recorded take. The `doubler` block is the effect that *approximates* that: N short-delay, lightly-detuned, panned copies of the tuned voice layered ON TOP of the dry lead. It runs *after* the autotune and does NOT undo the hard-snap (unlike chorus), so it's the correct way to get the thick, wide stack of Travis/T-Pain/Carti/Future/Kanye-808s/Uzi without softening the tune.
+
+When tuning a stacked-vocal / autotune-heavy song, set the doubler on the lead singer's role. Rough map by vibe:
+- **Rage / wall-of-vocal** (Carti, Uzi rage, Future "Mask Off", Travis "FE!N"/"NO BYSTANDERS") → `voices 4, detune 18-22, delay 16-20, width 88-96, mix 50-58`.
+- **Standard hard-tune stack** (most Travis, way back, Don Toliver) → `voices 3, detune 14-16, delay 24-28, width 80-85, mix 44-50`.
+- **Bright club-pop / T-Pain** (T-Pain, Kesha, LMFAO, will.i.am) → `voices 3, detune 12-14, delay 16-20, width 66-74, mix 40-44` (tighter + narrower + brighter than the Travis cavern; brightness comes from EQ, not the doubler).
+- **808s / Donda Kanye** → `voices 3, detune 14-16, delay 24-28, width 70-76, mix 40-46` (lush, longer delay).
+- **Intimate / low-autotune** (Travis "MY EYES") → `voices 2, detune 8-10, delay 22-26, width 55-60, mix 26-30` (subtle).
+- **Lush / psychedelic** (SKELETONS) → `voices 3, detune 16, delay 30, width 80, mix 40-42` (long delay, softer mix — not aggressive).
+
+**Leave the doubler OFF (or omit it) for:** dry rap verses (Kendrick, J. Cole, MF DOOM, Eminem, JAY-Z, Pusha T, etc.), classic rock / oldies, big solo power vocals (Adele, Whitney), and anything where the natural performance isn't a produced stack. On multi-role songs, give melodic guests a moderate double but keep dry-rap features off (e.g. on Monster: Kanye + Bon Iver doubled, Rick Ross/JAY-Z/Nicki dry). **Vocoder tracks (Daft Punk) skip the doubler** — the vocoder is already the vocal character and a doubler muddies it.
 
 **Other parameter guidance:**
 - `reverb.mix > 40%` → vocal sounds distant/washy. Use for cavern/hall effects (Travis, Kanye 808s, Bon Iver).
@@ -270,8 +283,12 @@ From [VoiceEffectsTypes.ts](src/renderer/src/audio/VoiceEffectsTypes.ts) — use
 | `reverb` | `enabled`, `decay`, `preDelay`, `mix` | 0.1–10 s, 0–100 ms, 0–100% |
 | `distortion` | `enabled`, `drive`, `mix` | 0–100, 0–100% |
 | `noiseGate` | `enabled`, `threshold` | -100..0 dB |
+| `vocoder` | `enabled`, `mix`, `brightness`, `sibilance`, `voicing` | 0–100%, 0–100, 0–100, `'triad'\|'power'\|'octaves'` |
+| `doubler` | `enabled`, `voices`, `detune`, `delay`, `width`, `mix` | 2–4, 0–30¢, 8–40 ms, 0–100%, 0–100% |
 
-Always include every block in every role — don't partial-update. If you want a block inert, set `enabled: false` and give the other fields neutral values (the existing scripts follow this pattern).
+Always include every block in every role — don't partial-update. If you want a block inert, set `enabled: false` and give the other fields neutral values (the existing scripts follow this pattern). `vocoder` and `doubler` are OPTIONAL blocks (newer than the rest) — a missing block is treated as disabled, so older `meta.json` files without them are fine.
+
+**Adding only the `doubler` to existing songs:** the per-song doubler scripts ([scripts/travis-doubler-per-song.js](packages/desktop/scripts/travis-doubler-per-song.js), [tpain-doubler-per-song.js](packages/desktop/scripts/tpain-doubler-per-song.js), [library-doubler-per-song.js](packages/desktop/scripts/library-doubler-per-song.js)) MERGE only a `doubler` block into each role's existing `voiceEffects[i]` (`{ ...existing, doubler }`) rather than rewriting the whole entry — this preserves all prior per-song tuning (key/mode/tempo/micLevel/pitchCorrection/reverb/…). Copy one of these as the template when adding the doubler to more songs; they dry-run by default and write a one-time `.doubler.bak`.
 
 ## Common Pitfalls
 

@@ -279,6 +279,7 @@ export default function AdminPage() {
             distortion: fx.distortion,
             noiseGate: fx.noiseGate,
             vocoder: fx.vocoder,
+            doubler: fx.doubler,
         }
     }
 
@@ -300,6 +301,7 @@ export default function AdminPage() {
         if (fx.delay?.enabled) parts.push(`delay ${fx.delay.time}ms/${fx.delay.mix}%`)
         if (fx.chorus?.enabled) parts.push(`chorus ${fx.chorus.mix}%`)
         if (fx.vocoder?.enabled) parts.push(`vocoder ${fx.vocoder.voicing}/${fx.vocoder.mix}%`)
+        if (fx.doubler?.enabled) parts.push(`doubler ${fx.doubler.voices}v/${fx.doubler.mix}%`)
         if (fx.distortion?.enabled) parts.push(`drive ${fx.distortion.drive}/${fx.distortion.mix}`)
         if (fx.eq?.enabled) parts.push(`eq ${fx.eq.lowGain >= 0 ? '+' : ''}${fx.eq.lowGain}/${fx.eq.midGain >= 0 ? '+' : ''}${fx.eq.midGain}/${fx.eq.highGain >= 0 ? '+' : ''}${fx.eq.highGain}`)
         return parts.length ? parts.join(' · ') : 'all effects disabled'
@@ -2089,6 +2091,20 @@ export default function AdminPage() {
                                                 })}
                                             </div>
                                         </div>
+                                    </div>
+                                </div>
+
+                                {/* Doubler / Thickener — stacks detuned, panned copies of the
+                                    tuned voice on top of the lead for the wide "vocal stack"
+                                    behind hard-autotune artists (Travis, T-Pain, Carti). */}
+                                <div style={fxModule(pending.configs[pending.activeRoleTab].doubler?.enabled ?? false)}>
+                                    <Toggle on={pending.configs[pending.activeRoleTab].doubler?.enabled ?? false} label="Doubler / Thickener" onClick={() => updateActiveConfig(c => { if (!c.doubler) c.doubler = { enabled: false, voices: 2, detune: 12, delay: 22, width: 70, mix: 35 }; c.doubler.enabled = !c.doubler.enabled })} />
+                                    <div style={{ marginTop: 14, pointerEvents: pending.configs[pending.activeRoleTab].doubler?.enabled ? 'auto' : 'none' }}>
+                                        <Slider label="Voices" val={pending.configs[pending.activeRoleTab].doubler?.voices ?? 2} min={2} max={4} unit="" onChange={v => updateActiveConfig(c => { if (!c.doubler) c.doubler = { enabled: true, voices: 2, detune: 12, delay: 22, width: 70, mix: 35 }; c.doubler.voices = Math.round(v) })} />
+                                        <Slider label="Detune" val={pending.configs[pending.activeRoleTab].doubler?.detune ?? 12} min={0} max={30} unit="¢" onChange={v => updateActiveConfig(c => { if (!c.doubler) c.doubler = { enabled: true, voices: 2, detune: 12, delay: 22, width: 70, mix: 35 }; c.doubler.detune = v })} />
+                                        <Slider label="Delay" val={pending.configs[pending.activeRoleTab].doubler?.delay ?? 22} min={8} max={40} unit="ms" onChange={v => updateActiveConfig(c => { if (!c.doubler) c.doubler = { enabled: true, voices: 2, detune: 12, delay: 22, width: 70, mix: 35 }; c.doubler.delay = v })} />
+                                        <Slider label="Width" val={pending.configs[pending.activeRoleTab].doubler?.width ?? 70} min={0} max={100} unit="%" onChange={v => updateActiveConfig(c => { if (!c.doubler) c.doubler = { enabled: true, voices: 2, detune: 12, delay: 22, width: 70, mix: 35 }; c.doubler.width = v })} />
+                                        <Slider label="Mix" val={pending.configs[pending.activeRoleTab].doubler?.mix ?? 35} min={0} max={100} unit="%" onChange={v => updateActiveConfig(c => { if (!c.doubler) c.doubler = { enabled: true, voices: 2, detune: 12, delay: 22, width: 70, mix: 35 }; c.doubler.mix = v })} />
                                     </div>
                                 </div>
                             </div>
