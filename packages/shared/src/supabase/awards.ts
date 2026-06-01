@@ -264,44 +264,70 @@ export function buildAwardCandidates(
   history: AwardHistoryRow[],
   guests: AwardGuestRow[],
 ): AwardCandidate[] {
-  if (award.subject_type === 'performance') {
-    return history.map((p) => ({
-      key: p.queueRowId,
-      type: 'performance' as const,
-      label: p.trackName,
-      subtitle: p.singers && p.singers.length
-        ? p.singers.map((s) => s.name).join(', ')
-        : p.trackArtist,
-      avatar: p.trackArtUrl,
-      singers: p.singers || [],
-      bannedNames: (p.singers || []).map((s) => s.name),
-      bannedIds: [], // history rows don't carry guest ids; banned-name check covers self-vote
+  // Singers reference guests by id; resolve their live name + avatar from the
+  // guest bundle (history rows no longer embed base64 after the refactor).
+  const guestById: Record<string, AwardGuestRow> = {}
+  guests.forEach((g) => {
+    guestById[g.id] = g
+  })
+  const nameOf = (s: SingerConfig): string =>
+    (s.guestId && guestById[s.guestId] ? guestById[s.guestId].name : s.name) || 'Singer'
+  const resolveSingers = (singers: SingerConfig[]): SingerConfig[] =>
+    singers.map((s) => ({
+      ...s,
+      name: nameOf(s),
+      profilePicture:
+        s.guestId && guestById[s.guestId]
+          ? guestById[s.guestId].profilePicture || undefined
+          : s.profilePicture,
     }))
+
+  if (award.subject_type === 'performance') {
+    return history.map((p) => {
+      const singers = resolveSingers(p.singers || [])
+      return {
+        key: p.queueRowId,
+        type: 'performance' as const,
+        label: p.trackName,
+        subtitle: singers.length ? singers.map((s) => s.name).join(', ') : p.trackArtist,
+        avatar: p.trackArtUrl,
+        singers,
+        bannedNames: singers.map((s) => s.name || ''),
+        bannedIds: (p.singers || []).map((s) => s.guestId || '').filter(Boolean),
+      }
+    })
   }
   if (award.subject_type === 'group') {
     return history
       .filter((p) => (p.singers || []).length >= 2)
-      .map((p) => ({
-        key: p.queueRowId,
-        type: 'group' as const,
-        label: (p.singers || []).map((s) => s.name).join(' & '),
-        subtitle: `${p.trackName} — ${p.trackArtist}`,
-        avatar: p.trackArtUrl,
-        singers: p.singers || [],
-        bannedNames: (p.singers || []).map((s) => s.name),
-        bannedIds: [],
-      }))
+      .map((p) => {
+        const singers = resolveSingers(p.singers || [])
+        return {
+          key: p.queueRowId,
+          type: 'group' as const,
+          label: singers.map((s) => s.name).join(' & '),
+          subtitle: `${p.trackName} — ${p.trackArtist}`,
+          avatar: p.trackArtUrl,
+          singers,
+          bannedNames: singers.map((s) => s.name || ''),
+          bannedIds: (p.singers || []).map((s) => s.guestId || '').filter(Boolean),
+        }
+      })
   }
-  // singer
+  // singer — collect everyone who sang by id AND by (resolved) name, then
+  // surface matching guests.
   const sangNames: Record<string, true> = {}
+  const sangIds: Record<string, true> = {}
   history.forEach((p) =>
     (p.singers || []).forEach((s) => {
-      if (s.name) sangNames[s.name] = true
+      if (s.guestId) sangIds[s.guestId] = true
+      const n = nameOf(s)
+      if (n) sangNames[n] = true
     }),
   )
   const out: AwardCandidate[] = []
   guests.forEach((g) => {
-    if (sangNames[g.name]) {
+    if (sangIds[g.id] || sangNames[g.name]) {
       out.push({
         key: g.id,
         type: 'singer',

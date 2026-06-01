@@ -48,6 +48,20 @@ export function resizeImage(file,maxSize,quality,cb){
 }
 export function fmtD(ms){var s=Math.floor(ms/1000);return Math.floor(s/60)+":"+String(s%60).padStart(2,"0");}
 export function esc(s){if(!s)return"";var d=document.createElement("div");d.textContent=s;return d.innerHTML;}
+// Resolve a stored singer config to its render values. Identity (name +
+// picture) comes LIVE from the canonical guest (S.guestsById) when the config
+// carries a guestId, so profile edits propagate. Name-only configs use their
+// inline name. `profilePicture` on the config is a legacy fallback only.
+export function resolveSingerConfig(c){
+  if(!c)return{guestId:null,name:"Singer",profilePicture:null,color:"",colorGlow:"",roleIndices:[]};
+  var g=(c.guestId&&S.guestsById)?S.guestsById[c.guestId]:null;
+  return {
+    guestId:c.guestId||null,
+    name:(g&&g.name)||c.name||"Singer",
+    profilePicture:(g?g.profilePicture:c.profilePicture)||null,
+    color:c.color,colorGlow:c.colorGlow,roleIndices:c.roleIndices||[]
+  };
+}
 export function avatarHTML(pic,name,size,bg){
   if(pic){return '<img src="'+pic+'" alt="" style="width:'+size+'px;height:'+size+'px;border-radius:50%;object-fit:cover">';}
   var letter=name?esc(name.charAt(0).toUpperCase()):"?";
@@ -62,21 +76,13 @@ export function showQueueNotification(pl){
   var song=d.track_name||"a song";
   var artist=d.track_artist||"";
   var artUrl=d.track_art_url||"";
-  var singers=d.singer_configs||[];
+  var singers=(d.singer_configs||[]).map(resolveSingerConfig);
   var singerNames=[];
   for(var i=0;i<singers.length;i++){if(singers[i].name)singerNames.push(singers[i].name);}
   if(singerNames.length===0)singerNames.push(d.added_by_name||"Someone");
   var displayName=singerNames.length<=2?singerNames.join(" & "):singerNames.slice(0,-1).join(", ")+" & "+singerNames[singerNames.length-1];
   var pics=[];
-  for(var p=0;p<singers.length;p++){
-    var pic=singers[p].profilePicture||null;
-    if(!pic&&S.guests){
-      for(var g=0;g<S.guests.length;g++){
-        if(S.guests[g].name===singers[p].name&&S.guests[g].profile_picture){pic=S.guests[g].profile_picture;break;}
-      }
-    }
-    if(pic)pics.push(pic);
-  }
+  for(var p=0;p<singers.length;p++){if(singers[p].profilePicture)pics.push(singers[p].profilePicture);}
   var avatarHtml="";
   if(pics.length>0){
     avatarHtml='<div class="notif-avatars" style="display:flex;gap:4px;flex-shrink:0">';

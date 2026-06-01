@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { createClient, RealtimeChannel } from '@supabase/supabase-js'
 import { useApp, QueueItem, NEON_COLORS } from '../context/AppContext'
 import { DEFAULT_VOICE_EFFECTS, VoiceEffects } from '../audio/VoiceEffectsTypes'
+import type { KaraokeGuestRow } from '@karaoke/shared'
 
 const SUPABASE_URL = 'https://hnnbxwitjkeijvoldfuv.supabase.co'
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhubmJ4d2l0amtlaWp2b2xkZnV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MjcwMTQsImV4cCI6MjA5MDUwMzAxNH0.ENzZ2VLxszHr9StjFds06In7CyGkiyPvu6Jh1LUMMvA'
@@ -43,6 +44,43 @@ export function useKaraokeSession() {
             catalogRef.current = songs
         })
     }, [])
+
+    // Live guest roster. Singers reference guests by id, so the renderer needs
+    // each guest's canonical name + avatar to resolve singers at render time
+    // (so a profile edit propagates to every queued song, now-playing, stage,
+    // and awards). Fetch once + subscribe and dispatch into state.guests, which
+    // the AppContext relay forwards to the stage window. Main window only.
+    useEffect(() => {
+        if (window.electronAPI?.isStageWindow) return
+        const sessionId = state.karaokeSessionId
+        if (!sessionId) return
+
+        const loadGuests = () => {
+            supabase
+                .from('karaoke_guests')
+                .select('*')
+                .eq('session_id', sessionId)
+                .then(({ data, error }) => {
+                    if (error) {
+                        console.warn('[Karaoke] Failed to load guests:', error.message)
+                        return
+                    }
+                    dispatch({ type: 'SET_GUESTS', payload: (data || []) as KaraokeGuestRow[] })
+                })
+        }
+        loadGuests()
+
+        const ch = supabase
+            .channel('renderer-guests-' + sessionId)
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'karaoke_guests', filter: 'session_id=eq.' + sessionId },
+                () => loadGuests()
+            )
+            .subscribe()
+
+        return () => { supabase.removeChannel(ch) }
+    }, [state.karaokeSessionId, dispatch])
 
     // Session creation is now handled explicitly by SessionPage.
     // No auto-create on mount — this fixes the React StrictMode double-session bug.
@@ -89,10 +127,11 @@ export function useKaraokeSession() {
             vocalTrack: i === 0 ? 'lead' as const : 'backing' as const,
             roleIndices: sc.roleIndices,
             whitePersonCheck: sc.whitePersonCheck || false,
-            profilePicture: sc.profilePicture || undefined,
             // Preserve the guestId carried by the mobile/website so the
             // round-trip back to now_playing_singer_configs lets remote
-            // clients match by stable id (see syncNowPlaying below).
+            // clients match by stable id (see syncNowPlaying below), and so
+            // the desktop resolves this singer's live name + avatar from the
+            // guest roster (state.guests) rather than any embedded snapshot.
             guestId: sc.guestId || undefined,
         }))
 
@@ -229,7 +268,6 @@ export function useKaraokeSession() {
                         vocalTrack: i === 0 ? 'lead' as const : 'backing' as const,
                         roleIndices: sc.roleIndices,
                         whitePersonCheck: sc.whitePersonCheck || false,
-                        profilePicture: sc.profilePicture || undefined,
                         guestId: sc.guestId || undefined,
                     }))
                     dispatch({
@@ -338,13 +376,14 @@ export function useKaraokeSession() {
                 artist: state.nowPlaying.track.artists.map(a => a.name).join(', '),
                 artUrl: state.nowPlaying.track.album.images[0]?.url || null,
                 singerConfigs: state.nowPlaying.singers.map(s => ({
-                    name: s.name, color: s.color, colorGlow: s.colorGlow,
-                    roleIndices: s.roleIndices, profilePicture: s.profilePicture,
-                    // Round-trip the guestId so the mobile app can match
-                    // "is this me singing?" by stable session-scoped UUID
-                    // rather than by display name (which can drift if the
-                    // user edits their profile after joining).
-                    ...(s.guestId ? { guestId: s.guestId } : {}),
+                    color: s.color, colorGlow: s.colorGlow, roleIndices: s.roleIndices,
+                    // Reference identity by guestId so remote clients resolve the
+                    // singer's LIVE name + avatar from karaoke_guests (a profile
+                    // edit then propagates to the now-playing banner / stage tab
+                    // without re-queueing). Only fall back to an inline name for
+                    // admin/host- or name-only singers with no linked account.
+                    // Never publish a base64 avatar here.
+                    ...(s.guestId ? { guestId: s.guestId } : { name: s.name }),
                 })),
                 stageTheme: state.nowPlaying.stageTheme || null
             })

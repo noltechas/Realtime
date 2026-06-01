@@ -21,7 +21,10 @@ export function initWizardFromTrack(track){
   S.selectedTrack=track;
   var pref=findNCByColor(S.defaultColor);
   var first=pref||NC[0];
-  S.singers=[{name:S.guestName,color:first.c,colorGlow:first.g,roleIndices:[],profilePicture:S.profilePicture,whitePersonCheck:S.prefersSanitize!==false}];
+  // The first singer is the local guest — store guestId so it persists as a
+  // reference (name + avatar resolve live). profilePicture is kept for the
+  // wizard's own preview only; it is dropped on submit.
+  S.singers=[{name:S.guestName,color:first.c,colorGlow:first.g,roleIndices:[],profilePicture:S.profilePicture,guestId:S.guestId||null,whitePersonCheck:S.prefersSanitize!==false}];
   S.wizardStep=2;
   S.screen="wizard-singers";
   S.customSingerName="";
@@ -37,12 +40,16 @@ export function initWizardFromQueueItem(track,row){
   S.selectedTrack=track;
   var cfgs=(row&&row.singer_configs)||[];
   S.singers=cfgs.map(function(c){
+    // Reference-shaped configs carry only a guestId — resolve the live name +
+    // avatar from the guest roster. Name-only configs keep their inline name.
+    var g=(c.guestId&&S.guestsById)?S.guestsById[c.guestId]:null;
     return {
-      name:c.name||"",
+      name:(g&&g.name)||c.name||"",
       color:c.color||NC[0].c,
       colorGlow:c.colorGlow||NC[0].g,
       roleIndices:Array.isArray(c.roleIndices)?c.roleIndices.slice():[],
-      profilePicture:c.profilePicture||null,
+      profilePicture:(g?g.profilePicture:c.profilePicture)||null,
+      guestId:c.guestId||null,
       whitePersonCheck:!!c.whitePersonCheck
     };
   });
@@ -50,7 +57,7 @@ export function initWizardFromQueueItem(track,row){
     // Defensive — shouldn't happen, but a queue row with no singers shouldn't
     // wedge the wizard. Seed with the current guest so the user can save out.
     var first=NC[0];
-    S.singers=[{name:S.guestName,color:first.c,colorGlow:first.g,roleIndices:[],profilePicture:S.profilePicture,whitePersonCheck:true}];
+    S.singers=[{name:S.guestName,color:first.c,colorGlow:first.g,roleIndices:[],profilePicture:S.profilePicture,guestId:S.guestId||null,whitePersonCheck:true}];
   }
   S.wizardStep=2;
   S.screen="wizard-singers";
@@ -82,6 +89,7 @@ export function addSinger(payload){
     colorGlow:glow,
     roleIndices:[],
     profilePicture:(payload&&payload.profilePicture)||null,
+    guestId:(payload&&payload.guestId)||null,
     whitePersonCheck:true
   };
   S.singers.push(singer);
@@ -98,10 +106,9 @@ export function setSingerColor(idx,colorIdx){
   S.singers[idx].colorGlow=c.g;
 }
 export function alreadyHasSinger(name,guestId){
-  if(!name)return false;
-  var lc=name.toLowerCase();
   for(var i=0;i<S.singers.length;i++){
-    if((S.singers[i].name||"").toLowerCase()===lc)return true;
+    if(guestId&&S.singers[i].guestId===guestId)return true;
+    if(name&&(S.singers[i].name||"").toLowerCase()===name.toLowerCase())return true;
   }
   return false;
 }

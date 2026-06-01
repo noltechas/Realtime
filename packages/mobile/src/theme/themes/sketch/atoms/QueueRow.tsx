@@ -23,20 +23,32 @@ export function QueueRow({
   voted,
   guestName,
   guestId,
+  guests,
   onVote,
   onEdit,
 }: QueueRowProps) {
   const { tokens } = useTheme()
   const score = (item.score ?? 0) + (item.bonus_points ?? 0)
   const singers = useMemo<SingerConfig[]>(
-    () => (Array.isArray(item.singer_configs) ? item.singer_configs : []),
-    [item.singer_configs],
+    () =>
+      (Array.isArray(item.singer_configs) ? item.singer_configs : []).map(
+        (sc) => {
+          // Resolve the singer's LIVE name + avatar from the canonical guest
+          // record (so profile edits propagate). Name-only singers pass through.
+          const g = sc.guestId ? guests.get(sc.guestId) : undefined
+          return g
+            ? { ...sc, name: g.name, profilePicture: g.profile_picture ?? undefined }
+            : sc
+        },
+      ),
+    [item.singer_configs, guests],
   )
   const isLocked = item.locked && position === 1
   const inSong = useMemo(() => {
+    if (guestId && singers.some((s) => s.guestId === guestId)) return true
     const gn = (guestName || '').toLowerCase()
-    return singers.some((s) => (s.name || '').toLowerCase() === gn)
-  }, [singers, guestName])
+    return !!gn && singers.some((s) => (s.name || '').toLowerCase() === gn)
+  }, [singers, guestName, guestId])
   const isMine = !isLocked && !!guestId && item.added_by_guest_id === guestId
   const isHidden = !!item.is_hidden
 
@@ -68,6 +80,7 @@ export function QueueRow({
 
   return (
     <View style={rowStyle}>
+      <PaperLines />
       <Text style={positionStyle(tokens.fontDisplay, tokens.black)}>{position}</Text>
       <View style={{ transform: unskew as any }}>
         {isHidden ? (
@@ -111,6 +124,51 @@ export function QueueRow({
           />
         )}
       </View>
+    </View>
+  )
+}
+
+// Ruled writing-paper backdrop — faint sketch-blue horizontal rules across the
+// whole card plus a single red margin line down the left, so the row reads as a
+// torn-off notebook page rather than a plain white panel. Absolutely filling
+// the card with its own clipping wrapper (overflow:'hidden') keeps the lines
+// inside the rounded corners without stripping the card's drop shadow (a shadow
+// + overflow:'hidden' on the same view cancels the shadow on iOS). Sits behind
+// all content; the inner content tilts independently, but the rules ride with
+// the paper. Lines past the bottom edge are clipped, so one fixed set covers
+// rows of any height.
+const RULE_SPACING = 16
+const RULE_COLOR = 'rgba(45,93,161,0.16)' // faint SKETCH_BLUE
+const MARGIN_X = 40
+const MARGIN_COLOR = 'rgba(255,77,77,0.4)' // SOFT_RED margin rule
+
+function PaperLines() {
+  const lines = Array.from({ length: 16 }, (_, i) => (i + 1) * RULE_SPACING)
+  return (
+    <View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        overflow: 'hidden',
+        borderTopLeftRadius: 1,
+        borderTopRightRadius: 2,
+        borderBottomLeftRadius: 3,
+        borderBottomRightRadius: 6,
+      }}
+    >
+      {lines.map((y) => (
+        <View
+          key={y}
+          style={{ position: 'absolute', left: 0, right: 0, top: y, height: 1, backgroundColor: RULE_COLOR }}
+        />
+      ))}
+      <View
+        style={{ position: 'absolute', top: 0, bottom: 0, left: MARGIN_X, width: 1.5, backgroundColor: MARGIN_COLOR }}
+      />
     </View>
   )
 }

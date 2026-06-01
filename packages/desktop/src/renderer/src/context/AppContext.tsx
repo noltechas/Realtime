@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef, ReactNode } from 'react'
-import { UNIVERSAL_SINGER_COLORS } from '@karaoke/shared'
+import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef, useMemo, ReactNode } from 'react'
+import { UNIVERSAL_SINGER_COLORS, guestsById, type KaraokeGuestRow } from '@karaoke/shared'
 
 // ---- Types ----
 export interface SpotifyTrack {
@@ -38,10 +38,12 @@ export interface Singer {
     vocalTrack: 'lead' | 'backing' | 'both'
     roleIndices?: number[]
     whitePersonCheck?: boolean
-    profilePicture?: string
     /** Stable session-scoped guest UUID when the singer is a known remote
-     *  guest. Carried through the SingerConfig round-trip so mobile can
-     *  match "is this me singing?" by id instead of by display name. */
+     *  guest. The singer's display name and profile picture are resolved LIVE
+     *  from the `karaoke_guests` record (see state.guests / useGuestsMap), so
+     *  profile edits propagate. Singers with no guestId are admin/host- or
+     *  name-only singers whose `name` is authoritative. Avatars are never
+     *  stored on the singer — they live only on the canonical guest row. */
     guestId?: string
 }
 
@@ -169,6 +171,10 @@ export interface AppState {
     awards: Award[]
     awardResults: AwardResult[]
     awardsRevealStep: RevealStep | null
+    // Live roster of session guests (canonical name + avatar source). Singers
+    // reference guests by guestId; name/picture are resolved from here at
+    // render time via useGuestsMap so profile edits propagate everywhere.
+    guests: KaraokeGuestRow[]
 }
 
 // Universal singer palette — re-exported from the shared package so desktop
@@ -235,7 +241,8 @@ const initialState: AppState = {
     remoteSkipCommand: false,
     awards: [],
     awardResults: [],
-    awardsRevealStep: null
+    awardsRevealStep: null,
+    guests: []
 }
 
 // ---- Actions ----
@@ -295,6 +302,7 @@ type Action =
     | { type: 'REMOVE_AWARD'; payload: string }
     | { type: 'SET_AWARD_RESULTS'; payload: AwardResult[] }
     | { type: 'SET_REVEAL_STEP'; payload: RevealStep | null }
+    | { type: 'SET_GUESTS'; payload: KaraokeGuestRow[] }
 
 // Helper: extract mic assignments from current nowPlaying into micSlots
 function saveMicSlots(state: AppState): MicSlotConfig[] {
@@ -707,6 +715,8 @@ function reducer(state: AppState, action: Action): AppState {
                 : (state.stageMode === 'awards' ? 'idle' : state.stageMode)
             return { ...state, awardsRevealStep: step, stageMode }
         }
+        case 'SET_GUESTS':
+            return { ...state, guests: action.payload }
         default:
             return state
     }
@@ -817,4 +827,13 @@ export function useApp() {
     const context = useContext(AppContext)
     if (!context) throw new Error('useApp must be used within AppProvider')
     return context
+}
+
+// Live guestId -> guest lookup, memoized off state.guests. Renderers use this
+// to resolve a singer's current name + profile picture from the canonical
+// guest record (so profile edits propagate). Works in both the main and stage
+// windows: state.guests is kept in sync via the SET_GUESTS IPC relay.
+export function useGuestsMap(): Map<string, KaraokeGuestRow> {
+    const { state } = useApp()
+    return useMemo(() => guestsById(state.guests), [state.guests])
 }

@@ -7,6 +7,8 @@ import { VoiceEffects, DEFAULT_VOICE_EFFECTS, normalizeMicLevel } from '../audio
 import { VoiceEffectsEngine } from '../audio/VoiceEffectsEngine'
 import { BUILT_IN_PRESETS, PRESET_CATEGORIES, VocalPreset } from '../audio/VocalPresets'
 import { useAudioDevices } from '../hooks/useAudioDevices'
+import { resyncLyrics } from '../utils/resyncSyllables'
+import { SyllableEditor } from '../components/SyllableEditor'
 
 const SUPABASE_URL = 'https://hnnbxwitjkeijvoldfuv.supabase.co'
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhubmJ4d2l0amtlaWp2b2xkZnV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MjcwMTQsImV4cCI6MjA5MDUwMzAxNH0.ENzZ2VLxszHr9StjFds06In7CyGkiyPvu6Jh1LUMMvA'
@@ -127,6 +129,11 @@ export default function AdminPage() {
     const [snippetError, setSnippetError] = useState<string | null>(null)
     const recordingTimerRef = useRef<number>(0)
     const playbackTimerRef = useRef<number>(0)
+
+    // Per-syllable lyric editor: index of the line whose editor is expanded (one at a
+    // time), and the instrumental path used for tap-to-time playback.
+    const [editingSyllableLineIdx, setEditingSyllableLineIdx] = useState<number | null>(null)
+    const [pendingInstrumentalPath, setPendingInstrumentalPath] = useState<string | null>(null)
 
     const [activePresetIds, setActivePresetIds] = useState<(string | null)[]>([null])
     const [presetImages, setPresetImages] = useState<Record<string, string>>({})
@@ -860,6 +867,8 @@ export default function AdminPage() {
         setNewRoleName('')
         setExistingInstrumental(!!existing)
         setExistingVocals(!!existing?.vocalsPath)
+        setPendingInstrumentalPath(existing?.instrumentalPath || null)
+        setEditingSyllableLineIdx(null)
         setYoutubeUrl(existing?.youtubeUrl || '')
         setPendingAudioFile(null)
         setPendingVocalsFile(null)
@@ -1141,6 +1150,7 @@ export default function AdminPage() {
             if (!filePath) return
             if (type === 'instrumental') {
                 setPendingAudioFile({ name: file.name, path: filePath })
+                setPendingInstrumentalPath(filePath)
             } else {
                 setPendingVocalsFile({ name: file.name, path: filePath })
             }
@@ -1162,6 +1172,11 @@ export default function AdminPage() {
         setUploading(true)
         const track = pending.track
 
+        // Per-syllable lyrics are edited via the line's `words` field; reflow the
+        // syllable timing to match so the stage renderer (which shows syllables[])
+        // doesn't display stale text (e.g. censored "****" after words say "shit").
+        const syncedLyrics = pending.lyrics.length > 0 ? resyncLyrics(pending.lyrics) : pending.lyrics
+
         if (pendingAudioFile) {
             const importRes = await window.electronAPI.importAudio(pendingAudioFile.path, track.id, 'instrumental')
             if (importRes.error) { console.error('Import error:', importRes.error); setUploading(false); return }
@@ -1180,7 +1195,7 @@ export default function AdminPage() {
             albumName: track.album?.name || '',
             durationMs: track.duration_ms || 0,
             roles: pending.roles.length > 0 ? pending.roles : undefined,
-            lyrics: pending.lyrics.length > 0 ? pending.lyrics : undefined,
+            lyrics: syncedLyrics.length > 0 ? syncedLyrics : undefined,
             voiceEffects: pending.roles.length > 0 ? pending.configs : pending.configs[0],
             youtubeUrl: youtubeUrl.trim() || undefined,
             genres: pending.genres && pending.genres.length > 0 ? pending.genres : undefined,
@@ -1193,6 +1208,8 @@ export default function AdminPage() {
         setPendingVocalsFile(null)
         setExistingInstrumental(false)
         setExistingVocals(false)
+        setPendingInstrumentalPath(null)
+        setEditingSyllableLineIdx(null)
         setYoutubeUrl('')
         setQuery('')
         setResults([])
@@ -1582,7 +1599,7 @@ export default function AdminPage() {
                                     </div>
                                 </div>
                                 <button
-                                    onClick={() => { if (isPlayingSnippet) stopSnippetPlayback(); if (isTesting) toggleTesting(); setRecordedBlob(null); setLyricsError(null); setPending(null) }}
+                                    onClick={() => { if (isPlayingSnippet) stopSnippetPlayback(); if (isTesting) toggleTesting(); setRecordedBlob(null); setLyricsError(null); setPending(null); setEditingSyllableLineIdx(null); setPendingInstrumentalPath(null) }}
                                     style={{ ...theme.btnSecondary, fontSize: 12, padding: '8px 16px' }}
                                 >
                                     ✕ Close
@@ -1706,8 +1723,8 @@ export default function AdminPage() {
                                         {pending.lyrics.length > 0 ? (
                                             <div style={{ padding: '8px 0' }}>
                                                 {pending.lyrics.map((line, idx) => (
+                                                    <div key={idx}>
                                                     <div
-                                                        key={idx}
                                                         style={{
                                                             display: 'flex', alignItems: 'center', gap: 12, padding: '7px 14px',
                                                             background: idx % 2 === 0 ? `rgba(26,26,26,0.03)` : 'transparent',
@@ -1746,6 +1763,23 @@ export default function AdminPage() {
                                                             onFocus={e => e.target.style.borderColor = theme.accentA}
                                                             onBlur={e => e.target.style.borderColor = 'transparent'}
                                                         />
+                                                        {Array.isArray(line.syllables) && line.syllables.length > 0 && (
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); setEditingSyllableLineIdx(cur => cur === idx ? null : idx) }}
+                                                                title="Edit per-syllable text & timing"
+                                                                style={{
+                                                                    flexShrink: 0, display: 'inline-flex', alignItems: 'flex-end', gap: 1.5,
+                                                                    height: 16, padding: '2px 4px', cursor: 'pointer',
+                                                                    background: editingSyllableLineIdx === idx ? `${theme.accentA}22` : 'transparent',
+                                                                    border: `2px solid ${editingSyllableLineIdx === idx ? theme.accentA : 'transparent'}`,
+                                                                    borderRadius: theme.radiusSmall,
+                                                                }}
+                                                            >
+                                                                {[6, 11, 8, 4].map((h, i) => (
+                                                                    <span key={i} style={{ width: 2, height: h, borderRadius: 1, background: theme.accentA }} />
+                                                                ))}
+                                                            </button>
+                                                        )}
                                                         {line.words.split(/(\([^)]+\))/).filter((s: string) => s.trim()).length > 1 && (
                                                             <button
                                                                 onClick={(e) => { e.stopPropagation(); handleSplitLyric(idx) }}
@@ -1765,6 +1799,17 @@ export default function AdminPage() {
                                                             onMouseLeave={e => e.currentTarget.style.opacity = '0.5'}
                                                             title="Delete Line"
                                                         >✕</button>
+                                                    </div>
+                                                    {editingSyllableLineIdx === idx && Array.isArray(line.syllables) && line.syllables.length > 0 && (
+                                                        <SyllableEditor
+                                                            line={line}
+                                                            nextLineStartMs={pending.lyrics[idx + 1]?.startTimeMs}
+                                                            instrumentalPath={pendingInstrumentalPath}
+                                                            theme={theme}
+                                                            onChange={({ syllables, words }) => setPending(p => p ? { ...p, lyrics: p.lyrics.map((l, i) => i === idx ? { ...l, syllables, words } : l) } : p)}
+                                                            onClose={() => setEditingSyllableLineIdx(null)}
+                                                        />
+                                                    )}
                                                     </div>
                                                 ))}
                                             </div>

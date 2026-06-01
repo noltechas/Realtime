@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useLayoutEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useApp, QueueItem, NEON_COLORS } from '../context/AppContext'
+import { useApp, useGuestsMap, QueueItem, NEON_COLORS } from '../context/AppContext'
 import { DEFAULT_VOICE_EFFECTS, normalizeMicLevel } from '../audio/VoiceEffectsTypes'
 import { useTheme } from '../context/ThemeContext'
 import { HiddenSongQueueCard } from '../components/HiddenSongCard'
@@ -61,8 +61,14 @@ const IconLock = ({ size = 16, color = 'currentColor' }: { size?: number; color?
 )
 
 // ---- Singer Avatar (colored initial circle) ----
-function SingerAvatar({ name, color, size = 26, profilePicture }: { name: string; color: string; size?: number; profilePicture?: string }) {
+// Resolves the live name + picture from the guest roster when a guestId is
+// given; name-only singers fall back to their inline name's initial.
+function SingerAvatar({ name, color, size = 26, guestId }: { name: string; color: string; size?: number; guestId?: string }) {
     const theme = useTheme()
+    const guests = useGuestsMap()
+    const guest = guestId ? guests.get(guestId) : undefined
+    const pic = guest?.profile_picture ?? null
+    const displayName = guest?.name ?? name ?? ''
     return (
         <div style={{
             width: size, height: size, borderRadius: '50%',
@@ -72,9 +78,9 @@ function SingerAvatar({ name, color, size = 26, profilePicture }: { name: string
             fontSize: size * 0.42, color: theme.black,
             flexShrink: 0, overflow: 'hidden',
         }}>
-            {profilePicture
-                ? <img src={profilePicture} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                : name.charAt(0).toUpperCase()
+            {pic
+                ? <img src={pic} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : displayName.charAt(0).toUpperCase()
             }
         </div>
     )
@@ -162,8 +168,13 @@ function SetupPanel() {
                 trackArtUrl: track.album.images[0]?.url || null,
                 trackDurationMs: track.duration_ms,
                 singerConfigs: state.singers.map(s => {
-                    var cfg: any = { name: s.name, color: s.color, colorGlow: s.colorGlow, roleIndices: s.roleIndices };
-                    if (s.profilePicture) cfg.profilePicture = s.profilePicture;
+                    // Reference identity by guestId when the slot is a linked
+                    // guest; otherwise store the inline name (admin/host- or
+                    // name-only singer). Never store a base64 avatar — it is
+                    // resolved live from karaoke_guests at render time.
+                    var cfg: any = { color: s.color, colorGlow: s.colorGlow, roleIndices: s.roleIndices };
+                    if (s.guestId) cfg.guestId = s.guestId; else cfg.name = s.name;
+                    if (s.whitePersonCheck) cfg.whitePersonCheck = true;
                     return cfg;
                 }),
             }).then(result => {
@@ -282,7 +293,7 @@ function SetupPanel() {
                 >
                     <div style={{ position: 'absolute', top: 0, left: 0, width: 6, bottom: 0, background: singer.color }} />
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
-                        <SingerAvatar name={singer.name || `${i + 1}`} color={singer.color} size={24} profilePicture={singer.profilePicture} />
+                        <SingerAvatar name={singer.name || `${i + 1}`} color={singer.color} size={24} guestId={singer.guestId} />
                         <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 15, color: theme.black }}>
                             Singer {i + 1}
                         </span>
@@ -565,7 +576,7 @@ function NowPlayingBanner({ npOverride }: { npOverride?: QueueItem } = {}) {
                         <div style={{ display: 'flex' }}>
                             {singers.map((s, idx) => (
                                 <div key={s.id} style={{ marginLeft: idx > 0 ? -8 : 0, zIndex: singers.length - idx }}>
-                                    <SingerAvatar name={s.name} color={s.color} size={36} profilePicture={s.profilePicture} />
+                                    <SingerAvatar name={s.name} color={s.color} size={36} guestId={s.guestId} />
                                 </div>
                             ))}
                         </div>
@@ -1039,7 +1050,7 @@ export default function QueuePage() {
                                                     fontSize: 11, fontFamily: theme.fontDisplay, fontWeight: 600,
                                                     color: theme.black,
                                                 }}>
-                                                    <SingerAvatar name={s.name} color={s.color} size={20} profilePicture={s.profilePicture} />
+                                                    <SingerAvatar name={s.name} color={s.color} size={20} guestId={s.guestId} />
                                                     <span>{s.name || 'Singer'}</span>
                                                     {roleNames.length > 0 && (
                                                         <span style={{ fontSize: 9, opacity: 0.5, fontWeight: 400 }}>

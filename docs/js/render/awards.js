@@ -61,28 +61,35 @@ export function shuffleAwardIcons(){
   S.awardIconShuffled=src.map(function(v){return{v:v,s:Math.random()};}).sort(function(a,b){return a.s-b.s;}).map(function(o){return o.v;});
 }
 export function buildAwardCandidates(award){
+  // Resolve singers' live name + avatar from the canonical guest roster —
+  // history rows carry only a guestId after the base64 refactor.
+  var gb=S.guestsById||{};
+  function nameOf(s){return (s.guestId&&gb[s.guestId]?gb[s.guestId].name:s.name)||"Singer";}
+  function resolveSingers(arr){return (arr||[]).map(function(s){var g=s.guestId&&gb[s.guestId]?gb[s.guestId]:null;return{name:nameOf(s),color:s.color,colorGlow:s.colorGlow,roleIndices:s.roleIndices||[],guestId:s.guestId||null,profilePicture:(g?g.profilePicture:s.profilePicture)||null};});}
   if(award.subject_type==="performance"){
     return S.awardsHistory.map(function(p){
+      var singers=resolveSingers(p.singers);
       return {
         key:p.queueRowId,type:"performance",
         label:p.trackName,
-        subtitle:(p.singers&&p.singers.length?p.singers.map(function(s){return s.name;}).join(", "):p.trackArtist),
+        subtitle:(singers.length?singers.map(function(s){return s.name;}).join(", "):p.trackArtist),
         avatar:p.trackArtUrl,
-        singers:p.singers||[],
-        bannedNames:(p.singers||[]).map(function(s){return s.name;}),
+        singers:singers,
+        bannedNames:singers.map(function(s){return s.name;}),
         bannedIds:(p.singers||[]).map(function(s){return s.guestId||"";}).filter(Boolean)
       };
     });
   }
   if(award.subject_type==="group"){
     return S.awardsHistory.filter(function(p){return (p.singers||[]).length>=2;}).map(function(p){
+      var singers=resolveSingers(p.singers);
       return {
         key:p.queueRowId,type:"group",
-        label:(p.singers||[]).map(function(s){return s.name;}).join(" & "),
+        label:singers.map(function(s){return s.name;}).join(" & "),
         subtitle:p.trackName+" — "+p.trackArtist,
         avatar:p.trackArtUrl,
-        singers:p.singers||[],
-        bannedNames:(p.singers||[]).map(function(s){return s.name;}),
+        singers:singers,
+        bannedNames:singers.map(function(s){return s.name;}),
         bannedIds:(p.singers||[]).map(function(s){return s.guestId||"";}).filter(Boolean)
       };
     });

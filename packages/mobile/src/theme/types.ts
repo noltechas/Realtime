@@ -4,6 +4,7 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs'
 import type {
   KaraokeCatalogRow,
   KaraokeQueueRow,
+  KaraokeGuestRow,
   SingerConfig,
   GenreCounts,
 } from '@karaoke/shared'
@@ -47,6 +48,9 @@ export interface QueueRowProps {
   voted?: 1 | -1
   guestName: string
   guestId: string
+  /** Live guestId -> guest map. Atoms resolve each singer's current name +
+   *  avatar from here so profile edits propagate. */
+  guests: Map<string, KaraokeGuestRow>
   onVote: (row: KaraokeQueueRow, value: 1 | -1) => void
   onEdit: (row: KaraokeQueueRow) => void
   index: number

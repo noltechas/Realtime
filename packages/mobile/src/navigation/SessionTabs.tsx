@@ -8,6 +8,7 @@ import { StageScreen, StageTabIcon } from '../screens/StageScreen'
 import { AwardsScreen } from '../screens/AwardsScreen'
 import { ProfileScreen } from '../screens/ProfileScreen'
 import { SessionThemeProvider } from '../theme/ThemeContext'
+import { SessionGuestsProvider } from '../hooks/useSessionGuests'
 
 const Tabs = createBottomTabNavigator<SessionTabsParamList>()
 
@@ -22,6 +23,7 @@ const Tabs = createBottomTabNavigator<SessionTabsParamList>()
 export function SessionTabs() {
   return (
     <SessionThemeProvider>
+      <SessionGuestsProvider>
       <Tabs.Navigator
         screenOptions={{ headerShown: false }}
         tabBar={(props) => <ThemedTabBar {...props} />}
@@ -42,6 +44,7 @@ export function SessionTabs() {
         <Tabs.Screen name="Awards" component={AwardsScreen} />
         <Tabs.Screen name="Profile" component={ProfileScreen} />
       </Tabs.Navigator>
+      </SessionGuestsProvider>
     </SessionThemeProvider>
   )
 }

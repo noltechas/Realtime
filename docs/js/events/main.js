@@ -351,7 +351,7 @@ export function bindEvents(){
         var gid=pill.dataset.addGuest;
         var guest=(S.guests||[]).find(function(g){return g.id===gid;});
         if(!guest)return;
-        addSinger({name:guest.name,profilePicture:guest.profilePicture||null,defaultColor:guest.defaultColor||null});
+        addSinger({guestId:guest.id,name:guest.name,profilePicture:guest.profilePicture||null,defaultColor:guest.defaultColor||null});
         S.singerPickerOpen=false;S.customSingerName="";render();
       });
     });

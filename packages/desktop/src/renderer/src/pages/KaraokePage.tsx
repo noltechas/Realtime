@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import { useApp } from '../context/AppContext'
+import { useApp, useGuestsMap } from '../context/AppContext'
 import { useTheme } from '../context/ThemeContext'
 import { AwardsRevealAnimation } from '../awards/AwardsRevealAnimation'
 import { HiddenSongStagePanel, HiddenSongStageHeading } from '../components/HiddenSongCard'
@@ -94,21 +94,27 @@ function useSingerMic(deviceId: string, enabled: boolean, effects: any, mainOutp
 }
 
 // ---- Mic Meter Component ----
-function MicMeter({ singer, active, effects, mainOutputId, theme }: { singer: { name: string; color: string; micDeviceId: string; profilePicture?: string }; active: boolean; effects: any; mainOutputId: string; theme: any }) {
+function MicMeter({ singer, active, effects, mainOutputId, theme }: { singer: { name: string; color: string; micDeviceId: string; guestId?: string }; active: boolean; effects: any; mainOutputId: string; theme: any }) {
     const level = useSingerMic(singer.micDeviceId, active, effects, mainOutputId)
+    const guests = useGuestsMap()
     const bars = 8
     const activeBars = Math.round(level * bars * 2.5)
+
+    // Resolve the singer's live name + avatar from the canonical guest record.
+    const guest = singer.guestId ? guests.get(singer.guestId) : undefined
+    const pic = guest?.profile_picture ?? null
+    const displayName = guest?.name ?? singer.name
 
     // Fallback for dark bars if background is bright
     const inactiveColor = theme.appBg === '#FFF8EE' || theme.appBg === '#faf4ed' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.08)'
 
     return (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            {singer.profilePicture && (
-                <img src={singer.profilePicture} alt="" style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+            {pic && (
+                <img src={pic} alt="" style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
             )}
             <span style={{ fontSize: 12, fontFamily: theme.fontDisplay, fontWeight: 600, color: 'inherit', letterSpacing: 0.5 }}>
-                {singer.name}
+                {displayName}
             </span>
             <div style={{
                 display: 'flex', alignItems: 'center', gap: 2, height: 16,
@@ -269,6 +275,8 @@ export default function KaraokePage() {
     const track = np?.track || null
     const lyrics = np?.lyrics || []
     const singers = np?.singers || []
+    // Live guest roster for resolving each singer's current name + avatar.
+    const guestsMap = useGuestsMap()
     const roles = np?.roles || []
     const voiceEffects = np?.voiceEffects || null
     const art = track?.album.images[0]?.url
@@ -1980,7 +1988,10 @@ export default function KaraokePage() {
                                         const roleStr = !np?.isHidden && s.roleIndices && s.roleIndices.length > 0 && roles.length > 0
                                             ? s.roleIndices.map(idx => roles[idx]).filter(Boolean).join(' & ')
                                             : ''
-                                        const displayText = roleStr ? `${s.name} - ${roleStr}` : s.name
+                                        const tagGuest = s.guestId ? guestsMap.get(s.guestId) : undefined
+                                        const singerName = tagGuest?.name ?? s.name
+                                        const singerPic = tagGuest?.profile_picture ?? null
+                                        const displayText = roleStr ? `${singerName} - ${roleStr}` : singerName
                                         
                                         return (
                                             <div
@@ -1999,8 +2010,8 @@ export default function KaraokePage() {
                                                     fontSize: stageFont(28),
                                                 }}
                                             >
-                                                {s.profilePicture && (
-                                                    <img src={s.profilePicture} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
+                                                {singerPic && (
+                                                    <img src={singerPic} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
                                                 )}
                                                 {displayText}
                                             </div>

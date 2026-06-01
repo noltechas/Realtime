@@ -391,11 +391,15 @@ function WizardBody() {
     if (edit) {
       setSingers(
         edit.singerConfigs.map((sc) => ({
-          name: sc.name || 'Singer',
+          // Reference-shaped configs carry only a guestId; the live name +
+          // avatar are back-filled from the guest roster once it loads (see
+          // the effect below). Name-only configs keep their inline name.
+          name: sc.name || '',
           color: sc.color,
           colorGlow: sc.colorGlow,
           roleIndices: Array.isArray(sc.roleIndices) ? sc.roleIndices : [],
           ...(sc.profilePicture ? { profilePicture: sc.profilePicture } : {}),
+          ...(sc.guestId ? { guestId: sc.guestId } : {}),
         })),
       )
       return
@@ -429,6 +433,29 @@ function WizardBody() {
     if (!session) return
     void listGuests(supabase, session.sessionId).then(setGuests).catch(() => {})
   }, [session?.sessionId])
+
+  // Once the guest roster loads, back-fill the live name + avatar onto any
+  // guest-linked singer seeded without them (edit mode rehydrates
+  // reference-shaped configs that carry only a guestId). Keeps the wizard
+  // showing each guest's CURRENT profile, not a stale snapshot.
+  useEffect(() => {
+    if (guests.length === 0) return
+    const byId = new Map(guests.map((g) => [g.id, g]))
+    setSingers((prev) => {
+      let changed = false
+      const next = prev.map((s) => {
+        if (!s.guestId) return s
+        const g = byId.get(s.guestId)
+        if (!g) return s
+        const name = s.name || g.name
+        const profilePicture = s.profilePicture ?? g.profile_picture ?? undefined
+        if (name === s.name && profilePicture === s.profilePicture) return s
+        changed = true
+        return { ...s, name, profilePicture }
+      })
+      return changed ? next : prev
+    })
+  }, [guests])
 
   const closeAndExit = useCallback(() => {
     navigation.goBack()
@@ -506,19 +533,17 @@ function WizardBody() {
     try {
       const configs: SingerConfig[] = singers.map((s) => {
         const sc: SingerConfig = {
-          name: s.name.trim() || 'Singer',
           color: s.color,
           colorGlow: s.colorGlow,
           roleIndices: s.roleIndices,
         }
-        if (s.profilePicture) sc.profilePicture = s.profilePicture
-        // Persist the guestId so the live session can identify the local
-        // singer by their stable session-scoped UUID instead of by display
-        // name. Without this, a singer whose `name` was stamped from
-        // `profile.name` won't match a `guestIsUp()` lookup that compares
-        // against `session.guestName` (since those two values drift apart
-        // any time the user edits their profile after joining).
+        // Reference identity by guestId so the singer's name + avatar resolve
+        // LIVE from karaoke_guests everywhere (and stay correct when the user
+        // edits their profile). Only store an inline name for a name-only
+        // singer with no linked account. NEVER persist a base64 avatar — that
+        // duplicated blob is exactly what this refactor removes.
         if (s.guestId) sc.guestId = s.guestId
+        else sc.name = s.name.trim() || 'Singer'
         return sc
       })
       if (isEditMode && edit) {

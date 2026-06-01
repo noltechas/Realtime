@@ -2,19 +2,30 @@
 // columns verbatim so query results can be cast without remapping.
 
 export interface SingerConfig {
-  name: string
+  /** Identity reference. When set, the singer's display name AND profile
+   *  picture are resolved LIVE from the canonical `karaoke_guests` record
+   *  (see `resolveSinger`), so profile edits propagate everywhere. This is
+   *  the stable session-scoped guest UUID, immune to name/photo edits. */
+  guestId?: string
+  /** Display name. Present ONLY for admin/host- or name-only singers that
+   *  have no linked guest account (no `guestId`). For guest-linked singers
+   *  this is omitted and resolved from `karaoke_guests`. Also tolerated as a
+   *  legacy fallback label for pre-refactor rows. */
+  name?: string
+  /** Per-song slot styling — a deliberate per-song choice (lead vs backing,
+   *  colour collision-avoidance, lyric highlighting), NOT profile data, so it
+   *  is stored on the config rather than resolved from the guest. */
   color: string
   colorGlow: string
   roleIndices: number[]
-  profilePicture?: string
   whitePersonCheck?: boolean
-  /** Stable session-scoped guest UUID for whoever this singer is, when
-   *  known. Lets the mobile app match "is the local guest a singer in the
-   *  current song" by identity instead of by display name — important
-   *  because `profile.name` (used to stamp the singer at wizard time) can
-   *  drift away from `session.guestName` (used by guestIsUp() callsites)
-   *  whenever the user edits their profile after joining. */
-  guestId?: string
+  /** @deprecated LEGACY ONLY. Avatars live on the canonical `karaoke_guests`
+   *  row and are resolved at render time via `resolveSinger`. New code MUST
+   *  NOT write this — it duplicates a base64 blob into every row and goes
+   *  stale on profile edits. Pre-refactor rows may still carry it; the data
+   *  migration strips it, and `resolveSinger` reads it only as a fallback for
+   *  rows that have neither a `guestId` nor a migration yet. */
+  profilePicture?: string
 }
 
 export interface KaraokeSessionRow {

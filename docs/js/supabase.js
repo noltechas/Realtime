@@ -187,11 +187,14 @@ export async function castVote(queueRowId,value){
   // Defensive: never vote on a song you’re in (the UI hides the buttons,
   // but a stale-DOM click could slip through).
   var row=S.queue.find(function(q){return q.id===queueRowId;});
-  if(row&&row.singer_configs&&S.guestName){
+  if(row&&row.singer_configs){
     var gn=(S.guestName||"").toLowerCase();
     for(var si=0;si<row.singer_configs.length;si++){
-      var n=((row.singer_configs[si]&&row.singer_configs[si].name)||"").toLowerCase();
-      if(n===gn)return;
+      var scfg=row.singer_configs[si]||{};
+      // Match by stable guestId (immune to profile-name edits) with a legacy
+      // name fallback — you can't vote on a song you're singing in.
+      if(scfg.guestId&&scfg.guestId===S.guestId)return;
+      if(gn&&((scfg.name||"").toLowerCase()===gn))return;
     }
   }
   voted[queueRowId]=value;
@@ -230,12 +233,20 @@ export async function castVote(queueRowId,value){
 export async function loadGuests(){
   var r=await sb.from("karaoke_guests").select("id,name,profile_picture,default_color").eq("session_id",S.sessionId);
   S.guests=(r.data||[]).map(function(g){return{id:g.id,name:g.name,profilePicture:g.profile_picture,defaultColor:g.default_color||null};});
+  // Id-keyed index so singer configs (which reference guests by id) can
+  // resolve their live name + avatar without scanning the array each render.
+  var byId={};for(var i=0;i<S.guests.length;i++){byId[S.guests[i].id]=S.guests[i];}
+  S.guestsById=byId;
 }
 export function checkYoureUp(){
-  if(S.nowPlayingSingerConfigs&&S.guestName&&S.nowPlaying){
+  if(S.nowPlayingSingerConfigs&&S.nowPlaying){
     var match=null;
+    var gn=(S.guestName||"").toLowerCase();
     for(var i=0;i<S.nowPlayingSingerConfigs.length;i++){
-      if(S.nowPlayingSingerConfigs[i].name===S.guestName){match=S.nowPlayingSingerConfigs[i];break;}
+      var c=S.nowPlayingSingerConfigs[i]||{};
+      // Match by stable guestId first (so the stage flips even after a profile
+      // rename), with a legacy display-name fallback.
+      if((c.guestId&&c.guestId===S.guestId)||(gn&&((c.name||"").toLowerCase()===gn))){match=c;break;}
     }
     if(match&&S.screen!=="youreup"){
       S.matchedSinger=match;
@@ -290,7 +301,7 @@ export async function addToQueue(){
   if(S.addingToQueue)return;
   var t=S.selectedTrack;if(!t)return;
   var editing=!!S.editQueueRowId;
-  var sc=S.singers.slice().map(function(s){var o={name:(s.name||"").trim()||"Singer",color:s.color,colorGlow:s.colorGlow,roleIndices:s.roleIndices||[]};if(s.profilePicture)o.profilePicture=s.profilePicture;if(s.whitePersonCheck)o.whitePersonCheck=true;return o;});
+  var sc=S.singers.slice().map(function(s){var o={color:s.color,colorGlow:s.colorGlow,roleIndices:s.roleIndices||[]};if(s.guestId)o.guestId=s.guestId;else o.name=(s.name||"").trim()||"Singer";if(s.whitePersonCheck)o.whitePersonCheck=true;return o;});
   if(t.roles&&t.roles.length>0&&sc.length>0){
     var ur=sc.filter(function(s){return !s.roleIndices||s.roleIndices.length===0;});
     if(ur.length>0){

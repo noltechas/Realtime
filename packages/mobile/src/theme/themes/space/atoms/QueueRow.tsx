@@ -38,20 +38,32 @@ export function SpaceQueueRow({
   voted,
   guestName,
   guestId,
+  guests,
   onVote,
   onEdit,
 }: QueueRowProps) {
   const { tokens } = useTheme()
   const score = (item.score ?? 0) + (item.bonus_points ?? 0)
   const singers = useMemo<SingerConfig[]>(
-    () => (Array.isArray(item.singer_configs) ? item.singer_configs : []),
-    [item.singer_configs],
+    () =>
+      (Array.isArray(item.singer_configs) ? item.singer_configs : []).map(
+        (sc) => {
+          // Resolve the singer's LIVE name + avatar from the canonical guest
+          // record (so profile edits propagate). Name-only singers pass through.
+          const g = sc.guestId ? guests.get(sc.guestId) : undefined
+          return g
+            ? { ...sc, name: g.name, profilePicture: g.profile_picture ?? undefined }
+            : sc
+        },
+      ),
+    [item.singer_configs, guests],
   )
   const isLocked = item.locked && position === 1
   const inSong = useMemo(() => {
+    if (guestId && singers.some((s) => s.guestId === guestId)) return true
     const gn = (guestName || '').toLowerCase()
-    return singers.some((s) => (s.name || '').toLowerCase() === gn)
-  }, [singers, guestName])
+    return !!gn && singers.some((s) => (s.name || '').toLowerCase() === gn)
+  }, [singers, guestName, guestId])
   const isMine = !isLocked && !!guestId && item.added_by_guest_id === guestId
   const isHidden = !!item.is_hidden
 

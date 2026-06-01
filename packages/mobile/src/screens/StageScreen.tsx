@@ -482,7 +482,9 @@ function YoureUp({
   bottomPadding,
 }: {
   row: FullSessionRow | null
-  matched: { name: string; color: string; colorGlow: string } | null
+  // Only `color` (per-song slot styling) is read here; identity isn't rendered
+  // on this panel. Typed as SingerConfig so the now-optional `name` is fine.
+  matched: SingerConfig | null
   sessionId: string
   bottomPadding: number
 }) {

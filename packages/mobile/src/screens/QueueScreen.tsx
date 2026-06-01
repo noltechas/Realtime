@@ -21,6 +21,7 @@ import {
   listQueue,
   sortQueue,
   type KaraokeQueueRow,
+  type KaraokeGuestRow,
   type ThemeTokens,
 } from '@karaoke/shared'
 import type {
@@ -29,6 +30,7 @@ import type {
 } from '../navigation/types'
 import { useTheme, LocalThemeProvider } from '../theme/ThemeContext'
 import { useSession } from '../hooks/useSession'
+import { useSessionGuests } from '../hooks/useSessionGuests'
 import { useCatalog } from '../hooks/useCatalog'
 import { supabase } from '../supabase/client'
 
@@ -87,6 +89,7 @@ export function QueueScreen() {
   const { tokens, ui } = useTheme()
   const insets = useSafeAreaInsets()
   const { session } = useSession()
+  const guests = useSessionGuests()
   const navigation = useNavigation<QueueNav>()
   const { catalog } = useCatalog(session?.sessionId)
   const [rows, setRows] = useState<KaraokeQueueRow[]>([])
@@ -139,9 +142,13 @@ export function QueueScreen() {
     async (row: KaraokeQueueRow, value: VoteValue) => {
       if (!session) return
       if (votedMap[row.id]) return
+      // You can't vote on a song you're singing in. Match by stable guestId
+      // (immune to profile-name edits), with a legacy name fallback.
       const gn = (session.guestName || '').toLowerCase()
       const inSong = (row.singer_configs || []).some(
-        (s) => (s?.name || '').toLowerCase() === gn,
+        (s) =>
+          (s?.guestId && s.guestId === session.guestId) ||
+          (!!gn && (s?.name || '').toLowerCase() === gn),
       )
       if (inSong) return
 
@@ -230,6 +237,7 @@ export function QueueScreen() {
               voted={votedMap[item.id]}
               guestName={session.guestName}
               guestId={session.guestId}
+              guests={guests}
               onVote={handleVote}
               onEdit={handleEdit}
             />
@@ -249,6 +257,7 @@ function RowItem(props: {
   voted?: VoteValue
   guestName: string
   guestId: string
+  guests: Map<string, KaraokeGuestRow>
   onVote: (row: KaraokeQueueRow, value: VoteValue) => void
   onEdit: (row: KaraokeQueueRow) => void
 }) {

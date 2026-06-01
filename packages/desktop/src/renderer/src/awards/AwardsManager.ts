@@ -47,37 +47,56 @@ export function buildCandidates(opts: {
     guests: KnownGuest[]
 }): AwardCandidate[] {
     const { subjectType, history, guests } = opts
+    // Resolve each performance's singers to their LIVE name + avatar from the
+    // guest roster, so reveal faces reflect current profiles (history rows
+    // only carry a guestId after the base64 refactor). Name-only singers (no
+    // guestId) keep their inline name and have no avatar.
+    const guestById = new Map(guests.map(g => [g.id, g]))
+    const resolveSingers = (singers: PlayedPerformance['singers']) =>
+        singers.map(s => {
+            const g = s.guestId ? guestById.get(s.guestId) : undefined
+            return {
+                name: g?.name ?? s.name,
+                color: s.color ?? null,
+                profilePicture: g ? g.profilePicture : (s.profilePicture ?? null),
+                guestId: s.guestId ?? null,
+            }
+        })
     if (subjectType === 'performance') {
-        return history.map(p => ({
-            subjectKey: p.queueRowId,
-            subjectType: 'performance',
-            label: p.trackName,
-            subtitle: p.singers.length
-                ? p.singers.map(s => s.name).join(', ')
-                : p.trackArtist,
-            avatarUrl: p.trackArtUrl,
-            singers: p.singers,
-            trackName: p.trackName,
-            trackArtist: p.trackArtist,
-            bannedVoterNames: p.singers.map(s => s.name),
-            bannedVoterGuestIds: p.singers.map(s => s.guestId || '').filter(Boolean)
-        }))
+        return history.map(p => {
+            const rs = resolveSingers(p.singers)
+            return {
+                subjectKey: p.queueRowId,
+                subjectType: 'performance' as const,
+                label: p.trackName,
+                subtitle: rs.length ? rs.map(s => s.name).join(', ') : p.trackArtist,
+                avatarUrl: p.trackArtUrl,
+                singers: rs,
+                trackName: p.trackName,
+                trackArtist: p.trackArtist,
+                bannedVoterNames: rs.map(s => s.name),
+                bannedVoterGuestIds: rs.map(s => s.guestId || '').filter(Boolean)
+            }
+        })
     }
     if (subjectType === 'group') {
         return history
             .filter(p => p.singers.length >= 2)
-            .map(p => ({
-                subjectKey: p.queueRowId,
-                subjectType: 'group',
-                label: p.singers.map(s => s.name).join(' & '),
-                subtitle: p.trackName + ' — ' + p.trackArtist,
-                avatarUrl: p.trackArtUrl,
-                singers: p.singers,
-                trackName: p.trackName,
-                trackArtist: p.trackArtist,
-                bannedVoterNames: p.singers.map(s => s.name),
-                bannedVoterGuestIds: p.singers.map(s => s.guestId || '').filter(Boolean)
-            }))
+            .map(p => {
+                const rs = resolveSingers(p.singers)
+                return {
+                    subjectKey: p.queueRowId,
+                    subjectType: 'group' as const,
+                    label: rs.map(s => s.name).join(' & '),
+                    subtitle: p.trackName + ' — ' + p.trackArtist,
+                    avatarUrl: p.trackArtUrl,
+                    singers: rs,
+                    trackName: p.trackName,
+                    trackArtist: p.trackArtist,
+                    bannedVoterNames: rs.map(s => s.name),
+                    bannedVoterGuestIds: rs.map(s => s.guestId || '').filter(Boolean)
+                }
+            })
     }
     // singer
     const sangNames = new Set<string>()
@@ -283,23 +302,34 @@ export function buildPersistedResults(opts: {
         }]
     }
     const voteCount = tally.byCandidate[0]?.count ?? 0
-    return tally.winners.map(w => ({
-        awardId: award.id,
-        sessionId,
-        sessionCode,
-        rank: 1,
-        winnerLabel: w.label,
-        winnerSubtitle: w.subtitle ?? null,
-        winnerAvatarUrl: w.avatarUrl ?? null,
-        winnerMeta: {
-            subjectType: w.subjectType,
-            subjectKey: w.subjectKey,
-            singers: w.singers || null,
-            trackName: w.trackName || null,
-            trackArtist: w.trackArtist || null
-        },
-        voteCount
-    }))
+    return tally.winners.map(w => {
+        // The persisted result is an audit trail (the live reveal step carries
+        // resolved faces). Keep it lean: reference singers by id/name only — no
+        // base64 — and don't persist a base64 winner avatar. Singer winners
+        // stay resolvable from subjectKey (the guestId); song-subject winners
+        // keep their track-art URL.
+        const leanSingers = w.singers
+            ? w.singers.map(s => ({ name: s.name, color: s.color ?? null, guestId: (s as { guestId?: string | null }).guestId ?? null }))
+            : null
+        const avatarIsDataUrl = typeof w.avatarUrl === 'string' && w.avatarUrl.startsWith('data:')
+        return {
+            awardId: award.id,
+            sessionId,
+            sessionCode,
+            rank: 1,
+            winnerLabel: w.label,
+            winnerSubtitle: w.subtitle ?? null,
+            winnerAvatarUrl: avatarIsDataUrl ? null : (w.avatarUrl ?? null),
+            winnerMeta: {
+                subjectType: w.subjectType,
+                subjectKey: w.subjectKey,
+                singers: leanSingers,
+                trackName: w.trackName || null,
+                trackArtist: w.trackArtist || null
+            },
+            voteCount
+        }
+    })
 }
 
 // --- Reveal sequencer ------------------------------------------------------

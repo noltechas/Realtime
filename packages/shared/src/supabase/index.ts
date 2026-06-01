@@ -7,6 +7,8 @@ export type {
   KaraokeGuestRow,
   KaraokeQueueRow,
 } from './tables'
+export { resolveSinger, guestsById } from './singers'
+export type { GuestLookup, ResolvedSinger } from './singers'
 export {
   validateSession,
   parseSessionCodeFromUrl,

@@ -1,5 +1,5 @@
 import { S, caches } from '../state.js';
-import { esc, avatarHTML, fmtD } from '../utils.js';
+import { esc, avatarHTML, fmtD, resolveSingerConfig } from '../utils.js';
 import { loadVotedMap } from '../persistence.js';
 
 export function hiddenLabel(t){
@@ -54,17 +54,19 @@ export function renderQueue(){
     var isLocked=!!q.locked&&i===0;
     var total=(q.score||0)+(q.bonus_points||0);
     var voted=votedMap[q.id];
-    // Is this guest one of the singers on this track? No self-voting.
+    // Is this guest one of the singers on this track? No self-voting. Match by
+    // stable guestId (immune to profile-name edits) with a legacy name fallback.
     var inSong=false;
-    if(S.guestName){
-      var gn=(S.guestName||"").toLowerCase();
-      for(var ssi=0;ssi<cs.length;ssi++){
-        if(((cs[ssi]&&cs[ssi].name)||"").toLowerCase()===gn){inSong=true;break;}
-      }
+    var gn=(S.guestName||"").toLowerCase();
+    for(var ssi=0;ssi<cs.length;ssi++){
+      var sc2=cs[ssi]||{};
+      if((sc2.guestId&&sc2.guestId===S.guestId)||(gn&&((sc2.name||"").toLowerCase()===gn))){inSong=true;break;}
     }
     var singerPills="";
     if(cs.length>0){
-      singerPills='<div class="queue-singer-pills">'+cs.map(function(s){
+      singerPills='<div class="queue-singer-pills">'+cs.map(function(raw){
+        // Resolve the singer's LIVE name + avatar from the canonical guest.
+        var s=resolveSingerConfig(raw);
         var rn=[];
         if(!hidden&&s.roleIndices&&roles.length>0){s.roleIndices.forEach(function(ri){if(roles[ri])rn.push(roles[ri]);});}
         var dotContent=s.profilePicture?'<img src="'+s.profilePicture+'" alt="">':esc((s.name||"?").charAt(0).toUpperCase());
