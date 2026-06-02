@@ -69,6 +69,23 @@ export interface VoiceEffects {
     micLevel?: number
 }
 
+// A single singer's vocal-FX / autotune toggle override, set from the mobile
+// companion's Stage tab. `undefined` field = no opinion (fall back to session
+// flag, then default on).
+export interface MicFxOverride {
+    vocalFx?: boolean
+    autotune?: boolean
+}
+
+// Stable key for the per-singer FX override map. Guest-linked singers key by
+// their session-scoped guestId; name-only (admin/host) singers key by name.
+// MUST match the mobile companion's `singerFxKey` exactly.
+export function singerFxKey(args: { guestId?: string | null; name?: string | null }): string | null {
+    if (args.guestId) return args.guestId
+    if (args.name) return 'name:' + args.name
+    return null
+}
+
 export interface QueueItem {
     id: string
     track: SpotifyTrack
@@ -145,6 +162,14 @@ export interface AppState {
     } | null
     // Voice effects
     voiceEffects: VoiceEffects | VoiceEffects[] | null
+    // Per-singer FX/autotune toggle overrides from the mobile companion,
+    // keyed by singer key (guestId, or "name:<name>" for name-only singers).
+    // Applied per-mic in KaraokePage so a guest's toggle only affects their
+    // own mic. Absent key falls back to `sessionFx` (the companion website's
+    // session-wide host toggle), then defaults on.
+    micFxOverrides: Record<string, MicFxOverride>
+    // Session-wide vocal FX / autotune flags (companion website host toggle).
+    sessionFx: { vocalFx: boolean; autotune: boolean }
     // Admin
     backgroundVideoPath: string | null
     // Audio paths
@@ -226,6 +251,8 @@ const initialState: AppState = {
     processingStatus: { stage: 'idle', progress: 0, message: '' },
     stemsPath: null,
     voiceEffects: null,
+    micFxOverrides: {},
+    sessionFx: { vocalFx: true, autotune: true },
     backgroundVideoPath: null,
     songPath: null,
     monitorDeviceIds: [],
@@ -274,6 +301,8 @@ type Action =
     | { type: 'SET_VOCAL_OFFSET'; payload: number }
     | { type: 'SET_SPOTIFY_AUTH'; payload: { clientId: string; clientSecret: string } }
     | { type: 'SET_VOICE_EFFECTS'; payload: VoiceEffects | VoiceEffects[] | null }
+    | { type: 'SET_MIC_FX_OVERRIDES'; payload: Record<string, MicFxOverride> }
+    | { type: 'SET_SESSION_FX'; payload: { vocalFx: boolean; autotune: boolean } }
     | { type: 'SET_STAGE_MODE'; payload: StageMode }
     | { type: 'ENQUEUE_SONG'; payload: QueueItem }
     // NEXT_SONG / PREV_SONG carry an OPTIONAL precomputed result. The main
@@ -544,6 +573,10 @@ function reducer(state: AppState, action: Action): AppState {
             return { ...state, spotifyClientId: action.payload.clientId, spotifyClientSecret: action.payload.clientSecret }
         case 'SET_VOICE_EFFECTS':
             return { ...state, voiceEffects: action.payload }
+        case 'SET_MIC_FX_OVERRIDES':
+            return { ...state, micFxOverrides: action.payload }
+        case 'SET_SESSION_FX':
+            return { ...state, sessionFx: action.payload }
         case 'SET_STAGE_MODE':
             return { ...state, stageMode: action.payload }
         case 'ENQUEUE_SONG': {

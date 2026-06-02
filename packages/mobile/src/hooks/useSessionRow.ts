@@ -6,9 +6,19 @@ import { supabase } from '../supabase/client'
 // reads. These exist in the live DB but aren't in the shared `tables.ts` type
 // yet — the website reads/writes them directly. We keep them optional here so
 // missing values fall back to defaults that match the website's behavior.
+export interface MicFxOverride {
+  vocal_fx?: boolean
+  autotune?: boolean
+}
+
 export interface SessionRowExtras {
   vocal_fx_enabled?: boolean | null
   autotune_enabled?: boolean | null
+  // Per-singer FX / autotune overrides, keyed by singer key (guestId, or
+  // "name:<name>" for name-only singers). A guest toggling their own Vocal FX
+  // / Autotune writes only its own key, so the desktop applies it to that
+  // singer's mic ONLY. Absent key falls back to the session-wide flags above.
+  mic_fx_overrides?: Record<string, MicFxOverride> | null
   skip_requested_at?: string | null
   trending_gifs?: TrendingGif[] | null
   // Current awards-ceremony reveal step, persisted by the host so remote
@@ -17,6 +27,15 @@ export interface SessionRowExtras {
   awards_reveal?: AwardsRevealStep | null
 }
 export type FullSessionRow = KaraokeSessionRow & SessionRowExtras
+
+// Stable key for a singer in the mic_fx_overrides map. Guest-linked singers key
+// by their session-scoped guestId; name-only (admin/host) singers key by name.
+// Desktop and mobile MUST compute this identically.
+export function singerFxKey(args: { guestId?: string | null; name?: string | null }): string | null {
+  if (args.guestId) return args.guestId
+  if (args.name) return 'name:' + args.name
+  return null
+}
 
 export interface TrendingGif {
   id: string

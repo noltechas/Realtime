@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { createClient, RealtimeChannel } from '@supabase/supabase-js'
-import { useApp, QueueItem, NEON_COLORS } from '../context/AppContext'
-import { DEFAULT_VOICE_EFFECTS, VoiceEffects } from '../audio/VoiceEffectsTypes'
+import { useApp, QueueItem, NEON_COLORS, MicFxOverride } from '../context/AppContext'
+import { DEFAULT_VOICE_EFFECTS } from '../audio/VoiceEffectsTypes'
 import type { KaraokeGuestRow } from '@karaoke/shared'
 
 const SUPABASE_URL = 'https://hnnbxwitjkeijvoldfuv.supabase.co'
@@ -520,13 +520,25 @@ export function useKaraokeSession() {
 
         // Prime the skip-request ref so reconnects / late subscribes don't
         // fire a stale skip from a previous skip request in the same session.
+        // Also prime the FX toggles: a guest may have toggled their mic before
+        // this window subscribed (or before a song loaded), and realtime only
+        // delivers future UPDATEs — so we seed current values here.
         supabase.from('karaoke_sessions')
-            .select('skip_requested_at')
+            .select('skip_requested_at, mic_fx_overrides, vocal_fx_enabled, autotune_enabled')
             .eq('id', state.karaokeSessionId)
             .single()
             .then(res => {
                 if (res.error) return
-                lastSeenSkipAtRef.current = (res.data as any)?.skip_requested_at ?? null
+                const d = res.data as any
+                lastSeenSkipAtRef.current = d?.skip_requested_at ?? null
+                dispatch({ type: 'SET_MIC_FX_OVERRIDES', payload: normalizeMicFxOverrides(d?.mic_fx_overrides) })
+                dispatch({
+                    type: 'SET_SESSION_FX',
+                    payload: {
+                        vocalFx: d?.vocal_fx_enabled !== false,
+                        autotune: d?.autotune_enabled !== false,
+                    },
+                })
             })
 
         const channel = supabase
@@ -552,38 +564,24 @@ export function useKaraokeSession() {
                         lastSeenSkipAtRef.current = d.skip_requested_at
                         dispatch({ type: 'SET_REMOTE_SKIP_COMMAND', payload: true })
                     }
-                    // Handle remote vocal FX / autotune toggles
+                    // Remote vocal FX / autotune toggles. We store the raw flags
+                    // and apply them per-mic at render time in KaraokePage — we
+                    // must NOT mutate state.voiceEffects here (that closure would
+                    // be stale, and it can't target a single singer's mic).
+                    // Per-singer overrides come from the mobile companion;
+                    // vocal_fx_enabled / autotune_enabled are the website's
+                    // session-wide host toggle.
+                    if (d.mic_fx_overrides !== undefined) {
+                        dispatch({ type: 'SET_MIC_FX_OVERRIDES', payload: normalizeMicFxOverrides(d.mic_fx_overrides) })
+                    }
                     if (d.vocal_fx_enabled !== undefined || d.autotune_enabled !== undefined) {
-                        const current = state.voiceEffects
-                        if (current) {
-                            const updateFx = (e: VoiceEffects): VoiceEffects => {
-                                let updated = e
-                                if (d.vocal_fx_enabled !== undefined) {
-                                    const on = d.vocal_fx_enabled !== false
-                                    updated = {
-                                        ...updated,
-                                        compressor: { ...updated.compressor, enabled: on },
-                                        eq: { ...updated.eq, enabled: on },
-                                        reverb: { ...updated.reverb, enabled: on },
-                                        chorus: { ...updated.chorus, enabled: on },
-                                        delay: { ...updated.delay, enabled: on },
-                                        distortion: { ...updated.distortion, enabled: on },
-                                        noiseGate: { ...updated.noiseGate, enabled: on },
-                                    }
-                                }
-                                if (d.autotune_enabled !== undefined) {
-                                    updated = {
-                                        ...updated,
-                                        pitchCorrection: { ...updated.pitchCorrection, enabled: d.autotune_enabled !== false },
-                                    }
-                                }
-                                return updated
-                            }
-                            dispatch({
-                                type: 'SET_VOICE_EFFECTS',
-                                payload: Array.isArray(current) ? current.map(updateFx) : updateFx(current),
-                            })
-                        }
+                        dispatch({
+                            type: 'SET_SESSION_FX',
+                            payload: {
+                                vocalFx: d.vocal_fx_enabled !== false,
+                                autotune: d.autotune_enabled !== false,
+                            },
+                        })
                     }
                 }
             )
@@ -690,6 +688,21 @@ export function useKaraokeSession() {
             }
         }
     }, [state.karaokeSessionId, dispatch])
+}
+
+// Normalize the `mic_fx_overrides` jsonb (DB snake_case: { vocal_fx, autotune })
+// into our camelCase MicFxOverride map. Tolerates null / malformed entries.
+function normalizeMicFxOverrides(raw: unknown): Record<string, MicFxOverride> {
+    const out: Record<string, MicFxOverride> = {}
+    if (!raw || typeof raw !== 'object') return out
+    for (const [key, v] of Object.entries(raw as Record<string, any>)) {
+        if (!v || typeof v !== 'object') continue
+        const entry: MicFxOverride = {}
+        if (typeof v.vocal_fx === 'boolean') entry.vocalFx = v.vocal_fx
+        if (typeof v.autotune === 'boolean') entry.autotune = v.autotune
+        out[key] = entry
+    }
+    return out
 }
 
 // ---- Row mappers (DB snake_case -> typed objects) --------------------------

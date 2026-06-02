@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import { useApp, useGuestsMap } from '../context/AppContext'
+import { useApp, useGuestsMap, singerFxKey } from '../context/AppContext'
 import { useTheme } from '../context/ThemeContext'
 import { AwardsRevealAnimation } from '../awards/AwardsRevealAnimation'
 import { HiddenSongStagePanel, HiddenSongStageHeading } from '../components/HiddenSongCard'
@@ -94,9 +94,39 @@ function useSingerMic(deviceId: string, enabled: boolean, effects: any, mainOutp
     return level
 }
 
+// Apply a singer's Vocal FX / Autotune toggle to their effects object. Returns
+// the SAME reference when both are on (no change) so the engine doesn't need to
+// re-apply. "Vocal FX off" force-disables every processing block EXCEPT pitch
+// correction; "Autotune off" disables only pitch correction — the two switches
+// are independent, matching the mobile companion's two toggles.
+function applyFxToggles(fx: any, vocalFx: boolean, autotune: boolean): any {
+    if (!fx || (vocalFx && autotune)) return fx
+    const out: any = { ...fx }
+    if (!vocalFx) {
+        const off = (block: any) => (block ? { ...block, enabled: false } : block)
+        out.compressor = off(fx.compressor)
+        out.eq = off(fx.eq)
+        out.reverb = off(fx.reverb)
+        out.chorus = off(fx.chorus)
+        out.delay = off(fx.delay)
+        out.distortion = off(fx.distortion)
+        out.noiseGate = off(fx.noiseGate)
+        if (fx.vocoder) out.vocoder = off(fx.vocoder)
+        if (fx.doubler) out.doubler = off(fx.doubler)
+    }
+    if (!autotune && fx.pitchCorrection) {
+        out.pitchCorrection = { ...fx.pitchCorrection, enabled: false }
+    }
+    return out
+}
+
 // ---- Mic Meter Component ----
-function MicMeter({ singer, active, effects, mainOutputId, theme }: { singer: { name: string; color: string; micDeviceId: string; guestId?: string }; active: boolean; effects: any; mainOutputId: string; theme: any }) {
-    const level = useSingerMic(singer.micDeviceId, active, effects, mainOutputId)
+function MicMeter({ singer, active, effects, vocalFx = true, autotune = true, mainOutputId, theme }: { singer: { name: string; color: string; micDeviceId: string; guestId?: string }; active: boolean; effects: any; vocalFx?: boolean; autotune?: boolean; mainOutputId: string; theme: any }) {
+    // Layer the guest's per-mic FX/autotune toggle on top of the song's effects.
+    // Memoized on the (stable) effects ref + the two booleans so the engine only
+    // re-applies when something actually changes — not on every render.
+    const fxEffects = useMemo(() => applyFxToggles(effects, vocalFx, autotune), [effects, vocalFx, autotune])
+    const level = useSingerMic(singer.micDeviceId, active, fxEffects, mainOutputId)
     const guests = useGuestsMap()
     const bars = 8
     const activeBars = Math.round(level * bars * 2.5)
@@ -1996,9 +2026,17 @@ export default function KaraokePage() {
                                 const index = s.roleIndices && s.roleIndices.length > 0 ? s.roleIndices[0] : 0
                                 singerEffects = singerEffects[index] || singerEffects[0]
                             }
+                            // Per-mic FX/autotune toggle: a guest's mobile toggle
+                            // is keyed by their singer key and applies to THIS mic
+                            // only. Fall back to the session-wide host toggle, then
+                            // default on.
+                            const fxKey = singerFxKey({ guestId: s.guestId, name: s.name })
+                            const ov = fxKey ? state.micFxOverrides?.[fxKey] : undefined
+                            const vocalFx = ov?.vocalFx ?? state.sessionFx?.vocalFx ?? true
+                            const autotune = ov?.autotune ?? state.sessionFx?.autotune ?? true
                             return (
                                 <div key={s.id} className="k-singer-tag" style={{ background: theme.appBg, ...theme.stickerLabel, position: 'relative', padding: '4px 12px', ...spaceSingerStyle }}>
-                                    <MicMeter singer={s} active={micActive} effects={singerEffects} mainOutputId={state.mainOutputId} theme={theme} />
+                                    <MicMeter singer={s} active={micActive} effects={singerEffects} vocalFx={vocalFx} autotune={autotune} mainOutputId={state.mainOutputId} theme={theme} />
                                 </div>
                             )
                         } else {

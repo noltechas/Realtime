@@ -31,6 +31,7 @@ import { useProfile } from '../hooks/useProfile'
 import {
   useSessionRow,
   guestIsUp,
+  singerFxKey,
   type FullSessionRow,
   type TrendingGif,
 } from '../hooks/useSessionRow'
@@ -104,6 +105,7 @@ export function StageScreen() {
           row={row}
           matched={matched}
           sessionId={session.sessionId}
+          guestId={session.guestId}
           bottomPadding={bottomPadding}
         />
       ) : (
@@ -479,6 +481,7 @@ function YoureUp({
   row,
   matched,
   sessionId,
+  guestId,
   bottomPadding,
 }: {
   row: FullSessionRow | null
@@ -486,6 +489,7 @@ function YoureUp({
   // on this panel. Typed as SingerConfig so the now-optional `name` is fine.
   matched: SingerConfig | null
   sessionId: string
+  guestId: string | undefined
   bottomPadding: number
 }) {
   const { tokens, ui } = useTheme()
@@ -495,8 +499,15 @@ function YoureUp({
   const trackArtist = np?.now_playing_artist ?? ''
   const artUrl = np?.now_playing_art_url ?? null
 
-  const vfxOn = (np?.vocal_fx_enabled ?? true) !== false
-  const atOn = (np?.autotune_enabled ?? true) !== false
+  // Toggles act on THIS guest's mic only. We key the per-singer override map by
+  // the matched singer's key (guestId, falling back to a name key for name-only
+  // singers). The current on/off state reads the guest's own override first,
+  // then the session-wide flag, then defaults on — mirroring the desktop's
+  // precedence so the switch reflects what the singer will actually hear.
+  const fxKey = singerFxKey({ guestId: matched?.guestId ?? guestId, name: matched?.name })
+  const myOverride = fxKey ? np?.mic_fx_overrides?.[fxKey] : undefined
+  const vfxOn = (myOverride?.vocal_fx ?? np?.vocal_fx_enabled ?? true) !== false
+  const atOn = (myOverride?.autotune ?? np?.autotune_enabled ?? true) !== false
 
   const singerColor = matched?.color || tokens.softViolet
 
@@ -510,19 +521,29 @@ function YoureUp({
       .eq('id', sessionId)
   }, [sessionId, isPlaying])
 
-  const onToggleVfx = useCallback(async () => {
-    await supabase
-      .from('karaoke_sessions')
-      .update({ vocal_fx_enabled: !vfxOn, updated_at: new Date().toISOString() })
-      .eq('id', sessionId)
-  }, [sessionId, vfxOn])
+  // Merge this guest's override into the map without clobbering other singers'
+  // entries. Read-modify-write off the latest realtime snapshot (`np`).
+  const writeOverride = useCallback(
+    async (next: { vocal_fx: boolean; autotune: boolean }) => {
+      if (!fxKey) return
+      const merged = { ...(np?.mic_fx_overrides ?? {}), [fxKey]: next }
+      await supabase
+        .from('karaoke_sessions')
+        .update({ mic_fx_overrides: merged, updated_at: new Date().toISOString() })
+        .eq('id', sessionId)
+    },
+    [sessionId, fxKey, np?.mic_fx_overrides],
+  )
 
-  const onToggleAt = useCallback(async () => {
-    await supabase
-      .from('karaoke_sessions')
-      .update({ autotune_enabled: !atOn, updated_at: new Date().toISOString() })
-      .eq('id', sessionId)
-  }, [sessionId, atOn])
+  const onToggleVfx = useCallback(
+    () => writeOverride({ vocal_fx: !vfxOn, autotune: atOn }),
+    [writeOverride, vfxOn, atOn],
+  )
+
+  const onToggleAt = useCallback(
+    () => writeOverride({ vocal_fx: vfxOn, autotune: !atOn }),
+    [writeOverride, vfxOn, atOn],
+  )
 
   const onConfirmSkip = useCallback(async () => {
     setSkipConfirm(false)
