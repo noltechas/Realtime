@@ -160,10 +160,12 @@ export function AdminAwardsTab() {
         await window.electronAPI?.persistAwardResults(allResults)
         try { await getRevealBroadcastChannel(sessionId) } catch (e) { console.warn('[Awards] broadcast channel warmup failed:', e) }
 
-        // Encore closer: 5 random played songs, sung by the Best Performance winners.
+        // Encore closer: 5 best-fit catalog songs for the Best Performance
+        // winners, chosen from what they sang tonight (not random).
         const bestPerf = orderedForReveal.find(t => t.award.slug === 'best-performance')
         const bpSingers = bestPerf?.tally.winner?.candidate?.singers ?? []
-        const encoreSongs = pickEncoreSongs(history, 5)
+        const encoreCatalog: any[] = (await window.electronAPI?.listCatalog()) || []
+        const encoreSongs = pickEncoreSongs(history, bpSingers, encoreCatalog, 5)
         const encoreViable = encoreSongs.length > 0 && bpSingers.length > 0
         encoreContext.current = encoreViable ? { songs: encoreSongs, singers: bpSingers } : null
 

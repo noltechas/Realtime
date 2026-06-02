@@ -462,19 +462,149 @@ function shuffled<T>(arr: T[]): T[] {
     return a
 }
 
-// Pick N distinct random played songs for the encore vote.
+// Minimal catalog shape the encore picker needs — a subset of the desktop
+// SongMeta + nothing else (audio:list-catalog returns the full meta).
+export interface EncoreCatalogEntry {
+    trackId: string
+    name: string
+    artist: string
+    artUrl?: string | null
+    genres?: string[]
+    spotifyData?: {
+        key?: number
+        mode?: number
+        tempo?: number
+        popularity?: number
+    }
+}
+
+const normText = (s: string | null | undefined): string => (s || '').trim().toLowerCase()
+
+// Build the encore vote line-up. Rather than 5 random played songs, we study
+// what the Best Performance winner(s) actually sang tonight, distill a quick
+// taste profile (artists, genres, tempo, key/mode, popularity), then score the
+// whole local catalog and surface the 5 best-fit songs they have NOT already
+// sung — fresh material picked to suit them. Falls back to random played songs
+// when there's no catalog to pick fresh material from.
 export function pickEncoreSongs(
     history: PlayedPerformance[],
+    winnerSingers: Array<{ name?: string; guestId?: string | null }>,
+    catalog: EncoreCatalogEntry[],
     n = 5
 ): EncoreSong[] {
-    const seen = new Set<string>()
-    const unique: EncoreSong[] = []
-    for (const p of history) {
-        if (!p.trackId || seen.has(p.trackId)) continue
-        seen.add(p.trackId)
-        unique.push({ id: p.trackId, trackName: p.trackName, trackArtist: p.trackArtist, artUrl: p.trackArtUrl })
+    const toSong = (c: EncoreCatalogEntry): EncoreSong => ({
+        id: c.trackId, trackName: c.name, trackArtist: c.artist, artUrl: c.artUrl ?? null
+    })
+
+    // Last-resort fallback (and the old behaviour): distinct random played songs.
+    const randomFromHistory = (): EncoreSong[] => {
+        const seen = new Set<string>()
+        const unique: EncoreSong[] = []
+        for (const p of history) {
+            if (!p.trackId || seen.has(p.trackId)) continue
+            seen.add(p.trackId)
+            unique.push({ id: p.trackId, trackName: p.trackName, trackArtist: p.trackArtist, artUrl: p.trackArtUrl })
+        }
+        return shuffled(unique).slice(0, n)
     }
-    return shuffled(unique).slice(0, n)
+
+    if (!catalog || catalog.length === 0) return randomFromHistory()
+
+    // Which performances were sung by (any of) the winner(s)? Match on guestId
+    // first, then case-insensitive name. If we can't identify the winner among
+    // the performers, profile against the whole night rather than nothing.
+    const winnerGuestIds = new Set(winnerSingers.map(s => s.guestId || '').filter(Boolean))
+    const winnerNames = new Set(winnerSingers.map(s => normText(s.name)).filter(Boolean))
+    const sangByWinner = (p: PlayedPerformance): boolean =>
+        p.singers.some(s =>
+            (!!s.guestId && winnerGuestIds.has(s.guestId)) || (!!s.name && winnerNames.has(normText(s.name)))
+        )
+    const winnerPerfs = history.filter(sangByWinner)
+    const profilePerfs = winnerPerfs.length ? winnerPerfs : history
+
+    const catalogById = new Map(catalog.map(c => [c.trackId, c]))
+    const sungTrackIds = new Set(profilePerfs.map(p => p.trackId).filter(Boolean))
+
+    // --- Taste profile ------------------------------------------------------
+    const artistWeight = new Map<string, number>()   // normalized artist → times sung
+    const genreWeight = new Map<string, number>()
+    const tempos: number[] = []
+    let major = 0, minor = 0
+    for (const p of profilePerfs) {
+        // Artist signal comes straight from the played row (always present).
+        const a = normText(p.trackArtist)
+        if (a) artistWeight.set(a, (artistWeight.get(a) || 0) + 1)
+        // Genre / tempo / mode come from the catalog meta of the sung track.
+        const meta = catalogById.get(p.trackId)
+        if (!meta) continue
+        for (const g of meta.genres || []) {
+            const gg = normText(g)
+            if (gg) genreWeight.set(gg, (genreWeight.get(gg) || 0) + 1)
+        }
+        const t = meta.spotifyData?.tempo
+        if (typeof t === 'number' && t > 0) tempos.push(t)
+        const m = meta.spotifyData?.mode
+        if (m === 1) major++
+        else if (m === 0) minor++
+    }
+    const avgTempo = tempos.length ? tempos.reduce((s, x) => s + x, 0) / tempos.length : null
+    const dominantMode = major === minor ? null : (major > minor ? 1 : 0)
+
+    // --- Score every catalog song they did NOT already sing -----------------
+    const score = (c: EncoreCatalogEntry): number => {
+        let s = 0
+        // Same artist they performed — strongest signal.
+        const aw = artistWeight.get(normText(c.artist))
+        if (aw) s += 5 + Math.min(aw, 3) * 1.5
+        // Genre overlap.
+        for (const g of c.genres || []) {
+            const w = genreWeight.get(normText(g))
+            if (w) s += 1.5 + Math.min(w, 3) * 0.5
+        }
+        // Tempo proximity (full credit within 8 bpm, fading to 0 by 40 bpm).
+        const t = c.spotifyData?.tempo
+        if (avgTempo != null && typeof t === 'number' && t > 0) {
+            const d = Math.abs(t - avgTempo)
+            if (d < 40) s += 2 * (1 - Math.max(0, d - 8) / 32)
+        }
+        // Mode (major/minor) match.
+        if (dominantMode != null && c.spotifyData?.mode === dominantMode) s += 1
+        // Crowd-pleaser bias — popular songs make better encores. Mild.
+        const pop = c.spotifyData?.popularity
+        if (typeof pop === 'number') s += (pop / 100) * 1.5
+        return s
+    }
+
+    const ranked = catalog
+        .filter(c => c.trackId && !sungTrackIds.has(c.trackId))
+        .map(c => ({ c, s: score(c) }))
+        .sort((x, y) =>
+            y.s - x.s ||
+            (y.c.spotifyData?.popularity ?? 0) - (x.c.spotifyData?.popularity ?? 0) ||
+            normText(x.c.name).localeCompare(normText(y.c.name))
+        )
+
+    if (ranked.length === 0) return randomFromHistory()
+
+    // Take the top N, but keep variety: at most 2 per artist on the first pass,
+    // then backfill from the rest if that left us short.
+    const picked: EncoreSong[] = []
+    const perArtist = new Map<string, number>()
+    const used = new Set<string>()
+    for (const { c } of ranked) {
+        if (picked.length >= n) break
+        const a = normText(c.artist)
+        if ((perArtist.get(a) || 0) >= 2) continue
+        perArtist.set(a, (perArtist.get(a) || 0) + 1)
+        used.add(c.trackId)
+        picked.push(toSong(c))
+    }
+    for (const { c } of ranked) {
+        if (picked.length >= n) break
+        if (used.has(c.trackId)) continue
+        picked.push(toSong(c))
+    }
+    return picked
 }
 
 // Build the ordered slide list the admin steps through:
