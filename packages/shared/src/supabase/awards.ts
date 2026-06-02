@@ -475,10 +475,17 @@ export interface AwardsRevealStep {
   // the chosen finalist grows full-screen. Companions render a simplified synced
   // view from this; the rich animation is desktop-only.
   phase: 'opening' | 'overview' | 'intro' | 'finalist' | 'lineup' | 'winner' | 'finale'
+    | 'encore-buildup' | 'encore-vote' | 'encore-winner'
   awardIndex?: number
   totalAwards?: number
   award?: KaraokeAwardRow
   overview?: KaraokeAwardRow[]   // all awards (icon + name) for the overview phase
+  // Encore: a crowd tap-vote on songs, won song sung by the Best Performance winners.
+  encoreSongs?: Array<{ id: string; trackName: string; trackArtist: string; artUrl: string | null }>
+  encoreTotals?: Record<string, number>
+  encoreEndsAt?: number
+  encoreWinner?: { id: string; trackName: string; trackArtist: string; artUrl: string | null }
+  startedAt?: string             // ISO stamp; changes per slide so views re-animate
   // finalist phase — a single spotlighted finalist + their stats
   finalist?: {
     candidate: RevealCandidate
@@ -498,14 +505,17 @@ export interface AwardsRevealStep {
   voteCount?: number
   finaleSummary?: Array<{
     award: KaraokeAwardRow
-    winners: Array<{ label: string; subtitle?: string | null }>
+    winners: RevealCandidate[]
   }>
 }
 
 export interface AwardsSubscriptionHandlers {
   onAwardsChange: () => void
   onOwnVotesChange: () => void
-  onRevealStep: (step: AwardsRevealStep | null) => void
+  // Optional: when omitted, the reveal-step broadcast channel is not created.
+  // The mobile app drives the reveal off the persisted session row instead, so
+  // it omits this and avoids a duplicate `ar-${sessionId}` subscription.
+  onRevealStep?: (step: AwardsRevealStep | null) => void
 }
 
 // Subscribe to live awards / votes / reveal-step broadcasts for a session.
@@ -537,19 +547,27 @@ export function subscribeToAwards(
       () => handlers.onOwnVotesChange(),
     )
     .subscribe()
-  const arCh = client
-    .channel(`ar-${sessionId}-${suffix}`)
-    .on('broadcast', { event: 'reveal-step' }, (pl) => {
-      const step =
-        (pl.payload && (pl.payload as { step?: AwardsRevealStep }).step) || null
-      handlers.onRevealStep(step)
-    })
-    .subscribe()
+  // NOTE: the reveal-step broadcast channel must use the EXACT topic the host
+  // broadcasts on (`ar-${sessionId}`, no suffix) — Supabase broadcast is scoped
+  // by topic string, so a per-client suffix here would silently drop every
+  // reveal step. (The aw-/av- postgres_changes channels keep the suffix to stay
+  // unique per client.) Only created when a handler is supplied.
+  const onRevealStep = handlers.onRevealStep
+  const arCh = onRevealStep
+    ? client
+        .channel(`ar-${sessionId}`)
+        .on('broadcast', { event: 'reveal-step' }, (pl) => {
+          const step =
+            (pl.payload && (pl.payload as { step?: AwardsRevealStep }).step) || null
+          onRevealStep(step)
+        })
+        .subscribe()
+    : null
 
   return () => {
     void client.removeChannel(awCh)
     void client.removeChannel(avCh)
-    void client.removeChannel(arCh)
+    if (arCh) void client.removeChannel(arCh)
   }
 }
 

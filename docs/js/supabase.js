@@ -454,7 +454,24 @@ export function subAwardsRealtime(){
   arCh=sb.channel("ar-"+S.sessionId)
     .on("broadcast",{event:"reveal-step"},function(pl){
       var step=pl.payload&&pl.payload.step;
+      // Reset the user's encore tap counts when a NEW encore vote begins
+      // (the vote step re-broadcasts every second with the same startedAt).
+      if(step&&step.phase==="encore-vote"&&step.startedAt!==S.encoreVoteAt){
+        S.encoreVoteAt=step.startedAt; S.encoreCounts={};
+      }
       S.awardsRevealStep=step||null;
       render();
     }).subscribe();
+}
+
+// --- Encore tap-vote (device → stage) -------------------------------------
+var encoreCh=null, encoreSendTimer=null;
+export function sendEncoreTally(){
+  if(!S.guestId||!S.sessionId)return;
+  if(!encoreCh){ encoreCh=sb.channel("encore-"+S.sessionId); encoreCh.subscribe(); }
+  if(encoreSendTimer)return; // throttle to <= 1 send / 350ms (sends latest counts)
+  encoreSendTimer=setTimeout(function(){
+    encoreSendTimer=null;
+    try{ encoreCh.send({type:"broadcast",event:"encore-tally",payload:{guestId:S.guestId,counts:S.encoreCounts||{}}}); }catch(e){}
+  },350);
 }

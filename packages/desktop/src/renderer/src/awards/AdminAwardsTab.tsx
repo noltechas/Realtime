@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, type CSSProperties } from 'react'
-import { useApp } from '../context/AppContext'
+import { useState, useEffect, useCallback, useRef, type CSSProperties } from 'react'
+import { useApp, NEON_COLORS, type QueueItem, type Singer } from '../context/AppContext'
 import { useTheme } from '../context/ThemeContext'
 import { FEATURED_SVGS, awardIconCdnUrl } from './icons/manifest'
 import {
@@ -8,6 +8,7 @@ import {
     AwardVote,
     AwardSubjectType,
     AwardStanding,
+    EncoreSong,
     RevealStep
 } from './types'
 import {
@@ -19,13 +20,19 @@ import {
     buildPersistedResults,
     buildFinalistSongs,
     buildRevealStoryboard,
+    pickEncoreSongs,
     describeRevealSlide,
     getRevealBroadcastChannel,
     sendRevealStepBroadcast,
+    awardsSupabase,
     PlayedPerformance,
     KnownGuest,
     RevealSequenceItem
 } from './AwardsManager'
+
+const ENCORE_BUILDUP_MS = 10000
+const ENCORE_VOTE_MS = 45000
+const ENCORE_WINNER_MS = 7000
 
 const REFRESH_MS = 4000
 const MEDALS = ['🥇', '🥈', '🥉']
@@ -45,6 +52,14 @@ export function AdminAwardsTab() {
     const [slideIdx, setSlideIdx] = useState(0)
     // The order awards are revealed in (array of award ids); admin can reorder.
     const [revealOrder, setRevealOrder] = useState<string[]>([])
+
+    // --- Encore orchestration (runtime, ref-held so it survives re-renders) ---
+    const encoreTimers = useRef<{ buildup?: ReturnType<typeof setTimeout>; voteEnd?: ReturnType<typeof setTimeout>; toQueue?: ReturnType<typeof setTimeout>; rebroadcast?: ReturnType<typeof setInterval> }>({})
+    const encoreChannel = useRef<ReturnType<typeof awardsSupabase.channel> | null>(null)
+    const encoreTally = useRef<Map<string, Record<string, number>>>(new Map())
+    const encoreVoteStep = useRef<RevealStep | null>(null)
+    const encoreContext = useRef<{ songs: EncoreSong[]; singers: Array<{ name: string; color?: string | null; guestId?: string | null }> } | null>(null)
+    useEffect(() => () => clearEncoreTimers(), [])
 
     // Periodic refresh of votes, history, guests so admin sees a live tally
     const refresh = useCallback(async () => {
@@ -100,8 +115,14 @@ export function AdminAwardsTab() {
         .map(id => talliesById.get(id))
         .filter((t): t is typeof tallies[number] => !!t)
 
+    // Best Performance always closes the show, regardless of the admin's order.
+    const orderedForReveal = [
+        ...orderedTallies.filter(t => t.award.slug !== 'best-performance'),
+        ...orderedTallies.filter(t => t.award.slug === 'best-performance'),
+    ]
+
     const buildRevealItems = (): RevealSequenceItem[] =>
-        orderedTallies.map(({ award, tally }) => ({
+        orderedForReveal.map(({ award, tally }) => ({
             award,
             finalists: tally.finalists
                 .filter(s => s.candidate)
@@ -120,42 +141,159 @@ export function AdminAwardsTab() {
                 : null
         }))
 
-    // Push one slide to the stage + companions. Stamp startedAt fresh so the
-    // stage replays entrance animations even when re-showing a slide.
-    const broadcastStep = (step: RevealStep) => {
-        const stamped: RevealStep = { ...step, startedAt: new Date().toISOString() }
-        dispatch({ type: 'SET_REVEAL_STEP', payload: stamped })
-        if (sessionId) sendRevealStepBroadcast(sessionId, stamped)
+    // pushStep does NOT restamp startedAt (used for live encore-vote totals so
+    // the stage doesn't re-mount); broadcastStep restamps so entrances replay.
+    const pushStep = (step: RevealStep) => {
+        dispatch({ type: 'SET_REVEAL_STEP', payload: step })
+        if (sessionId) sendRevealStepBroadcast(sessionId, step)
     }
+    const broadcastStep = (step: RevealStep) => pushStep({ ...step, startedAt: new Date().toISOString() })
 
     const handleStartReveal = async () => {
         if (revealStatus === 'running') return
         if (!sessionCode) return
 
         const items = buildRevealItems()
-        // Persist results immediately so they survive a refresh / replay.
-        const allResults = orderedTallies.flatMap(({ award, tally }) =>
+        const allResults = orderedForReveal.flatMap(({ award, tally }) =>
             buildPersistedResults({ award, tally, sessionId, sessionCode })
         )
         await window.electronAPI?.persistAwardResults(allResults)
-        // Pre-warm the broadcast channel so the first slide doesn't race the
-        // SUBSCRIBED handshake.
         try { await getRevealBroadcastChannel(sessionId) } catch (e) { console.warn('[Awards] broadcast channel warmup failed:', e) }
 
-        const slides = buildRevealStoryboard(items)
+        // Encore closer: 5 random played songs, sung by the Best Performance winners.
+        const bestPerf = orderedForReveal.find(t => t.award.slug === 'best-performance')
+        const bpSingers = bestPerf?.tally.winner?.candidate?.singers ?? []
+        const encoreSongs = pickEncoreSongs(history, 5)
+        const encoreViable = encoreSongs.length > 0 && bpSingers.length > 0
+        encoreContext.current = encoreViable ? { songs: encoreSongs, singers: bpSingers } : null
+
+        const slides = buildRevealStoryboard(items, encoreViable ? { songs: encoreSongs } : undefined)
         setStoryboard(slides)
         setSlideIdx(0)
         setRevealStatus('running')
         if (slides.length) broadcastStep(slides[0])
     }
 
+    const clearEncoreTimers = () => {
+        const t = encoreTimers.current
+        if (t.buildup) clearTimeout(t.buildup)
+        if (t.voteEnd) clearTimeout(t.voteEnd)
+        if (t.toQueue) clearTimeout(t.toQueue)
+        if (t.rebroadcast) clearInterval(t.rebroadcast)
+        encoreTimers.current = {}
+        if (encoreChannel.current) { awardsSupabase.removeChannel(encoreChannel.current); encoreChannel.current = null }
+    }
+
+    const computeEncoreTotals = (): Record<string, number> => {
+        const totals: Record<string, number> = {}
+        encoreTally.current.forEach(counts => {
+            for (const k in counts) totals[k] = (totals[k] || 0) + (counts[k] || 0)
+        })
+        return totals
+    }
+
+    // Live tap-vote: subscribe to per-guest tallies, re-broadcast running totals
+    // to the stage every second, and pick the winner after 45s.
+    const startEncoreVote = (voteStep: RevealStep) => {
+        encoreTally.current = new Map()
+        const fixed: RevealStep = { ...voteStep, startedAt: new Date().toISOString(), encoreEndsAt: Date.now() + ENCORE_VOTE_MS, encoreTotals: {} }
+        encoreVoteStep.current = fixed
+        pushStep(fixed)
+        const ch = awardsSupabase.channel('encore-' + sessionId)
+        ch.on('broadcast', { event: 'encore-tally' }, (pl: { payload?: { guestId?: string; counts?: Record<string, number> } }) => {
+            const p = pl?.payload || {}
+            if (p.guestId && p.counts) encoreTally.current.set(p.guestId, p.counts)
+        }).subscribe()
+        encoreChannel.current = ch
+        encoreTimers.current.rebroadcast = setInterval(() => {
+            if (!encoreVoteStep.current) return
+            const next = { ...encoreVoteStep.current, encoreTotals: computeEncoreTotals() }
+            encoreVoteStep.current = next
+            pushStep(next)
+        }, 1000)
+        encoreTimers.current.voteEnd = setTimeout(finishEncore, ENCORE_VOTE_MS)
+    }
+
+    const finishEncore = () => {
+        if (encoreTimers.current.rebroadcast) clearInterval(encoreTimers.current.rebroadcast)
+        if (encoreChannel.current) { awardsSupabase.removeChannel(encoreChannel.current); encoreChannel.current = null }
+        const totals = computeEncoreTotals()
+        const songs = encoreContext.current?.songs ?? encoreVoteStep.current?.encoreSongs ?? []
+        let winner: EncoreSong | undefined = songs[0]
+        let max = -1
+        for (const s of songs) { const v = totals[s.id] || 0; if (v > max) { max = v; winner = s } }
+        broadcastStep({ phase: 'encore-winner', awardIndex: 0, totalAwards: 0, encoreWinner: winner, encoreTotals: totals, encoreSongs: songs, startedAt: '' })
+        encoreTimers.current.toQueue = setTimeout(() => queueEncoreWinner(winner), ENCORE_WINNER_MS)
+    }
+
+    // Drop the winning song at the FRONT of the queue with the Best Performance
+    // winners as the singers, then return to the normal stage.
+    const queueEncoreWinner = async (winner?: EncoreSong) => {
+        try {
+            if (winner) {
+                const catalog: any[] = (await window.electronAPI?.listCatalog()) || []
+                const song = catalog.find(c => c.trackId === winner.id)
+                if (song) {
+                    const ctxSingers = encoreContext.current?.singers ?? []
+                    const roleCount = (song.roles || []).length
+                    const singers: Singer[] = ctxSingers.map((s, i) => ({
+                        id: i,
+                        name: s.name,
+                        color: s.color || NEON_COLORS[i % NEON_COLORS.length].color,
+                        colorGlow: NEON_COLORS[i % NEON_COLORS.length].colorGlow,
+                        micDeviceId: '',
+                        vocalTrack: i === 0 ? 'lead' : 'backing',
+                        roleIndices: roleCount ? [Math.min(i, roleCount - 1)] : [],
+                        guestId: s.guestId || undefined,
+                    }))
+                    const track = {
+                        id: song.trackId, name: song.name, artists: [{ name: song.artist }],
+                        album: { name: song.albumName || '', images: song.artUrl ? [{ url: song.artUrl, width: 640, height: 640 }] : [] },
+                        duration_ms: song.durationMs || 0, uri: 'spotify:track:' + song.trackId,
+                    }
+                    const item: QueueItem = {
+                        id: song.trackId + '-' + Date.now(),
+                        track, lyrics: song.lyrics || [], roles: song.roles || [], singers,
+                        voiceEffects: song.voiceEffects || null,
+                        stemsPath: { instrumental: song.instrumentalPath, vocals: song.vocalsPath },
+                        songPath: null, backgroundVideoPath: song.youtubeUrl || null,
+                        stageTheme: null, isHidden: false, locked: true, score: 0, bonusPoints: 0,
+                        createdAt: new Date().toISOString(),
+                    }
+                    dispatch({ type: 'ENQUEUE_SONG', payload: item })
+                    window.electronAPI?.pushLocalQueueItem({
+                        trackId: track.id, trackName: track.name, trackArtist: song.artist,
+                        trackArtUrl: song.artUrl || null, trackDurationMs: song.durationMs || 0,
+                        singerConfigs: singers.map(s => {
+                            const c: Record<string, unknown> = { color: s.color, colorGlow: s.colorGlow, roleIndices: s.roleIndices }
+                            if (s.guestId) c.guestId = s.guestId; else c.name = s.name
+                            return c
+                        }),
+                    }).then((r) => { if (r && r.id) dispatch({ type: 'SET_QUEUE_ITEM_REMOTE_ID', payload: { itemId: item.id, remoteQueueId: r.id } }) })
+                      .catch((e) => console.warn('[Encore] queue sync failed:', e))
+                }
+            }
+        } catch (e) { console.warn('[Encore] queue winner failed:', e) }
+        handleEndReveal()
+    }
+
     const goToSlide = (idx: number) => {
         if (idx < 0 || idx >= storyboard.length) return
+        clearEncoreTimers()
         setSlideIdx(idx)
-        broadcastStep(storyboard[idx])
+        const step = storyboard[idx]
+        if (step.phase === 'encore-vote') {
+            startEncoreVote(step)
+        } else {
+            broadcastStep(step)
+            if (step.phase === 'encore-buildup') {
+                encoreTimers.current.buildup = setTimeout(() => goToSlide(idx + 1), ENCORE_BUILDUP_MS)
+            }
+        }
     }
 
     const handleEndReveal = () => {
+        clearEncoreTimers()
         setRevealStatus('idle')
         setStoryboard([])
         setSlideIdx(0)
@@ -324,7 +462,7 @@ export function AdminAwardsTab() {
                         Reveal running order
                     </div>
                     <div style={{ fontSize: 11, color: theme.faint, fontFamily: theme.fontBody, marginBottom: 2 }}>
-                        Awards are revealed top-to-bottom. Reorder to set the show’s pacing.
+                        Awards are revealed top-to-bottom. Reorder to set the pacing — Best Performance always closes the show, followed by the live Encore.
                     </div>
                     {orderedTallies.map(({ award }, i) => (
                         <div key={award.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px', borderRadius: theme.radiusSmall, background: theme.creamDark }}>

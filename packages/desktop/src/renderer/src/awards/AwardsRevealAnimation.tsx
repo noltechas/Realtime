@@ -1,7 +1,7 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { FEATURED_SVGS, awardIconCdnUrl } from './icons/manifest'
-import { Award, AwardCandidate, RevealFinalist, RevealStep } from './types'
+import { Award, AwardCandidate, EncoreSong, RevealFinalist, RevealStep } from './types'
 import '../styles/awards.css'
 
 // Helper: render an award's icon. Tries (in order) uploaded photo, inlined
@@ -41,6 +41,19 @@ export function AwardsRevealAnimation({ step }: Props) {
         if (step) console.log('[AwardsRevealAnimation] step:', step.phase, step.awardIndex, '/', step.totalAwards)
     }, [step])
 
+    // Remember the most recent winner screen so the encore build-up can keep it
+    // on stage (the "Encore!" words float BEHIND it) instead of cutting to a
+    // bare screen. The last winner before the encore is Best Performance.
+    const [lastWinner, setLastWinner] = useState<{
+        award: Award; lineup: AwardCandidate[]; winners: AwardCandidate[]
+        stats?: { score: number; firstPlaceVotes: number; totalVotes: number }
+    } | null>(null)
+    useEffect(() => {
+        if (step?.phase === 'winner' && step.award && (step.winners?.length ?? 0) > 0) {
+            setLastWinner({ award: step.award, lineup: step.lineup || [], winners: step.winners || [], stats: step.winnerStats })
+        }
+    }, [step])
+
     if (!step || step.phase === 'idle' || step.phase === 'done') {
         return null
     }
@@ -49,7 +62,7 @@ export function AwardsRevealAnimation({ step }: Props) {
     return createPortal((
         <div className="awards-reveal" role="dialog" aria-label="Awards reveal">
             <div className="awards-reveal__spotlight" />
-            {step.phase === 'winner' && (step.winners?.length ?? 0) > 0 && <ConfettiBurst key={step.startedAt} />}
+            {((step.phase === 'winner' && (step.winners?.length ?? 0) > 0) || step.phase === 'encore-winner') && <ConfettiBurst key={step.startedAt} />}
             {step.phase === 'opening' && <OpeningCard total={step.totalAwards} />}
             {step.phase === 'overview' && (
                 <OverviewCard awards={step.overview || []} />
@@ -73,8 +86,109 @@ export function AwardsRevealAnimation({ step }: Props) {
                 />
             )}
             {step.phase === 'finale' && <FinaleCard summary={step.finaleSummary || []} />}
+            {step.phase === 'encore-buildup' && (
+                <>
+                    {/* "Encore!" words float behind the still-standing winner card. */}
+                    <EncoreBuildup />
+                    {lastWinner && (
+                        <WinnerReveal
+                            award={lastWinner.award}
+                            lineup={lastWinner.lineup}
+                            winners={lastWinner.winners}
+                            stats={lastWinner.stats}
+                            frozen
+                        />
+                    )}
+                </>
+            )}
+            {step.phase === 'encore-vote' && (
+                <EncoreVote songs={step.encoreSongs || []} totals={step.encoreTotals || {}} endsAt={step.encoreEndsAt} />
+            )}
+            {step.phase === 'encore-winner' && step.encoreWinner && (
+                <EncoreWinner key={step.startedAt} winner={step.encoreWinner} totals={step.encoreTotals || {}} />
+            )}
         </div>
     ), document.body)
+}
+
+// ---- Encore -------------------------------------------------------------
+
+// Build-up: "Encore!" words multiply across the screen over ~10 seconds.
+function EncoreBuildup() {
+    const words = useMemo(() => Array.from({ length: 30 }, (_, i) => ({
+        id: i,
+        left: 3 + Math.random() * 90,
+        top: 6 + Math.random() * 82,
+        delay: Math.random() * 9,
+        size: 1.6 + Math.random() * 3.6,   // vw
+        rot: -14 + Math.random() * 28,
+    })), [])
+    return (
+        <div className="awards-reveal__encore-buildup">
+            {words.map(w => (
+                <span key={w.id} className="awards-reveal__encore-word" style={{ left: w.left + '%', top: w.top + '%', transform: 'rotate(' + w.rot + 'deg)' }}>
+                    <span className="awards-reveal__encore-word-in" style={{ animationDelay: w.delay.toFixed(2) + 's', fontSize: w.size.toFixed(2) + 'vw' }}>Encore!</span>
+                </span>
+            ))}
+        </div>
+    )
+}
+
+function EncoreArt({ song, className }: { song: EncoreSong; className: string }) {
+    if (song.artUrl) return <img className={className} src={song.artUrl} alt="" />
+    return <div className={className}>♪</div>
+}
+
+function EncoreCountdown({ endsAt }: { endsAt?: number }) {
+    const [now, setNow] = useState(() => Date.now())
+    useEffect(() => {
+        const t = setInterval(() => setNow(Date.now()), 500)
+        return () => clearInterval(t)
+    }, [])
+    const left = endsAt ? Math.max(0, Math.ceil((endsAt - now) / 1000)) : 0
+    return <div className="awards-reveal__encore-timer">{left}s</div>
+}
+
+// Live vote: 5 songs with bars driven by the broadcast totals + 45s countdown.
+function EncoreVote({ songs, totals, endsAt }: { songs: EncoreSong[]; totals: Record<string, number>; endsAt?: number }) {
+    const max = Math.max(1, ...songs.map(s => totals[s.id] || 0))
+    return (
+        <div className="awards-reveal__encore-vote">
+            <div className="awards-reveal__encore-eyebrow">Encore — Vote Now!</div>
+            <div className="awards-reveal__encore-sub">Tap your phone to vote — the crowd favourite gets sung live</div>
+            <EncoreCountdown endsAt={endsAt} />
+            <div className="awards-reveal__encore-list">
+                {songs.map(s => {
+                    const v = totals[s.id] || 0
+                    const pct = Math.round((v / max) * 100)
+                    return (
+                        <div key={s.id} className="awards-reveal__encore-row">
+                            <EncoreArt song={s} className="awards-reveal__encore-row-art" />
+                            <div className="awards-reveal__encore-row-meta">
+                                <div className="awards-reveal__encore-track">{s.trackName}</div>
+                                <div className="awards-reveal__encore-artist">{s.trackArtist}</div>
+                                <div className="awards-reveal__encore-bar"><div className="awards-reveal__encore-bar-fill" style={{ width: pct + '%' }} /></div>
+                            </div>
+                            <div className="awards-reveal__encore-count">{v}</div>
+                        </div>
+                    )
+                })}
+            </div>
+        </div>
+    )
+}
+
+function EncoreWinner({ winner, totals }: { winner: EncoreSong; totals: Record<string, number> }) {
+    const v = totals[winner.id] || 0
+    return (
+        <div className="awards-reveal__encore-winnerwrap">
+            <div className="awards-reveal__encore-eyebrow">The Encore</div>
+            <EncoreArt song={winner} className="awards-reveal__encore-winner-art" />
+            <div className="awards-reveal__encore-winner-track">{winner.trackName}</div>
+            <div className="awards-reveal__encore-winner-artist">{winner.trackArtist}</div>
+            <div className="awards-reveal__encore-winner-tag">{v} vote{v === 1 ? '' : 's'} · take the stage!</div>
+        </div>
+    )
 }
 
 // ---- Phase subcomponents -------------------------------------------------
@@ -261,11 +375,15 @@ function LineupCard({ award, lineup, faded }: { award: Award; lineup: AwardCandi
 
 // ---- Winner: finalists row, then the winner grows to full screen ---------
 
-function WinnerReveal({ award, lineup, winners, stats }: {
+function WinnerReveal({ award, lineup, winners, stats, frozen }: {
     award: Award
     lineup: AwardCandidate[]
     winners: AwardCandidate[]
     stats?: { score: number; firstPlaceVotes: number; totalVotes: number }
+    // frozen = render the winner in its final, fully-grown state with no entrance
+    // animation and no finalist backdrop (used as the static layer the encore
+    // build-up floats behind).
+    frozen?: boolean
 }) {
     const isSinger = award.subjectType === 'singer'
     if (winners.length === 0) {
@@ -285,14 +403,17 @@ function WinnerReveal({ award, lineup, winners, stats }: {
     return (
         <div className="awards-reveal__winnerstage">
             {/* The finalists stay EXACTLY where they were on the lineup page and
-                simply fade back — no jump, no winner highlight (don't spoil it). */}
-            <div className="awards-reveal__winner-backdrop">
-                <LineupCard award={award} lineup={row} faded />
-            </div>
+                simply fade back — no jump, no winner highlight (don't spoil it).
+                Skipped when frozen (they've long since faded away). */}
+            {!frozen && (
+                <div className="awards-reveal__winner-backdrop">
+                    <LineupCard award={award} lineup={row} faded />
+                </div>
+            )}
 
             {/* Winner card grows in over the fading finalists. */}
             <div className="awards-reveal__winneroverlay">
-            <div className="awards-reveal__winnerbig">
+            <div className={'awards-reveal__winnerbig' + (frozen ? ' awards-reveal__winnerbig--frozen' : '')}>
                 <div className="awards-reveal__winner-crest"><AwardIconSlot award={award} /></div>
                 <div className="awards-reveal__winner-label">Winner · {award.title}</div>
                 <div className="awards-reveal__winnerbig-face-wrap">
@@ -329,18 +450,34 @@ function FinaleCard({ summary }: { summary: Array<{ award: Award; winners: Award
         <div className="awards-reveal__finale">
             <div className="awards-reveal__finale-title">That's a Wrap!</div>
             <div className="awards-reveal__finale-grid">
-                {summary.map(({ award, winners }) => (
-                    <div key={award.id} className="awards-reveal__finale-card">
-                        <FinaleAwardIcon award={award} />
-                        <div className="awards-reveal__finale-card-title">{award.title}</div>
-                        <div className="awards-reveal__finale-card-winner">
-                            {winners.length === 0 ? 'No winner' : winners.map(w => w.label).join(' · ')}
+                {summary.map(({ award, winners }) => {
+                    const isSinger = award.subjectType === 'singer'
+                    const w = winners[0]
+                    return (
+                        <div key={award.id} className="awards-reveal__finale-card">
+                            <div className="awards-reveal__finale-card-head">
+                                <FinaleAwardIcon award={award} />
+                                <div className="awards-reveal__finale-card-title">{award.title}</div>
+                            </div>
+                            {!w ? (
+                                <div className="awards-reveal__finale-card-winner awards-reveal__finale-card-winner--none">No winner</div>
+                            ) : (
+                                <div className="awards-reveal__finale-card-body">
+                                    <CandidateFace
+                                        c={w}
+                                        className={'awards-reveal__finale-card-art' + (isSinger ? ' awards-reveal__finale-card-art--round' : '')}
+                                    />
+                                    <div className="awards-reveal__finale-card-meta">
+                                        <div className="awards-reveal__finale-card-winner">{isSinger ? w.label : (w.trackName || w.label)}</div>
+                                        {!isSinger && w.singers && w.singers.length
+                                            ? <FinaleMembers singers={w.singers} />
+                                            : null}
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                        {winners.length === 1 && winners[0].subtitle && (
-                            <div className="awards-reveal__finale-card-sub">{winners[0].subtitle}</div>
-                        )}
-                    </div>
-                ))}
+                    )
+                })}
             </div>
         </div>
     )
@@ -348,6 +485,25 @@ function FinaleCard({ summary }: { summary: Array<{ award: Award; winners: Award
 
 function FinaleAwardIcon({ award }: { award: Award }) {
     return <div className="awards-reveal__finale-card-icon"><AwardIconBody award={award} /></div>
+}
+
+// Compact performer row for a finale card: small overlapping avatars + names.
+function FinaleMembers({ singers }: { singers: NonNullable<AwardCandidate['singers']> }) {
+    return (
+        <div className="awards-reveal__finale-members">
+            <div className="awards-reveal__finale-members-avatars">
+                {singers.slice(0, 4).map((s, i) => (
+                    <div key={i} className="awards-reveal__finale-member-avatar"
+                         style={{ background: s.color ? 'linear-gradient(135deg,' + s.color + ',' + s.color + 'aa)' : undefined }}>
+                        {s.profilePicture
+                            ? <img src={s.profilePicture} alt="" />
+                            : (s.name || '?').charAt(0).toUpperCase()}
+                    </div>
+                ))}
+            </div>
+            <div className="awards-reveal__finale-member-names">{singers.map(s => s.name).join(', ')}</div>
+        </div>
+    )
 }
 
 // ---- Confetti ------------------------------------------------------------

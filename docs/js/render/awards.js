@@ -450,6 +450,18 @@ function membersBlock(singers){
   }
   return '<div class="awards-reveal__members"><div class="awards-reveal__members-avatars">'+av+'</div><div class="awards-reveal__member-names">'+esc(singers.map(function(x){return x.name;}).join(", "))+'</div></div>';
 }
+// Compact performer cluster for the finale grid cards.
+function finaleMembers(singers){
+  if(!singers||!singers.length)return "";
+  var av="";
+  var vis=singers.slice(0,4);
+  for(var i=0;i<vis.length;i++){
+    var s=vis[i];
+    var bg=s.color?'background:linear-gradient(135deg,'+s.color+','+s.color+'aa)':"";
+    av+='<div class="awards-reveal__finale-member-avatar" style="'+bg+'">'+(s.profilePicture?'<img src="'+esc(s.profilePicture)+'" alt="">':esc((s.name||"?").charAt(0).toUpperCase()))+'</div>';
+  }
+  return '<div class="awards-reveal__finale-members"><div class="awards-reveal__finale-members-avatars">'+av+'</div><div class="awards-reveal__finale-member-names">'+esc(singers.map(function(x){return x.name;}).join(", "))+'</div></div>';
+}
 export function renderRevealOverlay(){
   var step=S.awardsRevealStep;if(!step)return"";
   var inner="";
@@ -587,17 +599,63 @@ export function renderRevealOverlay(){
     var cards="";
     for(var fi=0;fi<summary.length;fi++){
       var s2=summary[fi];
-      var wlabel=s2.winners&&s2.winners.length?s2.winners.map(function(w){return esc(w.label);}).join(" · "):"No winner";
-      var wsub=s2.winners&&s2.winners.length===1&&s2.winners[0].subtitle?'<div class="awards-reveal__finale-card-sub">'+esc(s2.winners[0].subtitle)+'</div>':"";
-      cards+='<div class="awards-reveal__finale-card">'+
+      var isSingerF2=(s2.award.subjectType||s2.award.subject_type)==="singer";
+      var w2=s2.winners&&s2.winners.length?s2.winners[0]:null;
+      var head='<div class="awards-reveal__finale-card-head">'+
         '<div class="awards-reveal__finale-card-icon">'+awardsIconHtmlFor(s2.award)+'</div>'+
         '<div class="awards-reveal__finale-card-title">'+esc(s2.award.title)+'</div>'+
-        '<div class="awards-reveal__finale-card-winner">'+wlabel+'</div>'+wsub+
       '</div>';
+      var body;
+      if(!w2){
+        body='<div class="awards-reveal__finale-card-winner awards-reveal__finale-card-winner--none">No winner</div>';
+      } else {
+        var artCls='awards-reveal__finale-card-art'+(isSingerF2?' awards-reveal__finale-card-art--round':'');
+        var art=w2.avatarUrl?'<img class="'+artCls+'" src="'+esc(w2.avatarUrl)+'" alt="">':'<div class="'+artCls+'">'+esc((w2.label||"?").charAt(0).toUpperCase())+'</div>';
+        var wname=esc(isSingerF2?w2.label:(w2.trackName||w2.label));
+        body='<div class="awards-reveal__finale-card-body">'+art+
+          '<div class="awards-reveal__finale-card-meta">'+
+            '<div class="awards-reveal__finale-card-winner">'+wname+'</div>'+
+            (isSingerF2?"":finaleMembers(w2.singers))+
+          '</div>'+
+        '</div>';
+      }
+      cards+='<div class="awards-reveal__finale-card">'+head+body+'</div>';
     }
     inner='<div class="awards-reveal__finale">'+
       '<div class="awards-reveal__finale-title">That\'s a Wrap!</div>'+
       '<div class="awards-reveal__finale-grid">'+cards+'</div>'+
+    '</div>';
+  } else if(step.phase==="encore-buildup"){
+    inner='<div class="awards-reveal__encore-msg">'+
+      '<div class="awards-reveal__encore-big">Encore!</div>'+
+      '<div class="awards-reveal__encore-sub">Get ready to vote…</div>'+
+    '</div>';
+  } else if(step.phase==="encore-vote"){
+    var esongs=step.encoreSongs||[];
+    var rows="";
+    for(var ei=0;ei<esongs.length;ei++){
+      var es=esongs[ei];
+      var myc=(S.encoreCounts&&S.encoreCounts[es.id])||0;
+      var eart=es.artUrl?'<img class="awards-reveal__encore-tap-art" src="'+esc(es.artUrl)+'" alt="">':'<div class="awards-reveal__encore-tap-art">♪</div>';
+      rows+='<button class="awards-reveal__encore-tap" data-encore-id="'+esc(es.id)+'">'+
+        eart+
+        '<div class="awards-reveal__encore-tap-meta"><div class="awards-reveal__encore-tap-track">'+esc(es.trackName)+'</div><div class="awards-reveal__encore-tap-artist">'+esc(es.trackArtist||"")+'</div></div>'+
+        '<div class="awards-reveal__encore-tap-count">'+myc+'</div>'+
+      '</button>';
+    }
+    inner='<div class="awards-reveal__encore-votewrap">'+
+      '<div class="awards-reveal__encore-big">Encore — Vote!</div>'+
+      '<div class="awards-reveal__encore-sub">Tap a song as many times as you want</div>'+
+      '<div class="awards-reveal__encore-taplist">'+rows+'</div>'+
+    '</div>';
+  } else if(step.phase==="encore-winner"&&step.encoreWinner){
+    var ew=step.encoreWinner;
+    var ewart=ew.artUrl?'<img class="awards-reveal__encore-winner-art" src="'+esc(ew.artUrl)+'" alt="">':'<div class="awards-reveal__encore-winner-art">♪</div>';
+    inner='<div class="awards-reveal__encore-winnerwrap">'+
+      '<div class="awards-reveal__encore-eyebrow">The Encore</div>'+
+      ewart+
+      '<div class="awards-reveal__encore-winner-track">'+esc(ew.trackName)+'</div>'+
+      '<div class="awards-reveal__encore-winner-artist">'+esc(ew.trackArtist||"")+'</div>'+
     '</div>';
   }
   return '<div class="awards-reveal awards-reveal-companion"><div class="awards-reveal__spotlight"></div>'+inner+'</div>';

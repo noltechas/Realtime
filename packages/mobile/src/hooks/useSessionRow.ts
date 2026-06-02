@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { KaraokeSessionRow, SingerConfig } from '@karaoke/shared'
+import type { AwardsRevealStep, KaraokeSessionRow, SingerConfig } from '@karaoke/shared'
 import { supabase } from '../supabase/client'
 
 // Extends the shared KaraokeSessionRow with the columns the React/Stage tab
@@ -11,6 +11,10 @@ export interface SessionRowExtras {
   autotune_enabled?: boolean | null
   skip_requested_at?: string | null
   trending_gifs?: TrendingGif[] | null
+  // Current awards-ceremony reveal step, persisted by the host so remote
+  // devices that join late (or had the app closed) can resume the reveal.
+  // Null / absent when no reveal is in progress.
+  awards_reveal?: AwardsRevealStep | null
 }
 export type FullSessionRow = KaraokeSessionRow & SessionRowExtras
 

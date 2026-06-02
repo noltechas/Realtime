@@ -9,6 +9,7 @@ import { AwardsScreen } from '../screens/AwardsScreen'
 import { ProfileScreen } from '../screens/ProfileScreen'
 import { SessionThemeProvider } from '../theme/ThemeContext'
 import { SessionGuestsProvider } from '../hooks/useSessionGuests'
+import { SessionRevealLayer } from '../awards/SessionRevealLayer'
 
 const Tabs = createBottomTabNavigator<SessionTabsParamList>()
 
@@ -44,6 +45,9 @@ export function SessionTabs() {
         <Tabs.Screen name="Awards" component={AwardsScreen} />
         <Tabs.Screen name="Profile" component={ProfileScreen} />
       </Tabs.Navigator>
+      {/* Global awards-ceremony overlay — always mounted so the reveal takes
+          over from any tab (and resumes if the app was reopened mid-show). */}
+      <SessionRevealLayer />
       </SessionGuestsProvider>
     </SessionThemeProvider>
   )

@@ -108,8 +108,19 @@ export type RevealPhase =
     | 'lineup'       // all ≤3 finalists shown together in a row
     | 'winner'       // the winning finalist grows full-screen + stats
     | 'finale'       // montage of all winners
+    | 'encore-buildup'  // multiplying "Encore!" text build-up
+    | 'encore-vote'     // tap-to-vote on 5 songs; stage shows live tally
+    | 'encore-winner'   // the encore song that won
     | 'done'         // teardown
     | 'idle'         // not active
+
+// A song offered up for the encore vote.
+export interface EncoreSong {
+    id: string            // trackId
+    trackName: string
+    trackArtist: string
+    artUrl: string | null
+}
 
 // A finalist's payload for the spotlight phase: the candidate, their stats,
 // and (for singer awards) the list of songs they sang, scrolled on stage.
@@ -139,6 +150,11 @@ export interface RevealStep {
         award: Award
         winners: AwardCandidate[]
     }>
+    // Encore phases
+    encoreSongs?: EncoreSong[]       // the 5 songs up for the encore vote
+    encoreTotals?: Record<string, number>  // live vote counts keyed by song id
+    encoreEndsAt?: number            // epoch ms the 45s vote ends (for countdown)
+    encoreWinner?: EncoreSong        // the winning encore song
     startedAt: string                // ISO timestamp the sequencer used
 }
 

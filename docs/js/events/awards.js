@@ -3,7 +3,7 @@ import { resizeImage, esc } from '../utils.js';
 import { render } from '../render/main.js';
 import { shuffleAwardIcons, buildAwardCandidates, awardCandidateBanned, awardBallot, matchBallot, awardsFilteredIcons, awardsPickerThumb } from '../render/awards.js';
 import { ensureAwardsManifest } from '../awards-manifest.js';
-import { setAwardBallot, createCustomAward, updateMyAward, deleteMyAward, loadAwards } from '../supabase.js';
+import { setAwardBallot, createCustomAward, updateMyAward, deleteMyAward, loadAwards, sendEncoreTally } from '../supabase.js';
 
 // Mirror of descriptionMeetsMinimum() in mobile/AwardsScreen.tsx — strips the
 // "Awarded to " prefix before measuring so leaving the typewritered text alone
@@ -202,6 +202,21 @@ export function bindAwardsEvents(){
         selected.push(chosen);
       }
       commitBallot(award,selected);
+    });
+  });
+
+  // Encore tap-vote — increment locally + in place (avoids a full re-render on
+  // every tap), debounced-broadcast to the stage. The 1s reveal re-broadcast
+  // reconciles the displayed counts.
+  document.querySelectorAll("[data-encore-id]").forEach(function(btn){
+    btn.addEventListener("click",function(){
+      var id=btn.getAttribute("data-encore-id");
+      if(!S.encoreCounts)S.encoreCounts={};
+      S.encoreCounts[id]=(S.encoreCounts[id]||0)+1;
+      var cEl=btn.querySelector(".awards-reveal__encore-tap-count");
+      if(cEl)cEl.textContent=String(S.encoreCounts[id]);
+      btn.classList.remove("is-tapped");void btn.offsetWidth;btn.classList.add("is-tapped");
+      sendEncoreTally();
     });
   });
 

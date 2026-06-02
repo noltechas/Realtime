@@ -10,6 +10,7 @@ import {
     AwardSubjectType,
     AwardTally,
     AwardVote,
+    EncoreSong,
     RevealPhase,
     RevealStep
 } from './types'
@@ -461,11 +462,30 @@ function shuffled<T>(arr: T[]): T[] {
     return a
 }
 
+// Pick N distinct random played songs for the encore vote.
+export function pickEncoreSongs(
+    history: PlayedPerformance[],
+    n = 5
+): EncoreSong[] {
+    const seen = new Set<string>()
+    const unique: EncoreSong[] = []
+    for (const p of history) {
+        if (!p.trackId || seen.has(p.trackId)) continue
+        seen.add(p.trackId)
+        unique.push({ id: p.trackId, trackName: p.trackName, trackArtist: p.trackArtist, artUrl: p.trackArtUrl })
+    }
+    return shuffled(unique).slice(0, n)
+}
+
 // Build the ordered slide list the admin steps through:
-//   opening → (per award: intro → finalist×N[random] → lineup → winner) → finale
+//   opening → overview → (per award: intro → finalist×N[random] → lineup → winner)
+//   → finale  OR  → encore-buildup → encore-vote (when an encore is supplied).
 // startedAt is left blank; the admin stamps it fresh on each broadcast so the
 // stage replays entrance animations even when re-showing the same slide.
-export function buildRevealStoryboard(items: RevealSequenceItem[]): RevealStep[] {
+export function buildRevealStoryboard(
+    items: RevealSequenceItem[],
+    encore?: { songs: EncoreSong[] }
+): RevealStep[] {
     const total = items.length
     const slides: RevealStep[] = []
     const slide = (phase: RevealPhase, partial: Partial<RevealStep>): RevealStep => ({
@@ -522,15 +542,23 @@ export function buildRevealStoryboard(items: RevealSequenceItem[]): RevealStep[]
         }))
     })
 
-    slides.push(slide('finale', {
-        awardIndex: total,
-        finaleSummary: items.map(it => {
-            const wc =
-                it.finalists.find(f => f.candidate.subjectKey === it.winnerKey)?.candidate
-                ?? it.finalists[0]?.candidate ?? null
-            return { award: it.award, winners: wc ? [wc] : [] }
-        })
-    }))
+    // The encore is the grand closer — it replaces the finale recap. The
+    // encore-winner slide is broadcast dynamically by the admin after the vote
+    // timer, so it isn't part of the static storyboard.
+    if (encore && encore.songs.length > 0) {
+        slides.push(slide('encore-buildup', { awardIndex: total }))
+        slides.push(slide('encore-vote', { awardIndex: total, encoreSongs: encore.songs, encoreTotals: {} }))
+    } else {
+        slides.push(slide('finale', {
+            awardIndex: total,
+            finaleSummary: items.map(it => {
+                const wc =
+                    it.finalists.find(f => f.candidate.subjectKey === it.winnerKey)?.candidate
+                    ?? it.finalists[0]?.candidate ?? null
+                return { award: it.award, winners: wc ? [wc] : [] }
+            })
+        }))
+    }
 
     return slides
 }
@@ -545,6 +573,9 @@ export function describeRevealSlide(step: RevealStep): string {
         case 'lineup': return `The finalists · ${step.award?.title ?? ''}`
         case 'winner': return `Winner${step.winners && step.winners.length ? ' — speech' : ''} · ${step.award?.title ?? ''}`
         case 'finale': return 'Finale — all winners'
+        case 'encore-buildup': return 'Encore — build-up (auto ~10s)'
+        case 'encore-vote': return 'Encore — live vote (auto 45s)'
+        case 'encore-winner': return 'Encore — winning song'
         default: return step.phase
     }
 }
@@ -579,11 +610,33 @@ export async function getRevealBroadcastChannel(sessionId: string) {
     return ch
 }
 
+// Dedup key for the persisted reveal step so the per-second encore-vote
+// re-broadcasts (which keep the same startedAt) don't hammer the DB.
+let lastPersistedRevealKey: string | null = null
+
 export async function sendRevealStepBroadcast(sessionId: string, step: unknown): Promise<void> {
     const ch = await getRevealBroadcastChannel(sessionId)
     try {
         await ch.send({ type: 'broadcast', event: 'reveal-step', payload: { step } })
     } catch (e) {
         console.warn('[Awards] reveal broadcast send failed:', e)
+    }
+    // Also persist the current step on the session row. Broadcasts are
+    // ephemeral — a phone that had the app closed (or never opened the Awards
+    // tab) when the reveal started would miss them. Persisting lets any remote
+    // device fetch the in-progress reveal on load and jump straight in.
+    try {
+        const s = step as { phase?: string; awardIndex?: number; startedAt?: string } | null
+        const active = !!s && s.phase !== 'idle' && s.phase !== 'done'
+        const key = active ? `${s!.phase}|${s!.awardIndex}|${s!.startedAt}` : 'inactive'
+        if (key !== lastPersistedRevealKey) {
+            lastPersistedRevealKey = key
+            await awardsSupabase
+                .from('karaoke_sessions')
+                .update({ awards_reveal: active ? step : null })
+                .eq('id', sessionId)
+        }
+    } catch (e) {
+        console.warn('[Awards] reveal persist failed:', e)
     }
 }

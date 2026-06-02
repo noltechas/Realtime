@@ -16,6 +16,7 @@ import {
   FlatList,
 } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { Ionicons } from '@expo/vector-icons'
 import * as ImagePicker from 'expo-image-picker'
 import { LinearGradient } from 'expo-linear-gradient'
 import Svg, {
@@ -40,7 +41,6 @@ import {
   type AwardSubjectType,
   type AwardsBundle,
   type AwardCandidate,
-  type AwardsRevealStep,
   type KaraokeAwardRow,
   type KaraokeAwardVoteRow,
 } from '@karaoke/shared'
@@ -55,7 +55,6 @@ import {
   shuffleAwardIcons,
   type AwardsIcon,
 } from '../awards/manifest'
-import { RevealOverlay } from '../awards/RevealOverlay'
 
 type Sub = 'list' | 'detail' | 'create' | 'edit'
 
@@ -95,7 +94,6 @@ export function AwardsScreen() {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState<CreateDraft | null>(null)
-  const [revealStep, setRevealStep] = useState<AwardsRevealStep | null>(null)
   // Set by setBallot when a ballot changes; AwardDetail plays a brief flash on
   // the ballot strip. Cleared automatically after ~1.2s.
   const [recentlyVotedAwardId, setRecentlyVotedAwardId] = useState<string | null>(null)
@@ -124,7 +122,9 @@ export function AwardsScreen() {
     const unsub = subscribeToAwards(supabase, session.sessionId, {
       onAwardsChange: () => void refresh(),
       onOwnVotesChange: () => void refresh(),
-      onRevealStep: (step) => setRevealStep(step),
+      // Reveal steps are handled globally by <SessionRevealLayer> (driven off
+      // the persisted session row) so the ceremony shows from any tab and
+      // resumes after an app reopen — not just while this tab is mounted.
     })
     return () => {
       cancelled = true
@@ -386,8 +386,6 @@ export function AwardsScreen() {
           bottomPadding={insets.bottom + 110}
         />
       ) : null}
-
-      <RevealOverlay step={revealStep} onDismiss={() => setRevealStep(null)} />
     </SafeAreaView>
   )
 }
@@ -407,8 +405,11 @@ function GradientTitle({
   // 0.78 × size gives a generous-but-not-extreme buffer for Bodoni 72's
   // wider didone capitals. Anything we don't use just becomes empty padding
   // around the centered text.
-  const w = Math.max(160, Math.round(text.length * size * 0.78))
-  const h = Math.round(size * 1.25)
+  const w = Math.max(160, Math.round(text.length * size * 0.74))
+  // Delauney's caps ink ~1.02em above the baseline (taller than the declared
+  // ascent). Baseline at 1.08·size with a 1.14·size box leaves a symmetric
+  // ~0.06·size gap top & bottom, so the caps read as vertically centered.
+  const h = Math.round(size * 1.14)
   return (
     <Svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
       <Defs>
@@ -420,7 +421,7 @@ function GradientTitle({
       </Defs>
       <SvgText
         x={w / 2}
-        y={size * 0.92}
+        y={size * 1.08}
         textAnchor="middle"
         fill="url(#awardsTitle)"
         fontSize={size}
@@ -633,7 +634,7 @@ function ProgramHeader() {
       <View style={{ alignSelf: 'stretch', marginBottom: 4 }}>
         <GoldRule glyph="✦" />
       </View>
-      <GradientTitle text="Awards" size={64} />
+      <GradientTitle text="Awards" size={46} />
       <View style={{ alignSelf: 'stretch', marginTop: 4 }}>
         <GoldRule glyph="✦" />
       </View>
@@ -707,17 +708,23 @@ function CreateAwardCta({
           backgroundColor: owned ? P.gold : 'transparent',
         }}
       >
-        <PlusOrPencil owned={owned} tinted={owned} />
+        <Ionicons
+          name={owned ? 'create' : 'add'}
+          size={owned ? 20 : 22}
+          color={owned ? '#1a140a' : P.gold}
+        />
       </View>
       <View style={{ flex: 1 }}>
         <Text
           style={{
             color: P.cream,
             fontFamily: P.fontSerif,
-            fontSize: 17,
+            fontSize: 16,
             letterSpacing: 0.2,
+            // Generous line height so Delauney's tall caps don't clip at top.
+            lineHeight: 23,
           }}
-          numberOfLines={1}
+          numberOfLines={2}
         >
           {owned ? ownTitle ?? 'Your nomination' : 'Submit a Nomination'}
         </Text>
@@ -865,10 +872,12 @@ function AwardCard({
         <Text
           style={{
             fontFamily: P.fontSerif,
-            fontSize: 19,
+            fontSize: 17,
             color: P.cream,
             letterSpacing: 0.2,
-            lineHeight: 24,
+            // Delauney's caps ink well above the declared ascent — a generous
+            // line height keeps the tops from clipping inside the text frame.
+            lineHeight: 27,
           }}
           numberOfLines={2}
         >
@@ -1205,48 +1214,6 @@ function MetaPill({
   )
 }
 
-function PlusOrPencil({ owned, tinted }: { owned: boolean; tinted?: boolean }) {
-  // Composed from primitive Views — two glyphs we want crisp at every scale.
-  // Tinted=true means the glyph sits on a filled gold disc (so it's drawn
-  // in deep black); otherwise it sits on the dark canvas and the glyph is
-  // gold.
-  const c = tinted ? '#1a140a' : P.gold
-  if (owned) {
-    // Pencil — diagonal stick + tip square
-    return (
-      <View style={{ width: 16, height: 16, justifyContent: 'center', alignItems: 'center' }}>
-        <View
-          style={{
-            width: 14,
-            height: 2.5,
-            backgroundColor: c,
-            transform: [{ rotate: '-45deg' }],
-            borderRadius: 1,
-          }}
-        />
-        <View
-          style={{
-            position: 'absolute',
-            left: 2,
-            bottom: 2,
-            width: 4,
-            height: 4,
-            backgroundColor: c,
-            transform: [{ rotate: '45deg' }],
-          }}
-        />
-      </View>
-    )
-  }
-  // Plus
-  return (
-    <View style={{ width: 16, height: 16, justifyContent: 'center', alignItems: 'center' }}>
-      <View style={{ width: 12, height: 2, backgroundColor: c, position: 'absolute' }} />
-      <View style={{ width: 2, height: 12, backgroundColor: c, position: 'absolute' }} />
-    </View>
-  )
-}
-
 // -----------------------------------------------------------------------
 // AwardDetail — vote screen with candidate list.
 // -----------------------------------------------------------------------
@@ -1340,12 +1307,12 @@ function AwardDetail({
         <Text
           style={{
             fontFamily: P.fontSerif,
-            fontSize: 30,
+            fontSize: 26,
             color: P.cream,
             letterSpacing: 0.2,
             textAlign: 'center',
             paddingHorizontal: 8,
-            lineHeight: 36,
+            lineHeight: 38,
           }}
         >
           {award.title}
