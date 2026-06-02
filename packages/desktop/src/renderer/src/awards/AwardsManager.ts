@@ -10,7 +10,6 @@ import {
     AwardSubjectType,
     AwardTally,
     AwardVote,
-    REVEAL_TIMING,
     RevealPhase,
     RevealStep
 } from './types'
@@ -53,14 +52,28 @@ export function buildCandidates(opts: {
     // only carry a guestId after the base64 refactor). Name-only singers (no
     // guestId) keep their inline name and have no avatar.
     const guestById = new Map(guests.map(g => [g.id, g]))
+    // Match by name too — sessions accumulate duplicate guest records, so a
+    // performance's singer_config guestId may not point at the guest record
+    // that actually holds the profile picture. Prefer a record that has one.
+    const guestByName = new Map<string, KnownGuest>()
+    for (const g of guests) {
+        const existing = guestByName.get(g.name)
+        if (!existing || (!existing.profilePicture && g.profilePicture)) guestByName.set(g.name, g)
+    }
     const resolveSingers = (singers: PlayedPerformance['singers']) =>
         singers.map(s => {
-            const g = s.guestId ? guestById.get(s.guestId) : undefined
+            const byId = s.guestId ? guestById.get(s.guestId) : undefined
+            // Use the id-matched guest, unless it lacks a picture and a same-named
+            // guest record has one.
+            const byName = s.name ? guestByName.get(s.name) : undefined
+            const g = (byId && byId.profilePicture) ? byId : (byName && byName.profilePicture ? byName : (byId || byName))
             return {
                 name: g?.name ?? s.name,
                 color: s.color ?? null,
-                profilePicture: g ? g.profilePicture : (s.profilePicture ?? null),
-                guestId: s.guestId ?? null,
+                // Prefer a guest's live profile picture, then the picture captured
+                // in the performance's singer_config.
+                profilePicture: (g && g.profilePicture) || s.profilePicture || null,
+                guestId: s.guestId ?? (g ? g.id : null),
             }
         })
     if (subjectType === 'performance') {
@@ -108,6 +121,17 @@ export function buildCandidates(opts: {
             if (s.guestId) sangIds.add(s.guestId)
         }
     }
+    // A singer's photo may live on their guest record OR only in the
+    // singer_config of a song they sang — index both so the reveal face shows.
+    const picByGuestId = new Map<string, string>()
+    const picByName = new Map<string, string>()
+    for (const p of history) {
+        for (const s of p.singers) {
+            if (!s.profilePicture) continue
+            if (s.guestId && !picByGuestId.has(s.guestId)) picByGuestId.set(s.guestId, s.profilePicture)
+            if (s.name && !picByName.has(s.name)) picByName.set(s.name, s.profilePicture)
+        }
+    }
     // Match guests who appear in either set (by id OR name).
     const candidates: AwardCandidate[] = []
     for (const g of guests) {
@@ -117,7 +141,7 @@ export function buildCandidates(opts: {
                 subjectType: 'singer',
                 label: g.name,
                 subtitle: 'Performer',
-                avatarUrl: g.profilePicture,
+                avatarUrl: g.profilePicture || picByGuestId.get(g.id) || picByName.get(g.name) || null,
                 bannedVoterGuestIds: [g.id],
                 bannedVoterNames: [g.name]
             })
@@ -406,8 +430,10 @@ export function buildPersistedResults(opts: {
     }]
 }
 
-// --- Reveal sequencer ------------------------------------------------------
-// Drives the broadcast-step timeline. The caller owns cancellation.
+// --- Reveal storyboard -----------------------------------------------------
+// The reveal is ADMIN-PACED: we precompute the full ordered list of slides and
+// the admin steps through them with Prev/Next (so each winner can give a speech
+// before advancing). `items` arrive already in the admin's chosen reveal order.
 
 // One finalist with the data the stage needs to spotlight them.
 export interface RevealFinalistItem {
@@ -425,10 +451,6 @@ export interface RevealSequenceItem {
     winnerStats: { score: number; firstPlaceVotes: number; totalVotes: number } | null
 }
 
-export interface RevealSequenceController {
-    cancel: () => void
-}
-
 // Fisher–Yates shuffle (renderer-side; Math.random is fine here).
 function shuffled<T>(arr: T[]): T[] {
     const a = arr.slice()
@@ -439,110 +461,91 @@ function shuffled<T>(arr: T[]): T[] {
     return a
 }
 
-export function runRevealSequence(opts: {
-    items: RevealSequenceItem[]
-    onBroadcast: (step: RevealStep) => Promise<void> | void
-    onComplete?: () => void
-}): RevealSequenceController {
-    let cancelled = false
-    const timers: ReturnType<typeof setTimeout>[] = []
-
-    const wait = (ms: number) => new Promise<void>((resolve) => {
-        const t = setTimeout(resolve, ms)
-        timers.push(t)
+// Build the ordered slide list the admin steps through:
+//   opening → (per award: intro → finalist×N[random] → lineup → winner) → finale
+// startedAt is left blank; the admin stamps it fresh on each broadcast so the
+// stage replays entrance animations even when re-showing the same slide.
+export function buildRevealStoryboard(items: RevealSequenceItem[]): RevealStep[] {
+    const total = items.length
+    const slides: RevealStep[] = []
+    const slide = (phase: RevealPhase, partial: Partial<RevealStep>): RevealStep => ({
+        phase,
+        awardIndex: 0,
+        totalAwards: total,
+        startedAt: '',
+        ...partial
     })
 
-    const broadcast = async (phase: RevealPhase, partial: Partial<RevealStep> = {}) => {
-        if (cancelled) return
-        const step: RevealStep = {
-            phase,
-            awardIndex: 0,
-            totalAwards: opts.items.length,
-            startedAt: new Date().toISOString(),
-            ...partial
-        }
-        await opts.onBroadcast(step)
+    slides.push(slide('opening', { awardIndex: 0 }))
+    // Overview of every award (icon + name) before going one-by-one.
+    if (items.length > 0) {
+        slides.push(slide('overview', { awardIndex: 0, overview: items.map(it => it.award) }))
     }
 
-    ;(async () => {
-        // Opening card
-        await broadcast('opening', { awardIndex: 0 })
-        await wait(REVEAL_TIMING.opening)
+    items.forEach((item, i) => {
+        slides.push(slide('intro', { awardIndex: i, award: item.award }))
+        const finalists = item.finalists
+        const lineup = finalists.map(f => f.candidate)            // standings order
+        const winnerCandidate =
+            finalists.find(f => f.candidate.subjectKey === item.winnerKey)?.candidate
+            ?? finalists[0]?.candidate ?? null
 
-        // Per award: finalists one-by-one (random order) → lineup → winner grows.
-        for (let i = 0; i < opts.items.length; i++) {
-            if (cancelled) break
-            const item = opts.items[i]
-            const finalists = item.finalists
-            const lineup = finalists.map(f => f.candidate)         // standings order
-            const winnerCandidate =
-                finalists.find(f => f.candidate.subjectKey === item.winnerKey)?.candidate
-                ?? finalists[0]?.candidate ?? null
-
-            if (finalists.length > 0) {
-                // Spotlight each finalist in a randomized order so the reveal
-                // order doesn't betray the standings.
-                const order = shuffled(finalists)
-                for (let k = 0; k < order.length; k++) {
-                    if (cancelled) break
-                    const f = order[k]
-                    await broadcast('finalist', {
-                        awardIndex: i,
-                        award: item.award,
-                        finalist: {
-                            candidate: f.candidate,
-                            score: f.score,
-                            firstPlaceVotes: f.firstPlaceVotes,
-                            totalVotes: f.totalVotes,
-                            order: k,
-                            count: order.length,
-                            songs: f.songs
-                        }
-                    })
-                    await wait(REVEAL_TIMING.finalist)
-                }
-                if (cancelled) break
-                await broadcast('lineup', { awardIndex: i, award: item.award, lineup })
-                await wait(REVEAL_TIMING.lineup)
-            }
-            if (cancelled) break
-            await broadcast('winner', {
-                awardIndex: i,
-                award: item.award,
-                lineup,
-                winners: winnerCandidate ? [winnerCandidate] : [],
-                winnerKey: item.winnerKey ?? undefined,
-                winnerStats: item.winnerStats ?? undefined,
-                voteCount: item.winnerStats?.score ?? 0
+        if (finalists.length > 0) {
+            // Randomize the reveal order so it doesn't betray the standings.
+            const order = shuffled(finalists)
+            order.forEach((f, k) => {
+                slides.push(slide('finalist', {
+                    awardIndex: i,
+                    award: item.award,
+                    finalist: {
+                        candidate: f.candidate,
+                        score: f.score,
+                        firstPlaceVotes: f.firstPlaceVotes,
+                        totalVotes: f.totalVotes,
+                        order: k,
+                        count: order.length,
+                        songs: f.songs
+                    }
+                }))
             })
-            await wait(REVEAL_TIMING.winner)
-            if (i < opts.items.length - 1) await wait(REVEAL_TIMING.gap)
+            slides.push(slide('lineup', { awardIndex: i, award: item.award, lineup }))
         }
-        if (cancelled) return
 
-        // Finale — montage of all winners
-        await broadcast('finale', {
-            awardIndex: opts.items.length,
-            finaleSummary: opts.items.map(it => {
-                const winnerCandidate =
-                    it.finalists.find(f => f.candidate.subjectKey === it.winnerKey)?.candidate
-                    ?? it.finalists[0]?.candidate ?? null
-                return { award: it.award, winners: winnerCandidate ? [winnerCandidate] : [] }
-            })
+        slides.push(slide('winner', {
+            awardIndex: i,
+            award: item.award,
+            lineup,
+            winners: winnerCandidate ? [winnerCandidate] : [],
+            winnerKey: item.winnerKey ?? undefined,
+            winnerStats: item.winnerStats ?? undefined,
+            voteCount: item.winnerStats?.score ?? 0
+        }))
+    })
+
+    slides.push(slide('finale', {
+        awardIndex: total,
+        finaleSummary: items.map(it => {
+            const wc =
+                it.finalists.find(f => f.candidate.subjectKey === it.winnerKey)?.candidate
+                ?? it.finalists[0]?.candidate ?? null
+            return { award: it.award, winners: wc ? [wc] : [] }
         })
-        await wait(REVEAL_TIMING.finale)
-        await broadcast('done', { awardIndex: opts.items.length })
-        await wait(REVEAL_TIMING.done)
-        // Clear stage
-        await broadcast('idle', { awardIndex: 0 })
-        opts.onComplete?.()
-    })().catch(e => console.error('[Awards] Reveal sequencer error:', e))
+    }))
 
-    return {
-        cancel: () => {
-            cancelled = true
-            for (const t of timers) clearTimeout(t)
-        }
+    return slides
+}
+
+// A short human label for a slide — shown in the admin's reveal control panel.
+export function describeRevealSlide(step: RevealStep): string {
+    switch (step.phase) {
+        case 'opening': return 'Opening — "Tonight’s Awards"'
+        case 'overview': return `Overview — all ${step.overview?.length ?? 0} awards`
+        case 'intro': return `Intro · ${step.award?.title ?? 'Award'}`
+        case 'finalist': return `Finalist ${(step.finalist?.order ?? 0) + 1}/${step.finalist?.count ?? 0} · ${step.award?.title ?? ''}`
+        case 'lineup': return `The finalists · ${step.award?.title ?? ''}`
+        case 'winner': return `Winner${step.winners && step.winners.length ? ' — speech' : ''} · ${step.award?.title ?? ''}`
+        case 'finale': return 'Finale — all winners'
+        default: return step.phase
     }
 }
 

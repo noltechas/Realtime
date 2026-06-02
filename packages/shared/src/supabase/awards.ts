@@ -470,13 +470,15 @@ export interface RevealCandidate {
 }
 
 export interface AwardsRevealStep {
-  // 'finalist' = one of the top-3 in random order; 'lineup' = all finalists in
-  // a row; 'winner' = the chosen finalist grows full-screen. Companions render
-  // a simplified synced view from this; the rich animation is desktop-only.
-  phase: 'opening' | 'finalist' | 'lineup' | 'winner' | 'finale'
+  // 'intro' = introduce one award (logo + title + description); 'finalist' = one
+  // of the top-3 in random order; 'lineup' = all finalists in a row; 'winner' =
+  // the chosen finalist grows full-screen. Companions render a simplified synced
+  // view from this; the rich animation is desktop-only.
+  phase: 'opening' | 'overview' | 'intro' | 'finalist' | 'lineup' | 'winner' | 'finale'
   awardIndex?: number
   totalAwards?: number
   award?: KaraokeAwardRow
+  overview?: KaraokeAwardRow[]   // all awards (icon + name) for the overview phase
   // finalist phase — a single spotlighted finalist + their stats
   finalist?: {
     candidate: RevealCandidate

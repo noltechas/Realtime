@@ -437,13 +437,49 @@ export function renderVoteConfirmOverlay(){
     '</div>'+
   '</div>';
 }
+// Performer cluster (avatars + names) shown under a performance/group song
+// title. Lists the people who sang it — never the original recording artist.
+function membersBlock(singers){
+  if(!singers||!singers.length)return "";
+  var av="";
+  var vis=singers.slice(0,5);
+  for(var i=0;i<vis.length;i++){
+    var s=vis[i];
+    var bg=s.color?'background:linear-gradient(135deg,'+s.color+','+s.color+'aa)':"";
+    av+='<div class="awards-reveal__member-avatar" style="'+bg+'">'+(s.profilePicture?'<img src="'+esc(s.profilePicture)+'" alt="">':esc((s.name||"?").charAt(0).toUpperCase()))+'</div>';
+  }
+  return '<div class="awards-reveal__members"><div class="awards-reveal__members-avatars">'+av+'</div><div class="awards-reveal__member-names">'+esc(singers.map(function(x){return x.name;}).join(", "))+'</div></div>';
+}
 export function renderRevealOverlay(){
   var step=S.awardsRevealStep;if(!step)return"";
   var inner="";
   if(step.phase==="opening"){
     inner='<div class="awards-reveal__opening">'+
+      '<div class="awards-reveal__opening-eyebrow">The Ceremony</div>'+
       '<div class="awards-reveal__opening-title">Tonight\'s Awards</div>'+
       '<div class="awards-reveal__opening-sub">'+step.totalAwards+' categor'+(step.totalAwards===1?"y":"ies")+' to reveal</div>'+
+    '</div>';
+  } else if(step.phase==="overview"){
+    var ov=step.overview||[];
+    var ovItems="";
+    for(var oi=0;oi<ov.length;oi++){
+      var oa=ov[oi];
+      ovItems+='<div class="awards-reveal__overview-item" style="animation-delay:'+((oi%6)*0.45).toFixed(2)+'s">'+
+        '<div class="awards-reveal__award-icon">'+awardsIconBody(oa)+'</div>'+
+        '<div class="awards-reveal__overview-name">'+esc(oa.title)+'</div>'+
+      '</div>';
+    }
+    inner='<div class="awards-reveal__overview">'+
+      '<div class="awards-reveal__overview-eyebrow">Tonight\'s Categories</div>'+
+      '<div class="awards-reveal__overview-grid">'+ovItems+'</div>'+
+    '</div>';
+  } else if(step.phase==="intro"&&step.award){
+    inner='<div class="awards-reveal__intro">'+
+      '<div class="awards-reveal__intro-eyebrow">Award '+(step.awardIndex+1)+' of '+step.totalAwards+'</div>'+
+      '<div class="awards-reveal__award-icon">'+awardsIconBody(step.award)+'</div>'+
+      '<div class="awards-reveal__intro-title">'+esc(step.award.title)+'</div>'+
+      '<div class="awards-reveal__intro-rule"><span>✦</span></div>'+
+      (step.award.description?'<div class="awards-reveal__intro-citation">'+esc(step.award.description)+'</div>':"")+
     '</div>';
   } else if(step.phase==="finalist"&&step.award&&step.finalist){
     var f=step.finalist;
@@ -462,21 +498,15 @@ export function renderRevealOverlay(){
         songHtml+='<div class="awards-reveal__song">'+sgArt+'<div class="awards-reveal__song-meta"><div class="awards-reveal__song-title">'+esc(sg.trackName)+'</div><div class="awards-reveal__song-artist">'+esc(sg.trackArtist)+'</div></div></div>';
       }
       var trackCls="awards-reveal__songmarquee-track"+(songs.length>3?" awards-reveal__songmarquee-track--scroll":"");
+      var maskCls="awards-reveal__songmarquee-mask"+(songs.length>3?" awards-reveal__songmarquee-mask--scroll":"");
       if(songs.length>3)songHtml=songHtml+songHtml; // duplicate for seamless loop
       body='<div class="awards-reveal__finalist-name">'+esc(fc.label)+'</div>'+
         '<div class="awards-reveal__songmarquee"><div class="awards-reveal__songmarquee-label">'+(songs.length?"Songs they sang":"Took the mic tonight")+'</div>'+
-        '<div class="awards-reveal__songmarquee-mask"><div class="'+trackCls+'">'+songHtml+'</div></div></div>';
+        '<div class="'+maskCls+'"><div class="'+trackCls+'">'+songHtml+'</div></div></div>';
     } else {
-      var fsingers=fc.singers||[];
-      var memAvatars="";
-      var visMem=fsingers.slice(0,5);
-      for(var mi=0;mi<visMem.length;mi++){
-        var ms=visMem[mi];
-        var mbg=ms.color?'background:linear-gradient(135deg,'+ms.color+','+ms.color+'aa)':"";
-        memAvatars+='<div class="awards-reveal__member-avatar" style="'+mbg+'">'+(ms.profilePicture?'<img src="'+esc(ms.profilePicture)+'" alt="">':esc((ms.name||"?").charAt(0).toUpperCase()))+'</div>';
-      }
-      var memLine=fsingers.length?'<div class="awards-reveal__members"><div class="awards-reveal__members-avatars">'+memAvatars+'</div><div class="awards-reveal__member-names">'+esc(fsingers.map(function(x){return x.name;}).join(", "))+'</div></div>':"";
-      body='<div class="awards-reveal__finalist-track">'+esc(fc.trackName||fc.label)+'</div>'+(fc.subtitle?'<div class="awards-reveal__finalist-sub">'+esc(fc.subtitle)+'</div>':"")+memLine;
+      // Performance / group: the song, then the performers (pics + names) —
+      // not the original song artist.
+      body='<div class="awards-reveal__finalist-track">'+esc(fc.trackName||fc.label)+'</div>'+membersBlock(fc.singers);
     }
     inner='<div class="awards-reveal__finalist">'+
       '<div class="awards-reveal__finalist-badge">Finalist '+(f.order+1)+' of '+f.count+'</div>'+
@@ -491,7 +521,8 @@ export function renderRevealOverlay(){
       var lc=lineup[li];
       var lface=lc.avatarUrl?'<img class="awards-reveal__lineup-face" src="'+esc(lc.avatarUrl)+'" alt="">':'<div class="awards-reveal__lineup-face">'+esc((lc.label||"?").charAt(0).toUpperCase())+'</div>';
       lcards+='<div class="awards-reveal__lineup-card awards-reveal__lineup-enter" style="animation-delay:'+(li*0.18)+'s">'+lface+
-        '<div class="awards-reveal__lineup-name">'+esc(isSingerL?lc.label:(lc.trackName||lc.label))+'</div></div>';
+        '<div class="awards-reveal__lineup-name">'+esc(isSingerL?lc.label:(lc.trackName||lc.label))+'</div>'+
+        (isSingerL?"":membersBlock(lc.singers))+'</div>';
     }
     inner='<div class="awards-reveal__lineupwrap">'+
       (step.award?'<div class="awards-reveal__award-icon">'+awardsIconBody(step.award)+'</div>':"")+
@@ -514,14 +545,8 @@ export function renderRevealOverlay(){
     } else {
       var w=winners[0];
       var isSingerW=step.award.subject_type==="singer";
-      var avHtml="";
-      if(!isSingerW&&w.singers&&w.singers.length>1){
-        w.singers.forEach(function(s){
-          avHtml+='<div class="awards-reveal__winner-avatar">'+(s.profilePicture?'<img src="'+esc(s.profilePicture)+'" style="width:100%;height:100%;object-fit:cover">':esc((s.name||"?").charAt(0).toUpperCase()))+'</div>';
-        });
-      } else {
-        avHtml+=w.avatarUrl?'<img class="awards-reveal__winner-avatar" src="'+esc(w.avatarUrl)+'" alt="">':'<div class="awards-reveal__winner-avatar">'+esc((w.label||"?").charAt(0).toUpperCase())+'</div>';
-      }
+      // Singer → their photo; performance/group → the song's album art.
+      var avHtml=w.avatarUrl?'<img class="awards-reveal__winner-avatar" src="'+esc(w.avatarUrl)+'" alt="">':'<div class="awards-reveal__winner-avatar">'+esc((w.label||"?").charAt(0).toUpperCase())+'</div>';
       var st=step.winnerStats;
       var stats="";
       if(st){
@@ -532,7 +557,9 @@ export function renderRevealOverlay(){
         '</div>';
       }
       var wname=esc(isSingerW?w.label:(w.trackName||w.label));
-      var wsub=w.subtitle?'<div class="awards-reveal__winner-sub">'+esc(w.subtitle)+'</div>':"";
+      // Performance/group winners list their performers (pics + names); singer
+      // winners need no subtitle (their name is the headline).
+      var wsub=isSingerW?"":membersBlock(w.singers);
       inner='<div class="awards-reveal__winner">'+
         awardCrest+
         '<div class="awards-reveal__winner-label">Winner · '+esc(step.award.title)+'</div>'+

@@ -5,6 +5,7 @@ import { AwardsRevealAnimation } from '../awards/AwardsRevealAnimation'
 import { HiddenSongStagePanel, HiddenSongStageHeading } from '../components/HiddenSongCard'
 
 import { VoiceEffectsEngine } from '../audio/VoiceEffectsEngine'
+import OSCARS_MUSIC_URL from '../assets/oscars.mp3'
 
 function extractYouTubeId(url: string): string | null {
     const patterns = [
@@ -134,6 +135,64 @@ function MicMeter({ singer, active, effects, mainOutputId, theme }: { singer: { 
             </div>
         </div>
     )
+}
+
+// Clean "stage speech" mic chain — no autotune, gentle compression, a touch of
+// room reverb, and a noise gate. Used for award-winner speeches.
+const SPEECH_EFFECTS = {
+    pitchCorrection: { enabled: false, strength: 0 },
+    compressor: { enabled: true, threshold: -18, ratio: 3, attack: 0.003, release: 0.25 },
+    eq: { enabled: false, lowGain: 0, midGain: 0, highGain: 0 },
+    chorus: { enabled: false, rate: 1, depth: 0, mix: 0 },
+    delay: { enabled: false, time: 0, feedback: 0, mix: 0 },
+    reverb: { enabled: true, decay: 1.1, preDelay: 8, mix: 10 },
+    distortion: { enabled: false, drive: 0, mix: 0 },
+    noiseGate: { enabled: true, threshold: -45 }
+}
+
+// Live "main mic" used during an award-winner speech. Runs ONLY on the stage
+// window (the one wired to the speakers), so we never double-open the device.
+// Renders nothing — it just owns the mic engine lifecycle via useSingerMic.
+function SpeechMic({ deviceId, outputId, enabled }: { deviceId: string; outputId: string; enabled: boolean }) {
+    const isStage = !!window.electronAPI?.isStageWindow
+    useSingerMic(deviceId, isStage && enabled && !!deviceId, SPEECH_EFFECTS, outputId)
+    return null
+}
+
+// Looping Oscars score under the awards reveal. Stage-window only (the window
+// wired to the speakers). Fades in on mount, ducks under the winner's speech so
+// they can be heard, and stops when the reveal closes. Renders nothing.
+function AwardsBgMusic({ duck, outputId }: { duck: boolean; outputId: string }) {
+    const ref = useRef<HTMLAudioElement | null>(null)
+    useEffect(() => {
+        if (!window.electronAPI?.isStageWindow) return
+        const a = new Audio(OSCARS_MUSIC_URL)
+        a.loop = true
+        a.volume = 0
+        ref.current = a
+        const setSinkId = (a as unknown as { setSinkId?: (id: string) => Promise<void> }).setSinkId
+        if (outputId && typeof setSinkId === 'function') setSinkId.call(a, outputId).catch(() => {})
+        a.play().catch(() => {})
+        return () => { a.pause(); a.src = ''; ref.current = null }
+    }, [outputId])
+    // Smoothly ramp the volume toward the target whenever the duck state changes
+    // (and on the initial mount, which fades up from 0).
+    useEffect(() => {
+        const a = ref.current
+        if (!a) return
+        const target = duck ? 0.08 : 0.3
+        let raf = 0
+        const step = () => {
+            const cur = a.volume
+            const d = target - cur
+            if (Math.abs(d) < 0.004) { a.volume = target; return }
+            a.volume = Math.max(0, Math.min(1, cur + d * 0.12))
+            raf = requestAnimationFrame(step)
+        }
+        step()
+        return () => cancelAnimationFrame(raf)
+    }, [duck])
+    return null
 }
 
 // ---- Reactions Overlay (floats above video, behind lyrics) ----
@@ -562,6 +621,37 @@ export default function KaraokePage() {
         groups.push(currentGroup)
         return groups
     }, [lyrics, singers, roles])
+
+    // Awards reveal takes over the ENTIRE stage — idle or mid-song — so the host
+    // can run it whether or not anything is queued. AwardsRevealAnimation portals
+    // a full-screen opaque overlay to <body>, so returning it alone replaces
+    // whatever the stage was showing. (Without this, the per-theme idle screens
+    // below early-return before the reveal in the active branch ever mounts.)
+    if (
+        state.awardsRevealStep &&
+        state.awardsRevealStep.phase !== 'idle' &&
+        state.awardsRevealStep.phase !== 'done'
+    ) {
+        // During the winner slide, open the main mic (slot 1) so the winner can
+        // give a speech. SpeechMic self-gates to the stage window.
+        const mainMic = state.micSlots?.[0]?.micDeviceId || ''
+        return (
+            <>
+                <AwardsRevealAnimation step={state.awardsRevealStep} />
+                <AwardsBgMusic
+                    duck={state.awardsRevealStep.phase === 'winner'}
+                    outputId={state.mainOutputId}
+                />
+                {mainMic ? (
+                    <SpeechMic
+                        deviceId={mainMic}
+                        outputId={state.mainOutputId}
+                        enabled={state.awardsRevealStep.phase === 'winner'}
+                    />
+                ) : null}
+            </>
+        )
+    }
 
     // Empty state — themed waiting screen with QR code
     if (!track) {

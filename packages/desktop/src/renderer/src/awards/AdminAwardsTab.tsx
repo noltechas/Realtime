@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, type CSSProperties } from 'react'
+import { useState, useEffect, useCallback, type CSSProperties } from 'react'
 import { useApp } from '../context/AppContext'
 import { useTheme } from '../context/ThemeContext'
 import { FEATURED_SVGS, awardIconCdnUrl } from './icons/manifest'
@@ -18,7 +18,8 @@ import {
     fetchGuests,
     buildPersistedResults,
     buildFinalistSongs,
-    runRevealSequence,
+    buildRevealStoryboard,
+    describeRevealSlide,
     getRevealBroadcastChannel,
     sendRevealStepBroadcast,
     PlayedPerformance,
@@ -39,7 +40,11 @@ export function AdminAwardsTab() {
     const [guests, setGuests] = useState<KnownGuest[]>([])
     const [revealStatus, setRevealStatus] = useState<'idle' | 'running'>('idle')
     const [expandedBallots, setExpandedBallots] = useState<Record<string, boolean>>({})
-    const sequenceRef = useRef<{ cancel: () => void } | null>(null)
+    // Admin-paced reveal: precomputed slides + the index currently on stage.
+    const [storyboard, setStoryboard] = useState<RevealStep[]>([])
+    const [slideIdx, setSlideIdx] = useState(0)
+    // The order awards are revealed in (array of award ids); admin can reorder.
+    const [revealOrder, setRevealOrder] = useState<string[]>([])
 
     // Periodic refresh of votes, history, guests so admin sees a live tally
     const refresh = useCallback(async () => {
@@ -59,6 +64,18 @@ export function AdminAwardsTab() {
         return () => clearInterval(t)
     }, [refresh])
 
+    // Keep revealOrder in sync with the award list: preserve the admin's order,
+    // drop removed awards, append newly-created ones at the end.
+    const awardIdsKey = state.awards.map(a => a.id).join(',')
+    useEffect(() => {
+        const ids = state.awards.map(a => a.id)
+        setRevealOrder(prev => {
+            const kept = prev.filter(id => ids.includes(id))
+            const added = ids.filter(id => !kept.includes(id))
+            return [...kept, ...added]
+        })
+    }, [awardIdsKey])
+
     if (!sessionId) {
         return (
             <div style={{ ...theme.card, border: theme.border, padding: 24, textAlign: 'center', color: theme.faint }}>
@@ -77,9 +94,14 @@ export function AdminAwardsTab() {
         candidates: candidatesFor(a.subjectType),
         tally: computeTally(a, votes.filter(v => v.awardId === a.id), candidatesFor(a.subjectType))
     }))
+    const talliesById = new Map(tallies.map(t => [t.award.id, t]))
+    // Tallies in the admin's chosen reveal order (falls back to award order).
+    const orderedTallies = (revealOrder.length ? revealOrder : state.awards.map(a => a.id))
+        .map(id => talliesById.get(id))
+        .filter((t): t is typeof tallies[number] => !!t)
 
     const buildRevealItems = (): RevealSequenceItem[] =>
-        tallies.map(({ award, tally }) => ({
+        orderedTallies.map(({ award, tally }) => ({
             award,
             finalists: tally.finalists
                 .filter(s => s.candidate)
@@ -98,45 +120,57 @@ export function AdminAwardsTab() {
                 : null
         }))
 
-    const handleRevealClick = async () => {
+    // Push one slide to the stage + companions. Stamp startedAt fresh so the
+    // stage replays entrance animations even when re-showing a slide.
+    const broadcastStep = (step: RevealStep) => {
+        const stamped: RevealStep = { ...step, startedAt: new Date().toISOString() }
+        dispatch({ type: 'SET_REVEAL_STEP', payload: stamped })
+        if (sessionId) sendRevealStepBroadcast(sessionId, stamped)
+    }
+
+    const handleStartReveal = async () => {
         if (revealStatus === 'running') return
         if (!sessionCode) return
 
         const items = buildRevealItems()
-
-        // Persist results immediately so they survive a refresh / replay
-        const allResults = tallies.flatMap(({ award, tally }) =>
+        // Persist results immediately so they survive a refresh / replay.
+        const allResults = orderedTallies.flatMap(({ award, tally }) =>
             buildPersistedResults({ award, tally, sessionId, sessionCode })
         )
         await window.electronAPI?.persistAwardResults(allResults)
-
-        // Pre-warm the renderer-side broadcast channel BEFORE the sequence
-        // starts. Avoids the first step racing against the SUBSCRIBED handshake.
+        // Pre-warm the broadcast channel so the first slide doesn't race the
+        // SUBSCRIBED handshake.
         try { await getRevealBroadcastChannel(sessionId) } catch (e) { console.warn('[Awards] broadcast channel warmup failed:', e) }
 
+        const slides = buildRevealStoryboard(items)
+        setStoryboard(slides)
+        setSlideIdx(0)
         setRevealStatus('running')
-        sequenceRef.current = runRevealSequence({
-            items,
-            onBroadcast: async (step: RevealStep) => {
-                // Drive the local admin/stage windows immediately via IPC.
-                dispatch({ type: 'SET_REVEAL_STEP', payload: step })
-                // Send the supabase broadcast directly from this renderer.
-                sendRevealStepBroadcast(sessionId, step)
-            },
-            onComplete: () => {
-                setRevealStatus('idle')
-                dispatch({ type: 'SET_REVEAL_STEP', payload: null })
-                sendRevealStepBroadcast(sessionId, { phase: 'idle', awardIndex: 0, totalAwards: 0, startedAt: new Date().toISOString() })
-            }
-        })
+        if (slides.length) broadcastStep(slides[0])
     }
 
-    const handleCancelReveal = () => {
-        sequenceRef.current?.cancel()
-        sequenceRef.current = null
+    const goToSlide = (idx: number) => {
+        if (idx < 0 || idx >= storyboard.length) return
+        setSlideIdx(idx)
+        broadcastStep(storyboard[idx])
+    }
+
+    const handleEndReveal = () => {
         setRevealStatus('idle')
+        setStoryboard([])
+        setSlideIdx(0)
         dispatch({ type: 'SET_REVEAL_STEP', payload: null })
         if (sessionId) sendRevealStepBroadcast(sessionId, { phase: 'idle', awardIndex: 0, totalAwards: 0, startedAt: new Date().toISOString() })
+    }
+
+    const moveReveal = (idx: number, dir: -1 | 1) => {
+        setRevealOrder(prev => {
+            const next = prev.slice()
+            const j = idx + dir
+            if (j < 0 || j >= next.length) return prev
+            ;[next[idx], next[j]] = [next[j], next[idx]]
+            return next
+        })
     }
 
     const handleUnfinalize = async () => {
@@ -201,7 +235,7 @@ export function AdminAwardsTab() {
                     >Refresh</button>
                     {revealStatus === 'idle' ? (
                         <button
-                            onClick={handleRevealClick}
+                            onClick={handleStartReveal}
                             disabled={state.awards.length === 0}
                             style={{
                                 padding: '10px 18px', fontSize: 13, fontWeight: 800, fontFamily: theme.fontDisplay,
@@ -211,16 +245,16 @@ export function AdminAwardsTab() {
                                 opacity: state.awards.length === 0 ? 0.6 : 1,
                                 letterSpacing: 0.5
                             }}
-                        >{finalized ? 'Replay Reveal on Stage' : 'Reveal Awards on Stage'}</button>
+                        >{finalized ? 'Replay Reveal on Stage' : 'Start Reveal on Stage'}</button>
                     ) : (
                         <button
-                            onClick={handleCancelReveal}
+                            onClick={handleEndReveal}
                             style={{
                                 padding: '10px 18px', fontSize: 13, fontWeight: 800, fontFamily: theme.fontDisplay,
                                 cursor: 'pointer', border: theme.border, borderRadius: theme.radius,
                                 background: '#FF4D6D', color: '#fff', letterSpacing: 0.5
                             }}
-                        >Cancel Reveal</button>
+                        >End Reveal</button>
                     )}
                     {finalized && revealStatus === 'idle' && (
                         <button
@@ -234,6 +268,76 @@ export function AdminAwardsTab() {
                     )}
                 </div>
             </div>
+
+            {/* Reveal control panel — admin paces the show with Prev/Next so each
+                winner can give a speech before advancing. */}
+            {revealStatus === 'running' && (() => {
+                const current = storyboard[slideIdx]
+                const onWinner = current?.phase === 'winner' && (current?.winners?.length ?? 0) > 0
+                return (
+                    <div style={{ ...theme.card, border: `2px solid ${theme.accentB}`, padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+                            <div>
+                                <div style={{ fontFamily: theme.fontDisplay, fontWeight: 800, fontSize: 15, color: theme.black }}>
+                                    On stage now · {slideIdx + 1} / {storyboard.length}
+                                </div>
+                                <div style={{ fontSize: 13, color: theme.black, fontFamily: theme.fontBody, marginTop: 2 }}>
+                                    {current ? describeRevealSlide(current) : ''}
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                <button
+                                    onClick={() => goToSlide(slideIdx - 1)}
+                                    disabled={slideIdx === 0}
+                                    style={{
+                                        padding: '10px 16px', fontSize: 13, fontWeight: 700, fontFamily: theme.fontDisplay,
+                                        cursor: slideIdx === 0 ? 'not-allowed' : 'pointer', border: theme.border, borderRadius: theme.radius,
+                                        background: theme.cream, color: theme.black, opacity: slideIdx === 0 ? 0.5 : 1
+                                    }}
+                                >◀ Back</button>
+                                <button
+                                    onClick={() => goToSlide(slideIdx + 1)}
+                                    disabled={slideIdx >= storyboard.length - 1}
+                                    style={{
+                                        padding: '10px 22px', fontSize: 14, fontWeight: 800, fontFamily: theme.fontDisplay,
+                                        cursor: slideIdx >= storyboard.length - 1 ? 'not-allowed' : 'pointer', border: theme.border, borderRadius: theme.radius,
+                                        background: theme.accentB, color: '#1A1A1A', letterSpacing: 0.5,
+                                        opacity: slideIdx >= storyboard.length - 1 ? 0.5 : 1
+                                    }}
+                                >Next ▶</button>
+                            </div>
+                        </div>
+                        {onWinner && (
+                            <div style={{ fontSize: 12.5, color: theme.black, fontFamily: theme.fontBody, background: `${theme.accentA}22`, border: `1px solid ${theme.accentA}`, borderRadius: theme.radiusSmall, padding: '8px 12px' }}>
+                                🎤 The main mic is live for the winner's speech. Tap <strong>Next</strong> when they're done.
+                                {!state.micSlots?.[0]?.micDeviceId && ' (No main mic configured in Controls — assign mic slot 1 to enable it.)'}
+                            </div>
+                        )}
+                    </div>
+                )
+            })()}
+
+            {/* Reveal running order — reorder before starting the show. */}
+            {revealStatus === 'idle' && orderedTallies.length > 0 && (
+                <div style={{ ...theme.card, border: theme.border, padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 13, color: theme.black }}>
+                        Reveal running order
+                    </div>
+                    <div style={{ fontSize: 11, color: theme.faint, fontFamily: theme.fontBody, marginBottom: 2 }}>
+                        Awards are revealed top-to-bottom. Reorder to set the show’s pacing.
+                    </div>
+                    {orderedTallies.map(({ award }, i) => (
+                        <div key={award.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px', borderRadius: theme.radiusSmall, background: theme.creamDark }}>
+                            <span style={{ width: 20, textAlign: 'center', fontWeight: 800, color: theme.faint, fontFamily: theme.fontDisplay, fontSize: 13 }}>{i + 1}</span>
+                            <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: theme.black, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{award.title}</span>
+                            <button onClick={() => moveReveal(i, -1)} disabled={i === 0} title="Move up"
+                                style={{ ...orderBtnStyle(theme), opacity: i === 0 ? 0.4 : 1, cursor: i === 0 ? 'not-allowed' : 'pointer' }}>▲</button>
+                            <button onClick={() => moveReveal(i, 1)} disabled={i === orderedTallies.length - 1} title="Move down"
+                                style={{ ...orderBtnStyle(theme), opacity: i === orderedTallies.length - 1 ? 0.4 : 1, cursor: i === orderedTallies.length - 1 ? 'not-allowed' : 'pointer' }}>▼</button>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {/* Live tallies grid */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: 16 }}>
@@ -408,6 +512,14 @@ function adjBtnStyle(theme: ReturnType<typeof useTheme>): CSSProperties {
         width: 24, height: 24, lineHeight: '20px', fontSize: 16, fontWeight: 800,
         cursor: 'pointer', border: theme.border, borderRadius: theme.radiusSmall,
         background: theme.cream, color: theme.black, padding: 0
+    }
+}
+
+function orderBtnStyle(theme: ReturnType<typeof useTheme>): CSSProperties {
+    return {
+        width: 28, height: 26, fontSize: 12, fontWeight: 800, padding: 0,
+        border: theme.border, borderRadius: theme.radiusSmall,
+        background: theme.cream, color: theme.black
     }
 }
 

@@ -48,8 +48,10 @@ export const AWARDS_PALETTE = {
   // a confident upright structure. We avoid italic everywhere because at
   // display sizes it can read as cursive, which the user explicitly didn't
   // want. Android falls back to 'serif' (Noto Serif), close enough in spirit.
-  fontSerif: Platform.select({ ios: 'Bodoni 72', default: 'serif' }) as string,
-  fontDisplay: Platform.select({ ios: 'Bodoni 72', default: 'serif' }) as string,
+  // "Delauney" — the gilded display serif loaded via expo-font in App.tsx,
+  // matching the desktop awards ceremony font. Falls back to Bodoni/serif.
+  fontSerif: Platform.select({ ios: 'Delauney', default: 'Delauney' }) as string,
+  fontDisplay: Platform.select({ ios: 'Delauney', default: 'Delauney' }) as string,
   fontBody: 'System',
 }
 

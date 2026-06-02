@@ -219,8 +219,9 @@ When tuning a stacked-vocal / autotune-heavy song, set the doubler on the lead s
 - `reverb.mix > 40%` → vocal sounds distant/washy. Use for cavern/hall effects (Travis, Kanye 808s, Bon Iver).
 - `reverb.decay > 4.0s` → very atmospheric. Pair with large `preDelay` (30–50ms) for stadium feel.
 - `reverb.decay < 1.2s` → tight room. Good for intimate (Billie Eilish), dry (Kendrick, Chris Rock spoken-word), or iconic "close" sounds (T-Pain).
-- `delay.mix > 20%` → obvious echo; pair with `feedback > 30%` for slapback trails (Travis Scott, goosebumps).
-- `delay.time 150-220ms` = slapback. `250-350ms` = "tail". `400-550ms` = long echo (Bon Iver, Imogen Heap).
+- `delay.feedback` is what turns a slapback into a *trail* (multiple repeats = "ton of echo"). **Keep `feedback <= ~18-20` on any role that also has a `doubler` enabled** — the doubler now provides the thickness that heavy delay used to fake, so high-feedback delay on top just reads as excessive echo. High feedback (>30) is only for deliberate dub/echo effects, not for hard-autotune stacks.
+- `delay.mix`: ~`8-15%` = subtle accent (use this when a doubler is doing the stacking); `>20%` = an obvious, present echo. `delay.time 150-220ms` = slapback, `250-350ms` = "tail", `400-550ms` = long echo (Bon Iver, Imogen Heap).
+- **Don't double up "doubling" tools.** If a role has the `doubler` on, the delay should be a light accent, not a second thickener — otherwise the mix gets washy/echo-y (the doubler also feeds the delay + reverb, so it amplifies their wetness).
 - `distortion.drive > 25` + `mix > 20%` → heavy grit (Playboi Carti, rage-era Travis, Pop Smoke, MF DOOM). Subtle warmth is `drive 4-8 / mix 4-6`.
 - `compressor.ratio 6-8` = tight/punchy. `3-4` = gentle. Spoken word / rap clarity benefits from `ratio 6` + fast attack (0.002-0.003).
 - `noiseGate.enabled: true` for spoken word, rap without reverb wash, tight-room treatments. `threshold -42 to -48`.

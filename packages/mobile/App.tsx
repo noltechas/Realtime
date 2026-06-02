@@ -89,6 +89,8 @@ export default function App() {
     BomberUrban: require('./assets/fonts/BomberUrban-Regular.otf'),
     // Deep-sea theme — playful "Krabby Patty" display face for headings.
     KrabbyPatty: require('./assets/fonts/KrabbyPatty-Regular.ttf'),
+    // Awards tab — "Delauney" gilded serif, matching the stage ceremony font.
+    Delauney: require('./assets/fonts/Delauney-Regular.ttf'),
   })
 
   // Render once fonts are loaded OR once we know they failed. Without the

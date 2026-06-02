@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { FEATURED_SVGS, awardIconCdnUrl } from './icons/manifest'
 import { Award, AwardCandidate, RevealFinalist, RevealStep } from './types'
@@ -30,133 +30,12 @@ function AwardIconBody({ award }: { award: Award }) {
     />
 }
 
-// Sound effects loaded lazily — only on the stage window, only when needed.
-function useStageSfx(phase: string | null) {
-    const drumrollRef = useRef<HTMLAudioElement | null>(null)
-    const stingRef = useRef<HTMLAudioElement | null>(null)
-    const applauseRef = useRef<HTMLAudioElement | null>(null)
-    const fanfareRef = useRef<HTMLAudioElement | null>(null)
-
-    useEffect(() => {
-        if (!window.electronAPI?.isStageWindow) return
-        if (!drumrollRef.current) {
-            // Use Web Audio data URIs for sfx so we don't add new asset files.
-            // Synthesized in browser via audio context.
-            drumrollRef.current = playSynthAudio.lazy('drumroll')
-            stingRef.current = playSynthAudio.lazy('sting')
-            applauseRef.current = playSynthAudio.lazy('applause')
-            fanfareRef.current = playSynthAudio.lazy('fanfare')
-        }
-    }, [])
-
-    useEffect(() => {
-        if (!window.electronAPI?.isStageWindow) return
-        switch (phase) {
-            case 'opening':
-                playSynth('fanfare')
-                break
-            case 'lineup':
-                // Build suspense once the finalists are lined up.
-                playSynth('drumroll')
-                break
-            case 'winner':
-                playSynth('sting')
-                playSynth('applause', 0.25)
-                break
-            case 'finale':
-                playSynth('fanfare')
-                break
-        }
-    }, [phase])
-}
-
-// Tiny synthesized SFX via WebAudio. Stage-only so we don't ship media files.
-function playSynth(kind: 'fanfare' | 'drumroll' | 'sting' | 'applause', volume = 1) {
-    try {
-        const ctx = getAudioCtx()
-        const t0 = ctx.currentTime
-        const gain = ctx.createGain()
-        gain.gain.value = volume * 0.4
-        gain.connect(ctx.destination)
-        if (kind === 'fanfare') {
-            const notes = [392, 523, 659, 784]
-            notes.forEach((f, i) => {
-                const o = ctx.createOscillator()
-                o.type = 'triangle'
-                o.frequency.value = f
-                const g = ctx.createGain()
-                const at = t0 + i * 0.18
-                g.gain.setValueAtTime(0.0001, at)
-                g.gain.exponentialRampToValueAtTime(0.5, at + 0.02)
-                g.gain.exponentialRampToValueAtTime(0.0001, at + 0.6)
-                o.connect(g).connect(gain)
-                o.start(at)
-                o.stop(at + 0.65)
-            })
-        } else if (kind === 'drumroll') {
-            for (let i = 0; i < 28; i++) {
-                const at = t0 + i * 0.06
-                const noise = ctx.createBufferSource()
-                const buf = ctx.createBuffer(1, 0.04 * ctx.sampleRate, ctx.sampleRate)
-                const ch = buf.getChannelData(0)
-                for (let n = 0; n < ch.length; n++) ch[n] = (Math.random() * 2 - 1) * (1 - n / ch.length)
-                noise.buffer = buf
-                const g = ctx.createGain()
-                g.gain.value = 0.4 + (i / 28) * 0.5
-                noise.connect(g).connect(gain)
-                noise.start(at)
-            }
-        } else if (kind === 'sting') {
-            const f1 = ctx.createOscillator()
-            f1.type = 'sawtooth'
-            f1.frequency.setValueAtTime(110, t0)
-            f1.frequency.exponentialRampToValueAtTime(880, t0 + 0.35)
-            const g1 = ctx.createGain()
-            g1.gain.setValueAtTime(0.0001, t0)
-            g1.gain.exponentialRampToValueAtTime(0.7, t0 + 0.04)
-            g1.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5)
-            f1.connect(g1).connect(gain)
-            f1.start(t0)
-            f1.stop(t0 + 0.55)
-        } else if (kind === 'applause') {
-            const dur = 3.5
-            const noise = ctx.createBufferSource()
-            const buf = ctx.createBuffer(1, dur * ctx.sampleRate, ctx.sampleRate)
-            const ch = buf.getChannelData(0)
-            for (let n = 0; n < ch.length; n++) {
-                const env = Math.min(1, n / (ctx.sampleRate * 0.3)) * Math.max(0, 1 - (n / ch.length))
-                ch[n] = (Math.random() * 2 - 1) * env * 0.5
-            }
-            noise.buffer = buf
-            const filt = ctx.createBiquadFilter()
-            filt.type = 'bandpass'
-            filt.frequency.value = 1200
-            filt.Q.value = 0.6
-            noise.connect(filt).connect(gain)
-            noise.start(t0)
-        }
-    } catch (e) {
-        // Silently ignore — audio may be blocked
-    }
-}
-
-let _audioCtx: AudioContext | null = null
-function getAudioCtx(): AudioContext {
-    if (!_audioCtx) _audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
-    return _audioCtx
-}
-
-// Bogus stub so the SFX hook compiles regardless of where it's referenced.
-const playSynthAudio = { lazy: (_: string) => null as unknown as HTMLAudioElement }
-
 // ---- Component -----------------------------------------------------------
 interface Props {
     step: RevealStep | null
 }
 
 export function AwardsRevealAnimation({ step }: Props) {
-    useStageSfx(step?.phase ?? null)
-
     // Debug log so we can confirm in DevTools whether the step is arriving.
     useEffect(() => {
         if (step) console.log('[AwardsRevealAnimation] step:', step.phase, step.awardIndex, '/', step.totalAwards)
@@ -172,6 +51,12 @@ export function AwardsRevealAnimation({ step }: Props) {
             <div className="awards-reveal__spotlight" />
             {step.phase === 'winner' && (step.winners?.length ?? 0) > 0 && <ConfettiBurst key={step.startedAt} />}
             {step.phase === 'opening' && <OpeningCard total={step.totalAwards} />}
+            {step.phase === 'overview' && (
+                <OverviewCard awards={step.overview || []} />
+            )}
+            {step.phase === 'intro' && step.award && (
+                <IntroCard key={step.startedAt} award={step.award} awardIndex={step.awardIndex} total={step.totalAwards} />
+            )}
             {step.phase === 'finalist' && step.award && step.finalist && (
                 <FinalistCard key={step.startedAt} award={step.award} finalist={step.finalist} awardIndex={step.awardIndex} total={step.totalAwards} />
             )}
@@ -184,7 +69,6 @@ export function AwardsRevealAnimation({ step }: Props) {
                     award={step.award}
                     lineup={step.lineup || []}
                     winners={step.winners || []}
-                    winnerKey={step.winnerKey}
                     stats={step.winnerStats}
                 />
             )}
@@ -198,14 +82,53 @@ export function AwardsRevealAnimation({ step }: Props) {
 function OpeningCard({ total }: { total: number }) {
     return (
         <div className="awards-reveal__opening">
+            <div className="awards-reveal__opening-eyebrow">The Ceremony</div>
             <div className="awards-reveal__opening-title">Tonight's Awards</div>
             <div className="awards-reveal__opening-sub">{total} categor{total === 1 ? 'y' : 'ies'} to reveal</div>
         </div>
     )
 }
 
+// Per-award introduction: the award's logo, title, and its Oscar-style citation
+// (description), shown before its finalists.
+function IntroCard({ award, awardIndex, total }: { award: Award; awardIndex: number; total: number }) {
+    return (
+        <div className="awards-reveal__intro">
+            <div className="awards-reveal__intro-eyebrow">Award {awardIndex + 1} of {total}</div>
+            <AwardIconSlot award={award} />
+            <div className="awards-reveal__intro-title">{award.title}</div>
+            <div className="awards-reveal__intro-rule"><span>✦</span></div>
+            {award.description ? (
+                <div className="awards-reveal__intro-citation">{award.description}</div>
+            ) : null}
+        </div>
+    )
+}
+
 function AwardIconSlot({ award }: { award: Award }) {
     return <div className="awards-reveal__award-icon"><AwardIconBody award={award} /></div>
+}
+
+// Overview of every award up for grabs tonight — each floating with its icon
+// and name, evenly spread, before the ceremony goes through them one by one.
+function OverviewCard({ awards }: { awards: Award[] }) {
+    return (
+        <div className="awards-reveal__overview">
+            <div className="awards-reveal__overview-eyebrow">Tonight’s Categories</div>
+            <div className="awards-reveal__overview-grid">
+                {awards.map((a, i) => (
+                    <div
+                        key={a.id}
+                        className="awards-reveal__overview-item"
+                        style={{ animationDelay: ((i % 6) * 0.45).toFixed(2) + 's' }}
+                    >
+                        <AwardIconSlot award={a} />
+                        <div className="awards-reveal__overview-name">{a.title}</div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    )
 }
 
 // A circular face for a candidate: profile photo / album art, else initial.
@@ -261,7 +184,7 @@ function FinalistCard({ award, finalist, awardIndex, total }: { award: Award; fi
                 <div className="awards-reveal__finalist-perf">
                     <CandidateFace c={c} className="awards-reveal__finalist-art" />
                     <div className="awards-reveal__finalist-track">{c.trackName || c.label}</div>
-                    {c.subtitle && <div className="awards-reveal__finalist-sub">{c.subtitle}</div>}
+                    {/* The performers (names + pics) — not the original song artist. */}
                     <SingerRow c={c} />
                 </div>
             )}
@@ -279,7 +202,7 @@ function SongMarquee({ songs }: { songs: Array<{ trackName: string; trackArtist:
     return (
         <div className="awards-reveal__songmarquee">
             <div className="awards-reveal__songmarquee-label">Songs they sang</div>
-            <div className="awards-reveal__songmarquee-mask">
+            <div className={'awards-reveal__songmarquee-mask' + (songs.length > 3 ? ' awards-reveal__songmarquee-mask--scroll' : '')}>
                 <div className={'awards-reveal__songmarquee-track' + (songs.length > 3 ? ' awards-reveal__songmarquee-track--scroll' : '')}>
                     {loop.map((s, i) => (
                         <div key={i} className="awards-reveal__song">
@@ -305,12 +228,16 @@ function LineupCardItem({ c, highlight, isSinger }: { c: AwardCandidate; highlig
         <div className={'awards-reveal__lineup-card' + (highlight ? ' awards-reveal__lineup-card--win' : '')}>
             <CandidateFace c={c} className="awards-reveal__lineup-face" />
             <div className="awards-reveal__lineup-name">{isSinger ? c.label : (c.trackName || c.label)}</div>
-            {!isSinger && c.subtitle && <div className="awards-reveal__lineup-sub">{c.subtitle}</div>}
+            {/* For a performance/group: the performers (names + pics), not the artist. */}
+            {!isSinger && <SingerRow c={c} />}
         </div>
     )
 }
 
-function LineupCard({ award, lineup }: { award: Award; lineup: AwardCandidate[] }) {
+// `faded` renders the identical lineup layout but with NO entrance animation and
+// NO winner highlight — used as the winner-phase backdrop so the cards stay
+// exactly where they were on the lineup page and simply fade behind the winner.
+function LineupCard({ award, lineup, faded }: { award: Award; lineup: AwardCandidate[]; faded?: boolean }) {
     const isSinger = award.subjectType === 'singer'
     return (
         <div className="awards-reveal__lineupwrap">
@@ -319,9 +246,13 @@ function LineupCard({ award, lineup }: { award: Award; lineup: AwardCandidate[] 
             <div className="awards-reveal__lineup-label">Your {lineup.length === 1 ? 'finalist' : 'finalists'}…</div>
             <div className="awards-reveal__lineup">
                 {lineup.map((c, i) => (
-                    <div key={c.subjectKey} className="awards-reveal__lineup-enter" style={{ animationDelay: (i * 0.18) + 's' }}>
-                        <LineupCardItem c={c} isSinger={isSinger} />
-                    </div>
+                    faded
+                        ? <LineupCardItem key={c.subjectKey} c={c} isSinger={isSinger} />
+                        : (
+                            <div key={c.subjectKey} className="awards-reveal__lineup-enter" style={{ animationDelay: (i * 0.18) + 's' }}>
+                                <LineupCardItem c={c} isSinger={isSinger} />
+                            </div>
+                        )
                 ))}
             </div>
         </div>
@@ -330,11 +261,10 @@ function LineupCard({ award, lineup }: { award: Award; lineup: AwardCandidate[] 
 
 // ---- Winner: finalists row, then the winner grows to full screen ---------
 
-function WinnerReveal({ award, lineup, winners, winnerKey, stats }: {
+function WinnerReveal({ award, lineup, winners, stats }: {
     award: Award
     lineup: AwardCandidate[]
     winners: AwardCandidate[]
-    winnerKey?: string
     stats?: { score: number; firstPlaceVotes: number; totalVotes: number }
 }) {
     const isSinger = award.subjectType === 'singer'
@@ -354,37 +284,24 @@ function WinnerReveal({ award, lineup, winners, winnerKey, stats }: {
     const row = lineup.length > 0 ? lineup : [winner]
     return (
         <div className="awards-reveal__winnerstage">
-            {/* The finalist row sits behind and dims as the winner grows in. */}
-            {row.length > 1 && (
-                <div className="awards-reveal__lineup awards-reveal__lineup--dim">
-                    {row.map(c => (
-                        <LineupCardItem key={c.subjectKey} c={c} isSinger={isSinger} highlight={c.subjectKey === winnerKey} />
-                    ))}
-                </div>
-            )}
+            {/* The finalists stay EXACTLY where they were on the lineup page and
+                simply fade back — no jump, no winner highlight (don't spoil it). */}
+            <div className="awards-reveal__winner-backdrop">
+                <LineupCard award={award} lineup={row} faded />
+            </div>
 
-            {/* Winner card grows to fill. */}
+            {/* Winner card grows in over the fading finalists. */}
+            <div className="awards-reveal__winneroverlay">
             <div className="awards-reveal__winnerbig">
                 <div className="awards-reveal__winner-crest"><AwardIconSlot award={award} /></div>
                 <div className="awards-reveal__winner-label">Winner · {award.title}</div>
                 <div className="awards-reveal__winnerbig-face-wrap">
-                    {isSinger || !winner.singers || winner.singers.length <= 1 ? (
-                        <CandidateFace c={winner} className="awards-reveal__winnerbig-face" />
-                    ) : (
-                        <div className="awards-reveal__winnerbig-faces">
-                            {winner.singers.slice(0, 5).map((s, si) => (
-                                <div key={si} className="awards-reveal__winnerbig-face awards-reveal__winnerbig-face--multi"
-                                     style={{ background: s.color ? 'linear-gradient(135deg,' + s.color + ',' + s.color + 'aa)' : undefined }}>
-                                    {s.profilePicture
-                                        ? <img src={s.profilePicture} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                        : (s.name || '?').charAt(0).toUpperCase()}
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                    <CandidateFace c={winner} className="awards-reveal__winnerbig-face" />
                 </div>
                 <div className="awards-reveal__winnerbig-name">{isSinger ? winner.label : (winner.trackName || winner.label)}</div>
-                {winner.subtitle && <div className="awards-reveal__winnerbig-sub">{winner.subtitle}</div>}
+                {/* Singer winners need no subtitle; performance/group winners list
+                    their performers (names + pics) below the song title. */}
+                {!isSinger && <SingerRow c={winner} />}
                 {stats && (
                     <div className="awards-reveal__winnerstats">
                         <div className="awards-reveal__winnerstat">
@@ -401,6 +318,7 @@ function WinnerReveal({ award, lineup, winners, winnerKey, stats }: {
                         </div>
                     </div>
                 )}
+            </div>
             </div>
         </div>
     )
@@ -435,7 +353,7 @@ function FinaleAwardIcon({ award }: { award: Award }) {
 // ---- Confetti ------------------------------------------------------------
 function ConfettiBurst() {
     const pieces = useMemo(() => {
-        const colors = ['#fde68a', '#f59e0b', '#ec4899', '#a78bfa', '#22d3ee', '#34d399']
+        const colors = ['#f4d35e', '#d4af37', '#8c6d1f', '#fce8a4', '#f5e6c5', '#b8902a']
         return Array.from({ length: 90 }, (_, i) => ({
             id: i,
             left: Math.random() * 100,

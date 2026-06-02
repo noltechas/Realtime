@@ -57,6 +57,8 @@ export function RevealOverlay({
 
 function PhaseContent({ step }: { step: AwardsRevealStep }) {
   if (step.phase === 'opening') return <Opening step={step} />
+  if (step.phase === 'overview') return <Overview step={step} />
+  if (step.phase === 'intro') return <Intro step={step} />
   if (step.phase === 'finalist') return <Finalist step={step} />
   if (step.phase === 'lineup') return <Lineup step={step} />
   if (step.phase === 'winner') return <Winner step={step} />
@@ -84,6 +86,123 @@ function Opening({ step }: { step: AwardsRevealStep }) {
         {step.totalAwards ?? 0} categor{(step.totalAwards ?? 0) === 1 ? 'y' : 'ies'} to reveal
       </Text>
     </View>
+  )
+}
+
+// Overview of every award (icon + name), shown before going one-by-one.
+function Overview({ step }: { step: AwardsRevealStep }) {
+  const awards = step.overview || []
+  return (
+    <ScrollView contentContainerStyle={{ alignItems: 'center', paddingVertical: 24 }}>
+      <Text
+        style={{
+          color: P.gold,
+          fontSize: 12,
+          letterSpacing: 4,
+          fontWeight: '800',
+          textTransform: 'uppercase',
+          marginBottom: 20,
+        }}
+      >
+        Tonight's Categories
+      </Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' }}>
+        {awards.map((a, i) => {
+          const iconId = (a as any).iconId ?? (a as any).icon_id ?? null
+          const iconDataUrl = (a as any).iconDataUrl ?? (a as any).icon_data_url ?? null
+          return (
+            <View key={(a as any).id ?? i} style={{ width: 116, alignItems: 'center', marginBottom: 22, paddingHorizontal: 4 }}>
+              <View
+                style={{
+                  width: 60,
+                  height: 60,
+                  borderRadius: 30,
+                  backgroundColor: P.goldWash,
+                  borderWidth: 1,
+                  borderColor: P.goldEdge,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: 8,
+                }}
+              >
+                <AwardIcon iconId={iconId} iconDataUrl={iconDataUrl} color={P.gold} size={34} />
+              </View>
+              <Text
+                style={{ fontFamily: P.fontSerif, color: P.cream, fontSize: 15, textAlign: 'center', lineHeight: 18 }}
+                numberOfLines={3}
+              >
+                {a.title}
+              </Text>
+            </View>
+          )
+        })}
+      </View>
+    </ScrollView>
+  )
+}
+
+// Per-award introduction: logo + title + Oscar-style citation (description).
+function Intro({ step }: { step: AwardsRevealStep }) {
+  const award = step.award
+  if (!award) return null
+  return (
+    <ScrollView contentContainerStyle={{ alignItems: 'center', paddingVertical: 24 }}>
+      <Text
+        style={{
+          color: P.gold,
+          fontSize: 12,
+          letterSpacing: 4,
+          fontWeight: '800',
+          textTransform: 'uppercase',
+          marginBottom: 16,
+        }}
+      >
+        Award {(step.awardIndex ?? 0) + 1} of {step.totalAwards ?? 0}
+      </Text>
+      <View
+        style={{
+          width: 96,
+          height: 96,
+          borderRadius: 48,
+          backgroundColor: P.goldWash,
+          borderWidth: 1.5,
+          borderColor: P.goldEdge,
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: 18,
+        }}
+      >
+        <AwardIcon iconId={award.icon_id} iconDataUrl={award.icon_data_url} color={P.gold} size={52} />
+      </View>
+      <Text
+        style={{
+          fontFamily: P.fontSerif,
+          fontWeight: '700',
+          fontSize: 34,
+          color: P.cream,
+          textAlign: 'center',
+          paddingHorizontal: 16,
+          marginBottom: 10,
+        }}
+      >
+        {award.title}
+      </Text>
+      {award.description ? (
+        <Text
+          style={{
+            fontFamily: P.fontSerif,
+            fontStyle: 'italic',
+            fontSize: 18,
+            lineHeight: 26,
+            color: P.creamMuted,
+            textAlign: 'center',
+            paddingHorizontal: 24,
+          }}
+        >
+          {award.description}
+        </Text>
+      ) : null}
+    </ScrollView>
   )
 }
 
@@ -162,11 +281,6 @@ function Finalist({ step }: { step: AwardsRevealStep }) {
       >
         {isSinger ? c.label : c.trackName || c.label}
       </Text>
-      {!isSinger && c.subtitle ? (
-        <Text style={{ color: P.whiteMuted, fontSize: 14, marginTop: 4, textAlign: 'center' }}>
-          {c.subtitle}
-        </Text>
-      ) : null}
 
       {isSinger ? (
         <View style={{ alignSelf: 'stretch', paddingHorizontal: 8, marginTop: 18 }}>
@@ -338,6 +452,11 @@ function Lineup({ step }: { step: AwardsRevealStep }) {
             <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13, textAlign: 'center' }} numberOfLines={2}>
               {isSinger ? c.label : c.trackName || c.label}
             </Text>
+            {!isSinger && c.singers && c.singers.length ? (
+              <Text style={{ color: P.gold, fontWeight: '600', fontSize: 11, textAlign: 'center', marginTop: 4 }} numberOfLines={2}>
+                {c.singers.map((s) => s.name).join(', ')}
+              </Text>
+            ) : null}
           </View>
         ))}
       </View>
@@ -349,6 +468,7 @@ function Winner({ step }: { step: AwardsRevealStep }) {
   const award = step.award
   if (!award) return null
   const winners = step.winners || []
+  const isSinger = award.subject_type === 'singer'
   return (
     <ScrollView contentContainerStyle={{ alignItems: 'center', paddingVertical: 16 }}>
       <Confetti />
@@ -461,18 +581,20 @@ function Winner({ step }: { step: AwardsRevealStep }) {
                 textAlign: 'center',
               }}
             >
-              {winners[0].label}
+              {isSinger ? winners[0].label : (winners[0].trackName || winners[0].label)}
             </Text>
-            {winners[0].subtitle ? (
+            {/* Performance/group → performer names (not the song artist). */}
+            {!isSinger && winners[0].singers && winners[0].singers.length ? (
               <Text
                 style={{
-                  color: P.whiteMuted,
+                  color: P.gold,
                   marginTop: 4,
                   fontSize: 14,
+                  fontWeight: '600',
                   textAlign: 'center',
                 }}
               >
-                {winners[0].subtitle}
+                {winners[0].singers.map((s) => s.name).join(', ')}
               </Text>
             ) : null}
             {step.winnerStats ? (

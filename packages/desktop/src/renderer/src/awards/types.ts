@@ -101,7 +101,9 @@ export interface AwardResult {
 // Broadcast over the `ar-{sessionId}` realtime channel. Stage and companion
 // both render the same view from this payload.
 export type RevealPhase =
-    | 'opening'      // intro card ("Tonight's Awards")
+    | 'opening'      // show ("Tonight's Awards")
+    | 'overview'     // all awards floating (icon + name) before going one-by-one
+    | 'intro'        // introduce ONE award: logo + title + description citation
     | 'finalist'     // spotlight ONE top-3 finalist (random order, one at a time)
     | 'lineup'       // all ≤3 finalists shown together in a row
     | 'winner'       // the winning finalist grows full-screen + stats
@@ -126,6 +128,7 @@ export interface RevealStep {
     awardIndex: number               // 0-based among the award list
     totalAwards: number
     award?: Award                    // populated for finalist/lineup/winner
+    overview?: Award[]               // all awards (icon + name) for the overview phase
     finalist?: RevealFinalist        // for the finalist spotlight phase
     lineup?: AwardCandidate[]        // the ≤3 finalists (lineup + winner phases)
     winners?: AwardCandidate[]       // who won (may be empty -> "no winner")
