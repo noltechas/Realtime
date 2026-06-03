@@ -2,10 +2,12 @@ import React from 'react'
 import { View, Text, Pressable, Image, type ViewStyle, type TextStyle } from 'react-native'
 import Svg, {
   Path,
+  Polygon,
   Circle,
   Ellipse,
   Line,
   Rect,
+  Pattern,
   Defs,
   RadialGradient,
   Stop,
@@ -157,6 +159,10 @@ function BaseCard({
           flexBasis: '47%',
           flexGrow: 1,
           minWidth: '47%',
+          // Cap growth so a lone card on the last row (e.g. comic-book as the
+          // 11th theme) can't stretch to fill both columns — it stays the same
+          // size as every other choice.
+          maxWidth: '48%',
           height: CARD_HEIGHT,
           borderRadius: radius,
           backgroundColor: bg,
@@ -613,6 +619,71 @@ function RetrowaveCard({ label, selected, onPress }: CardProps) {
   )
 }
 
+// 11. Comic-Book — white panel, heavy ink border + hard offset shadow, a faint
+//     Ben-Day halftone print, BadaBoom logo label, and a pop-yellow action
+//     burst emblem.
+const COMIC_BURST_PTS = (() => {
+  const cx = 50
+  const cy = 50
+  const rot = -Math.PI / 2
+  const p: string[] = []
+  for (let i = 0; i < 22; i++) {
+    const a = rot + (Math.PI * i) / 11
+    const r = i % 2 === 0 ? 48 : 27
+    p.push(`${(cx + Math.cos(a) * r).toFixed(1)},${(cy + Math.sin(a) * r).toFixed(1)}`)
+  }
+  return p.join(' ')
+})()
+
+function ComicHalftone() {
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.1 }}>
+      <Svg width="100%" height="100%">
+        <Defs>
+          <Pattern id="comicCardDots" width={7} height={7} patternUnits="userSpaceOnUse">
+            <Circle cx={3.5} cy={3.5} r={1.1} fill="#16161D" />
+          </Pattern>
+        </Defs>
+        <Rect width="100%" height="100%" fill="url(#comicCardDots)" />
+      </Svg>
+    </View>
+  )
+}
+
+function ComicBurst() {
+  return (
+    <Svg width={30} height={30} viewBox="0 0 100 100">
+      <Polygon points={COMIC_BURST_PTS} fill="#FFD400" stroke="#16161D" strokeWidth={5} strokeLinejoin="round" />
+    </Svg>
+  )
+}
+
+function ComicBookCard({ label, selected, onPress }: CardProps) {
+  return (
+    <BaseCard
+      selected={selected}
+      onPress={onPress}
+      bg="#FFFFFF"
+      radius={6}
+      border={{ width: 3, color: '#16161D' }}
+      offset={{ w: selected ? 5 : 4, h: selected ? 5 : 4, color: '#16161D' }}
+      accent="#FF1F4B"
+      badge={{ bg: '#FFD400', fg: '#16161D', ring: '#16161D' }}
+    >
+      <ComicHalftone />
+      <Row>
+        <CardLabel
+          text={label}
+          color="#16161D"
+          font="BadaBoomBB"
+          style={{ flex: 1, fontSize: 19, letterSpacing: 0.5, textTransform: 'uppercase' }}
+        />
+        <ComicBurst />
+      </Row>
+    </BaseCard>
+  )
+}
+
 // ── Decorative primitives ────────────────────────────────────────────────────
 
 function ScanLines({ color }: { color: string }) {
@@ -815,6 +886,7 @@ const CARD_BY_KEY: Record<string, React.ComponentType<CardProps>> = {
   space: SpaceCard,
   steampunk: SteampunkCard,
   retrowave: RetrowaveCard,
+  'comic-book': ComicBookCard,
 }
 
 export function ThemeStageCard({

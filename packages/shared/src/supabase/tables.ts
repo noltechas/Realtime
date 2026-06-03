@@ -18,6 +18,12 @@ export interface SingerConfig {
   color: string
   colorGlow: string
   roleIndices: number[]
+  /** @deprecated LEGACY ONLY. The "white person" lyric-sanitization flag now
+   *  lives on the canonical `karaoke_guests` row (`white_person_check`) and is
+   *  toggled per-guest by the host on the Admin screen — guests no longer set
+   *  it themselves. New code MUST NOT write this onto the config. Pre-refactor
+   *  rows may still carry it; `resolveSinger` reads it only as a fallback for
+   *  name-only singers that have no linked guest. */
   whitePersonCheck?: boolean
   /** @deprecated LEGACY ONLY. Avatars live on the canonical `karaoke_guests`
    *  row and are resolved at render time via `resolveSinger`. New code MUST
@@ -50,6 +56,12 @@ export interface KaraokeGuestRow {
   name: string
   profile_picture: string | null
   default_color: string | null
+  /** When true (the DB default), this guest is a "white" singer: the n-word in
+   *  their assigned lyric lines is replaced with "fella(s)" on the stage. The
+   *  host toggles it per-guest on the Admin screen; it is resolved LIVE at
+   *  render time, so flipping it re-censors every song they are in without
+   *  re-queueing. Guests no longer set this from the companion site / app. */
+  white_person_check: boolean
   created_at: string
 }
 

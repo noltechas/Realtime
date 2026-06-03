@@ -29,6 +29,274 @@ const stageFont = (px: number): string => {
     return `clamp(${min}px, ${mid}vh, ${max}px)`
 }
 
+// ── Comic-Book "Up Next" stage screen ───────────────────────────────────────
+// A bespoke, comic-original waiting screen: a halftone-printed page with a
+// pop-art "UP NEXT!" starburst banner, the album art mounted in a heavy inked
+// frame with a corner star sticker, the title knocked out in BadaBoom with a
+// yellow comic offset, and each singer in a tilted yellow speech panel — every
+// surface dotted with Ben-Day halftone. Replaces the generic ready layout for
+// the comic theme only.
+const COMIC_STAR_CLIP =
+    'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)'
+const COMIC_BURST_CLIP =
+    'polygon(50% 0%,60% 18%,79% 10%,75% 31%,96% 35%,79% 50%,96% 65%,75% 69%,79% 90%,60% 82%,50% 100%,40% 82%,21% 90%,25% 69%,4% 65%,21% 50%,4% 35%,25% 31%,21% 10%,40% 18%)'
+const COMIC_DOTS = 'radial-gradient(rgba(22,22,29,0.12) 1.5px, transparent 1.8px)'
+
+function ComicUpNext({
+    theme,
+    art,
+    track,
+    singers,
+    np,
+    roles,
+    guestsMap,
+}: {
+    theme: any
+    art: string | null
+    track: any
+    singers: any[]
+    np: any
+    roles: string[]
+    guestsMap: Map<string, any>
+}) {
+    const dur = track?.duration_ms
+        ? `${Math.floor(track.duration_ms / 60000)}:${Math.floor((track.duration_ms % 60000) / 1000)
+              .toString()
+              .padStart(2, '0')}`
+        : ''
+    return (
+        <div
+            className="anim-enter"
+            style={{ width: '100%', maxWidth: 1100, margin: '0 auto', padding: '0 48px', position: 'relative' }}
+        >
+            {/* Static action speed-lines radiating behind the whole lockup */}
+            <div
+                style={{
+                    position: 'absolute',
+                    left: '50%',
+                    top: '42%',
+                    width: '150vmax',
+                    height: '150vmax',
+                    transform: 'translate(-50%, -50%)',
+                    background:
+                        'repeating-conic-gradient(from 0deg, rgba(22,22,29,0.05) 0deg 2deg, transparent 2deg 4deg)',
+                    zIndex: 0,
+                    pointerEvents: 'none',
+                }}
+            />
+            <div
+                style={{
+                    position: 'relative',
+                    zIndex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 30,
+                }}
+            >
+                {/* UP NEXT! starburst banner */}
+                <div
+                    style={{
+                        position: 'relative',
+                        width: 300,
+                        height: 104,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        filter: 'drop-shadow(5px 5px 0 #16161D)',
+                    }}
+                >
+                    <div style={{ position: 'absolute', inset: 0, clipPath: COMIC_BURST_CLIP, background: '#16161D' }} />
+                    <div
+                        style={{
+                            position: 'absolute',
+                            inset: 7,
+                            clipPath: COMIC_BURST_CLIP,
+                            background: '#FFD400',
+                            backgroundImage: COMIC_DOTS,
+                            backgroundSize: '8px 8px',
+                        }}
+                    />
+                    <span
+                        style={{
+                            position: 'relative',
+                            fontFamily: theme.fontDisplay,
+                            fontSize: stageFont(34),
+                            color: '#FF1F4B',
+                            WebkitTextStroke: '2px #16161D',
+                            textShadow: '2px 2px 0 #16161D',
+                            transform: 'rotate(-3deg)',
+                            letterSpacing: 1,
+                        }}
+                    >
+                        UP NEXT!
+                    </span>
+                </div>
+
+                {/* Album art — heavy inked frame with a corner star sticker */}
+                {np?.isHidden ? (
+                    <div
+                        style={{
+                            width: 320,
+                            height: 320,
+                            background: '#16161D',
+                            backgroundImage: 'radial-gradient(rgba(255,212,0,0.18) 2px, transparent 2.4px)',
+                            backgroundSize: '14px 14px',
+                            border: '5px solid #16161D',
+                            boxShadow: '10px 10px 0 #16161D',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                        }}
+                    >
+                        <span style={{ fontFamily: theme.fontDisplay, fontSize: stageFont(130), color: '#FFD400' }}>?</span>
+                    </div>
+                ) : art ? (
+                    <div
+                        style={{
+                            position: 'relative',
+                            padding: 13,
+                            background: '#FFFFFF',
+                            backgroundImage: COMIC_DOTS,
+                            backgroundSize: '8px 8px',
+                            border: '5px solid #16161D',
+                            boxShadow: '10px 10px 0 #16161D',
+                        }}
+                    >
+                        <img
+                            src={art}
+                            alt=""
+                            style={{ width: 316, height: 316, display: 'block', border: '3px solid #16161D', objectFit: 'cover' }}
+                        />
+                        <div
+                            style={{
+                                position: 'absolute',
+                                top: -24,
+                                right: -24,
+                                width: 80,
+                                height: 80,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transform: 'rotate(13deg)',
+                                filter: 'drop-shadow(3px 3px 0 #16161D)',
+                            }}
+                        >
+                            <div style={{ position: 'absolute', inset: 0, clipPath: COMIC_STAR_CLIP, background: '#16161D' }} />
+                            <div style={{ position: 'absolute', inset: 6, clipPath: COMIC_STAR_CLIP, background: '#FF1F4B' }} />
+                            <span
+                                style={{
+                                    position: 'relative',
+                                    fontFamily: theme.fontDisplay,
+                                    fontSize: stageFont(22),
+                                    color: '#FFFFFF',
+                                    WebkitTextStroke: '1px #16161D',
+                                }}
+                            >
+                                ★
+                            </span>
+                        </div>
+                    </div>
+                ) : null}
+
+                {/* Title + singers panel */}
+                <div
+                    style={{
+                        textAlign: 'center',
+                        maxWidth: 860,
+                        background: '#FFFFFF',
+                        backgroundImage: COMIC_DOTS,
+                        backgroundSize: '8px 8px',
+                        border: '5px solid #16161D',
+                        borderRadius: 10,
+                        boxShadow: '8px 8px 0 #16161D',
+                        padding: '26px 44px 30px',
+                    }}
+                >
+                    <h1
+                        style={{
+                            fontFamily: theme.fontDisplay,
+                            fontSize: stageFont(46),
+                            color: '#16161D',
+                            margin: 0,
+                            letterSpacing: 1,
+                            textTransform: 'uppercase',
+                            textShadow: '3px 3px 0 #FFD400',
+                        }}
+                    >
+                        {np?.isHidden ? 'SECRET SONG!' : track.name}
+                    </h1>
+                    {!np?.isHidden && (
+                        <p
+                            style={{
+                                fontFamily: theme.fontBody,
+                                fontWeight: 800,
+                                fontSize: stageFont(17),
+                                color: '#5A5A66',
+                                margin: '8px 0 0',
+                                textTransform: 'uppercase',
+                                letterSpacing: 1,
+                            }}
+                        >
+                            {track.artists.map((a: any) => a.name).join(', ')}
+                            {dur ? `  ·  ${dur}` : ''}
+                        </p>
+                    )}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 14, marginTop: 22 }}>
+                        {singers.map((s: any) => {
+                            const roleStr =
+                                !np?.isHidden && s.roleIndices && s.roleIndices.length > 0 && roles.length > 0
+                                    ? s.roleIndices.map((idx: number) => roles[idx]).filter(Boolean).join(' & ')
+                                    : ''
+                            const g = s.guestId ? guestsMap.get(s.guestId) : undefined
+                            const nm = g?.name ?? s.name
+                            const pic = g?.profile_picture ?? null
+                            return (
+                                <div
+                                    key={s.id}
+                                    style={{
+                                        position: 'relative',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 10,
+                                        padding: '12px 24px',
+                                        background: '#FFD400',
+                                        backgroundImage: COMIC_DOTS,
+                                        backgroundSize: '7px 7px',
+                                        border: '4px solid #16161D',
+                                        borderRadius: 8,
+                                        boxShadow: '4px 4px 0 #16161D',
+                                        transform: 'rotate(-1.5deg)',
+                                    }}
+                                >
+                                    {pic && (
+                                        <img
+                                            src={pic}
+                                            alt=""
+                                            style={{ width: 34, height: 34, borderRadius: '50%', border: '2.5px solid #16161D', objectFit: 'cover' }}
+                                        />
+                                    )}
+                                    <span
+                                        style={{
+                                            fontFamily: theme.fontDisplay,
+                                            fontSize: stageFont(24),
+                                            color: s.color,
+                                            WebkitTextStroke: '1.5px #16161D',
+                                            letterSpacing: 0.5,
+                                        }}
+                                    >
+                                        {roleStr ? `${nm} · ${roleStr}` : nm}
+                                    </span>
+                                </div>
+                            )
+                        })}
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}
+
 // ---- Singer Mic Processing Hook ----
 function useSingerMic(deviceId: string, enabled: boolean, effects: any, mainOutputId: string) {
     const [level, setLevel] = useState(0)
@@ -1770,6 +2038,121 @@ export default function KaraokePage() {
             )
         }
 
+        // ---- Comic Book (pop-art) idle ----
+        if (theme.name === 'comic-book') {
+            const STAR = 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)'
+            const onos = [
+                { t: 'POW!', x: '7%', y: '13%', bg: '#FFD400', fg: '#FF1F4B', rot: -14, d: 2.6 },
+                { t: 'BAM!', x: '79%', y: '9%', bg: '#FF1F4B', fg: '#FFFFFF', rot: 11, d: 3.1 },
+                { t: 'ZAP!', x: '83%', y: '68%', bg: '#2FA8FF', fg: '#FFD400', rot: -8, d: 2.9 },
+                { t: 'WOW!', x: '4%', y: '70%', bg: '#FFFFFF', fg: '#2FA8FF', rot: 9, d: 3.4 },
+            ]
+            return (
+                <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
+                    background: '#FFF7E6', position: 'relative', overflow: 'hidden',
+                    backgroundImage:
+                        'radial-gradient(rgba(255,31,75,0.16) 2px, transparent 2.4px), radial-gradient(rgba(47,168,255,0.14) 2px, transparent 2.4px)',
+                    backgroundSize: '22px 22px, 22px 22px', backgroundPosition: '0 0, 11px 11px',
+                }}>
+                    {/* Radial speed-line burst behind the hero */}
+                    <div style={{
+                        position: 'absolute', left: '50%', top: '46%', width: '160vmax', height: '160vmax',
+                        transform: 'translate(-50%, -50%)',
+                        background: 'repeating-conic-gradient(from 0deg, rgba(22,22,29,0.06) 0deg 2.2deg, transparent 2.2deg 4.4deg)',
+                        animation: 'comic-idle-burst 90s linear infinite', zIndex: 0,
+                    }} />
+
+                    {/* Onomatopoeia starbursts — the star is a clipped layer; the
+                       word sits ABOVE it (not clipped), colored with an ink
+                       outline so it stays crisp and never gets cut by the points. */}
+                    {onos.map((o, i) => (
+                        <div key={`ono-${i}`} style={{
+                            position: 'absolute', left: o.x, top: o.y, zIndex: 2,
+                            width: 150, height: 150,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            ['--wig-a' as string]: `${o.rot - 6}deg`, ['--wig-b' as string]: `${o.rot + 6}deg`,
+                            animation: `comic-wiggle ${o.d}s ease-in-out infinite`,
+                        }}>
+                            {/* Star shape (ink border via stacked clips) */}
+                            <div style={{
+                                position: 'absolute', inset: 0, clipPath: STAR, background: '#16161D',
+                            }} />
+                            <div style={{
+                                position: 'absolute', inset: 9, clipPath: STAR, background: o.bg,
+                            }} />
+                            {/* Word on top — never clipped */}
+                            <span style={{
+                                position: 'relative', zIndex: 1,
+                                fontFamily: theme.fontDisplay, color: o.fg, fontSize: stageFont(30),
+                                letterSpacing: 1, transform: `rotate(${o.rot}deg)`,
+                                WebkitTextStroke: '2px #16161D',
+                                textShadow: '2px 2px 0 #16161D',
+                            }}>{o.t}</span>
+                        </div>
+                    ))}
+
+                    {/* Hero speech-bubble panel */}
+                    <div style={{
+                        position: 'relative', zIndex: 3, textAlign: 'center',
+                        background: '#FFFFFF', border: '6px solid #16161D', borderRadius: 28,
+                        boxShadow: '10px 10px 0 #16161D', padding: '40px 56px 44px',
+                        animation: 'comic-bob 4s ease-in-out infinite',
+                    }}>
+                        {/* speech-bubble tail — 45°-rotated square straddling the
+                            bottom edge (white fill covers the bottom border at the
+                            overlap; the ink right+bottom borders form the point). */}
+                        <div style={{
+                            position: 'absolute', left: 66, bottom: -22, width: 40, height: 40,
+                            background: '#FFFFFF', borderRight: '6px solid #16161D', borderBottom: '6px solid #16161D',
+                            borderBottomRightRadius: 6, transform: 'rotate(45deg)',
+                        }} />
+                        <h1 style={{
+                            fontFamily: theme.fontDisplay, fontSize: stageFont(74), color: '#FF1F4B',
+                            lineHeight: 1.0, margin: 0, letterSpacing: 1,
+                            WebkitTextStroke: '2px #16161D',
+                            textShadow: '5px 5px 0 #16161D',
+                        }}>
+                            GRAB THE MIC!
+                        </h1>
+                        <p style={{
+                            fontFamily: theme.fontBody, fontWeight: 800, fontSize: stageFont(18),
+                            color: '#16161D', letterSpacing: '0.18em', textTransform: 'uppercase',
+                            margin: '14px 0 26px',
+                        }}>
+                            Scan to add your song
+                        </p>
+                        {qrUrl && (
+                            <div style={{ display: 'flex', justifyContent: 'center' }}>
+                                <div style={{
+                                    padding: 12, background: '#FFFFFF',
+                                    border: '4px solid #16161D', borderRadius: 10, boxShadow: '5px 5px 0 #16161D',
+                                }}>
+                                    <img src={qrUrl} alt="QR" style={{ width: 196, height: 196, display: 'block' }} />
+                                </div>
+                            </div>
+                        )}
+                        {sessionCode && (
+                            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 22 }}>
+                                <div style={{
+                                    padding: '6px 22px',
+                                    background: '#FFD400', border: '4px solid #16161D', borderRadius: 8,
+                                    boxShadow: '4px 4px 0 #16161D', transform: 'rotate(-2deg)',
+                                }}>
+                                    <p style={{
+                                        fontFamily: theme.fontDisplay, fontSize: stageFont(26), color: '#16161D',
+                                        letterSpacing: '0.22em', margin: 0,
+                                    }}>
+                                        {sessionCode}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )
+        }
+
         // ---- Urban (Hip Hop) idle ----
         return (
             <div style={{
@@ -1840,9 +2223,9 @@ export default function KaraokePage() {
             position: 'fixed', top: 'calc(100vh - 150px)', left: 80, zIndex: 9999,
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
         }}>
-            <div style={{
+            <div className="k-qr-card" style={{
                 ...theme.stickerLabel,
-                background: theme.name === 'neo-brutal' || theme.name === 'sketch' ? theme.appBg : 'rgba(0,0,0,0.8)',
+                background: theme.name === 'neo-brutal' || theme.name === 'sketch' || theme.name === 'comic-book' ? theme.appBg : 'rgba(0,0,0,0.8)',
                 padding: 10,
                 display: 'flex',
                 flexDirection: 'column',
@@ -2054,6 +2437,9 @@ export default function KaraokePage() {
             {/* Lyrics & Stage Centerpiece */}
             <div className="k-lyrics" ref={lyricsRef}>
                 {state.stageMode === 'ready' ? (
+                  theme.name === 'comic-book' ? (
+                    <ComicUpNext theme={theme} art={art} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} />
+                  ) : (
                     <div className="anim-enter k-upnext" style={{ width: '100%', maxWidth: 1100, margin: '0 auto', padding: '0 48px' }}>
                         <div style={{
                             display: 'flex', 
@@ -2149,6 +2535,7 @@ export default function KaraokePage() {
                             </div>
                         </div>
                     </div>
+                  )
                 ) : groupedLyrics.length === 0 ? (
                     <div style={{ textAlign: 'center' }}>
                         <p style={{ fontFamily: 'var(--font-display)', fontSize: stageFont(22), fontWeight: 700, color: 'var(--white-faint)' }}>
@@ -2161,7 +2548,7 @@ export default function KaraokePage() {
                         const isPastGroup = lineIdx >= 0 && group[group.length - 1].originalIndex < lineIdx
 
                         return (
-                            <div key={i} style={{ display: 'flex', gap: 24, justifyContent: 'center', flexWrap: 'wrap' }}>
+                            <div key={i} style={{ display: 'flex', gap: 24, justifyContent: 'center', flexWrap: 'wrap', isolation: 'isolate' }}>
                                 {group.map((line: any, j: number) => {
                                     let cls = 'k-line k-line--lg'
                                     let inlineStyle: React.CSSProperties = {
@@ -2280,6 +2667,23 @@ export default function KaraokePage() {
                                             inlineStyle.borderRadius = '4px'
                                             inlineStyle.border = `1px solid ${activeSingerColor}`
                                             inlineStyle.boxShadow = `0 0 18px ${activeSingerColor}, 0 0 42px color-mix(in srgb, ${activeSingerColor}, transparent 50%), inset 0 0 0 1px rgba(255, 255, 255, 0.08)`
+                                        } else if (theme.name === 'comic-book') {
+                                            // Singer-colored speech-bubble panel on a matching speed-line
+                                            // burst; the active word is the inked "impact word". Even-index
+                                            // singers point their tail bottom-left, odd-index (the 2nd
+                                            // singer in a duet) bottom-right, so a duet's speakers oppose.
+                                            cls += ' k-line--comic-book-active'
+                                            if (((line.singerIndex ?? 0) % 2) === 1) cls += ' k-line--comic-tail-right'
+                                            inlineStyle.padding = '0.2em 0.85em'
+                                            inlineStyle['--burst-color'] = activeSingerColor
+                                            // Flat singer-colour fill + a faint Ben-Day halftone printed
+                                            // over it (replaces the generic gradient `background` above so
+                                            // the dot layer survives — a `background` shorthand would wipe
+                                            // backgroundImage).
+                                            inlineStyle.background = undefined
+                                            inlineStyle.backgroundColor = activeSingerColor
+                                            inlineStyle.backgroundImage = 'radial-gradient(rgba(22,22,29,0.16) 1.5px, transparent 1.8px)'
+                                            inlineStyle.backgroundSize = '8px 8px'
                                         } else {
                                             inlineStyle.padding = '0.18em 0.75em'
                                             inlineStyle.borderRadius = '8px'
@@ -2299,8 +2703,22 @@ export default function KaraokePage() {
                                         inlineStyle.opacity = 1
                                     }
 
-                                    const needsSanitation = line.singerIndices?.some((idx: number) => singers[idx]?.whitePersonCheck) ||
-                                        (line.singerIndex !== undefined && singers[line.singerIndex]?.whitePersonCheck);
+                                    // Everyone is a "white" singer (lyrics sanitized) by default. The
+                                    // host turns it OFF per-person on the Admin > Guests screen, which
+                                    // flips `white_person_check` on the guest row; we resolve it LIVE
+                                    // off guestsMap so toggling re-censors the current song instantly.
+                                    // Singers with no linked guest stay sanitized.
+                                    const isSingerWhite = (idx: number) => {
+                                        const s = singers[idx]
+                                        if (!s) return false
+                                        if (s.guestId) {
+                                            const g = guestsMap.get(s.guestId)
+                                            return g ? g.white_person_check !== false : true
+                                        }
+                                        return true
+                                    }
+                                    const needsSanitation = line.singerIndices?.some((idx: number) => isSingerWhite(idx)) ||
+                                        (line.singerIndex !== undefined && isSingerWhite(line.singerIndex));
 
                                     const sanitize = (s: string) => s.replace(/nigg(?:a|er)s?/gi, (match: string) => {
                                         const isPlural = match.toLowerCase().endsWith('s');

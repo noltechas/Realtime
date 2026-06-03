@@ -118,25 +118,6 @@ function SetupPanel() {
         setPickerOpen(false)
     }
 
-    const doesAnyRoleHaveOffensiveWord = (roleIndices: number[]) => {
-        return state.lyrics.some(l =>
-            roleIndices.includes(l.roleIndex!) && /nigg(?:a|er)s?/i.test(l.words)
-        )
-    }
-
-    // Default whitePersonCheck to true the first time a singer is assigned a role
-    // containing the n-word. The user can uncheck to opt out; we don't override
-    // an explicit false.
-    useEffect(() => {
-        state.singers.forEach((singer, i) => {
-            const indices = singer.roleIndices || []
-            if (indices.length === 0) return
-            if (singer.whitePersonCheck !== undefined) return
-            if (!doesAnyRoleHaveOffensiveWord(indices)) return
-            dispatch({ type: 'UPDATE_SINGER', payload: { index: i, singer: { whitePersonCheck: true } } })
-        })
-    }, [state.singers, state.lyrics])
-
     const track = state.currentTrack
     const art = track?.album.images[0]?.url
     const hasInstrumental = !!state.stemsPath?.instrumental
@@ -197,9 +178,11 @@ function SetupPanel() {
                     // guest; otherwise store the inline name (admin/host- or
                     // name-only singer). Never store a base64 avatar — it is
                     // resolved live from karaoke_guests at render time.
+                    // The "white person" / lyric-sanitization flag is no longer a
+                    // per-song config value — it lives on the guest record and the
+                    // host toggles it on the Admin screen (resolved live on stage).
                     var cfg: any = { color: s.color, colorGlow: s.colorGlow, roleIndices: s.roleIndices };
                     if (s.guestId) cfg.guestId = s.guestId; else cfg.name = s.name;
-                    if (s.whitePersonCheck) cfg.whitePersonCheck = true;
                     return cfg;
                 }),
             }).then(result => {
@@ -422,24 +405,6 @@ function SetupPanel() {
                                 {audioDevices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || `Mic ${d.deviceId.slice(0, 6)}`}</option>)}
                             </select>
                         </div>
-                        {singer.roleIndices && singer.roleIndices.length > 0 && doesAnyRoleHaveOffensiveWord(singer.roleIndices) && (
-                            <div style={{
-                                gridColumn: '1 / -1', background: theme.creamDark,
-                                padding: '12px 16px', borderRadius: 6, border: theme.borderThin,
-                                display: 'flex', alignItems: 'center', gap: 12,
-                            }}>
-                                <input
-                                    type="checkbox"
-                                    checked={singer.whitePersonCheck ?? true}
-                                    onChange={(e) => dispatch({ type: 'UPDATE_SINGER', payload: { index: i, singer: { whitePersonCheck: e.target.checked } } })}
-                                    style={{ width: 18, height: 18, cursor: 'pointer', accentColor: singer.color }}
-                                />
-                                <div>
-                                    <div style={{ fontSize: 13, fontWeight: 700, color: theme.black }}>White Singer</div>
-                                    <div style={{ fontSize: 11, color: theme.black, opacity: 0.5 }}>Sanitizes a certain word from lyrics for this singer</div>
-                                </div>
-                            </div>
-                        )}
                     </div>
                 </section>
             ))}

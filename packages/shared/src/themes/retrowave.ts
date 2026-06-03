@@ -16,7 +16,7 @@ import type { ThemeTokens } from './tokens'
 export const RETROWAVE_TOKENS: ThemeTokens = {
   name: 'retrowave',
   displayName: 'Retrowave',
-  nextThemeName: 'neo-brutal', // mobile ring loops back
+  nextThemeName: 'comic-book', // ring continues into comic-book, which loops back
 
   // Raw colors — laser neon on deep purple-black sky
   black:       '#F4E8FF',     // primary text — soft lavender white

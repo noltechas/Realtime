@@ -28,6 +28,9 @@ export type ElectronAPI = {
     sendPlaybackTime: (timeMs: number) => void
     onPlaybackTime: (callback: (timeMs: number) => void) => any
     offPlaybackTime: (handler: any) => void
+    /** Fires true when the machine sleeps / screen locks, false on resume/unlock. */
+    onPowerIdle: (callback: (idle: boolean) => void) => any
+    offPowerIdle: (handler: any) => void
     sendPlaybackSeek: (timeMs: number) => void
     onPlaybackSeek: (callback: (timeMs: number) => void) => any
     offPlaybackSeek: (handler: any) => void
@@ -69,8 +72,8 @@ export type ElectronAPI = {
     onRemoteQueueRemove: (callback: (row: any) => void) => any
     offRemoteQueueRemove: (handler: any) => void
     // Guest management
-    listGuests: () => Promise<{ id: string; sessionId: string; name: string; profilePicture: string | null }[]>
-    updateGuest: (id: string, fields: { name?: string; profilePicture?: string | null }) => Promise<void>
+    listGuests: () => Promise<{ id: string; sessionId: string; name: string; profilePicture: string | null; whitePersonCheck: boolean }[]>
+    updateGuest: (id: string, fields: { name?: string; profilePicture?: string | null; whitePersonCheck?: boolean }) => Promise<void>
     removeGuest: (id: string) => Promise<void>
     // Reactions relay (main → stage)
     sendReaction: (reaction: any) => void
@@ -136,6 +139,12 @@ const api: ElectronAPI = {
         return handler
     },
     offPlaybackTime: (handler) => ipcRenderer.removeListener('playback:time', handler),
+    onPowerIdle: (callback) => {
+        const handler = (_e: any, idle: boolean) => callback(idle)
+        ipcRenderer.on('power:idle', handler)
+        return handler
+    },
+    offPowerIdle: (handler) => ipcRenderer.removeListener('power:idle', handler),
     sendPlaybackSeek: (timeMs) => ipcRenderer.send('playback:seek', timeMs),
     onPlaybackSeek: (callback) => {
         const handler = (_e: any, timeMs: number) => callback(timeMs)

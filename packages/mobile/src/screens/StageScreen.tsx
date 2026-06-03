@@ -886,6 +886,24 @@ function yupHeroStyle(t: ThemeTokens): TextStyle {
       textShadowRadius: 16,
     }
   }
+  // Comic Book: Luckiest Guy is a single-weight display face — faux-bolding it
+  // muddies the letters. Render at native weight, big, in pop red with a hard
+  // ink drop (offset 3/3, no blur) so it reads like an inked comic title burst.
+  if (t.name === 'comic-book') {
+    return {
+      fontFamily: t.fontDisplay,
+      fontWeight: 'normal',
+      fontSize: 52,
+      color: t.hotRed,
+      letterSpacing: 1.5,
+      textAlign: 'center',
+      marginBottom: 4,
+      textTransform: 'uppercase',
+      textShadowColor: t.black,
+      textShadowOffset: { width: 3, height: 3 },
+      textShadowRadius: 0,
+    }
+  }
   return {
     fontFamily: t.fontDisplay,
     fontWeight: '900',

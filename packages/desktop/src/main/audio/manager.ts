@@ -81,7 +81,8 @@ export interface SongMeta {
         key?: number              // Musical key (0-11)
         mode?: number             // Major (1) or Minor (0)
         tempo?: number            // BPM
-        releaseDate?: string      // Album release date
+        releaseDate?: string      // Album release date (YYYY-MM-DD)
+        releaseYear?: number      // Year the song was released (parsed from releaseDate)
         instrumentalness?: number // 0-1, from Spotify audio features; lower = more vocals = better for karaoke
         popularity?: number       // 0-100, from Spotify track; fallback when audio-features returns 403
     }

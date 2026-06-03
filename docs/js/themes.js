@@ -565,6 +565,69 @@ export function applyTheme(){
     " .awards-btn{border:1px solid rgba(255,45,149,0.45) !important;background:rgba(255,45,149,0.06) !important;color:#F0E6FF !important;border-radius:4px !important;font-family:'Audiowide',sans-serif !important;letter-spacing:1px !important;}" +
     " .awards-btn--primary{background:linear-gradient(135deg,#FF2D95,#B44AFF 60%,#00BFFF) !important;color:#fff !important;border:1px solid #FF2D95 !important;box-shadow:0 0 22px rgba(255,45,149,0.55),0 0 44px rgba(0,191,255,0.25) !important;text-shadow:1px 0 0 #00BFFF,-1px 0 0 #FF2D95 !important;}" +
     " .awards-btn--danger{background:#FF1A6B !important;color:#fff !important;border:1px solid #FF1A6B !important;box-shadow:0 0 20px rgba(255,26,107,0.45) !important;text-shadow:none !important;}";
+  }else if(activeTheme==="comic-book"){
+    css=":root{--black:#16161D;--surface-1:rgba(22,22,29,0.05);--surface-2:#FFFFFF;--surface-3:rgba(22,22,29,0.12);--white:#16161D;--white-muted:rgba(22,22,29,0.7);--white-faint:rgba(22,22,29,0.45);--white-ghost:rgba(22,22,29,0.18);--violet:#2FA8FF;--pink:#FF1F4B;--cyan:#2FA8FF;--emerald:#2FA8FF;--amber:#FFD400;--red:#FF1F4B;--grad-hero:linear-gradient(135deg, #FF1F4B, #FFD400);--grad-text:linear-gradient(135deg, #FF1F4B, #2FA8FF);--font-display:'BadaBoom BB', cursive;--font-body:'Super Squad', sans-serif;}" +
+    " @keyframes comicSpeedLines{0%{background-position:0 0}100%{background-position:28px 0}}" +
+    " .mesh-bg{background-color:#FFF7E6 !important;background-image:radial-gradient(rgba(255,31,75,0.12) 1.4px, transparent 1.6px),radial-gradient(rgba(47,168,255,0.11) 1.4px, transparent 1.6px) !important;background-size:14px 14px,14px 14px !important;background-position:0 0,7px 7px !important;animation:none !important;}" +
+    " .song-card,.config-section,.queue-item,.singer-card,.request-song-cta,.now-playing-card{border:3px solid #16161D !important;box-shadow:4px 4px 0px #16161D !important;border-radius:6px !important;background:#FFFFFF !important;}" +
+    " .song-card:active{box-shadow:1px 1px 0px #16161D !important;transform:translate(2px,2px) !important;}" +
+    " .config-label,.wiz-hero{font-family:'BadaBoom BB',cursive !important;letter-spacing:1px !important;text-shadow:3px 3px 0 #16161D !important;color:#16161D !important;transform:rotate(-1deg) !important;}" +
+    " .join-btn,.add-queue-btn,.profile-save-btn{background:#FF1F4B !important;color:#FFFFFF !important;border:3px solid #16161D !important;box-shadow:4px 4px 0px #16161D !important;border-radius:6px !important;font-family:'BadaBoom BB',cursive !important;text-transform:uppercase !important;letter-spacing:1px !important;}" +
+    " .join-btn:hover,.add-queue-btn:hover,.profile-save-btn:hover{transform:translate(-2px,-2px) rotate(-1deg) !important;box-shadow:6px 6px 0px #16161D !important;}" +
+    " .join-btn:active,.add-queue-btn:active,.profile-save-btn:active{box-shadow:1px 1px 0px #16161D !important;transform:translate(2px,2px) !important;}" +
+    " .singer-count-btn{border:3px solid #16161D !important;box-shadow:3px 3px 0px #16161D !important;border-radius:6px !important;background:#FFFFFF !important;color:#16161D !important;font-family:'BadaBoom BB',cursive !important;}" +
+    " .singer-count-btn.active{background:#FFD400 !important;color:#16161D !important;}" +
+    " .role-btn{border:2.5px solid #16161D !important;border-radius:6px !important;background:#FFFFFF !important;color:#16161D !important;font-family:'Super Squad',sans-serif !important;font-weight:700 !important;}" +
+    " .role-btn.active{background:#2FA8FF !important;color:#FFFFFF !important;}" +
+    " .join-input,.search-input,.singer-name-input,.profile-name-input{border:3px solid #16161D !important;border-radius:6px !important;background:#FFFFFF !important;color:#16161D !important;box-shadow:3px 3px 0px #16161D !important;font-family:'Super Squad',sans-serif !important;}" +
+    " .join-input::placeholder,.search-input::placeholder,.singer-name-input::placeholder,.profile-name-input::placeholder{color:rgba(22,22,29,0.4) !important;}" +
+    " .bottom-nav{background:rgba(255,247,230,0.96) !important;border-top:3px solid #16161D !important;}" +
+    " .songs-header,.req-header{background:rgba(255,247,230,0.96) !important;}" +
+    " .song-card-plus{background:#FFD400 !important;border:3px solid #16161D !important;border-radius:6px !important;color:#16161D !important;box-shadow:2px 2px 0 #16161D !important;width:36px !important;height:36px !important;}" +
+    " .song-card-added{background:#2FA8FF !important;border:3px solid #16161D !important;border-radius:6px !important;color:#FFFFFF !important;font-family:'BadaBoom BB',cursive !important;text-transform:uppercase !important;letter-spacing:1px !important;box-shadow:2px 2px 0 #16161D !important;padding:5px 9px !important;}" +
+    " .now-playing-card{background:#FFD400 !important;border:3px solid #16161D !important;animation:none !important;}" +
+    " .avatar-upload,.profile-avatar{border:3px solid #16161D !important;}" +
+    " .guest-picker-pill{border:2.5px solid #16161D !important;background:#FFFFFF !important;color:#16161D !important;font-family:'Super Squad',sans-serif !important;font-weight:700 !important;}" +
+    " .guest-picker-pill.selected{background:#FFD400 !important;color:#16161D !important;}" +
+    " .reaction-cell{border:3px solid #16161D !important;box-shadow:4px 4px 0px #16161D !important;border-radius:6px !important;background:#FFFFFF !important;}" +
+    " .reaction-cell:active{box-shadow:1px 1px 0px #16161D !important;transform:translate(2px,2px) !important;}" +
+    " .emoji-picker-sheet,.text-input-sheet,.meme-picker-sheet{background:#FFF7E6 !important;border:3px solid #16161D !important;}" +
+    " .text-input-field{border:3px solid #16161D !important;background:#FFFFFF !important;color:#16161D !important;box-shadow:3px 3px 0px #16161D !important;}" +
+    " .text-input-send{background:#FF1F4B !important;color:#FFFFFF !important;border:3px solid #16161D !important;box-shadow:3px 3px 0px #16161D !important;}" +
+    " .meme-pick-btn{border:3px solid #16161D !important;box-shadow:3px 3px 0px #16161D !important;background:#FFFFFF !important;}" +
+    " .youreup-screen{background:#FFF7E6 !important;background-image:radial-gradient(rgba(255,31,75,0.12) 1.4px, transparent 1.6px),radial-gradient(rgba(47,168,255,0.11) 1.4px, transparent 1.6px) !important;background-size:14px 14px,14px 14px !important;background-position:0 0,7px 7px !important;}" +
+    " .youreup-play-btn{border:3px solid #16161D !important;box-shadow:6px 6px 0px #16161D !important;border-radius:50% !important;background:#FF1F4B !important;}" +
+    " .youreup-play-btn svg{fill:#FFFFFF !important;}" +
+    " .youreup-play-btn:active{box-shadow:1px 1px 0px #16161D !important;transform:translate(4px,4px) !important;}" +
+    " .youreup-art{border:3px solid #16161D !important;box-shadow:4px 4px 0px #16161D !important;border-radius:6px !important;}" +
+    " .youreup-skip-btn{border:3px solid #16161D !important;box-shadow:4px 4px 0px #16161D !important;border-radius:6px !important;background:#FFFFFF !important;color:#16161D !important;font-family:'BadaBoom BB',cursive !important;text-transform:uppercase !important;}" +
+    " .youreup-skip-btn:active{box-shadow:1px 1px 0px #16161D !important;transform:translate(2px,2px) !important;}" +
+    " .skip-confirm-card{background:#FFF7E6 !important;border:3px solid #16161D !important;box-shadow:6px 6px 0px #16161D !important;border-radius:6px !important;}" +
+    " .skip-confirm-title{color:#16161D !important;font-family:'BadaBoom BB',cursive !important;text-shadow:2px 2px 0 #FFD400 !important;}" +
+    " .skip-confirm-sub{color:rgba(22,22,29,0.7) !important;}" +
+    " .skip-confirm-btn-ghost{border:3px solid #16161D !important;background:#FFFFFF !important;color:#16161D !important;box-shadow:3px 3px 0px #16161D !important;border-radius:6px !important;font-family:'BadaBoom BB',cursive !important;}" +
+    " .skip-confirm-btn-danger{border:3px solid #16161D !important;background:#FF1F4B !important;color:#FFFFFF !important;box-shadow:3px 3px 0px #16161D !important;border-radius:6px !important;font-family:'BadaBoom BB',cursive !important;}" +
+    " .skip-confirm-btn:active{box-shadow:1px 1px 0px #16161D !important;transform:translate(2px,2px) !important;}" +
+    /* ---- Awards: Create page ---- */
+    " .awards-detail-info h2{color:#16161D !important;font-family:'BadaBoom BB',cursive !important;letter-spacing:1px !important;text-shadow:3px 3px 0 #16161D !important;}" +
+    " .awards-detail-info p{color:rgba(22,22,29,0.7) !important;}" +
+    " .awards-field-label{color:#16161D !important;font-family:'BadaBoom BB',cursive !important;letter-spacing:1px !important;}" +
+    " .awards-detail-back{border:3px solid #16161D !important;background:#FFFFFF !important;color:#16161D !important;border-radius:6px !important;box-shadow:2px 2px 0px #16161D !important;}" +
+    " .awards-text-input,.awards-picker-search{border:3px solid #16161D !important;border-radius:6px !important;background:#FFFFFF !important;color:#16161D !important;box-shadow:3px 3px 0px #16161D !important;}" +
+    " .awards-text-input::placeholder,.awards-picker-search::placeholder{color:rgba(22,22,29,0.4) !important;}" +
+    " .awards-segmented{border:3px solid #16161D !important;background:#FFFFFF !important;border-radius:6px !important;box-shadow:3px 3px 0px #16161D !important;padding:4px !important;}" +
+    " .awards-segmented button{color:#16161D !important;border-radius:4px !important;font-family:'BadaBoom BB',cursive !important;}" +
+    " .awards-segmented button.active{background:#FFD400 !important;color:#16161D !important;}" +
+    " .awards-visual-toggle button{border:3px solid #16161D !important;border-radius:6px !important;background:#FFFFFF !important;color:#16161D !important;box-shadow:3px 3px 0px #16161D !important;font-family:'BadaBoom BB',cursive !important;}" +
+    " .awards-visual-toggle button.active{background:#2FA8FF !important;color:#FFFFFF !important;border-color:#16161D !important;}" +
+    " .awards-visual-toggle .awards-or{color:#16161D !important;}" +
+    " .awards-icon-grid{border:3px solid #16161D !important;border-radius:6px !important;background:#FFF7E6 !important;box-shadow:3px 3px 0px #16161D !important;}" +
+    " .awards-icon-grid button{border:2.5px solid #16161D !important;border-radius:6px !important;background:#FFFFFF !important;color:#16161D !important;}" +
+    " .awards-icon-grid button.active{background:#FFD400 !important;color:#16161D !important;border-color:#16161D !important;box-shadow:inset 0 0 0 2px #16161D !important;}" +
+    " .awards-btn{border:3px solid #16161D !important;border-radius:6px !important;background:#FFFFFF !important;color:#16161D !important;box-shadow:3px 3px 0px #16161D !important;font-family:'BadaBoom BB',cursive !important;text-transform:uppercase !important;}" +
+    " .awards-btn:active{box-shadow:1px 1px 0px #16161D !important;transform:translate(2px,2px) !important;}" +
+    " .awards-btn--primary{background:#FF1F4B !important;color:#FFFFFF !important;border:3px solid #16161D !important;box-shadow:3px 3px 0px #16161D !important;}" +
+    " .awards-btn--danger{background:#FF1F4B !important;color:#FFFFFF !important;border:3px solid #16161D !important;box-shadow:3px 3px 0px #16161D !important;}";
   }else{
     css="";
   }
@@ -638,6 +701,13 @@ export function applyTheme(){
     " @keyframes retrowaveChromeSweep{0%{left:-30%}100%{left:130%}}" +
     " .genre-tab .genre-tab-count{background:rgba(255,45,149,0.18) !important;color:#FF2D95 !important;opacity:1 !important;border-radius:2px !important;}" +
     " .genre-tab.is-active .genre-tab-count{background:rgba(255,255,255,0.22) !important;color:#fff !important;text-shadow:none !important;}";
+  }else if(activeTheme==="comic-book"){
+    gt="@keyframes comicTabHalftone{0%{background-position:0 0}100%{background-position:12px 12px}}" +
+    " .genre-tab{border:3px solid #16161D !important;background:#FFFFFF !important;color:#16161D !important;border-radius:6px !important;box-shadow:3px 3px 0px #16161D !important;font-family:'BadaBoom BB',cursive !important;text-transform:uppercase !important;letter-spacing:0.06em !important;overflow:hidden !important;}" +
+    " .genre-tab.is-active{background:#FFD400 !important;color:#16161D !important;border-color:#16161D !important;box-shadow:4px 4px 0px #16161D !important;transform:translate(-1px,-1px) rotate(-1deg) !important;}" +
+    " .genre-tab.is-active::after{content:'';position:absolute;inset:0;background-image:radial-gradient(rgba(22,22,29,0.16) 1.4px,transparent 1.6px);background-size:6px 6px;pointer-events:none;animation:comicTabHalftone 2.4s linear infinite;}" +
+    " .genre-tab.is-active:active{box-shadow:1px 1px 0px #16161D !important;transform:translate(2px,2px) !important;}" +
+    " .genre-tab .genre-tab-count{background:rgba(22,22,29,0.12) !important;color:#16161D !important;opacity:1 !important;border:1.5px solid #16161D !important;}";
   }
   tg.textContent=css+gt;
 }

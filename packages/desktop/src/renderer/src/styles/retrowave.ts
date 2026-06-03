@@ -247,7 +247,7 @@ const GLOBAL_CSS = `
 // ── Theme export ─────────────────────────────────────────────────────────────
 export const RETROWAVE: Theme = {
   name: 'retrowave',
-  nextThemeName: 'neo-brutal',
+  nextThemeName: 'comic-book',
   displayName: 'Retrowave',
   globalCss: GLOBAL_CSS,
 

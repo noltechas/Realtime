@@ -11,12 +11,13 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { UNIVERSAL_SINGER_COLORS, findColorIndex } from '@karaoke/shared'
+import { UNIVERSAL_SINGER_COLORS, findColorIndex, updateGuest } from '@karaoke/shared'
 import type { RootStackParamList } from '../navigation/types'
 import { useTheme } from '../theme/ThemeContext'
 import { useProfile } from '../hooks/useProfile'
 import { useSession } from '../hooks/useSession'
 import { AvatarPicker } from '../components/AvatarPicker'
+import { supabase } from '../supabase/client'
 
 export function ProfileScreen() {
   const { tokens, ui } = useTheme()
@@ -47,14 +48,30 @@ export function ProfileScreen() {
     const trimmed = name.trim()
     if (!trimmed) return
     const timer = setTimeout(() => {
+      const defaultColor = UNIVERSAL_SINGER_COLORS[colorIndex]?.color
       void saveProfile({
         name: trimmed,
-        defaultColor: UNIVERSAL_SINGER_COLORS[colorIndex]?.color,
+        defaultColor,
         profilePicture: picture ?? undefined,
       })
+      // Also push the edit to this guest's karaoke_guests row. Singers are
+      // referenced by guestId everywhere, and queue rows / stage / awards
+      // resolve the name + avatar LIVE from that row — so without this sync a
+      // profile-picture change made after joining never shows up on the songs
+      // you've added (saveProfile alone only writes local AsyncStorage).
+      if (session?.guestId) {
+        void updateGuest(supabase, session.guestId, {
+          name: trimmed,
+          defaultColor,
+          profilePicture: picture ?? null,
+        }).catch(() => {
+          // Non-fatal: the local profile still saved; realtime will reconcile
+          // on the next successful edit.
+        })
+      }
     }, 500)
     return () => clearTimeout(timer)
-  }, [name, colorIndex, picture, saveProfile])
+  }, [name, colorIndex, picture, saveProfile, session?.guestId])
 
   // Leaving a session is the ONLY supported exit — the swipe-back gesture is
   // disabled on the Session screen. Clear the cached session (so the next app

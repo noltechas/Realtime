@@ -1,6 +1,6 @@
 import { sb, S, caches } from '../state.js';
 import { filterGifs, restoreMemeSearch, resizeImage } from '../utils.js';
-import { clearDeviceProfile, saveDeviceProfile } from '../persistence.js';
+import { clearDeviceProfile } from '../persistence.js';
 import { initWizardFromTrack, initWizardFromQueueItem, addSinger, removeSinger, setSingerColor, wizardHasAnyChanges, wizardBack, nextWizardStep } from '../wizard.js';
 import { castVote, sendReaction, joinSession, rejoinAsGuest, updateProfile, runRequestSearch, submitSongRequest, loadAwards, loadGuests, loadQueue, validateSession } from '../supabase.js';
 import { render } from '../render/main.js';
@@ -387,18 +387,6 @@ export function bindEvents(){
   });
   var hb=document.getElementById("hide-toggle-btn");
   if(hb)hb.addEventListener("click",function(){S.hide_song=!S.hide_song;render();});
-  document.querySelectorAll(".wpc-row[data-wpc-singer]").forEach(function(row){
-    row.addEventListener("click",function(){
-      var si=parseInt(row.dataset.wpcSinger);
-      if(!S.singers[si])return;
-      S.singers[si].whitePersonCheck=!S.singers[si].whitePersonCheck;
-      if(si===0){
-        S.prefersSanitize=!!S.singers[si].whitePersonCheck;
-        saveDeviceProfile();
-      }
-      render();
-    });
-  });
   // Stage reaction buttons
   var rc=document.getElementById("react-clap");
   if(rc)rc.addEventListener("click",function(){sendReaction("emoji","\uD83D\uDC4F");});

@@ -301,7 +301,7 @@ export async function addToQueue(){
   if(S.addingToQueue)return;
   var t=S.selectedTrack;if(!t)return;
   var editing=!!S.editQueueRowId;
-  var sc=S.singers.slice().map(function(s){var o={color:s.color,colorGlow:s.colorGlow,roleIndices:s.roleIndices||[]};if(s.guestId)o.guestId=s.guestId;else o.name=(s.name||"").trim()||"Singer";if(s.whitePersonCheck)o.whitePersonCheck=true;return o;});
+  var sc=S.singers.slice().map(function(s){var o={color:s.color,colorGlow:s.colorGlow,roleIndices:s.roleIndices||[]};if(s.guestId)o.guestId=s.guestId;else o.name=(s.name||"").trim()||"Singer";return o;});
   if(t.roles&&t.roles.length>0&&sc.length>0){
     var ur=sc.filter(function(s){return !s.roleIndices||s.roleIndices.length===0;});
     if(ur.length>0){

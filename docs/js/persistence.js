@@ -8,7 +8,7 @@ export function loadDeviceProfile(){
 }
 export function saveDeviceProfile(){
   if(!S.guestName)return;
-  try{localStorage.setItem("karaoke_device_profile",JSON.stringify({name:S.guestName,profilePicture:S.profilePicture||null,prefersSanitize:S.prefersSanitize!==false,defaultColor:S.defaultColor||null}));}catch(e){}
+  try{localStorage.setItem("karaoke_device_profile",JSON.stringify({name:S.guestName,profilePicture:S.profilePicture||null,defaultColor:S.defaultColor||null}));}catch(e){}
 }
 export function clearDeviceProfile(){
   try{localStorage.removeItem("karaoke_device_profile");}catch(e){}

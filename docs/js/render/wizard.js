@@ -65,7 +65,6 @@ export function renderWizardFooter(step){
   '</div>';
 }
 export function renderWizardSingers(){
-  var ori=(S.selectedTrack&&S.selectedTrack.offensive_role_indices)||[];
   var takenColors={};
   for(var ti=0;ti<S.singers.length;ti++){takenColors[(S.singers[ti].color||"").toLowerCase()]=ti;}
   var rows="";
@@ -78,23 +77,6 @@ export function renderWizardSingers(){
     var removeBtn=(i===0)?"":'<button class="wiz-singer-row-remove" data-remove="'+i+'" type="button" aria-label="Remove singer">'+
       '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>'+
     '</button>';
-    var roles=s.roleIndices||[];
-    var flagged=false;
-    for(var ri=0;ri<roles.length;ri++){if(ori.indexOf(roles[ri])>=0){flagged=true;break;}}
-    var wpcRow="";
-    if(flagged){
-      var checked=!!s.whitePersonCheck;
-      wpcRow='<button class="wpc-row wpc-row--nested'+(checked?" is-checked":"")+'" data-wpc-singer="'+i+'" type="button" role="checkbox" aria-checked="'+(checked?"true":"false")+'">'+
-        '<svg class="wpc-row-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>'+
-        '<span class="wpc-row-body">'+
-          '<span class="wpc-row-title">Sanitize n-word on stage</span>'+
-          '<span class="wpc-row-sub">This part contains the n-word. Toggle on and it\u2019ll be replaced with "fella(s)" while they sing.</span>'+
-        '</span>'+
-        '<span class="secret-toggle__box" aria-hidden="true">'+
-          (checked?'<svg width="10" height="10" viewBox="0 0 14 14"><path d="M2.5 7.5 L5.5 10 L11 4" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>':'')+
-        '</span>'+
-      '</button>';
-    }
     // Color picker \u2014 themed swatches per singer
     var swatches="";
     for(var ci=0;ci<NC.length;ci++){
@@ -133,7 +115,6 @@ export function renderWizardSingers(){
         removeBtn+
       '</div>'+
       colorBlock+
-      wpcRow+
     '</div>';
   }
   var addBtn=(S.singers.length<MAX_SINGERS)?'<button class="wiz-add-singer" id="wiz-add-singer" type="button">'+
@@ -192,7 +173,8 @@ export function renderWizardStage(){
     {k:"zen",label:"Zen",style:"background:#1a1814;color:#D4B85A;border:1px solid rgba(201,168,76,0.4);border-radius:6px;font-family:'Cormorant Garamond',serif;font-style:italic;text-shadow:0 0 8px rgba(201,168,76,0.3);"},
     {k:"space",label:"Space",style:"background:#08080F;color:#E040FB;border:1px solid rgba(224,64,251,0.4);border-radius:4px;font-family:'Orbitron',sans-serif;text-shadow:0 0 8px rgba(224,64,251,0.4);letter-spacing:1px;font-size:11px;"},
     {k:"steampunk",label:"Steampunk",style:"background:#14110F;color:#C8973E;border:1px solid rgba(200,151,62,0.4);border-radius:3px;font-family:'Cinzel Decorative',serif;text-shadow:0 0 8px rgba(200,151,62,0.3);font-size:11px;"},
-    {k:"retrowave",label:"Retrowave",style:"background:#0a0614;color:#FF2D95;border:1px solid rgba(255,45,149,0.4);border-radius:4px;font-family:'Audiowide',sans-serif;text-shadow:0 0 8px rgba(255,45,149,0.4);font-size:11px;"}
+    {k:"retrowave",label:"Retrowave",style:"background:#0a0614;color:#FF2D95;border:1px solid rgba(255,45,149,0.4);border-radius:4px;font-family:'Audiowide',sans-serif;text-shadow:0 0 8px rgba(255,45,149,0.4);font-size:11px;"},
+    {k:"comic-book",label:"Comic Book",style:"background:#FFFFFF;color:#16161D;border:3px solid #16161D;border-radius:6px;font-family:'Luckiest Guy',cursive;box-shadow:3px 3px 0 #16161D;text-transform:uppercase;letter-spacing:1px;"}
   ];
   var grid=tiles.map(function(tt){
     var sel=(S.stage_theme===tt.k);
@@ -216,37 +198,6 @@ export function renderWizardStage(){
         '</span>'+
       '</button>'+
     '</div>';
-}
-export function renderWizardLyricsCheck(){
-  var t=S.selectedTrack;if(!t)return"";
-  var ori=t.offensive_role_indices||[];
-  if(!ori.length||!S.singers.length)return"";
-  var flagged=[];
-  for(var i=0;i<S.singers.length;i++){
-    var s=S.singers[i];
-    var roles=s.roleIndices||[];
-    var hits=false;
-    for(var r=0;r<roles.length;r++){if(ori.indexOf(roles[r])>=0){hits=true;break;}}
-    if(hits)flagged.push({singer:s,index:i});
-  }
-  if(!flagged.length)return"";
-  var rows=flagged.map(function(fl){
-    var s=fl.singer,i=fl.index;
-    var av=s.profilePicture?'<img src="'+esc(s.profilePicture)+'" alt="">':esc((s.name||"?").charAt(0).toUpperCase());
-    var checked=!!s.whitePersonCheck;
-    return '<button class="wpc-row'+(checked?" is-checked":"")+'" data-wpc-singer="'+i+'" type="button" role="checkbox" aria-checked="'+(checked?"true":"false")+'">'+
-      '<span class="wpc-row-avatar" style="background:'+s.color+'">'+av+'</span>'+
-      '<span class="wpc-row-name">'+esc(s.name||"Singer "+(i+1))+'</span>'+
-      '<span class="secret-toggle__box" aria-hidden="true" style="margin-left:auto">'+
-        (checked?'<svg width="10" height="10" viewBox="0 0 14 14"><path d="M2.5 7.5 L5.5 10 L11 4" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>':'')+
-      '</span>'+
-    '</button>';
-  }).join("");
-  return '<div class="config-section">'+
-    '<div class="config-label"><div class="config-label-icon" style="background:rgba(251,191,36,0.12)">&#9888;&#65039;</div> Lyric sanitization</div>'+
-    '<div class="wpc-hint">One or more singers are assigned to a part with the n-word in the lyrics. Toggle on for anyone who shouldn\u2019t sing it \u2014 those words will be replaced with "fella(s)" on the stage.</div>'+
-    '<div class="wpc-list">'+rows+'</div>'+
-  '</div>';
 }
 export function renderSingerPickerOverlay(){
   if(!S.singerPickerOpen)return"";

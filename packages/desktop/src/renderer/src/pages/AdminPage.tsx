@@ -21,6 +21,7 @@ interface AdminGuest {
     id: string
     name: string
     profilePicture: string | null
+    whitePersonCheck: boolean
 }
 
 interface SongRequest {
@@ -564,7 +565,7 @@ export default function AdminPage() {
 
         let cancelled = false
         window.electronAPI.listGuests().then(list => {
-            if (!cancelled) setGuests(list.map(g => ({ id: g.id, name: g.name, profilePicture: g.profilePicture })))
+            if (!cancelled) setGuests(list.map(g => ({ id: g.id, name: g.name, profilePicture: g.profilePicture, whitePersonCheck: g.whitePersonCheck })))
         })
 
         const channel = supabase
@@ -574,13 +575,13 @@ export default function AdminPage() {
                     const r = payload.new as any
                     setGuests(prev => {
                         if (prev.some(g => g.id === r.id)) return prev
-                        return [...prev, { id: r.id, name: r.name, profilePicture: r.profile_picture }]
+                        return [...prev, { id: r.id, name: r.name, profilePicture: r.profile_picture, whitePersonCheck: r.white_person_check !== false }]
                     })
                 })
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'karaoke_guests', filter: `session_id=eq.${sessionId}` },
                 (payload) => {
                     const r = payload.new as any
-                    setGuests(prev => prev.map(g => g.id === r.id ? { ...g, name: r.name, profilePicture: r.profile_picture } : g))
+                    setGuests(prev => prev.map(g => g.id === r.id ? { ...g, name: r.name, profilePicture: r.profile_picture, whitePersonCheck: r.white_person_check !== false } : g))
                 })
             .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'karaoke_guests', filter: `session_id=eq.${sessionId}` },
                 (payload) => {
@@ -718,6 +719,15 @@ export default function AdminPage() {
         await window.electronAPI.removeGuest(id)
     }
 
+    // Per-guest "white person" toggle. ON (default) = their n-word lyric lines
+    // are sanitized to "fella(s)" on stage; OFF = the host has cleared them to
+    // sing it. Resolved live on the stage, so this re-censors their current
+    // song immediately.
+    const toggleGuestWhiteCheck = async (id: string, next: boolean) => {
+        setGuests(prev => prev.map(g => g.id === id ? { ...g, whitePersonCheck: next } : g))
+        await window.electronAPI.updateGuest(id, { whitePersonCheck: next })
+    }
+
     const loadCatalog = async () => {
         if (window.electronAPI) {
             const cat = await window.electronAPI.listCatalog()
@@ -791,7 +801,7 @@ export default function AdminPage() {
 
     const selectTrack = async (track: any) => {
         const defaultConfig: VoiceEffects = JSON.parse(JSON.stringify(DEFAULT_VOICE_EFFECTS))
-        let spotifyData: { key?: number; mode?: number; tempo?: number; releaseDate?: string; instrumentalness?: number; popularity?: number } = {}
+        let spotifyData: { key?: number; mode?: number; tempo?: number; releaseDate?: string; releaseYear?: number; instrumentalness?: number; popularity?: number } = {}
 
         const token = state.spotifyToken
         let fetchedGenres: string[] = []
@@ -815,7 +825,11 @@ export default function AdminPage() {
             if (audioFeatures && typeof audioFeatures.instrumentalness === 'number') {
                 spotifyData.instrumentalness = audioFeatures.instrumentalness
             }
-            if (trackData?.album?.release_date) { spotifyData.releaseDate = trackData.album.release_date }
+            if (trackData?.album?.release_date) {
+                spotifyData.releaseDate = trackData.album.release_date
+                const yr = parseInt(String(trackData.album.release_date).slice(0, 4), 10)
+                if (Number.isFinite(yr) && yr > 1900) spotifyData.releaseYear = yr
+            }
             if (typeof trackData?.popularity === 'number') { spotifyData.popularity = trackData.popularity }
             if (artistsData?.artists) {
                 const allTags: string[] = []
@@ -2386,6 +2400,46 @@ export default function AdminPage() {
                                                 )}
                                             </div>
                                         </div>
+
+                                        {/* White-singer (lyric sanitization) toggle */}
+                                        <button
+                                            type="button"
+                                            role="switch"
+                                            aria-checked={guest.whitePersonCheck}
+                                            onClick={() => toggleGuestWhiteCheck(guest.id, !guest.whitePersonCheck)}
+                                            style={{
+                                                display: 'flex', alignItems: 'center', gap: 10,
+                                                padding: '8px 10px', textAlign: 'left', cursor: 'pointer',
+                                                border: theme.border, borderRadius: theme.radius,
+                                                background: guest.whitePersonCheck ? theme.softViolet : theme.cream,
+                                            }}
+                                        >
+                                            <span
+                                                aria-hidden="true"
+                                                style={{
+                                                    flexShrink: 0, width: 36, height: 20, borderRadius: 999,
+                                                    border: theme.border,
+                                                    background: guest.whitePersonCheck ? theme.accentA : 'transparent',
+                                                    position: 'relative', transition: 'background 0.15s ease',
+                                                }}
+                                            >
+                                                <span style={{
+                                                    position: 'absolute', top: 1, left: guest.whitePersonCheck ? 17 : 1,
+                                                    width: 16, height: 16, borderRadius: '50%', background: '#fff',
+                                                    transition: 'left 0.15s ease', boxShadow: '0 1px 2px rgba(0,0,0,0.3)',
+                                                }} />
+                                            </span>
+                                            <span style={{ flex: 1, minWidth: 0 }}>
+                                                <span style={{ display: 'block', fontSize: 13, fontWeight: 700, fontFamily: theme.fontDisplay, color: theme.black }}>
+                                                    White singer
+                                                </span>
+                                                <span style={{ display: 'block', fontSize: 11, color: theme.black, opacity: 0.55, fontFamily: theme.fontBody }}>
+                                                    {guest.whitePersonCheck
+                                                        ? 'On — the n-word is sanitized to “fella(s)” in their lyrics'
+                                                        : 'Off — their lyrics are shown uncensored'}
+                                                </span>
+                                            </span>
+                                        </button>
 
                                         {/* Actions */}
                                         <div style={{ display: 'flex', gap: 8 }}>

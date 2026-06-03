@@ -1,3 +1,20 @@
+/* Comic-book theme faces — Blambot "BadaBoom" (display logo) + "Super Squad"
+   (secondary). Bundled in docs/fonts so the companion matches desktop + mobile. */
+@font-face {
+  font-family: 'BadaBoom BB';
+  src: url('../fonts/BadaBoomBB.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Super Squad';
+  src: url('../fonts/SuperSquad.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* ── Hidden-art tile: per-theme fonts + backdrops ───────────────────────── */
 .q-hidden-art .qh-neo { font-family: 'Space Grotesk', sans-serif; font-weight: 900; font-size: 24px; color: #FFD60A; }
 .q-hidden-art .qh-cyber { font-family: 'Share Tech Mono', 'Courier New', monospace; font-size: 11px; font-weight: 700; color: #00ff88; letter-spacing: 1px; text-shadow: 0 0 6px rgba(0,255,136,0.7); }
@@ -6,6 +23,7 @@
 .q-hidden-art .qh-zen { font-family: 'Cormorant Garamond', serif; font-size: 20px; color: #D4B85A; text-shadow: 0 0 8px rgba(212,184,90,0.5); }
 .q-hidden-art .qh-space { font-family: 'Orbitron', sans-serif; font-size: 10px; font-weight: 700; color: #E040FB; letter-spacing: 2px; text-shadow: 0 0 6px rgba(224,64,251,0.8); }
 .q-hidden-art .qh-retro { font-family: 'Audiowide', sans-serif; font-size: 8px; font-weight: 700; color: #FF2D95; line-height: 1; letter-spacing: 1px; text-align: center; text-shadow: 0 0 4px rgba(255,45,149,0.8); }
+.q-hidden-art .qh-comic { font-family: 'BadaBoom BB', cursive; font-size: 22px; color: #FFD400; text-shadow: 2px 2px 0 #16161D; letter-spacing: 1px; }
 
 /* Hidden-art tile backdrops per theme */
 .queue-item[data-stage-theme="neo-brutal"] .q-hidden-art { background: #1A1A1A; border: 3px solid #1A1A1A; box-shadow: 2px 2px 0 #FFD60A; }
@@ -18,6 +36,7 @@
 .queue-item[data-stage-theme="space"] .q-hidden-art { background: radial-gradient(circle at 50% 50%, rgba(224,64,251,0.25), #08080F 70%); border: 1px solid rgba(224,64,251,0.45); box-shadow: 0 0 10px rgba(224,64,251,0.35); }
 .queue-item[data-stage-theme="steampunk"] .q-hidden-art { background: #14110F; border: 1px solid rgba(200,151,62,0.45); border-radius: 6px; }
 .queue-item[data-stage-theme="retrowave"] .q-hidden-art { background: #0a0614; border: 1px solid rgba(255,45,149,0.5); background-image: repeating-linear-gradient(180deg, transparent 0 2px, rgba(255,45,149,0.12) 2px 3px); }
+.queue-item[data-stage-theme="comic-book"] .q-hidden-art { background: #16161D; border: 3px solid #16161D; border-radius: 6px; box-shadow: 2px 2px 0 #FF1F4B; background-image: radial-gradient(rgba(255,212,0,0.25) 1.4px, transparent 1.6px); background-size: 8px 8px; }
 
 /* ── Per-song row theming (overrides the global applyTheme() rules) ──────── */
 /* Each row wears the theme its guest picked — independent of the session theme. */
@@ -34,6 +53,19 @@
 .queue-item[data-stage-theme="neo-brutal"] .queue-pos { color: rgba(26,26,26,0.35) !important; }
 .queue-item[data-stage-theme="neo-brutal"] .queue-singer-pill { color: #1A1A1A !important; background: #FFF8EE !important; border: 2px solid #1A1A1A !important; }
 .queue-item[data-stage-theme="neo-brutal"] .queue-singer-role { color: rgba(26,26,26,0.55) !important; }
+
+/* comic-book row */
+.queue-item[data-stage-theme="comic-book"] {
+  background: #FFFFFF !important; color: #16161D !important;
+  border: 3px solid #16161D !important; border-radius: 6px !important;
+  box-shadow: 4px 4px 0 #16161D !important;
+}
+.queue-item[data-stage-theme="comic-book"] .queue-item-title { color: #16161D !important; font-family: 'BadaBoom BB', cursive !important; letter-spacing: 0.5px; }
+.queue-item[data-stage-theme="comic-book"] .queue-item-artist { color: rgba(22,22,29,0.55) !important; font-family: 'Super Squad', sans-serif !important; }
+.queue-item[data-stage-theme="comic-book"] .queue-item-added { color: #FF1F4B !important; font-family: 'BadaBoom BB', cursive !important; }
+.queue-item[data-stage-theme="comic-book"] .queue-pos { color: rgba(22,22,29,0.35) !important; font-family: 'BadaBoom BB', cursive !important; }
+.queue-item[data-stage-theme="comic-book"] .queue-singer-pill { color: #16161D !important; background: #FFD400 !important; border: 2.5px solid #16161D !important; }
+.queue-item[data-stage-theme="comic-book"] .queue-singer-role { color: rgba(22,22,29,0.55) !important; }
 
 /* cyberpunk row */
 .queue-item[data-stage-theme="cyberpunk"] {
@@ -213,6 +245,42 @@
 }
 .queue-item[data-stage-theme="neo-brutal"] .queue-edit-btn:active {
   box-shadow: 0 0 0 #1A1A1A !important; transform: translate(2px,2px) !important;
+}
+
+/* comic-book: ink-bordered offset shadow, pop blue upvote / pop red downvote */
+.queue-item[data-stage-theme="comic-book"] .queue-vote-btn--up {
+  background: #2FA8FF !important; color: #FFFFFF !important;
+  border: 2.5px solid #16161D !important; border-radius: 6px !important;
+  box-shadow: 2px 2px 0 #16161D !important;
+}
+.queue-item[data-stage-theme="comic-book"] .queue-vote-btn--down {
+  background: #FF1F4B !important; color: #FFFFFF !important;
+  border: 2.5px solid #16161D !important; border-radius: 6px !important;
+  box-shadow: 2px 2px 0 #16161D !important;
+}
+.queue-item[data-stage-theme="comic-book"] .queue-vote-btn:active {
+  box-shadow: 0 0 0 #16161D !important; transform: translate(2px,2px) !important;
+}
+.queue-item[data-stage-theme="comic-book"] .queue-vote-score--pos { color: #2FA8FF !important; font-family: 'BadaBoom BB', cursive !important; }
+.queue-item[data-stage-theme="comic-book"] .queue-vote-score--neg { color: #FF1F4B !important; font-family: 'BadaBoom BB', cursive !important; }
+.queue-item[data-stage-theme="comic-book"] .queue-vote-score--zero { color: #16161D !important; font-family: 'BadaBoom BB', cursive !important; }
+.queue-item[data-stage-theme="comic-book"] .queue-voted-pill {
+  background: #FFD400 !important; color: #16161D !important;
+  border: 2px solid #16161D !important; box-shadow: 1px 1px 0 #16161D !important;
+  font-family: 'BadaBoom BB', cursive !important;
+}
+.queue-item[data-stage-theme="comic-book"] .queue-lock-badge {
+  background: #FFD400 !important; color: #16161D !important;
+  border: 2.5px solid #16161D !important; box-shadow: 2px 2px 0 #16161D !important;
+  font-family: 'BadaBoom BB', cursive !important;
+}
+.queue-item[data-stage-theme="comic-book"] .queue-edit-btn {
+  background: #FFD400 !important; color: #16161D !important;
+  border: 2.5px solid #16161D !important; border-radius: 6px !important;
+  box-shadow: 2px 2px 0 #16161D !important;
+}
+.queue-item[data-stage-theme="comic-book"] .queue-edit-btn:active {
+  box-shadow: 0 0 0 #16161D !important; transform: translate(2px,2px) !important;
 }
 
 /* cyberpunk: neon outline with glow, no border-radius */
@@ -516,6 +584,34 @@ body[data-theme="neo-brutal"] .wiz-color-swatch.is-selected {
   box-shadow: 4px 4px 0 #1A1A1A, 0 0 0 1.5px var(--swatch-color) !important;
 }
 body[data-theme="neo-brutal"] .wiz-color-swatch-check { color: #1A1A1A !important; }
+
+/* comic-book: inked panels with hard offset shadow + pop-art starburst on selected */
+body[data-theme="comic-book"] .wiz-color-block {
+  background: #FFFFFF !important; border: 3px solid #16161D !important;
+  border-radius: 6px !important; box-shadow: 3px 3px 0 #16161D !important;
+  padding: 12px 14px 14px !important;
+}
+body[data-theme="comic-book"] .wiz-color-eyebrow {
+  color: #16161D !important; font-family: 'BadaBoom BB', cursive !important;
+  letter-spacing: 1px !important; text-shadow: 2px 2px 0 #FFD400 !important;
+}
+body[data-theme="comic-book"] .wiz-color-swatch {
+  width: 30px; height: 30px;
+  border: 2.5px solid #16161D !important; border-radius: 6px !important;
+  box-shadow: 2px 2px 0 #16161D !important;
+}
+body[data-theme="comic-book"] .wiz-color-swatch:active {
+  box-shadow: 0 0 0 #16161D !important; transform: translate(2px,2px) !important;
+}
+body[data-theme="comic-book"] .wiz-color-swatch.is-selected {
+  border-color: #16161D !important; transform: translate(-1px,-1px) scale(1.12) rotate(-3deg) !important;
+  box-shadow: 4px 4px 0 #16161D, 0 0 0 1.5px var(--swatch-color) !important;
+}
+body[data-theme="comic-book"] .wiz-color-swatch.is-selected::after {
+  content: '\2605'; position: absolute; top: -8px; right: -8px;
+  font-size: 14px; color: #FFD400; text-shadow: 1px 1px 0 #16161D;
+}
+body[data-theme="comic-book"] .wiz-color-swatch-check { color: #16161D !important; }
 
 /* cyberpunk: razor-sharp squares, neon ring scan on selected */
 @keyframes cyb-swatch-scan {

@@ -40,8 +40,13 @@ function lookupGuest(
  * profile edits (name / photo) propagate to every queued song, the now-playing
  * banner, the stage, and awards without re-queueing. Admin/host- or name-only
  * singers (no `guestId`) fall back to their inline `name`. Per-song slot
- * styling (`color`/`colorGlow`/`roleIndices`/`whitePersonCheck`) always comes
- * from the config.
+ * styling (`color`/`colorGlow`/`roleIndices`) always comes from the config.
+ *
+ * The "white person" lyric-sanitization flag (`whitePersonCheck`) is ALSO
+ * resolved live from the guest record (`white_person_check`), so the host
+ * toggling it on the Admin screen re-censors every song that guest is in.
+ * Everyone defaults to "white" (sanitized): a known guest uses their stored
+ * flag, and singers with no linked guest fall back to true.
  *
  * The `profilePicture` read off the config is a LEGACY fallback for
  * pre-refactor rows that still embed base64; new rows never store it, and the
@@ -59,7 +64,12 @@ export function resolveSinger(
     color: config.color,
     colorGlow: config.colorGlow,
     roleIndices: Array.isArray(config.roleIndices) ? config.roleIndices : [],
-    whitePersonCheck: config.whitePersonCheck,
+    // Everyone defaults to "white" (sanitized). A known guest uses their live
+    // flag; name-only singers (no guest) fall back to the legacy config flag,
+    // then to true.
+    whitePersonCheck: guest
+      ? guest.white_person_check !== false
+      : config.whitePersonCheck ?? true,
   }
 }
 

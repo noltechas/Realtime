@@ -356,12 +356,13 @@ export interface Guest {
     sessionId: string
     name: string
     profilePicture: string | null
+    whitePersonCheck: boolean
 }
 
 export async function listGuests(sessionId: string): Promise<Guest[]> {
     const { data, error } = await supabase
         .from('karaoke_guests')
-        .select('id, session_id, name, profile_picture')
+        .select('id, session_id, name, profile_picture, white_person_check')
         .eq('session_id', sessionId)
     if (error) {
         console.error('Failed to list guests:', error.message)
@@ -371,14 +372,16 @@ export async function listGuests(sessionId: string): Promise<Guest[]> {
         id: r.id,
         sessionId: r.session_id,
         name: r.name,
-        profilePicture: r.profile_picture
+        profilePicture: r.profile_picture,
+        whitePersonCheck: r.white_person_check !== false
     }))
 }
 
-export async function updateGuest(id: string, fields: { name?: string; profilePicture?: string | null }): Promise<void> {
+export async function updateGuest(id: string, fields: { name?: string; profilePicture?: string | null; whitePersonCheck?: boolean }): Promise<void> {
     const update: any = {}
     if (fields.name !== undefined) update.name = fields.name
     if (fields.profilePicture !== undefined) update.profile_picture = fields.profilePicture
+    if (fields.whitePersonCheck !== undefined) update.white_person_check = fields.whitePersonCheck
     const { error } = await supabase
         .from('karaoke_guests')
         .update(update)

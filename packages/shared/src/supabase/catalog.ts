@@ -1,5 +1,15 @@
 import type { KaraokeClient } from './client'
 
+export interface CatalogSpotifyData {
+  key?: number
+  mode?: number
+  tempo?: number
+  releaseDate?: string
+  releaseYear?: number
+  instrumentalness?: number
+  popularity?: number
+}
+
 export interface KaraokeCatalogRow {
   session_id: string
   track_id: string
@@ -12,6 +22,8 @@ export interface KaraokeCatalogRow {
   has_vocals: boolean | null
   genres: string[] | null
   offensive_role_indices: number[] | null
+  /** Raw Spotify metadata JSON column (key/mode/tempo/releaseYear/popularity…). */
+  spotify_data: CatalogSpotifyData | null
 }
 
 // Companion-site genre ordering. Anything not in the list gets dropped to the

@@ -124,7 +124,7 @@ export class AudioEngine {
             }
 
             let loadedCount = 0
-            const checkDone = () => {
+            const markDone = () => {
                 if (signal.aborted) return
                 loadedCount++
                 if (loadedCount === elementsToWait.length) {
@@ -134,16 +134,35 @@ export class AudioEngine {
             }
 
             elementsToWait.forEach(audioEl => {
-                if (audioEl.readyState >= 4) {
-                    checkDone()
-                } else {
-                    audioEl.addEventListener('canplaythrough', checkDone, { once: true, signal })
-                    audioEl.addEventListener('error', () => {
-                        if (signal.aborted) return
-                        reject(new Error(`Failed to load audio: ${audioEl.src}`))
-                    }, { once: true, signal })
-                    audioEl.load()
+                let done = false
+                const onReady = () => {
+                    if (done || signal.aborted) return
+                    done = true
+                    markDone()
                 }
+                audioEl.addEventListener('canplaythrough', onReady, { once: true, signal })
+                audioEl.addEventListener('error', () => {
+                    if (done || signal.aborted) return
+                    reject(new Error(`Failed to load audio: ${audioEl.src}`))
+                }, { once: true, signal })
+                // CRITICAL: always (re)load after swapping `.src`. These <audio>
+                // elements are REUSED across songs, and `readyState` reflects the
+                // PREVIOUS source until the new load completes — assigning `.src`
+                // does NOT reset it synchronously. Trusting `readyState >= 4` and
+                // skipping `.load()` meant a reused element still buffered with the
+                // last song reported "ready", resolved this promise, and kept
+                // playing the OLD audio while the lyrics (driven by React state)
+                // already showed the new song. Forcing load() + waiting for
+                // canplaythrough guarantees the element is on the new source
+                // before we report it loaded.
+                audioEl.load()
+                // Safety net for the rare case canplaythrough never arrives for a
+                // local file: after load() has had time to re-fetch, readyState
+                // genuinely reflects the NEW source (load() reset it above), so a
+                // delayed HAVE_FUTURE_DATA check is safe (unlike a synchronous one).
+                setTimeout(() => {
+                    if (audioEl.readyState >= 3) onReady()
+                }, 5000)
             })
         })
     }

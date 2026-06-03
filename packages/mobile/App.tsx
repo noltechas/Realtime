@@ -91,6 +91,10 @@ export default function App() {
     KrabbyPatty: require('./assets/fonts/KrabbyPatty-Regular.ttf'),
     // Awards tab — "Delauney" gilded serif, matching the stage ceremony font.
     Delauney: require('./assets/fonts/Delauney-Regular.ttf'),
+    // Comic-book theme — Blambot "BadaBoom" display logo face + "Super Squad"
+    // secondary (custom .ttf, shared with the desktop/stage + web companion).
+    BadaBoomBB: require('./assets/fonts/BadaBoomBB.ttf'),
+    SuperSquad: require('./assets/fonts/SuperSquad.ttf'),
   })
 
   // Render once fonts are loaded OR once we know they failed. Without the

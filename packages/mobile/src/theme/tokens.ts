@@ -9,6 +9,7 @@ import {
   SPACE_TOKENS,
   STEAMPUNK_TOKENS,
   RETROWAVE_TOKENS,
+  COMIC_BOOK_TOKENS,
   resolveThemeTokens,
   type ThemeTokens,
 } from '@karaoke/shared'
@@ -123,6 +124,17 @@ export const RETROWAVE_MOBILE: ThemeTokens = withMobileFonts(
   'Audiowide_400Regular',
 )
 
+// Comic-Book-Mobile — bright pop-art ink theme. Display = Luckiest Guy (the
+// Blambot "BadaBoom" display logo face — single weight, so atoms keep
+// fontWeight at 'normal' and use a hard ink textShadow for the inked look
+// rather than faux-bolding), secondary = "Super Squad". Both are custom .ttf
+// loaded via expo-font in App.tsx and match the desktop/web/stage comic theme.
+export const COMIC_BOOK_MOBILE: ThemeTokens = withMobileFonts(
+  COMIC_BOOK_TOKENS,
+  'BadaBoomBB',
+  'SuperSquad',
+)
+
 const MOBILE_BY_NAME: Record<string, ThemeTokens> = {
   'neo-brutal': NEO_BRUTAL_MOBILE,
   cyberpunk: CYBERPUNK_MOBILE,
@@ -134,6 +146,7 @@ const MOBILE_BY_NAME: Record<string, ThemeTokens> = {
   space: SPACE_MOBILE,
   steampunk: STEAMPUNK_MOBILE,
   retrowave: RETROWAVE_MOBILE,
+  'comic-book': COMIC_BOOK_MOBILE,
 }
 
 // Resolve a session theme name to the mobile-flavored token bundle. Falls

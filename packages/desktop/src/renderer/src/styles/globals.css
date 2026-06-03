@@ -5,7 +5,39 @@
    visual appearance come from the active theme.
    ============================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Share+Tech+Mono&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Share+Tech+Mono&family=Quicksand:wght@400;500;600;700&family=Nunito:wght@400;500;600;700&display=swap');
+
+/* Comic-Book theme faces (Blambot BadaBoom display + Super Squad secondary).
+   Declared HERE — in the always-loaded base stylesheet — rather than inside the
+   comic theme's globalCss, because that per-theme <style> is wiped + re-injected
+   every time the stage applies a per-song theme. Re-registering an @font-face
+   on each song change made BadaBoom/Super Squad re-load async and flash their
+   fallback (the gothic/script system fonts) on the 2nd+ comic song. Loaded once
+   here, they're always available. */
+@font-face {
+  font-family: 'BadaBoom BB';
+  src: url('../assets/fonts/BadaBoomBB.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Super Squad';
+  src: url('../assets/fonts/SuperSquad.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+/* Deep-sea display face — same reasoning as above (its per-theme globalCss is
+   wiped/re-injected per song, which re-loaded the font and flashed its
+   fallback). Loaded once here so it's always available. */
+@font-face {
+  font-family: 'KrabbyPatty';
+  src: url('../assets/fonts/KrabbyPatty-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
 
 :root {
   /* Font families — referenced as var() inside theme files */

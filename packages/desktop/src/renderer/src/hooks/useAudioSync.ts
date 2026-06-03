@@ -24,6 +24,32 @@ export function useAudioSync(): AudioSyncState {
     const loadedPathRef = useRef<string | null>(null)
     const isStage = window.electronAPI?.isStageWindow ?? false
 
+    // True while the machine is asleep / screen is locked (from the main
+    // process powerMonitor). Used to suppress auto-advance while the host is
+    // away — see handleSongEnded.
+    const idleRef = useRef(false)
+    useEffect(() => {
+        if (isStage) return
+        const h = window.electronAPI?.onPowerIdle?.((idle: boolean) => {
+            idleRef.current = idle
+        })
+        return () => {
+            if (h) window.electronAPI?.offPowerIdle?.(h)
+        }
+    }, [isStage])
+
+    // A song's audio reaching its end auto-advances the queue (which marks the
+    // finished song 'played'). Suppress that when the host is away — system
+    // asleep/locked or the window hidden — so an unattended sleep can't silently
+    // consume the now-playing song. Just pause instead; the host advances
+    // manually when they're back.
+    const handleSongEnded = useCallback(() => {
+        setPlaying(false)
+        window.electronAPI?.sendPlaybackTime(0)
+        if (idleRef.current || (typeof document !== 'undefined' && document.hidden)) return
+        dispatch({ type: 'NEXT_SONG' })
+    }, [dispatch])
+
     const np = state.nowPlaying
     const track = np?.track
     // Vocal monitor device is a session-wide preference: drive it from live
@@ -85,11 +111,7 @@ export function useAudioSync(): AudioSyncState {
                 setElapsed(timeMs)
                 window.electronAPI?.sendPlaybackTime(timeMs)
             })
-            engine.setOnEnded(() => {
-                setPlaying(false)
-                dispatch({ type: 'NEXT_SONG' })
-                window.electronAPI?.sendPlaybackTime(0)
-            })
+            engine.setOnEnded(handleSongEnded)
             return
         }
 

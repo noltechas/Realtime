@@ -94,12 +94,12 @@ npm run start    # Run production build
 ## Companion Website
 
 - **Hosted on GitHub Pages** at `https://noltechas.github.io/Realtime/`.
-- The HTML file lives at `docs/index.html` (GitHub Pages serves from the `docs/` folder).
+- GitHub Pages serves from the `docs/` folder. `docs/index.html` is now just the shell; the SPA is split into ES modules under **`docs/js/`** (`main.js`, `themes.js`, `state.js`, `supabase.js`, `wizard.js`, render modules in `docs/js/render/*.js`, …) and styles under **`docs/css/`** (`base.css`, `components.css`, `themes.css`). Theme code lives in `docs/js/themes.js` + `docs/css/themes.css` + the render modules — NOT inline in `index.html`.
 - Supabase Edge Functions and Storage **cannot serve HTML** (they force `text/plain` + CSP `sandbox` on shared domains). This is a permanent Supabase security restriction.
 - QR code URL format: `https://noltechas.github.io/Realtime/?session=<CODE>`
 - The base URL is configured in `src/main/index.ts` as `COMPANION_BASE_URL`.
 - The companion JS uses string concatenation (NOT template literals) and loads `@supabase/supabase-js@2` from CDN.
-- To edit the companion site: modify `docs/index.html` and push to GitHub.
+- To edit the companion site: modify the relevant file under `docs/js/` or `docs/css/` (or `docs/index.html` for the shell) and push to GitHub.
 
 ## IPC Conventions
 
@@ -112,7 +112,7 @@ npm run start    # Run production build
 1. Run `npx tsc --noEmit` — must pass with no errors
 2. Run `npx electron-vite build` — must build cleanly
 3. Run `npm run dev` to test in development mode
-4. For companion site changes: edit `docs/index.html`, push to GitHub, and test by scanning QR code
+4. For companion site changes: edit the relevant `docs/js/` or `docs/css/` file (or `docs/index.html` shell), push to GitHub, and test by scanning QR code
 
 ## Adding a New Theme
 
@@ -133,27 +133,30 @@ Themes are defined in `src/renderer/src/styles/` and registered in `src/renderer
 5. **Add lyric highlighting in `KaraokePage.tsx`** — Each theme has custom active-line styling in the lyric renderer (~line 1078). Add a branch for the new theme with unique visual effects (glow, animation class, etc.).
 6. **Add CSS animation in `karaoke.css`** — Define a keyframe animation and a `.k-line--{theme-name}` class for the stage lyric effect.
 7. **Update QR overlay in `KaraokePage.tsx`** — If the theme has a dark background, ensure it gets `'rgba(0,0,0,0.8)'` for the QR backdrop.
-8. **Update companion website in `docs/index.html`** — ALWAYS add the new theme to the companion website:
-   - Add any new Google Fonts to the `<link>` tag.
-   - Add a new `else if(S.theme_name==="theme-name")` block in `applyTheme()` with CSS variables and component overrides matching the Electron theme.
-   - Add a new `<button class="theme-pick-btn">` in `renderConfig()` with inline preview styles matching the theme's aesthetic.
+8. **Update companion website** — ALWAYS add the new theme to the companion site. Its theme code now lives in **`docs/js/themes.js` + `docs/css/themes.css` + `docs/js/render/*.js`** (NOT inline in `docs/index.html` — that part of this guide is stale):
+   - Add any new Google Fonts to the `<link>` tag in `docs/index.html`.
+   - Add a new `else if(activeTheme==="theme-name")` branch in `applyTheme()` in `docs/js/themes.js` with the CSS variables + component overrides matching the Electron/mobile theme.
+   - Add per-theme structural overrides where needed in `docs/css/themes.css` and the relevant render module (`docs/js/render/songs.js`, `queue.js`, `wizard.js`, etc.).
+   - Add a new theme-pick button (in the config render path) with inline preview styles matching the theme's aesthetic.
+   - The companion JS still uses string concatenation (NOT template literals).
 
 ### Files to create/modify (Mobile App)
 
-When extending the theme to the Expo mobile app (`packages/mobile`), you must inject your structural and geometric changes into the mobile UI components directly:
-1. **Define the Theme**: Create the theme token file in `packages/mobile/src/theme/themes/` and register it in `tokens.ts`.
-2. **Update Core Screens**: Apply conditional logic (`tokens.name === 'your-theme'`) to alter structural styles in:
-   - `screens/SongsScreen.tsx` (Song cards - apply structural transforms here)
-   - `screens/QueueScreen.tsx` (Queue rows, row numbers, singer pills, upvote/downvote buttons, locked tags, voted tags)
-   - `screens/StageScreen.tsx` (Play buttons, reaction grid cells, toggles)
-   - `screens/WizardScreen.tsx` (Song setup cards, role assignment cards, and ensure footer action buttons are themed)
-3. **Update Shared Components**: Don't forget to update shared UI elements:
-   - `components/GenreTabs.tsx` (Genre Selection Tabs, container transforms, and active text color visibility)
-   - `components/PrimaryButton.tsx` (Base button styles used across screens like WizardScreen)
-4. **Update Navigation**: Check `navigation/<Theme>TabBar.tsx` and `navigation/TabIcons.tsx` to ensure custom icons fit the theme and active/inactive tab text contrast is readable against the background, remembering that `tokens.black` might mean white.
-   - **NEVER create custom SVG icons for the nav bar.** Always use `Ionicons` from `@expo/vector-icons`. The canonical icon names are defined in `navigation/TabIcons.tsx` — use those same Ionicons names (e.g. `musical-notes` for Songs, `fish` for Profile). Custom-drawn nav icons are inconsistent with the icon library and will be rejected.
-5. **Organic Randomness**: If your theme calls for a chaotic or hand-drawn look (like the Sketch theme), make sure to add organic randomness (e.g., slight rotations using string hashes) instead of extreme static rotations, which can cause clipping or look artificial.
-6. **Unskew / Counter-transform**: If your theme uses structural transformations (like `skewX` in the Urban theme), you must safely counter-transform (e.g., `skewX: '8deg'`) the inner text and icons so they remain perfectly upright and legible inside their warped containers.
+The Expo mobile app (`packages/mobile`) uses a **per-theme UI module** architecture — there is **no `tokens.name === ...` branching in screens.** Each theme ships a complete set of presentational atoms; screens (`SongsScreen`, `QueueScreen`, `StageScreen`, `WizardScreen`, …) are pure data containers that read `const { tokens, ui } = useTheme()` and render `ui.SongCard`, `ui.QueueRow`, `ui.Backdrop`, `ui.GenreTabs`, `ui.TabBar`, etc. Switching themes swaps the entire `ThemeUIModule` via the registry, so ALL structural/geometric work lives in the theme's own atoms — never in the screens.
+
+To add (or restyle) a theme on mobile:
+1. **Tokens**: add the shared token bundle in `packages/shared/src/themes/<name>.ts`, then the mobile token (wrapped with fonts via `withMobileFonts`) in `packages/mobile/src/theme/tokens.ts`, registered in `MOBILE_BY_NAME`.
+2. **Theme folder** `packages/mobile/src/theme/themes/<name>/`:
+   - `styles.ts` — the `ThemeUIStyles` scaffold (`screen`/`page`/`h1`/`h2`/`body`/`muted`/`card`/`input`/`pillBox`/`sectionLabel`).
+   - `index.ts` — assembles and exports `<NAME>_UI: ThemeUIModule` (every atom + `styles` + `reactionIconColors`).
+   - `atoms/` — one file per atom: `Button`, `ColorPicker`, `GenreTabs`, `TabBar`, `Backdrop`, `ItemFloater`, `SongsSearchBar`, `SongCard`, `QueueRow`, `ReactionCell`, `StageTabIcon`, `StagePlayButton`, `StageToggleBox`, `YoureUpHero`. Implement against the `*Props` types in `src/theme/types.ts`.
+   - `atoms/_<name>.tsx` — the theme's **shared visual vocabulary** (palette consts, shadow/press helpers, decorative primitives like halftones / bursts / outline-lettering). Compose every atom from these; don't re-invent per atom. Example: `comic-book/atoms/_comic.tsx` exports `INK/PANEL/RED/YELLOW/BLUE`, `inkShadow`, `slam`, `Halftone`, `Burst`/`BurstBadge`, `ComicOutlineText`.
+   Copy an existing theme folder (e.g. `comic-book/`) as the template.
+3. **Register** the module in `src/theme/registry.ts` (`THEME_UI_BY_NAME`). `resolveThemeUI()` falls back to `neo-brutal` for unknown names. `useTheme()` (`src/theme/ThemeContext.tsx`) returns `{ tokens, ui }`.
+4. **Pure helpers** live in `src/theme/helpers.ts` (`hashKey` for stable per-item randomness like issue numbers / rotations, `hexToRgba`, `sketchAngle`, …) — no theme branching there.
+5. **Navigation icons**: the theme's `TabBar` atom renders the shared `TAB_ICONS` from `src/navigation/TabIcons.tsx`. **NEVER hand-draw custom nav icons** — use the `Ionicons` names from `TabIcons.tsx`. Only the active tab gets an accent; all inactive tabs share one color (`tokens.tabBarFg`).
+6. **Structural transforms** (skew/rotation) belong inside the atoms; counter-transform inner text/icons so they stay upright and legible. For chaotic / hand-drawn looks use `hashKey`/`sketchAngle` for stable organic randomness rather than static extreme rotations (which clip).
+7. **Available deps**: `expo-linear-gradient` (scrims/gradients), `react-native-svg` (paths, patterns, gradients), `@expo-google-fonts/*`. Prefer SVG/gradient primitives over images.
 
 ### Contrast checklist
 

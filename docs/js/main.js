@@ -11,7 +11,6 @@ function init(){
   var saved=localStorage.getItem("karaoke_guest_"+S.sessionCode);
   if(saved){try{var g=JSON.parse(saved);S.guestId=g.guestId;S.guestName=g.guestName;S.sessionId=g.sessionId;S.profilePicture=g.profilePicture||null;S.defaultColor=g.defaultColor||null;}catch(e){}}
   var dp=loadDeviceProfile();
-  if(dp&&typeof dp.prefersSanitize==="boolean")S.prefersSanitize=dp.prefersSanitize;
   if(dp&&dp.defaultColor&&!S.defaultColor)S.defaultColor=dp.defaultColor;
   initHistory(render);
   // Show the download prompt unless the user previously chose to continue on

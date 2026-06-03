@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, screen } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, screen, powerMonitor } from 'electron'
 import { join } from 'path'
 import * as fs from 'fs'
 import * as path from 'path'
@@ -721,7 +721,7 @@ ipcMain.handle('karaoke:list-guests', async () => {
     return listGuests(activeSession.id)
 })
 
-ipcMain.handle('karaoke:update-guest', async (_event, id: string, fields: { name?: string; profilePicture?: string | null }) => {
+ipcMain.handle('karaoke:update-guest', async (_event, id: string, fields: { name?: string; profilePicture?: string | null; whitePersonCheck?: boolean }) => {
     await updateGuest(id, fields)
 })
 
@@ -837,6 +837,20 @@ app.whenReady().then(() => {
 
     registerAudioHandlers()
     createWindow()
+
+    // Tell the renderer when the machine goes to sleep or the screen locks, so
+    // it can stop auto-advancing the queue while the host is away (otherwise a
+    // song finishing during display sleep would silently mark itself played and
+    // consume the now-playing entry). Resume/unlock clears the flag.
+    const broadcastPowerIdle = (idle: boolean) => {
+        for (const w of [mainWindow, stageWindow]) {
+            if (w && !w.isDestroyed()) w.webContents.send('power:idle', idle)
+        }
+    }
+    powerMonitor.on('suspend', () => broadcastPowerIdle(true))
+    powerMonitor.on('lock-screen', () => broadcastPowerIdle(true))
+    powerMonitor.on('resume', () => broadcastPowerIdle(false))
+    powerMonitor.on('unlock-screen', () => broadcastPowerIdle(false))
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) createWindow()

@@ -86,6 +86,7 @@ const STAGE_THEMES = [
   { key: 'space', label: 'Space' },
   { key: 'steampunk', label: 'Steampunk' },
   { key: 'retrowave', label: 'Retrowave' },
+  { key: 'comic-book', label: 'Comic Book' },
 ]
 
 function formatDuration(ms: number | null | undefined): string {

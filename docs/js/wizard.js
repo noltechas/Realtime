@@ -24,7 +24,7 @@ export function initWizardFromTrack(track){
   // The first singer is the local guest — store guestId so it persists as a
   // reference (name + avatar resolve live). profilePicture is kept for the
   // wizard's own preview only; it is dropped on submit.
-  S.singers=[{name:S.guestName,color:first.c,colorGlow:first.g,roleIndices:[],profilePicture:S.profilePicture,guestId:S.guestId||null,whitePersonCheck:S.prefersSanitize!==false}];
+  S.singers=[{name:S.guestName,color:first.c,colorGlow:first.g,roleIndices:[],profilePicture:S.profilePicture,guestId:S.guestId||null}];
   S.wizardStep=2;
   S.screen="wizard-singers";
   S.customSingerName="";
@@ -49,15 +49,14 @@ export function initWizardFromQueueItem(track,row){
       colorGlow:c.colorGlow||NC[0].g,
       roleIndices:Array.isArray(c.roleIndices)?c.roleIndices.slice():[],
       profilePicture:(g?g.profilePicture:c.profilePicture)||null,
-      guestId:c.guestId||null,
-      whitePersonCheck:!!c.whitePersonCheck
+      guestId:c.guestId||null
     };
   });
   if(S.singers.length===0){
     // Defensive — shouldn't happen, but a queue row with no singers shouldn't
     // wedge the wizard. Seed with the current guest so the user can save out.
     var first=NC[0];
-    S.singers=[{name:S.guestName,color:first.c,colorGlow:first.g,roleIndices:[],profilePicture:S.profilePicture,guestId:S.guestId||null,whitePersonCheck:true}];
+    S.singers=[{name:S.guestName,color:first.c,colorGlow:first.g,roleIndices:[],profilePicture:S.profilePicture,guestId:S.guestId||null}];
   }
   S.wizardStep=2;
   S.screen="wizard-singers";
@@ -89,8 +88,7 @@ export function addSinger(payload){
     colorGlow:glow,
     roleIndices:[],
     profilePicture:(payload&&payload.profilePicture)||null,
-    guestId:(payload&&payload.guestId)||null,
-    whitePersonCheck:true
+    guestId:(payload&&payload.guestId)||null
   };
   S.singers.push(singer);
 }
