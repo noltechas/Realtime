@@ -224,6 +224,17 @@ function HiddenTileMotif({ theme }: ThemeProps) {
                     </div>
                 </>
             )
+        case 'tropical':
+            return (
+                <svg width="48" height="48" viewBox="0 0 48 48" style={{ position: 'absolute', inset: 0 }}>
+                    {/* little palm sprout over a coconut question */}
+                    <path d="M10 16 Q 24 7 38 16" stroke="#1FA85C" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+                    <path d="M14 13 Q 24 6 34 13" stroke="#23B85F" strokeWidth="2" fill="none" strokeLinecap="round" />
+                    <line x1="24" y1="10" x2="24" y2="19" stroke="#1FA85C" strokeWidth="2.5" strokeLinecap="round" />
+                    <circle cx="24" cy="31" r="11" fill="#6E4423" stroke="#CDA85A" strokeWidth="1.6" />
+                    <text x="24" y="36" textAnchor="middle" fontFamily="sans-serif" fontSize="13" fontWeight="700" fill="#FFC83D">?</text>
+                </svg>
+            )
         default:
             return (
                 <div style={{ ...centered, color: theme.black, fontFamily: theme.fontDisplay, fontSize: 22, fontWeight: 800 }}>?</div>
@@ -409,6 +420,32 @@ function HiddenStageMotif({ theme }: ThemeProps) {
                     </div>
                 </div>
             )
+        case 'tropical':
+            return (
+                <div style={{ ...stageFill, background: 'linear-gradient(180deg, #38B6E8 0%, #2FC4C0 52%, #7FE0D6 60%, #F4E2B8 72%, #FFF4DE 100%)' }}>
+                    {/* sun */}
+                    <div style={{ position: 'absolute', top: 40, right: 52, width: 74, height: 74, borderRadius: '50%', background: 'radial-gradient(circle, #FFE27A 0%, #FFC83D 60%, #FFB02E 100%)', boxShadow: '0 0 34px rgba(255,200,61,0.6)' }} />
+                    {/* lone palm leaning in from the left */}
+                    <svg width="340" height="340" viewBox="0 0 340 340" style={{ position: 'absolute', inset: 0 }}>
+                        <path d="M62 320 C 54 250 40 196 90 150 C 95 144 104 147 100 156 C 60 200 74 258 84 320 Z" fill="#A9764A" />
+                        <path d="M62 320 C 56 250 46 196 90 150 C 94 145 100 147 99 153 C 62 200 70 258 76 320 Z" fill="#C28F5A" />
+                        {[-152, -116, -80, -44, -8, 26].map((a, i) => (
+                            <path key={i} transform={`translate(98 150) rotate(${a})`} d="M0 0 C 34 -14 78 -12 116 6 C 78 4 38 9 0 0 Z" fill={i % 2 ? '#178A4A' : '#1FA85C'} stroke="#0E6B39" strokeWidth="1.8" strokeLinejoin="round" />
+                        ))}
+                    </svg>
+                    {/* drifting cloud */}
+                    <div style={{ position: 'absolute', top: 70, left: 60, width: 90, height: 26, borderRadius: 20, background: 'rgba(255,255,255,0.9)' }} />
+                    {/* wooden mystery sign framed in bamboo */}
+                    <div style={{ position: 'relative', zIndex: 2, textAlign: 'center' }}>
+                        <div style={{ display: 'inline-block', background: 'linear-gradient(165deg, #8A5A2F, #6E4423)', border: '5px solid #CDA85A', borderRadius: 20, padding: '14px 34px', boxShadow: '0 16px 34px rgba(14,46,41,0.42), inset 0 0 0 2px rgba(0,0,0,0.2)' }}>
+                            <span style={{ fontFamily: theme.fontDisplay, fontSize: 132, lineHeight: 1, color: '#FFF8E6', textShadow: '0 3px 0 rgba(0,0,0,0.35), 0 0 26px rgba(255,200,61,0.4)' }}>?</span>
+                        </div>
+                    </div>
+                    <div style={{ position: 'absolute', bottom: 22, left: 0, right: 0, textAlign: 'center', fontFamily: theme.fontDisplay, color: '#6E4423', fontSize: 22, letterSpacing: 1, textShadow: '0 1px 0 rgba(255,255,255,0.4)' }}>
+                        Island Mystery
+                    </div>
+                </div>
+            )
         default:
             return (
                 <div style={{ ...stageFill, background: theme.black, color: theme.cream }}>
@@ -448,6 +485,7 @@ function hiddenLabelFor(name: string): string {
         case 'space': return 'UNKNOWN SIGNAL'
         case 'steampunk': return 'Classified'
         case 'retrowave': return 'NO SIGNAL'
+        case 'tropical': return 'Island Mystery'
         case 'neo-brutal':
         default: return 'HIDDEN SONG'
     }
@@ -464,6 +502,7 @@ function hiddenSubtitleFor(name: string): string {
         case 'space': return 'transmission encrypted'
         case 'steampunk': return 'sealed by the archivist'
         case 'retrowave': return 'track.dat — error 404'
+        case 'tropical': return 'washed up from who-knows-where'
         case 'neo-brutal':
         default: return 'surprise pick!'
     }
@@ -479,6 +518,7 @@ function hiddenTitleColor(theme: Theme): string {
         case 'steampunk': return '#C8973E'
         case 'retrowave': return '#FF2D95'
         case 'urban': return '#D4FF00'
+        case 'tropical': return '#0E8F89'
         default: return theme.black
     }
 }
@@ -546,6 +586,8 @@ function queueTitleExtras(name: string): React.CSSProperties {
             return { textShadow: '0 0 6px rgba(255,45,149,0.6)' }
         case 'psychedelic':
             return { textShadow: '0 0 6px rgba(255,45,149,0.5)' }
+        case 'tropical':
+            return { textShadow: '0 1px 0 rgba(255,255,255,0.4)' }
         default:
             return {}
     }
@@ -565,6 +607,8 @@ function stageTitleExtras(name: string): React.CSSProperties {
             return { textShadow: '0 0 14px rgba(255,45,149,0.5), 0 0 30px rgba(182,255,45,0.4)' }
         case 'zen':
             return { textShadow: '0 0 14px rgba(212,184,90,0.5)' }
+        case 'tropical':
+            return { textShadow: '0 2px 0 rgba(0,0,0,0.25), 0 0 18px rgba(255,200,61,0.4)' }
         default:
             return {}
     }
@@ -582,6 +626,8 @@ function tileExtras(theme: Theme): React.CSSProperties {
             return { background: '#0a0a0a', borderColor: '#D4FF00' }
         case 'deep-sea':
             return { background: '#040918', borderColor: 'rgba(0,255,200,0.4)' }
+        case 'tropical':
+            return { background: '#6E4423', borderColor: '#CDA85A' }
         case 'psychedelic':
             return { background: '#1a0a2e', borderColor: 'rgba(255,45,149,0.4)' }
         case 'zen':

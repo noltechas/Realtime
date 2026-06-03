@@ -10,6 +10,7 @@ import {
   STEAMPUNK_TOKENS,
   RETROWAVE_TOKENS,
   COMIC_BOOK_TOKENS,
+  TROPICAL_TOKENS,
   resolveThemeTokens,
   type ThemeTokens,
 } from '@karaoke/shared'
@@ -135,6 +136,16 @@ export const COMIC_BOOK_MOBILE: ThemeTokens = withMobileFonts(
   'SuperSquad',
 )
 
+// Tropical-Mobile — sun-drenched tiki beach. Display = Pacifico (the surf/beach
+// brush-script logo face) for big headings & titles; body = Quicksand (rounded,
+// friendly, highly legible) for everything else. Both loaded via expo-font in
+// App.tsx and match the desktop/web/stage tropical theme exactly.
+export const TROPICAL_MOBILE: ThemeTokens = withMobileFonts(
+  TROPICAL_TOKENS,
+  'FloridaVibes',
+  'TheLastTrunks',
+)
+
 const MOBILE_BY_NAME: Record<string, ThemeTokens> = {
   'neo-brutal': NEO_BRUTAL_MOBILE,
   cyberpunk: CYBERPUNK_MOBILE,
@@ -147,6 +158,7 @@ const MOBILE_BY_NAME: Record<string, ThemeTokens> = {
   steampunk: STEAMPUNK_MOBILE,
   retrowave: RETROWAVE_MOBILE,
   'comic-book': COMIC_BOOK_MOBILE,
+  tropical: TROPICAL_MOBILE,
 }
 
 // Resolve a session theme name to the mobile-flavored token bundle. Falls

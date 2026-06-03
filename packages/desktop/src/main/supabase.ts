@@ -503,11 +503,11 @@ function mapVote(r: any): AwardVoteRow {
 // must stay in sync with the SQL migration `add_description_to_karaoke_awards`
 // — same strings, single source of truth here for client-side seeding.
 export const DEFAULT_AWARD_DESCRIPTION_BEST_PERFORMANCE =
-    'Awarded to the performance that brought the house to its feet — the moment everyone will still be talking about on the drive home.'
+    'Awarded to the performance that brought the house to its feet. The one moment everyone will still be talking about on the drive home.'
 export const DEFAULT_AWARD_DESCRIPTION_SINGER_OF_THE_NIGHT =
-    'Awarded to the voice that owned the room tonight — pitch, presence, and a stage they refused to share.'
+    'Awarded to the voice that owned the room tonight, with the pitch, the presence, and a stage they refused to share.'
 export const DEFAULT_AWARD_DESCRIPTION_BEST_DUO_GROUP =
-    'Awarded to the duo or group who sang as one — every harmony locked, every cue caught, every glance a rehearsal we missed.'
+    'Awarded to the duo or group who sang as one, with every harmony locked, every cue caught, and every glance a rehearsal we missed.'
 
 // Stable seed list (must match DEFAULT_AWARD_ICONS keys in icons/manifest.ts).
 const DEFAULT_AWARD_SEEDS: Array<{

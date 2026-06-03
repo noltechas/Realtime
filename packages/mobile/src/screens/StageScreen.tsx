@@ -159,21 +159,28 @@ function ReactGrid({
 
   const sendReaction = useCallback(
     (type: 'emoji' | 'text' | 'meme' | 'photo', content: string) => {
-      if (!channelRef.current) return
+      // [REACT-DBG] temporary diagnostic — remove after debugging
+      console.log('[REACT-DBG] mobile: sendReaction', type, content, 'channel=cr-' + sessionId, 'state=', channelRef.current?.state)
+      if (!channelRef.current) {
+        console.log('[REACT-DBG] mobile: NO channel ref — send aborted')
+        return
+      }
       const now = Date.now()
       if (now - lastReactionAtRef.current < REACTION_COOLDOWN_MS) return
       lastReactionAtRef.current = now
-      channelRef.current.send({
-        type: 'broadcast',
-        event: 'reaction',
-        payload: {
-          id: now + '-' + Math.random().toString(36).slice(2, 8),
-          reactionType: type,
-          content,
-          senderName: guestName || '',
-          senderProfilePicture: profilePicture,
-        },
-      })
+      Promise.resolve(
+        channelRef.current.send({
+          type: 'broadcast',
+          event: 'reaction',
+          payload: {
+            id: now + '-' + Math.random().toString(36).slice(2, 8),
+            reactionType: type,
+            content,
+            senderName: guestName || '',
+            senderProfilePicture: profilePicture,
+          },
+        }),
+      ).then((r) => console.log('[REACT-DBG] mobile: send result =', r))
       forceRerender((v) => v + 1)
       setTimeout(() => forceRerender((v) => v + 1), REACTION_COOLDOWN_MS + 20)
     },
@@ -229,7 +236,28 @@ function ReactGrid({
   return (
     <View style={{ flex: 1 }}>
       <View style={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 12 }}>
-        <Text style={titleStyle(tokens)}>React</Text>
+        {tokens.name === 'tropical' ? (
+          <View
+            style={{
+              alignSelf: 'flex-start',
+              backgroundColor: '#6E4423',
+              borderWidth: 3,
+              borderColor: '#C99A54',
+              borderRadius: 14,
+              paddingHorizontal: 22,
+              paddingVertical: 6,
+              shadowColor: '#0E2E29',
+              shadowOffset: { width: 0, height: 6 },
+              shadowOpacity: 0.22,
+              shadowRadius: 12,
+              elevation: 6,
+            }}
+          >
+            <Text style={{ fontFamily: tokens.fontBody, fontSize: 34, color: '#FFF1C4', letterSpacing: 0.5 }}>React</Text>
+          </View>
+        ) : (
+          <Text style={titleStyle(tokens)}>React</Text>
+        )}
       </View>
 
       <View style={[gridStyle, { paddingBottom: bottomPadding }]}>
@@ -241,9 +269,9 @@ function ReactGrid({
             disabled={cooldownActive}
           />
           <ui.ReactionCell
-            label="Boo"
-            icon={<Text style={cellEmojiStyle}>👎</Text>}
-            onPress={() => sendReaction('emoji', '👎')}
+            label="Tomato"
+            icon={<Text style={cellEmojiStyle}>🍅</Text>}
+            onPress={() => sendReaction('emoji', '🍅')}
             disabled={cooldownActive}
           />
         </View>

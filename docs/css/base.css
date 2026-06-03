@@ -1,3 +1,20 @@
+/* Tropical theme faces — Florida Vibes (display) + The Last Trunks (body),
+   self-hosted so they match the desktop/stage + mobile tropical theme exactly. */
+@font-face {
+  font-family: 'Florida Vibes';
+  src: url('../fonts/FloridaVibes.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'The Last Trunks';
+  src: url('../fonts/TheLastTrunks.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --black: #050508;
   --surface-1: rgba(255,255,255,0.03);

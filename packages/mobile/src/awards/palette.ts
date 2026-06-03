@@ -52,6 +52,9 @@ export const AWARDS_PALETTE = {
   // matching the desktop awards ceremony font. Falls back to Bodoni/serif.
   fontSerif: Platform.select({ ios: 'Delauney', default: 'Delauney' }) as string,
   fontDisplay: Platform.select({ ios: 'Delauney', default: 'Delauney' }) as string,
+  // "Great Vibes" — flowing gilded script, used for award descriptions and
+  // ballot prompts so they read as elegant cursive rather than upright serif.
+  fontScript: 'GreatVibes_400Regular',
   fontBody: 'System',
 }
 

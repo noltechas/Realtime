@@ -48,6 +48,12 @@ function createWindow(): void {
             sandbox: false,
             contextIsolation: true,
             nodeIntegration: false,
+            // This window holds the Supabase Realtime subscriptions
+            // (queue/session/reactions). When the fullscreen stage window covers
+            // it, Chromium would otherwise throttle this renderer's timers and
+            // stall the Realtime heartbeat, so live reactions/queue updates
+            // silently stop arriving. Keep it running while backgrounded.
+            backgroundThrottling: false,
             webSecurity: false // Allow file:// audio URLs from http://localhost in dev
         }
     })
@@ -131,6 +137,9 @@ function createStageWindow(): BrowserWindow {
             sandbox: false,
             contextIsolation: true,
             nodeIntegration: false,
+            // Keep the tomato-splatter rAF loop and any timers running smoothly
+            // even if this window is ever occluded.
+            backgroundThrottling: false,
             webSecurity: false,
             additionalArguments: ['--stage-window']
         }
@@ -237,6 +246,8 @@ ipcMain.on('playback:seek', (_event, timeMs) => {
 
 // Reaction relay to stage window
 ipcMain.on('reaction:send', (_event, reaction) => {
+    // [REACT-DBG] temporary diagnostic — remove after debugging
+    console.log('[REACT-DBG] main: relay reaction; stageWindow open?', !!stageWindow, 'content=', reaction?.content)
     if (stageWindow) {
         stageWindow.webContents.send('reaction:receive', reaction)
     }

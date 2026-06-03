@@ -37,6 +37,7 @@
 .queue-item[data-stage-theme="steampunk"] .q-hidden-art { background: #14110F; border: 1px solid rgba(200,151,62,0.45); border-radius: 6px; }
 .queue-item[data-stage-theme="retrowave"] .q-hidden-art { background: #0a0614; border: 1px solid rgba(255,45,149,0.5); background-image: repeating-linear-gradient(180deg, transparent 0 2px, rgba(255,45,149,0.12) 2px 3px); }
 .queue-item[data-stage-theme="comic-book"] .q-hidden-art { background: #16161D; border: 3px solid #16161D; border-radius: 6px; box-shadow: 2px 2px 0 #FF1F4B; background-image: radial-gradient(rgba(255,212,0,0.25) 1.4px, transparent 1.6px); background-size: 8px 8px; }
+.queue-item[data-stage-theme="tropical"] .q-hidden-art { background: #6E4423; border: 2px solid #CDA85A; border-radius: 12px; box-shadow: 0 4px 10px rgba(14,46,41,0.25); }
 
 /* ── Per-song row theming (overrides the global applyTheme() rules) ──────── */
 /* Each row wears the theme its guest picked — independent of the session theme. */
@@ -66,6 +67,19 @@
 .queue-item[data-stage-theme="comic-book"] .queue-pos { color: rgba(22,22,29,0.35) !important; font-family: 'BadaBoom BB', cursive !important; }
 .queue-item[data-stage-theme="comic-book"] .queue-singer-pill { color: #16161D !important; background: #FFD400 !important; border: 2.5px solid #16161D !important; }
 .queue-item[data-stage-theme="comic-book"] .queue-singer-role { color: rgba(22,22,29,0.55) !important; }
+
+/* tropical row */
+.queue-item[data-stage-theme="tropical"] {
+  background: #FFFFFF !important; color: #123A33 !important;
+  border: 2px solid #E2C684 !important; border-radius: 18px !important;
+  box-shadow: 0 6px 16px rgba(14,46,41,0.14) !important;
+}
+.queue-item[data-stage-theme="tropical"] .queue-item-title { color: #0E8F89 !important; font-family: 'Florida Vibes', cursive !important; letter-spacing: 0.3px; }
+.queue-item[data-stage-theme="tropical"] .queue-item-artist { color: rgba(18,58,51,0.6) !important; font-family: 'The Last Trunks', sans-serif !important; }
+.queue-item[data-stage-theme="tropical"] .queue-item-added { color: #FF6B3D !important; font-family: 'The Last Trunks', sans-serif !important; font-weight: 700; }
+.queue-item[data-stage-theme="tropical"] .queue-pos { color: rgba(18,58,51,0.4) !important; font-family: 'Florida Vibes', cursive !important; }
+.queue-item[data-stage-theme="tropical"] .queue-singer-pill { color: #0E2E29 !important; background: #FFC83D !important; border: 2px solid #CDA85A !important; }
+.queue-item[data-stage-theme="tropical"] .queue-singer-role { color: rgba(18,58,51,0.55) !important; }
 
 /* cyberpunk row */
 .queue-item[data-stage-theme="cyberpunk"] {
@@ -282,6 +296,35 @@
 .queue-item[data-stage-theme="comic-book"] .queue-edit-btn:active {
   box-shadow: 0 0 0 #16161D !important; transform: translate(2px,2px) !important;
 }
+
+/* tropical: bamboo-framed soft pills, lagoon upvote / sunset downvote */
+.queue-item[data-stage-theme="tropical"] .queue-vote-btn--up {
+  background: #10B7B0 !important; color: #FFFFFF !important;
+  border: 2px solid #0B9E97 !important; border-radius: 12px !important;
+  box-shadow: 0 4px 10px rgba(16,183,176,0.32) !important;
+}
+.queue-item[data-stage-theme="tropical"] .queue-vote-btn--down {
+  background: #FF6B3D !important; color: #FFFFFF !important;
+  border: 2px solid #E8542A !important; border-radius: 12px !important;
+  box-shadow: 0 4px 10px rgba(255,107,61,0.32) !important;
+}
+.queue-item[data-stage-theme="tropical"] .queue-vote-btn:active { transform: translateY(1px) !important; }
+.queue-item[data-stage-theme="tropical"] .queue-vote-score--pos { color: #0E8F89 !important; }
+.queue-item[data-stage-theme="tropical"] .queue-vote-score--neg { color: #FF6B3D !important; }
+.queue-item[data-stage-theme="tropical"] .queue-vote-score--zero { color: rgba(18,58,51,0.5) !important; }
+.queue-item[data-stage-theme="tropical"] .queue-voted-pill {
+  background: #FFC83D !important; color: #0E2E29 !important;
+  border: 2px solid #CDA85A !important;
+}
+.queue-item[data-stage-theme="tropical"] .queue-lock-badge {
+  background: #FFC83D !important; color: #0E2E29 !important;
+  border: 2px solid #CDA85A !important;
+}
+.queue-item[data-stage-theme="tropical"] .queue-edit-btn {
+  background: #FFC83D !important; color: #0E2E29 !important;
+  border: 2px solid #CDA85A !important; border-radius: 12px !important;
+}
+.queue-item[data-stage-theme="tropical"] .queue-edit-btn:active { transform: translateY(1px) !important; }
 
 /* cyberpunk: neon outline with glow, no border-radius */
 .queue-item[data-stage-theme="cyberpunk"] .queue-vote-btn--up {
@@ -612,6 +655,25 @@ body[data-theme="comic-book"] .wiz-color-swatch.is-selected::after {
   font-size: 14px; color: #FFD400; text-shadow: 1px 1px 0 #16161D;
 }
 body[data-theme="comic-book"] .wiz-color-swatch-check { color: #16161D !important; }
+
+/* tropical: soft bamboo-framed swatches with a lagoon ring on selected */
+body[data-theme="tropical"] .wiz-color-block {
+  background: #FFFFFF !important; border: 2px solid #E2C684 !important;
+  border-radius: 16px !important; box-shadow: 0 6px 16px rgba(14,46,41,0.14) !important;
+  padding: 12px 14px 14px !important;
+}
+body[data-theme="tropical"] .wiz-color-eyebrow {
+  color: #0E8F89 !important; font-family: 'Florida Vibes', cursive !important;
+}
+body[data-theme="tropical"] .wiz-color-swatch {
+  border: 2px solid #CDA85A !important; border-radius: 999px !important;
+  box-shadow: 0 3px 8px rgba(14,46,41,0.18) !important;
+}
+body[data-theme="tropical"] .wiz-color-swatch.is-selected {
+  border-color: #10B7B0 !important; transform: scale(1.12) !important;
+  box-shadow: 0 0 0 3px rgba(16,183,176,0.35), 0 4px 12px rgba(16,183,176,0.4) !important;
+}
+body[data-theme="tropical"] .wiz-color-swatch-check { color: #FFFFFF !important; }
 
 /* cyberpunk: razor-sharp squares, neon ring scan on selected */
 @keyframes cyb-swatch-scan {

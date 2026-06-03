@@ -37,6 +37,15 @@ const ENCORE_WINNER_MS = 7000
 const REFRESH_MS = 4000
 const MEDALS = ['🥇', '🥈', '🥉']
 
+// Ceremony order for the three house awards when the admin hasn't set their own
+// running order: Best Duo/Group, then Singer of the Night, then Best
+// Performance as the closer. Custom awards precede these (least- to most-voted).
+const DEFAULT_REVEAL_SLUG_ORDER = ['best-duo-group', 'singer-of-the-night', 'best-performance']
+
+// Limits mirror the companion app's award create/edit form.
+const AWARD_TITLE_MAX = 40
+const AWARD_DESCRIPTION_MAX = 180
+
 export function AdminAwardsTab() {
     const { state, dispatch } = useApp()
     const theme = useTheme()
@@ -52,6 +61,8 @@ export function AdminAwardsTab() {
     const [slideIdx, setSlideIdx] = useState(0)
     // The order awards are revealed in (array of award ids); admin can reorder.
     const [revealOrder, setRevealOrder] = useState<string[]>([])
+    // Inline editing of an award's name + description (one at a time).
+    const [editDraft, setEditDraft] = useState<{ id: string; title: string; description: string } | null>(null)
 
     // --- Encore orchestration (runtime, ref-held so it survives re-renders) ---
     const encoreTimers = useRef<{ buildup?: ReturnType<typeof setTimeout>; voteEnd?: ReturnType<typeof setTimeout>; toQueue?: ReturnType<typeof setTimeout>; rebroadcast?: ReturnType<typeof setInterval> }>({})
@@ -79,17 +90,10 @@ export function AdminAwardsTab() {
         return () => clearInterval(t)
     }, [refresh])
 
-    // Keep revealOrder in sync with the award list: preserve the admin's order,
-    // drop removed awards, append newly-created ones at the end.
-    const awardIdsKey = state.awards.map(a => a.id).join(',')
-    useEffect(() => {
-        const ids = state.awards.map(a => a.id)
-        setRevealOrder(prev => {
-            const kept = prev.filter(id => ids.includes(id))
-            const added = ids.filter(id => !kept.includes(id))
-            return [...kept, ...added]
-        })
-    }, [awardIdsKey])
+    // `revealOrder` holds the admin's MANUAL order and stays empty until they
+    // reorder. While empty we fall back to the vote-driven default order
+    // (computed in render below). Reconciliation against added/removed awards
+    // also happens in render, so no sync effect is needed here.
 
     if (!sessionId) {
         return (
@@ -110,8 +114,35 @@ export function AdminAwardsTab() {
         tally: computeTally(a, votes.filter(v => v.awardId === a.id), candidatesFor(a.subjectType))
     }))
     const talliesById = new Map(tallies.map(t => [t.award.id, t]))
-    // Tallies in the admin's chosen reveal order (falls back to award order).
-    const orderedTallies = (revealOrder.length ? revealOrder : state.awards.map(a => a.id))
+    const currentAwardIds = state.awards.map(a => a.id)
+
+    // Default reveal order: custom awards from least- to most-voted (the show
+    // builds toward the crowd favorites), then the three house awards in
+    // ceremony order (Best Duo/Group → Singer of the Night → Best Performance).
+    const defaultOrderIds = [
+        ...tallies
+            .filter(t => !t.award.isDefault)
+            .sort((a, b) =>
+                a.tally.totalBallots - b.tally.totalBallots ||
+                a.award.createdAt.localeCompare(b.award.createdAt))
+            .map(t => t.award.id),
+        ...tallies
+            .filter(t => t.award.isDefault)
+            .sort((a, b) =>
+                DEFAULT_REVEAL_SLUG_ORDER.indexOf(a.award.slug ?? '') -
+                DEFAULT_REVEAL_SLUG_ORDER.indexOf(b.award.slug ?? ''))
+            .map(t => t.award.id),
+    ]
+
+    // The admin's manual order wins once set; otherwise use the default above.
+    // When set, reconcile against the live award list: drop deleted awards and
+    // append any newly-created ones at the end.
+    const customOrder = revealOrder.filter(id => currentAwardIds.includes(id))
+    const effectiveOrderIds = customOrder.length
+        ? [...customOrder, ...currentAwardIds.filter(id => !customOrder.includes(id))]
+        : defaultOrderIds
+
+    const orderedTallies = effectiveOrderIds
         .map(id => talliesById.get(id))
         .filter((t): t is typeof tallies[number] => !!t)
 
@@ -303,14 +334,14 @@ export function AdminAwardsTab() {
         if (sessionId) sendRevealStepBroadcast(sessionId, { phase: 'idle', awardIndex: 0, totalAwards: 0, startedAt: new Date().toISOString() })
     }
 
+    // Reorder from whatever is currently displayed — on the first move this
+    // captures the vote-driven default order, after which it's the admin's own.
     const moveReveal = (idx: number, dir: -1 | 1) => {
-        setRevealOrder(prev => {
-            const next = prev.slice()
-            const j = idx + dir
-            if (j < 0 || j >= next.length) return prev
-            ;[next[idx], next[j]] = [next[j], next[idx]]
-            return next
-        })
+        const next = effectiveOrderIds.slice()
+        const j = idx + dir
+        if (j < 0 || j >= next.length) return
+        ;[next[idx], next[j]] = [next[j], next[idx]]
+        setRevealOrder(next)
     }
 
     const handleUnfinalize = async () => {
@@ -329,6 +360,26 @@ export function AdminAwardsTab() {
         }
         dispatch({ type: 'REMOVE_AWARD', payload: award.id })
         refresh()
+    }
+
+    // Edit an award's name + description (works for both default and custom
+    // awards). Saves through the karaoke:update-award IPC and updates state
+    // optimistically; the reveal ceremony reads title/description from state.
+    const startEditAward = (award: Award) =>
+        setEditDraft({ id: award.id, title: award.title, description: award.description })
+    const cancelEditAward = () => setEditDraft(null)
+    const saveEditAward = async (award: Award) => {
+        if (!editDraft || editDraft.id !== award.id) return
+        const title = editDraft.title.trim()
+        const description = editDraft.description.trim()
+        if (title.length < 2) { alert('Award name must be at least 2 characters.'); return }
+        dispatch({ type: 'UPSERT_AWARD', payload: { ...award, title, description } })
+        setEditDraft(null)
+        const res = await window.electronAPI?.updateAward(award.id, { title, description })
+        if (res?.error) {
+            alert(`Failed to save award: ${res.error}`)
+            refresh()
+        }
     }
 
     // Bump a candidate's manual score adjustment by +/- 1 point. Persists the
@@ -464,7 +515,7 @@ export function AdminAwardsTab() {
                         Reveal running order
                     </div>
                     <div style={{ fontSize: 11, color: theme.faint, fontFamily: theme.fontBody, marginBottom: 2 }}>
-                        Awards are revealed top-to-bottom. Reorder to set the pacing — Best Performance always closes the show, followed by the live Encore.
+                        Awards are revealed top to bottom. By default, custom awards run from least to most voted, then the house awards. Reorder to set your own pacing. Best Performance always closes the show, followed by the live Encore.
                     </div>
                     {orderedTallies.map(({ award }, i) => (
                         <div key={award.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px', borderRadius: theme.radiusSmall, background: theme.creamDark }}>
@@ -488,6 +539,7 @@ export function AdminAwardsTab() {
                     const featuredSvg = award.iconId ? FEATURED_SVGS[award.iconId] : undefined
                     const ranked = tally.standings.filter(s => s.score !== 0 || s.totalVotes > 0)
                     const ballotsOpen = !!expandedBallots[award.id]
+                    const isEditing = editDraft?.id === award.id
                     return (
                         <div key={award.id} style={{ ...theme.card, border: theme.border, padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -516,25 +568,55 @@ export function AdminAwardsTab() {
                                     })()}
                                 </div>
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 15, color: theme.black, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                        {award.title}
-                                    </div>
-                                    <div style={{ fontSize: 11, color: theme.faint, fontFamily: theme.fontBody }}>
+                                    {isEditing ? (
+                                        <input
+                                            value={editDraft!.title}
+                                            onChange={e => setEditDraft(d => d ? { ...d, title: e.target.value } : d)}
+                                            maxLength={AWARD_TITLE_MAX}
+                                            placeholder="Award name"
+                                            style={editInputStyle(theme)}
+                                        />
+                                    ) : (
+                                        <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 15, color: theme.black, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {award.title}
+                                        </div>
+                                    )}
+                                    <div style={{ fontSize: 11, color: theme.faint, fontFamily: theme.fontBody, marginTop: isEditing ? 4 : 0 }}>
                                         {subjectLabel} · {award.isDefault ? 'Default' : 'Custom'}{award.finalizedAt ? ' · Finalized' : ''} · {tally.totalBallots} voter{tally.totalBallots === 1 ? '' : 's'}
                                     </div>
                                 </div>
-                                {!award.isDefault && (
-                                    <button
-                                        onClick={() => handleDeleteAward(award)}
-                                        title="Delete custom award"
-                                        style={{
-                                            padding: '4px 10px', fontSize: 11, fontWeight: 700, fontFamily: theme.fontDisplay,
-                                            cursor: 'pointer', border: theme.border, borderRadius: theme.radiusSmall,
-                                            background: theme.cream, color: '#c33'
-                                        }}
-                                    >Delete</button>
-                                )}
+                                <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                                    {isEditing ? (
+                                        <>
+                                            <button onClick={() => saveEditAward(award)} title="Save changes" style={editActionStyle(theme, true)}>Save</button>
+                                            <button onClick={cancelEditAward} title="Discard changes" style={editActionStyle(theme, false)}>Cancel</button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <button onClick={() => startEditAward(award)} title="Edit name & description" style={editActionStyle(theme, false)}>Edit</button>
+                                            {!award.isDefault && (
+                                                <button onClick={() => handleDeleteAward(award)} title="Delete custom award" style={{ ...editActionStyle(theme, false), color: '#c33' }}>Delete</button>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
                             </div>
+
+                            {isEditing && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                    <textarea
+                                        value={editDraft!.description}
+                                        onChange={e => setEditDraft(d => d ? { ...d, description: e.target.value.slice(0, AWARD_DESCRIPTION_MAX) } : d)}
+                                        maxLength={AWARD_DESCRIPTION_MAX}
+                                        rows={3}
+                                        placeholder="Description (read aloud during the reveal)"
+                                        style={{ ...editInputStyle(theme), fontFamily: theme.fontBody, fontWeight: 400, fontSize: 13, lineHeight: 1.4, resize: 'vertical', whiteSpace: 'normal' }}
+                                    />
+                                    <div style={{ fontSize: 10.5, color: theme.faint, fontFamily: theme.fontBody, textAlign: 'right' }}>
+                                        {editDraft!.description.length}/{AWARD_DESCRIPTION_MAX}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Standings */}
                             {ranked.length === 0 ? (
@@ -660,6 +742,24 @@ function orderBtnStyle(theme: ReturnType<typeof useTheme>): CSSProperties {
         width: 28, height: 26, fontSize: 12, fontWeight: 800, padding: 0,
         border: theme.border, borderRadius: theme.radiusSmall,
         background: theme.cream, color: theme.black
+    }
+}
+
+function editInputStyle(theme: ReturnType<typeof useTheme>): CSSProperties {
+    return {
+        width: '100%', boxSizing: 'border-box', padding: '6px 8px',
+        fontSize: 14, fontFamily: theme.fontDisplay, fontWeight: 700,
+        color: theme.black, background: theme.cream,
+        border: theme.border, borderRadius: theme.radiusSmall
+    }
+}
+
+function editActionStyle(theme: ReturnType<typeof useTheme>, primary: boolean): CSSProperties {
+    return {
+        padding: '4px 10px', fontSize: 11, fontWeight: 700, fontFamily: theme.fontDisplay,
+        cursor: 'pointer', border: theme.border, borderRadius: theme.radiusSmall,
+        background: primary ? theme.accentB : theme.cream,
+        color: primary ? '#1A1A1A' : theme.black, whiteSpace: 'nowrap'
     }
 }
 

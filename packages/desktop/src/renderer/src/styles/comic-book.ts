@@ -235,7 +235,7 @@ const GLOBAL_CSS = `
 
 export const COMIC_BOOK: Theme = {
   name: 'comic-book',
-  nextThemeName: 'neo-brutal',
+  nextThemeName: 'tropical',
   displayName: 'Comic Book',
 
   // ── Raw colors ─────────────────────────────────────────────────────────────

@@ -5,7 +5,7 @@
    visual appearance come from the active theme.
    ============================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Share+Tech+Mono&family=Quicksand:wght@400;500;600;700&family=Nunito:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Share+Tech+Mono&family=Quicksand:wght@400;500;600;700&family=Nunito:wght@400;500;600;700&family=Pacifico&display=swap');
 
 /* Comic-Book theme faces (Blambot BadaBoom display + Super Squad secondary).
    Declared HERE — in the always-loaded base stylesheet — rather than inside the
@@ -34,6 +34,24 @@
 @font-face {
   font-family: 'KrabbyPatty';
   src: url('../assets/fonts/KrabbyPatty-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+/* Tropical theme faces — Florida Vibes (display) + The Last Trunks (body).
+   Declared here (always-loaded) for the same reason as the faces above: the
+   tropical theme's per-song globalCss is wiped + re-injected on each tropical
+   song, so an @font-face there would re-load + flash a fallback. */
+@font-face {
+  font-family: 'Florida Vibes';
+  src: url('../assets/fonts/FloridaVibes.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'The Last Trunks';
+  src: url('../assets/fonts/TheLastTrunks.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
   font-display: swap;

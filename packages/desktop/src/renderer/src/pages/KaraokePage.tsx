@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useApp, useGuestsMap, singerFxKey } from '../context/AppContext'
 import { useTheme } from '../context/ThemeContext'
 import { AwardsRevealAnimation } from '../awards/AwardsRevealAnimation'
 import { HiddenSongStagePanel, HiddenSongStageHeading } from '../components/HiddenSongCard'
+import TomatoSplatterLayer, { TOMATO_EMOJI } from '../components/TomatoSplatterLayer'
 
 import { VoiceEffectsEngine } from '../audio/VoiceEffectsEngine'
 import OSCARS_MUSIC_URL from '../assets/oscars.mp3'
@@ -297,6 +299,233 @@ function ComicUpNext({
     )
 }
 
+// ── Tropical scene vocabulary (shared by the Up Next + live stage) ──────────
+// Reusable beach primitives so the stage speaks the same tiki language as the
+// idle "Catch a Wave" screen. Keyframes (tropSun/tropCloud/tropWave/
+// tropPalmTrunk/tropFlame/tropFlameCore/tropEmber) live in tropical.ts globalCss,
+// which is injected whenever the tropical theme is active.
+const TROP_FROND_ANGLES = [-162, -124, -86, -48, -8, 30, 66]
+
+function TropHibiscus({ size = 64, rotate = 0, style }: { size?: number; rotate?: number; style?: React.CSSProperties }) {
+    return (
+        <svg width={size} height={size} viewBox="0 0 70 70" style={{ transform: `rotate(${rotate}deg)`, filter: 'drop-shadow(0 4px 6px rgba(14,46,41,0.3))', ...style }}>
+            {[0, 72, 144, 216, 288].map((a) => (
+                <ellipse key={a} cx="35" cy="17" rx="13" ry="17" fill="#FF3D81" stroke="#E02468" strokeWidth="1.5" transform={`rotate(${a} 35 35)`} />
+            ))}
+            <circle cx="35" cy="35" r="7.5" fill="#FFC83D" />
+            <circle cx="35" cy="35" r="3" fill="#FF8A3C" />
+        </svg>
+    )
+}
+
+function TropPalm({ flip, swayDur, scale = 1, style }: { flip?: boolean; swayDur: number; scale?: number; style?: React.CSSProperties }) {
+    return (
+        <div style={{ position: 'absolute', transformOrigin: 'bottom center', animation: `tropPalmTrunk ${swayDur}s ease-in-out infinite`, ...style }}>
+            <svg width={360 * scale} height={470 * scale} viewBox="0 0 360 470" style={{ display: 'block', transform: flip ? 'scaleX(-1)' : 'none', filter: 'drop-shadow(0 10px 16px rgba(14,46,41,0.28))' }}>
+                <path d="M168 470 C 158 360 132 262 196 176 C 202 168 216 172 210 186 C 160 266 182 366 196 470 Z" fill="#A9764A" />
+                <path d="M168 470 C 160 360 138 262 196 176 C 200 170 207 172 206 180 C 162 266 174 366 182 470 Z" fill="#C28F5A" />
+                <circle cx="196" cy="186" r="12" fill="#5C3F22" />
+                <circle cx="216" cy="194" r="11" fill="#6B4A2A" />
+                <circle cx="202" cy="204" r="11" fill="#4A3119" />
+                {TROP_FROND_ANGLES.map((a, i) => (
+                    <path
+                        key={i}
+                        transform={`translate(204 176) rotate(${a})`}
+                        d="M0 0 C 50 -22 116 -20 172 6 C 162 2 162 14 172 20 C 116 8 56 13 0 0 Z"
+                        fill={i % 2 === 0 ? '#1FA85C' : '#178A4A'}
+                        stroke="#0E6B39"
+                        strokeWidth="2"
+                        strokeLinejoin="round"
+                    />
+                ))}
+                <path transform="translate(204 176) rotate(-100)" d="M0 0 C 18 -64 16 -130 4 -182 C -4 -130 -12 -64 0 0 Z" fill="#23B85F" stroke="#0E6B39" strokeWidth="2" />
+            </svg>
+        </div>
+    )
+}
+
+function TropTorch({ style }: { style?: React.CSSProperties }) {
+    return (
+        <div style={{ position: 'absolute', width: 90, height: 300, ...style }}>
+            <div style={{ position: 'absolute', top: -26, left: '50%', width: 180, height: 180, transform: 'translateX(-50%)', background: 'radial-gradient(circle, rgba(255,170,60,0.55) 0%, transparent 64%)', animation: 'tropSun 2.2s ease-in-out infinite', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', top: 6, left: '50%', width: 62, height: 86, transform: 'translateX(-50%)', zIndex: 2 }}>
+                <svg width="62" height="86" viewBox="0 0 62 86" style={{ position: 'absolute', inset: 0, transformOrigin: '50% 100%', animation: 'tropFlame 0.9s ease-in-out infinite' }}>
+                    <path d="M31 84 C 7 64 5 38 31 4 C 57 38 55 64 31 84 Z" fill="#FF6B2C" />
+                </svg>
+                <svg width="40" height="58" viewBox="0 0 40 58" style={{ position: 'absolute', left: 11, bottom: 10, transformOrigin: '50% 100%', animation: 'tropFlameCore 0.7s ease-in-out infinite' }}>
+                    <path d="M20 56 C 6 44 6 24 20 4 C 34 24 34 44 20 56 Z" fill="#FFD23F" />
+                </svg>
+            </div>
+            {[0, 1, 2].map((i) => (
+                <div key={i} style={{ position: 'absolute', top: 36, left: 38 + i * 6, width: 5, height: 5, borderRadius: '50%', background: i % 2 ? '#FFD23F' : '#FF8A3C', ['--ember-x' as string]: `${(i - 1) * 18}px`, animation: `tropEmber ${1.9 + i * 0.5}s ease-in ${i * 0.45}s infinite`, pointerEvents: 'none' }} />
+            ))}
+            <svg width="90" height="300" viewBox="0 0 90 300" style={{ position: 'absolute', bottom: 0, left: 0, filter: 'drop-shadow(0 8px 12px rgba(14,46,41,0.25))' }}>
+                <rect x="34" y="86" width="22" height="214" rx="7" fill="#CDA85A" />
+                <rect x="38" y="86" width="6" height="214" fill="#E2C684" opacity="0.7" />
+                {[120, 162, 204, 246].map((ny, i) => (
+                    <rect key={i} x="31" y={ny} width="28" height="6" rx="2.5" fill="#9A7536" />
+                ))}
+                <path d="M18 88 q 27 30 54 0 q -9 -20 -27 -20 q -18 0 -27 20 Z" fill="#6B4A2A" stroke="#4A3119" strokeWidth="2.5" />
+                <path d="M18 88 q 27 12 54 0" stroke="#3A2614" strokeWidth="3" fill="none" />
+            </svg>
+        </div>
+    )
+}
+
+function TropClouds() {
+    const clouds = [
+        { x: '7%', y: '8%', s: 1.0, d: 26 },
+        { x: '58%', y: '5%', s: 1.25, d: 34 },
+        { x: '33%', y: '15%', s: 0.8, d: 30 },
+    ]
+    return (
+        <>
+            {clouds.map((c, i) => (
+                <div key={i} style={{ position: 'absolute', left: c.x, top: c.y, transform: `scale(${c.s})`, animation: `tropCloud ${c.d}s ease-in-out infinite alternate` }}>
+                    <div style={{ position: 'relative', width: 180, height: 50 }}>
+                        <div style={{ position: 'absolute', bottom: 0, left: 0, width: 180, height: 36, borderRadius: 30, background: 'rgba(255,255,255,0.92)' }} />
+                        <div style={{ position: 'absolute', bottom: 8, left: 32, width: 62, height: 62, borderRadius: '50%', background: 'rgba(255,255,255,0.92)' }} />
+                        <div style={{ position: 'absolute', bottom: 6, left: 84, width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,0.92)' }} />
+                    </div>
+                </div>
+            ))}
+        </>
+    )
+}
+
+// Full-bleed beach scene, portaled to <body> so it paints between the blurred
+// album backdrop (z-index 0) and the lyric/chrome layers (z 10/20) without being
+// clipped by the lyric mask. `live` dims it to a subtle sunset wash + palm
+// silhouettes during playback so lyrics stay readable.
+function TropBeachBackdrop({ live = false }: { live?: boolean }) {
+    const scene = (
+        <div
+            style={{
+                position: 'fixed',
+                inset: 0,
+                zIndex: 2,
+                pointerEvents: 'none',
+                overflow: 'hidden',
+                background: live
+                    ? 'linear-gradient(180deg, rgba(20,46,41,0) 0%, rgba(20,46,41,0) 55%, rgba(14,46,41,0.55) 100%)'
+                    : 'linear-gradient(180deg, #38B6E8 0%, #5ECBE8 28%, #2FC4C0 50%, #7FE0D6 58%, #F4E2B8 70%, #FFF4DE 100%)',
+            }}
+        >
+            {!live && (
+                <>
+                    <div style={{ position: 'absolute', top: '9%', right: '12%', width: 130, height: 130, borderRadius: '50%', background: 'radial-gradient(circle, #FFE27A 0%, #FFC83D 58%, #FFB02E 100%)', animation: 'tropSun 6s ease-in-out infinite' }} />
+                    <TropClouds />
+                    <div style={{ position: 'absolute', left: 0, right: 0, top: '50%', height: '11%', opacity: 0.5, backgroundImage: 'repeating-linear-gradient(95deg, rgba(255,255,255,0.6) 0 3px, transparent 3px 24px)', animation: 'tropWave 6s linear infinite' }} />
+                </>
+            )}
+            {/* palms anchored bottom corners — full color for Up Next, dark silhouettes when live */}
+            <div style={{ position: 'absolute', inset: 0, opacity: live ? 0.4 : 1, filter: live ? 'brightness(0.35) saturate(0.7)' : 'none' }}>
+                <TropPalm swayDur={7} style={{ left: -96, bottom: -40 }} scale={live ? 0.8 : 0.92} />
+                <TropPalm flip swayDur={8.5} style={{ right: -96, bottom: -40 }} scale={live ? 0.8 : 0.92} />
+            </div>
+            {!live && (
+                <>
+                    <TropTorch style={{ bottom: '14%', left: '15%' }} />
+                    <TropTorch style={{ bottom: '14%', right: '15%' }} />
+                </>
+            )}
+        </div>
+    )
+    return createPortal(scene, document.body)
+}
+
+// ── Tropical "Up Next" stage screen ─────────────────────────────────────────
+// A full tiki-beach lockup: the live beach scene fills the stage behind a carved
+// "UP NEXT" bamboo sign, the album art mounted in a bamboo frame with a hibiscus
+// sticker, the title on a sun-lit wooden plank, and each singer on a lei pill.
+function TropicalUpNext({
+    theme,
+    art,
+    track,
+    singers,
+    np,
+    roles,
+    guestsMap,
+}: {
+    theme: any
+    art: string | null
+    track: any
+    singers: any[]
+    np: any
+    roles: string[]
+    guestsMap: Map<string, any>
+}) {
+    const dur = track?.duration_ms
+        ? `${Math.floor(track.duration_ms / 60000)}:${Math.floor((track.duration_ms % 60000) / 1000).toString().padStart(2, '0')}`
+        : ''
+    const woodGrain = 'repeating-linear-gradient(180deg, rgba(0,0,0,0.10) 0 2px, transparent 2px 16px)'
+    return (
+        <div className="anim-enter" style={{ width: '100%', maxWidth: 1100, margin: '0 auto', padding: '0 48px', position: 'relative' }}>
+            <TropBeachBackdrop />
+            <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 26 }}>
+                {/* Carved UP NEXT sign hanging on bamboo */}
+                <div style={{ position: 'relative', background: 'linear-gradient(165deg, #8A5A2F, #6E4423)', border: '5px solid #CDA85A', borderRadius: 18, padding: '12px 40px', boxShadow: '0 16px 34px rgba(14,46,41,0.4)', overflow: 'hidden' }}>
+                    <div style={{ position: 'absolute', inset: 0, backgroundImage: woodGrain, pointerEvents: 'none' }} />
+                    <span style={{ position: 'relative', fontFamily: theme.fontDisplay, fontSize: stageFont(44), color: '#FFF1C4', letterSpacing: 1, textShadow: '0 2px 0 rgba(0,0,0,0.35), 0 0 22px rgba(255,200,61,0.4)' }}>
+                        Up Next
+                    </span>
+                </div>
+
+                {/* Album art in a bamboo frame with a hibiscus sticker */}
+                {np?.isHidden ? (
+                    <div style={{ width: 332, height: 332, borderRadius: 22, background: 'linear-gradient(165deg, #8A5A2F, #6E4423)', border: '6px solid #CDA85A', boxShadow: '0 20px 44px rgba(14,46,41,0.42)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span style={{ fontFamily: theme.fontDisplay, fontSize: stageFont(150), color: '#FFF1C4' }}>?</span>
+                    </div>
+                ) : art ? (
+                    <div style={{ position: 'relative', padding: 12, borderRadius: 22, background: 'linear-gradient(135deg, #E2C684, #CDA85A 55%, #9A7536)', boxShadow: '0 20px 44px rgba(14,46,41,0.42)' }}>
+                        <img src={art} alt="" style={{ width: 312, height: 312, display: 'block', borderRadius: 12, objectFit: 'cover' }} />
+                        <div style={{ position: 'absolute', top: -26, right: -26, transform: 'rotate(-16deg)' }}>
+                            <TropHibiscus size={78} />
+                        </div>
+                    </div>
+                ) : null}
+
+                {/* Title plank */}
+                <div style={{ position: 'relative', textAlign: 'center', maxWidth: 880, background: 'linear-gradient(165deg, #8A5A2F, #6E4423)', border: '5px solid #CDA85A', borderRadius: 18, padding: '24px 46px 28px', boxShadow: '0 16px 36px rgba(14,46,41,0.4)', overflow: 'hidden' }}>
+                    <div style={{ position: 'absolute', inset: 0, backgroundImage: woodGrain, pointerEvents: 'none' }} />
+                    <h1 style={{ position: 'relative', fontFamily: theme.fontDisplay, fontSize: stageFont(58), color: '#FFF8E6', margin: 0, lineHeight: 1.05, textShadow: '0 3px 0 rgba(0,0,0,0.35), 0 0 26px rgba(255,200,61,0.35)' }}>
+                        {np?.isHidden ? 'Island Mystery' : track.name}
+                    </h1>
+                    {!np?.isHidden && (
+                        <p style={{ position: 'relative', fontFamily: theme.fontBody, fontWeight: 700, fontSize: stageFont(17), color: '#FFE9C2', margin: '8px 0 0', letterSpacing: '0.04em' }}>
+                            {track.artists.map((a: any) => a.name).join(', ')}
+                            {dur ? `  ·  ${dur}` : ''}
+                        </p>
+                    )}
+                    <div style={{ position: 'relative', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12, marginTop: 20 }}>
+                        {singers.map((s: any) => {
+                            const roleStr =
+                                !np?.isHidden && s.roleIndices && s.roleIndices.length > 0 && roles.length > 0
+                                    ? s.roleIndices.map((idx: number) => roles[idx]).filter(Boolean).join(' & ')
+                                    : ''
+                            const g = s.guestId ? guestsMap.get(s.guestId) : undefined
+                            const nm = g?.name ?? s.name
+                            const pic = g?.profile_picture ?? null
+                            return (
+                                <div key={s.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 10, padding: '10px 20px', background: '#FFF7EA', border: '3px solid #CDA85A', borderRadius: 999, boxShadow: '0 6px 14px rgba(14,46,41,0.22)' }}>
+                                    {pic ? (
+                                        <img src={pic} alt="" style={{ width: 34, height: 34, borderRadius: '50%', border: `2.5px solid ${s.color}`, objectFit: 'cover' }} />
+                                    ) : (
+                                        <span style={{ width: 16, height: 16, borderRadius: '50%', background: s.color, border: '2px solid rgba(255,255,255,0.85)' }} />
+                                    )}
+                                    <span style={{ fontFamily: theme.fontDisplay, fontSize: stageFont(30), color: '#0E2E29', letterSpacing: 0.3 }}>
+                                        {roleStr ? `${nm} · ${roleStr}` : nm}
+                                    </span>
+                                </div>
+                            )
+                        })}
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}
+
 // ---- Singer Mic Processing Hook ----
 function useSingerMic(deviceId: string, enabled: boolean, effects: any, mainOutputId: string) {
     const [level, setLevel] = useState(0)
@@ -511,6 +740,11 @@ function ReactionsOverlay() {
         if (!window.electronAPI?.onReaction) return
 
         const handler = window.electronAPI.onReaction((reaction: any) => {
+            // [REACT-DBG] temporary diagnostic — remove after debugging
+            console.log('[REACT-DBG] stage: onReaction', reaction?.reactionType, reaction?.content)
+            // Tomatoes are handled by TomatoSplatterLayer (thrown + splattered),
+            // not rendered as a floating emoji bubble.
+            if (reaction?.content === TOMATO_EMOJI) return
             const side = Math.random() < 0.5 ? 'left' as const : 'right' as const
             const r: ReactionData = {
                 ...reaction,
@@ -2153,6 +2387,171 @@ export default function KaraokePage() {
             )
         }
 
+        // ---- Tropical (Tiki Beach) idle ----
+        if (theme.name === 'tropical') {
+            const frondAngles = [-162, -124, -86, -48, -8, 30, 66]
+            const clouds = [
+                { x: '6%', y: '9%', s: 1.0, d: 26 },
+                { x: '60%', y: '5%', s: 1.3, d: 34 },
+                { x: '34%', y: '17%', s: 0.8, d: 30 },
+            ]
+
+            // A single coconut palm, drawn rooted at bottom-centre. The caller
+            // positions it and the wrapper div sways the whole tree (reliable
+            // HTML transform-origin; avoids SVG-internal origin pitfalls).
+            const Palm = (k: string, posStyle: React.CSSProperties, flip: boolean, swayDur: number) => (
+                <div key={k} style={{ position: 'absolute', zIndex: 2, transformOrigin: 'bottom center', animation: `tropPalmTrunk ${swayDur}s ease-in-out infinite`, ...posStyle }}>
+                    <svg width="360" height="470" viewBox="0 0 360 470" style={{ display: 'block', transform: flip ? 'scaleX(-1)' : 'none', filter: 'drop-shadow(0 10px 16px rgba(14,46,41,0.28))' }}>
+                        {/* trunk */}
+                        <path d="M168 470 C 158 360 132 262 196 176 C 202 168 216 172 210 186 C 160 266 182 366 196 470 Z" fill="#A9764A" />
+                        <path d="M168 470 C 160 360 138 262 196 176 C 200 170 207 172 206 180 C 162 266 174 366 182 470 Z" fill="#C28F5A" />
+                        {[238, 300, 362, 424].map((ny, i) => (
+                            <path key={i} d={`M${164 - i} ${ny} q 20 -9 38 0`} stroke="#7C5230" strokeWidth="3" fill="none" opacity="0.45" />
+                        ))}
+                        {/* coconuts */}
+                        <circle cx="196" cy="186" r="12" fill="#5C3F22" />
+                        <circle cx="216" cy="194" r="11" fill="#6B4A2A" />
+                        <circle cx="202" cy="204" r="11" fill="#4A3119" />
+                        {/* fronds */}
+                        {frondAngles.map((a, i) => (
+                            <path
+                                key={i}
+                                transform={`translate(204 176) rotate(${a})`}
+                                d="M0 0 C 50 -22 116 -20 172 6 C 162 2 162 14 172 20 C 116 8 56 13 0 0 Z"
+                                fill={i % 2 === 0 ? '#1FA85C' : '#178A4A'}
+                                stroke="#0E6B39"
+                                strokeWidth="2"
+                                strokeLinejoin="round"
+                            />
+                        ))}
+                        <path transform="translate(204 176) rotate(-100)" d="M0 0 C 18 -64 16 -130 4 -182 C -4 -130 -12 -64 0 0 Z" fill="#23B85F" stroke="#0E6B39" strokeWidth="2" />
+                    </svg>
+                </div>
+            )
+
+            // A bamboo tiki torch with a flickering flame + rising embers.
+            const Torch = (k: string, side: 'left' | 'right') => {
+                const pos: React.CSSProperties = { position: 'absolute', bottom: '16%', width: 90, height: 300, zIndex: 4 }
+                if (side === 'left') pos.left = '19%'
+                else pos.right = '19%'
+                return (
+                    <div key={k} style={pos}>
+                        {/* warm flame glow */}
+                        <div style={{ position: 'absolute', top: -26, left: '50%', width: 180, height: 180, transform: 'translateX(-50%)', background: 'radial-gradient(circle, rgba(255,170,60,0.55) 0%, transparent 64%)', animation: 'tropSun 2.2s ease-in-out infinite', pointerEvents: 'none' }} />
+                        {/* flame — separate boxes so CSS transform-origin is reliable */}
+                        <div style={{ position: 'absolute', top: 6, left: '50%', width: 62, height: 86, transform: 'translateX(-50%)', zIndex: 2 }}>
+                            <svg width="62" height="86" viewBox="0 0 62 86" style={{ position: 'absolute', inset: 0, transformOrigin: '50% 100%', animation: 'tropFlame 0.9s ease-in-out infinite' }}>
+                                <path d="M31 84 C 7 64 5 38 31 4 C 57 38 55 64 31 84 Z" fill="#FF6B2C" />
+                            </svg>
+                            <svg width="40" height="58" viewBox="0 0 40 58" style={{ position: 'absolute', left: 11, bottom: 10, transformOrigin: '50% 100%', animation: 'tropFlameCore 0.7s ease-in-out infinite' }}>
+                                <path d="M20 56 C 6 44 6 24 20 4 C 34 24 34 44 20 56 Z" fill="#FFD23F" />
+                            </svg>
+                        </div>
+                        {/* embers */}
+                        {[0, 1, 2].map((i) => (
+                            <div key={i} style={{ position: 'absolute', top: 36, left: 38 + i * 6, width: 5, height: 5, borderRadius: '50%', background: i % 2 ? '#FFD23F' : '#FF8A3C', ['--ember-x' as string]: `${(i - 1) * 18}px`, animation: `tropEmber ${1.9 + i * 0.5}s ease-in ${i * 0.45}s infinite`, pointerEvents: 'none' }} />
+                        ))}
+                        {/* bamboo pole + woven bowl */}
+                        <svg width="90" height="300" viewBox="0 0 90 300" style={{ position: 'absolute', bottom: 0, left: 0, filter: 'drop-shadow(0 8px 12px rgba(14,46,41,0.25))' }}>
+                            <rect x="34" y="86" width="22" height="214" rx="7" fill="#CDA85A" />
+                            <rect x="38" y="86" width="6" height="214" fill="#E2C684" opacity="0.7" />
+                            {[120, 162, 204, 246].map((ny, i) => (
+                                <rect key={i} x="31" y={ny} width="28" height="6" rx="2.5" fill="#9A7536" />
+                            ))}
+                            <path d="M18 88 q 27 30 54 0 q -9 -20 -27 -20 q -18 0 -27 20 Z" fill="#6B4A2A" stroke="#4A3119" strokeWidth="2.5" />
+                            <path d="M18 88 q 27 12 54 0" stroke="#3A2614" strokeWidth="3" fill="none" />
+                        </svg>
+                    </div>
+                )
+            }
+
+            return (
+                <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
+                    position: 'relative', overflow: 'hidden',
+                    background: 'linear-gradient(180deg, #38B6E8 0%, #5ECBE8 28%, #2FC4C0 50%, #7FE0D6 58%, #F4E2B8 70%, #FFF4DE 100%)',
+                }}>
+                    {/* sun */}
+                    <div style={{ position: 'absolute', top: '9%', right: '12%', width: 130, height: 130, borderRadius: '50%', background: 'radial-gradient(circle, #FFE27A 0%, #FFC83D 58%, #FFB02E 100%)', animation: 'tropSun 6s ease-in-out infinite', zIndex: 1 }} />
+                    {/* drifting clouds */}
+                    {clouds.map((c, i) => (
+                        <div key={`cl-${i}`} style={{ position: 'absolute', left: c.x, top: c.y, transform: `scale(${c.s})`, animation: `tropCloud ${c.d}s ease-in-out infinite alternate`, zIndex: 1 }}>
+                            <div style={{ position: 'relative', width: 180, height: 50 }}>
+                                <div style={{ position: 'absolute', bottom: 0, left: 0, width: 180, height: 36, borderRadius: 30, background: 'rgba(255,255,255,0.92)' }} />
+                                <div style={{ position: 'absolute', bottom: 8, left: 32, width: 62, height: 62, borderRadius: '50%', background: 'rgba(255,255,255,0.92)' }} />
+                                <div style={{ position: 'absolute', bottom: 6, left: 84, width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,0.92)' }} />
+                            </div>
+                        </div>
+                    ))}
+                    {/* shimmering lagoon band */}
+                    <div style={{ position: 'absolute', left: 0, right: 0, top: '50%', height: '11%', zIndex: 1, opacity: 0.5, backgroundImage: 'repeating-linear-gradient(95deg, rgba(255,255,255,0.6) 0 3px, transparent 3px 24px)', animation: 'tropWave 6s linear infinite' }} />
+
+                    {/* palms */}
+                    {Palm('palm-l', { left: -86, bottom: -34 }, false, 7)}
+                    {Palm('palm-r', { right: -86, bottom: -34 }, true, 8.5)}
+
+                    {/* torches */}
+                    {Torch('torch-l', 'left')}
+                    {Torch('torch-r', 'right')}
+
+                    {/* hero — a lashed wooden tiki sign framed in bamboo */}
+                    <div style={{ position: 'relative', zIndex: 5, textAlign: 'center', animation: 'tropBob 5s ease-in-out infinite' }}>
+                        {/* hibiscus bloom, top-left corner */}
+                        <svg width="78" height="78" viewBox="0 0 70 70" style={{ position: 'absolute', top: -34, left: -30, zIndex: 6, transform: 'rotate(-18deg)', filter: 'drop-shadow(0 4px 6px rgba(14,46,41,0.3))' }}>
+                            {[0, 72, 144, 216, 288].map((a) => (
+                                <ellipse key={a} cx="35" cy="17" rx="13" ry="17" fill="#FF3D81" stroke="#E02468" strokeWidth="1.5" transform={`rotate(${a} 35 35)`} />
+                            ))}
+                            <circle cx="35" cy="35" r="7.5" fill="#FFC83D" />
+                            <circle cx="35" cy="35" r="3" fill="#FF8A3C" />
+                        </svg>
+                        {/* monstera leaf, top-right corner */}
+                        <svg width="86" height="86" viewBox="0 0 100 100" style={{ position: 'absolute', top: -40, right: -38, zIndex: 6, transform: 'rotate(22deg)', filter: 'drop-shadow(0 4px 6px rgba(14,46,41,0.3))' }}>
+                            <path d="M50 96 C 12 70 6 30 46 6 C 92 26 90 72 50 96 Z" fill="#1FA85C" stroke="#0E6B39" strokeWidth="2.5" />
+                            <path d="M50 90 L50 20 M50 64 L24 52 M50 64 L76 52 M50 42 L30 32 M50 42 L70 32" stroke="#0E6B39" strokeWidth="2.5" fill="none" strokeLinecap="round" opacity="0.6" />
+                        </svg>
+
+                        <div style={{
+                            position: 'relative', overflow: 'hidden',
+                            background: 'linear-gradient(165deg, #8A5A2F 0%, #6E4423 100%)',
+                            borderRadius: 26, padding: '46px 64px 50px',
+                            border: '7px solid #CDA85A',
+                            boxShadow: '0 24px 56px rgba(14,46,41,0.42), inset 0 0 0 3px rgba(0,0,0,0.22)',
+                        }}>
+                            {/* wood grain */}
+                            <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(180deg, rgba(0,0,0,0.10) 0 2px, transparent 2px 17px)', pointerEvents: 'none' }} />
+                            {/* corner rope lashings */}
+                            {[{ t: 8, l: 8 }, { t: 8, r: 8 }, { b: 8, l: 8 }, { b: 8, r: 8 }].map((p, i) => (
+                                <div key={i} style={{ position: 'absolute', width: 26, height: 26, borderRadius: 6, background: 'repeating-linear-gradient(45deg, #E8D4A0 0 3px, #B8995E 3px 6px)', transform: 'rotate(45deg)', opacity: 0.9, ...p }} />
+                            ))}
+
+                            <h1 style={{ position: 'relative', fontFamily: theme.fontDisplay, fontSize: stageFont(98), color: '#FFF8E6', margin: 0, lineHeight: 1.0, textShadow: '0 3px 0 rgba(0,0,0,0.35), 0 0 30px rgba(255,200,61,0.4)' }}>
+                                Catch a Wave
+                            </h1>
+                            <p style={{ position: 'relative', fontFamily: theme.fontBody, fontWeight: 700, fontSize: stageFont(18), color: '#FFE9C2', letterSpacing: '0.16em', textTransform: 'uppercase', margin: '16px 0 28px' }}>
+                                Scan to add your song
+                            </p>
+                            {qrUrl && (
+                                <div style={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
+                                    <div style={{ padding: 12, background: '#FFF8E6', border: '5px solid #CDA85A', borderRadius: 14, boxShadow: '0 10px 22px rgba(0,0,0,0.3)' }}>
+                                        <img src={qrUrl} alt="QR" style={{ width: 196, height: 196, display: 'block', borderRadius: 6 }} />
+                                    </div>
+                                </div>
+                            )}
+                            {sessionCode && (
+                                <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', marginTop: 24 }}>
+                                    <div style={{ padding: '7px 26px', background: 'linear-gradient(135deg, #FFD23F, #FFB02E)', border: '4px solid #6E4423', borderRadius: 999, boxShadow: '0 6px 16px rgba(0,0,0,0.28)', transform: 'rotate(-2deg)' }}>
+                                        <p style={{ fontFamily: theme.fontDisplay, fontSize: stageFont(33), color: '#6E4423', letterSpacing: '0.14em', margin: 0 }}>
+                                            {sessionCode}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )
+        }
+
         // ---- Urban (Hip Hop) idle ----
         return (
             <div style={{
@@ -2219,13 +2618,38 @@ export default function KaraokePage() {
     }
 
     const qrOverlay = state.karaokeQrDataUrl ? (
+        theme.name === 'tropical' ? (
+            <div style={{ position: 'fixed', left: 0, top: 'calc(100vh - 252px)', zIndex: 9999, width: 180, height: 240 }}>
+                {/* bamboo cane jutting out from the left edge of the screen */}
+                <div style={{ position: 'absolute', top: 0, left: 0, width: 156, height: 18, borderRadius: '0 9px 9px 0', overflow: 'hidden', background: 'linear-gradient(180deg, #E2C684, #CDA85A 55%, #9A7536)', boxShadow: '0 5px 12px rgba(0,0,0,0.4)' }}>
+                    <div style={{ position: 'absolute', top: 3, left: 0, right: 6, height: 2, background: 'rgba(255,255,255,0.4)' }} />
+                    {[46, 92, 134].map((x, i) => (
+                        <div key={i} style={{ position: 'absolute', top: 0, left: x, width: 3, height: 18, background: '#7C5A2C', opacity: 0.5 }} />
+                    ))}
+                </div>
+                {/* cord + the wooden QR plank, hanging off the cane near its far end */}
+                <div style={{ position: 'absolute', top: 18, left: 54, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <div style={{ width: 3, height: 22, background: '#5C3A1E' }} />
+                    <div style={{
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: 11,
+                        borderRadius: 12,
+                        background: 'repeating-linear-gradient(180deg, rgba(0,0,0,0.12) 0 2px, transparent 2px 13px), linear-gradient(180deg, #8A5A2F, #6E4423)',
+                        border: '3px solid #C99A54',
+                        boxShadow: '0 12px 26px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.2)',
+                    }}>
+                        <img src={state.karaokeQrDataUrl} alt="QR" style={{ width: 86, height: 86, borderRadius: 6, display: 'block', border: '2px solid rgba(0,0,0,0.2)' }} />
+                        <span style={{ fontFamily: theme.fontDisplay, fontSize: 22, color: '#FFF1C4', letterSpacing: '0.04em' }}>Join</span>
+                    </div>
+                </div>
+            </div>
+        ) : (
         <div style={{
             position: 'fixed', top: 'calc(100vh - 150px)', left: 80, zIndex: 9999,
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
         }}>
             <div className="k-qr-card" style={{
                 ...theme.stickerLabel,
-                background: theme.name === 'neo-brutal' || theme.name === 'sketch' || theme.name === 'comic-book' ? theme.appBg : 'rgba(0,0,0,0.8)',
+                background: theme.name === 'neo-brutal' || theme.name === 'sketch' || theme.name === 'comic-book' || theme.name === 'tropical' ? theme.appBg : 'rgba(0,0,0,0.8)',
                 padding: 10,
                 display: 'flex',
                 flexDirection: 'column',
@@ -2280,6 +2704,7 @@ export default function KaraokePage() {
                 </span>
             </div>
         </div>
+        )
     ) : null
 
     return (
@@ -2319,6 +2744,9 @@ export default function KaraokePage() {
 
             {/* Reactions overlay — above video, behind lyrics */}
             <ReactionsOverlay />
+
+            {/* Tomato throws — physical lob + splatter on top of the whole stage */}
+            <TomatoSplatterLayer />
 
             {/* Hidden SVG for Filters */}
             <svg style={{ position: 'fixed', pointerEvents: 'none', width: 0, height: 0 }}>
@@ -2439,6 +2867,8 @@ export default function KaraokePage() {
                 {state.stageMode === 'ready' ? (
                   theme.name === 'comic-book' ? (
                     <ComicUpNext theme={theme} art={art} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} />
+                  ) : theme.name === 'tropical' ? (
+                    <TropicalUpNext theme={theme} art={art} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} />
                   ) : (
                     <div className="anim-enter k-upnext" style={{ width: '100%', maxWidth: 1100, margin: '0 auto', padding: '0 48px' }}>
                         <div style={{
@@ -2684,6 +3114,31 @@ export default function KaraokePage() {
                                             inlineStyle.backgroundColor = activeSingerColor
                                             inlineStyle.backgroundImage = 'radial-gradient(rgba(22,22,29,0.16) 1.5px, transparent 1.8px)'
                                             inlineStyle.backgroundSize = '8px 8px'
+                                        } else if (theme.name === 'tropical') {
+                                            // A sun-warmed wooden tiki plank: the singer color washes the
+                                            // plank as a warm sunset glow; the carved-wood frame + grain
+                                            // and the gentle bob live in .k-line--tropical(-active).
+                                            // A real carved-wood plank, evenly DYED to the singer's color
+                                            // (timber + grain still read through the stain). Painted INLINE
+                                            // so it overrides the default singer-color `background` set above
+                                            // for the active line.
+                                            cls += ' k-line--tropical k-line--tropical-active'
+                                            inlineStyle.padding = '0.22em 1em'
+                                            inlineStyle.borderRadius = '14px'
+                                            inlineStyle['--burst-color'] = activeSingerColor
+                                            // Line-by-line songs (no syllables) show the whole line in the
+                                            // singer's own color — the raised wood plank IS the highlight, so
+                                            // the text doesn't need to flip to white. (Syllable songs override
+                                            // this per-word via .k-syl--now/past/future, so they're unaffected.)
+                                            inlineStyle.color = activeSingerColor
+                                            inlineStyle.background = undefined
+                                            inlineStyle.backgroundColor = '#6E4423'
+                                            inlineStyle.backgroundImage =
+                                                `linear-gradient(0deg, color-mix(in srgb, ${activeSingerColor}, transparent 60%), color-mix(in srgb, ${activeSingerColor}, transparent 60%)),` +
+                                                ` linear-gradient(180deg, rgba(255,255,255,0.16), rgba(0,0,0,0.24)),` +
+                                                ` repeating-linear-gradient(180deg, rgba(0,0,0,0.13) 0 2px, transparent 2px 13px)`
+                                            inlineStyle.border = '3px solid #C99A54'
+                                            inlineStyle.boxShadow = '0 10px 26px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.25)'
                                         } else {
                                             inlineStyle.padding = '0.18em 0.75em'
                                             inlineStyle.borderRadius = '8px'
@@ -2699,6 +3154,11 @@ export default function KaraokePage() {
                                             inlineStyle.WebkitTextFillColor = 'transparent'
                                         } else if (line.singerIndex !== undefined && singers[line.singerIndex]) {
                                             inlineStyle.color = singers[line.singerIndex].color
+                                        } else if (theme.name === 'tropical') {
+                                            // Tropical: never leave an upcoming line on the default white —
+                                            // always color it in its singer's hue (activeSingerColor falls
+                                            // back to the lagoon accent when a line has no assigned singer).
+                                            inlineStyle.color = activeSingerColor
                                         }
                                         inlineStyle.opacity = 1
                                     }

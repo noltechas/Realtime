@@ -87,6 +87,7 @@ const STAGE_THEMES = [
   { key: 'steampunk', label: 'Steampunk' },
   { key: 'retrowave', label: 'Retrowave' },
   { key: 'comic-book', label: 'Comic Book' },
+  { key: 'tropical', label: 'Tropical' },
 ]
 
 function formatDuration(ms: number | null | undefined): string {
@@ -155,6 +156,22 @@ function wizardCardStyle(tokens: ThemeTokens, color?: string, overrides?: any, i
       shadowColor: color || '#E8A93B',
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity: 0.55,
+      shadowRadius: 12,
+      ...overrides,
+    }
+  }
+  if (tokens.name === 'tropical') {
+    // Tropical — a translucent sand panel framed in bamboo (or the singer's
+    // color) with a soft natural sun-shadow. Reads as a slip of beach parchment
+    // pinned to the board.
+    return {
+      backgroundColor: 'rgba(255,250,238,0.94)',
+      borderWidth: 2,
+      borderColor: color || '#E2C684',
+      borderRadius: 18,
+      shadowColor: '#0E2E29',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.18,
       shadowRadius: 12,
       ...overrides,
     }
@@ -607,6 +624,11 @@ function WizardBody() {
   return (
     <SafeAreaView style={ui.styles.screen} edges={['top', 'left', 'right']}>
       <ui.Backdrop />
+      {/* Tropical: a warm sand parchment wash over the photo so the wizard's
+          headings + body copy stay legible (the palms still peek through). */}
+      {tokens.name === 'tropical' && (
+        <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255,247,232,0.7)' }} />
+      )}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
@@ -678,7 +700,7 @@ function WizardBody() {
                     fontFamily: tokens.fontDisplay,
                     textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
                     fontWeight: '900',
-                    fontSize: 18,
+                    fontSize: tokens.name === 'tropical' ? 23 : 18,
                     color: tokens.black,
                     marginTop: 2,
                     ...(psyHeadingExtras(tokens) ?? {}),
@@ -927,7 +949,7 @@ function SingersStep({
           fontFamily: tokens.fontDisplay,
           textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
           fontWeight: '900',
-          fontSize: 24,
+          fontSize: tokens.name === 'tropical' ? 31 : 24,
           color: tokens.black,
           letterSpacing: -0.5,
           marginBottom: 16,
@@ -1301,7 +1323,7 @@ function RolesStep({
           fontFamily: tokens.fontDisplay,
           textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
           fontWeight: '900',
-          fontSize: 24,
+          fontSize: tokens.name === 'tropical' ? 31 : 24,
           color: tokens.black,
           letterSpacing: -0.5,
           ...(steamHeadingExtras(tokens) ?? {}),
@@ -1477,7 +1499,7 @@ function StageStep({
           fontFamily: tokens.fontDisplay,
           textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
           fontWeight: '900',
-          fontSize: 24,
+          fontSize: tokens.name === 'tropical' ? 31 : 24,
           color: tokens.black,
           letterSpacing: -0.5,
           ...(steamHeadingExtras(tokens) ?? {}),

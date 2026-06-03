@@ -189,7 +189,28 @@ export function QueueScreen() {
     <SafeAreaView style={ui.styles.screen} edges={['top', 'left', 'right']}>
       <ui.Backdrop />
       <View style={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 12 }}>
-        <Text style={ui.styles.h1}>Queue</Text>
+        {tokens.name === 'tropical' ? (
+          <View
+            style={{
+              alignSelf: 'flex-start',
+              backgroundColor: '#6E4423',
+              borderWidth: 3,
+              borderColor: '#C99A54',
+              borderRadius: 14,
+              paddingHorizontal: 22,
+              paddingVertical: 6,
+              shadowColor: '#0E2E29',
+              shadowOffset: { width: 0, height: 6 },
+              shadowOpacity: 0.22,
+              shadowRadius: 12,
+              elevation: 6,
+            }}
+          >
+            <Text style={{ fontFamily: tokens.fontBody, fontSize: 34, color: '#FFF1C4', letterSpacing: 0.5 }}>Queue</Text>
+          </View>
+        ) : (
+          <Text style={ui.styles.h1}>Queue</Text>
+        )}
       </View>
 
       <FlatList
@@ -270,6 +291,19 @@ function RowItem(props: {
 }
 
 function sectionLabelStyle(t: ThemeTokens): TextStyle {
+  if (t.name === 'tropical') {
+    // High-contrast + a white halo so it stays readable over the bright sky photo.
+    return {
+      fontFamily: t.fontDisplay,
+      fontSize: 17,
+      color: '#0E2E29',
+      opacity: 1,
+      marginBottom: 12,
+      textShadowColor: 'rgba(255,255,255,0.75)',
+      textShadowOffset: { width: 0, height: 1 },
+      textShadowRadius: 5,
+    }
+  }
   return {
     fontFamily: t.fontDisplay,
     fontWeight: '700',

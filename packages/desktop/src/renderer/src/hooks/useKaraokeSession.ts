@@ -7,7 +7,23 @@ import type { KaraokeGuestRow } from '@karaoke/shared'
 const SUPABASE_URL = 'https://hnnbxwitjkeijvoldfuv.supabase.co'
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhubmJ4d2l0amtlaWp2b2xkZnV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MjcwMTQsImV4cCI6MjA5MDUwMzAxNH0.ENzZ2VLxszHr9StjFds06In7CyGkiyPvu6Jh1LUMMvA'
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+// Supabase Realtime sends *broadcast* frames as binary. The browser/Electron
+// WebSocket defaults binaryType to 'blob', and realtime-js never sets it to
+// 'arraybuffer', so its serializer (which only decodes ArrayBuffer binary
+// frames) silently drops every broadcast — while text frames (channel joins,
+// postgres_changes) still work. That's why queue/session sync worked but
+// reactions never arrived. Force a WebSocket transport that uses ArrayBuffer.
+class ArrayBufferWebSocket extends WebSocket {
+    constructor(url: string | URL, protocols?: string | string[]) {
+        super(url, protocols)
+        this.binaryType = 'arraybuffer'
+    }
+}
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    realtime: { transport: ArrayBufferWebSocket as any }
+})
 
 interface CatalogSong {
     trackId: string
@@ -305,12 +321,20 @@ export function useKaraokeSession() {
             supabase.removeChannel(reactionChannelRef.current)
         }
 
+        // [REACT-DBG] temporary diagnostic — remove after debugging
+        console.log('[REACT-DBG] desktop: subscribing reaction channel cr-' + state.karaokeSessionId)
         const channel = supabase
             .channel('cr-' + state.karaokeSessionId)
             .on('broadcast', { event: 'reaction' }, (payload) => {
+                console.log('[REACT-DBG] desktop: broadcast RECEIVED', (payload as any)?.payload?.content)
                 window.electronAPI?.sendReaction(payload.payload)
             })
-            .subscribe()
+            .on('broadcast', { event: '*' }, (payload) => {
+                console.log('[REACT-DBG] desktop: ANY-broadcast event=', (payload as any)?.event, 'content=', (payload as any)?.payload?.content)
+            })
+            .subscribe((status) => {
+                console.log('[REACT-DBG] desktop: reaction channel status =', status)
+            })
 
         reactionChannelRef.current = channel
 

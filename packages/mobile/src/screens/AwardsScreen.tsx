@@ -1312,7 +1312,10 @@ function AwardDetail({
             letterSpacing: 0.2,
             textAlign: 'center',
             paddingHorizontal: 8,
-            lineHeight: 38,
+            // Delauney's caps ink well above the declared ascent, so the line
+            // box must be ≥1.6× the size or the tops of the caps clip.
+            lineHeight: 44,
+            paddingTop: 4,
           }}
         >
           {award.title}
@@ -1334,13 +1337,15 @@ function AwardDetail({
           <Text
             numberOfLines={6}
             style={{
-              marginTop: 14,
+              marginTop: 16,
               paddingHorizontal: 14,
-              fontFamily: P.fontSerif,
-              fontStyle: 'italic',
-              fontSize: 22,
-              lineHeight: 30,
-              color: P.creamMuted,
+              // Flowing gilded script — reads as elegant cursive. Great Vibes
+              // sits visually small with tall flourishes, so it's sized up and
+              // given a generous line box to keep ascenders/descenders intact.
+              fontFamily: P.fontScript,
+              fontSize: 30,
+              lineHeight: 38,
+              color: 'rgba(245,230,197,0.82)',
               textAlign: 'center',
             }}
           >
@@ -1463,7 +1468,8 @@ const candidateLabelStyle = {
   fontFamily: P.fontSerif,
   fontSize: 17,
   color: P.cream,
-  lineHeight: 21,
+  // ≥1.5× the size so Delauney's tall caps don't clip at the top.
+  lineHeight: 26,
 }
 
 const candidateSubStyle = {
@@ -1576,6 +1582,11 @@ function BallotStrip({
                   fontFamily: P.fontSerif,
                   fontStyle: 'italic',
                   fontSize: 14,
+                  // Generous line box so Delauney's tall caps don't clip; the
+                  // small translateY corrects the font's high-sitting baseline
+                  // so the prompt reads as vertically centered beside the badge.
+                  lineHeight: 22,
+                  transform: [{ translateY: 1.5 }],
                 }}
               >
                 {placeholder}
@@ -1604,7 +1615,23 @@ function RankBadge({ rank }: { rank: number }) {
           justifyContent: 'center',
         }}
       >
-        <Text style={{ color: P.gold, fontWeight: '800', fontSize: 15, fontFamily: P.fontSerif }}>
+        <Text
+          style={{
+            color: P.gold,
+            fontWeight: '800',
+            fontSize: 15,
+            fontFamily: P.fontSerif,
+            // Delauney's digits ink above the declared ascent and have no
+            // descender, so even a full-height line box leaves them sitting
+            // high in the medallion. A generous line box clears the top clip;
+            // the small translateY drops the figure to true optical center.
+            lineHeight: 36,
+            textAlign: 'center',
+            textAlignVertical: 'center',
+            includeFontPadding: false,
+            transform: [{ translateY: 2 }],
+          }}
+        >
           {rank}
         </Text>
       </View>
@@ -1793,7 +1820,7 @@ type WizardStep = 1 | 2 | 3 | 4
 
 const STEP_META: Record<WizardStep, { title: string; caption: string }> = {
   1: { title: 'Name your award', caption: 'What shall the world call this honor?' },
-  2: { title: 'Describe the honor', caption: 'A line in the program — the kind that gets read aloud.' },
+  2: { title: 'Describe the honor', caption: 'A line in the program, the kind that gets read aloud.' },
   3: { title: 'Choose its subject', caption: 'Who or what will it celebrate?' },
   4: { title: 'Bestow it a face', caption: 'Pick an icon or upload a photograph.' },
 }
@@ -2008,6 +2035,7 @@ function AwardCreate({
               fontFamily: P.fontSerif,
               fontSize: 15,
               letterSpacing: 0.4,
+              lineHeight: 22,
             }}
           >
             Delete
@@ -2033,6 +2061,7 @@ function AwardCreate({
             fontFamily: P.fontSerif,
             fontSize: 15,
             letterSpacing: 0.4,
+            lineHeight: 22,
           }}
         >
           {backLabel}
@@ -2069,6 +2098,7 @@ function AwardCreate({
             fontSize: 15,
             fontWeight: '700',
             letterSpacing: 0.4,
+            lineHeight: 22,
             paddingVertical: 14,
           }}
         >
@@ -2123,6 +2153,10 @@ function AwardCreate({
                 color: P.cream,
                 marginTop: 4,
                 textAlign: 'center',
+                // Delauney's caps ink above the declared ascent — needs a
+                // ≥1.6× line box + top padding or the tops of the caps clip.
+                lineHeight: 44,
+                paddingTop: 4,
               }}
             >
               {stepMeta.title}
@@ -2133,7 +2167,7 @@ function AwardCreate({
                 fontSize: 13,
                 color: P.creamMuted,
                 fontFamily: P.fontSerif,
-                lineHeight: 18,
+                lineHeight: 21,
                 textAlign: 'center',
                 paddingHorizontal: 8,
               }}
@@ -2165,7 +2199,7 @@ function AwardCreate({
                 maxLength={40}
                 style={{
                   paddingHorizontal: 14,
-                  paddingVertical: 12,
+                  paddingVertical: 14,
                   borderWidth: 1,
                   borderColor: P.goldHairline,
                   borderRadius: 10,
@@ -2173,6 +2207,8 @@ function AwardCreate({
                   fontFamily: P.fontSerif,
                   color: P.cream,
                   fontSize: 16,
+                  // Generous line box so Delauney's tall caps don't clip.
+                  lineHeight: 24,
                   textAlign: 'center',
                 }}
                 autoFocus
@@ -2217,7 +2253,7 @@ function AwardCreate({
                     fontStyle: 'italic',
                     color: P.cream,
                     fontSize: 30,
-                    lineHeight: 40,
+                    lineHeight: 44,
                     padding: 0,
                   }}
                 />
@@ -2228,6 +2264,7 @@ function AwardCreate({
                   fontSize: 11,
                   color: P.creamFaint,
                   fontFamily: P.fontSerif,
+                  lineHeight: 16,
                   textAlign: 'right',
                 }}
               >
@@ -2258,6 +2295,7 @@ function AwardCreate({
                     color: P.creamFaint,
                     fontFamily: P.fontSerif,
                     fontStyle: 'italic',
+                    lineHeight: 18,
                     textAlign: 'center',
                   }}
                 >
@@ -2295,6 +2333,7 @@ function AwardCreate({
                     fontWeight: '800',
                     fontSize: 11,
                     letterSpacing: 2,
+                    lineHeight: 17,
                     color: P.whiteMuted,
                   }}
                 >
@@ -2321,7 +2360,7 @@ function AwardCreate({
                   placeholderTextColor={P.creamFaint}
                   style={{
                     paddingHorizontal: 14,
-                    paddingVertical: 11,
+                    paddingVertical: 12,
                     borderWidth: 1,
                     borderColor: P.goldHairline,
                     borderRadius: 10,
@@ -2329,6 +2368,7 @@ function AwardCreate({
                     color: P.cream,
                     fontFamily: P.fontSerif,
                     fontSize: 14,
+                    lineHeight: 21,
                     marginBottom: 10,
                     textAlign: 'center',
                   }}
@@ -2391,6 +2431,7 @@ function AwardCreate({
                         color: P.creamMuted,
                         fontFamily: P.fontSerif,
                         fontSize: 13,
+                        lineHeight: 19,
                       }}
                     >
                       Loading icon library…
@@ -2597,6 +2638,7 @@ function Segmented<T extends string>({
                 style={{
                   fontFamily: P.fontSerif,
                   fontSize: 14,
+                  lineHeight: 21,
                   color: P.creamMuted,
                 }}
                 numberOfLines={1}
@@ -2611,6 +2653,7 @@ function Segmented<T extends string>({
                   left: 0,
                   fontFamily: P.fontSerif,
                   fontSize: 14,
+                  lineHeight: 21,
                   color: '#1a140a',
                   opacity: focus,
                 }}
@@ -2653,6 +2696,7 @@ function VisualToggleButton({
         style={{
           fontFamily: P.fontSerif,
           fontSize: 14,
+          lineHeight: 21,
           color: active ? P.gold : P.creamMuted,
           letterSpacing: 0.3,
         }}
@@ -2699,6 +2743,7 @@ function IconGrid({
             color: P.creamMuted,
             fontFamily: P.fontSerif,
             fontSize: 14,
+            lineHeight: 21,
           }}
         >
           No icons match. Try a different word.

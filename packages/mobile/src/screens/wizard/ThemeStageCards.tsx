@@ -868,6 +868,45 @@ function RetroSun() {
   )
 }
 
+// 12. Tropical — a slip of warm beach parchment framed in bamboo, a Florida
+//     Vibes label in lagoon ink, and a hibiscus bloom emblem. Selected gets a
+//     lagoon inset ring + a sunshine corner badge.
+function TropicalHibiscus() {
+  return (
+    <Svg width={28} height={28} viewBox="0 0 28 28">
+      <G transform="translate(14 14)">
+        {[0, 72, 144, 216, 288].map((a) => (
+          <G key={a} transform={`rotate(${a})`}>
+            <Ellipse cx={0} cy={-7} rx={5} ry={6.6} fill="#FF3D81" stroke="#E02468" strokeWidth={0.6} />
+          </G>
+        ))}
+        <Circle cx={0} cy={0} r={3.2} fill="#FFC83D" />
+        <Circle cx={0} cy={0} r={1.4} fill="#FF8A3C" />
+      </G>
+    </Svg>
+  )
+}
+
+function TropicalCard({ label, selected, onPress }: CardProps) {
+  return (
+    <BaseCard
+      selected={selected}
+      onPress={onPress}
+      bg="#FFF7EA"
+      radius={16}
+      border={{ width: 2, color: '#CDA85A' }}
+      offset={{ w: 0, h: 4, color: '#0E2E29', radius: 8, opacity: 0.2 }}
+      accent="#10B7B0"
+      badge={{ bg: '#FFC83D', fg: '#0E2E29', ring: '#CDA85A' }}
+    >
+      <Row>
+        <CardLabel text={label} color="#0E8F89" font="FloridaVibes" style={{ flex: 1, fontSize: 20 }} />
+        <TropicalHibiscus />
+      </Row>
+    </BaseCard>
+  )
+}
+
 // ── Dispatcher ───────────────────────────────────────────────────────────────
 interface CardProps {
   label: string
@@ -887,6 +926,7 @@ const CARD_BY_KEY: Record<string, React.ComponentType<CardProps>> = {
   steampunk: SteampunkCard,
   retrowave: RetrowaveCard,
   'comic-book': ComicBookCard,
+  tropical: TropicalCard,
 }
 
 export function ThemeStageCard({

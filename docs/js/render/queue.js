@@ -12,6 +12,7 @@ export function hiddenLabel(t){
   if(t==="space")return"UNKNOWN SIGNAL";
   if(t==="steampunk")return"Classified";
   if(t==="retrowave")return"NO SIGNAL";
+  if(t==="tropical")return"Island Mystery";
   return"HIDDEN SONG";
 }
 export function hiddenSubtitle(t){
@@ -24,6 +25,7 @@ export function hiddenSubtitle(t){
   if(t==="space")return"transmission encrypted";
   if(t==="steampunk")return"sealed by the archivist";
   if(t==="retrowave")return"track.dat \u2014 error 404";
+  if(t==="tropical")return"washed up from who-knows-where";
   return"surprise pick!";
 }
 export function hiddenArtInner(t){
@@ -36,6 +38,7 @@ export function hiddenArtInner(t){
   if(t==="space")return'<span class="qh-space">???</span>';
   if(t==="steampunk")return'<svg class="qh-steam" width="44" height="44" viewBox="0 0 44 44"><rect x="13" y="20" width="18" height="16" rx="2" fill="#C8973E" stroke="#14110F" stroke-width="1.5"/><path d="M17 20 v-3 a5 5 0 0 1 10 0 v3" stroke="#C8973E" stroke-width="2" fill="none"/><circle cx="22" cy="28" r="1.6" fill="#14110F"/></svg>';
   if(t==="retrowave")return'<span class="qh-retro">NO<br>SIG</span>';
+  if(t==="tropical")return'<svg class="qh-trop" width="44" height="44" viewBox="0 0 44 44"><path d="M9 15 Q 22 6 35 15" stroke="#1FA85C" stroke-width="2.4" fill="none" stroke-linecap="round"/><line x1="22" y1="9" x2="22" y2="18" stroke="#1FA85C" stroke-width="2.4" stroke-linecap="round"/><circle cx="22" cy="29" r="10" fill="#6E4423" stroke="#CDA85A" stroke-width="1.5"/><text x="22" y="33" text-anchor="middle" font-size="12" font-weight="700" fill="#FFC83D">?</text></svg>';
   return'<span class="qh-neo">?</span>';
 }
 export function renderQueue(){

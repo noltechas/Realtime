@@ -10,6 +10,7 @@ import { SPACE_TOKENS } from './space'
 import { STEAMPUNK_TOKENS } from './steampunk'
 import { RETROWAVE_TOKENS } from './retrowave'
 import { COMIC_BOOK_TOKENS } from './comic-book'
+import { TROPICAL_TOKENS } from './tropical'
 
 // Lookup map for resolving a session's `theme_name` string to its shared
 // token bundle. Mobile uses this to pick the active theme based on the live
@@ -26,6 +27,7 @@ export const THEME_TOKENS_BY_NAME: Record<string, ThemeTokens> = {
   steampunk: STEAMPUNK_TOKENS,
   retrowave: RETROWAVE_TOKENS,
   'comic-book': COMIC_BOOK_TOKENS,
+  tropical: TROPICAL_TOKENS,
 }
 
 export function resolveThemeTokens(name: string | null | undefined): ThemeTokens {

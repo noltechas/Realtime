@@ -174,7 +174,8 @@ export function renderWizardStage(){
     {k:"space",label:"Space",style:"background:#08080F;color:#E040FB;border:1px solid rgba(224,64,251,0.4);border-radius:4px;font-family:'Orbitron',sans-serif;text-shadow:0 0 8px rgba(224,64,251,0.4);letter-spacing:1px;font-size:11px;"},
     {k:"steampunk",label:"Steampunk",style:"background:#14110F;color:#C8973E;border:1px solid rgba(200,151,62,0.4);border-radius:3px;font-family:'Cinzel Decorative',serif;text-shadow:0 0 8px rgba(200,151,62,0.3);font-size:11px;"},
     {k:"retrowave",label:"Retrowave",style:"background:#0a0614;color:#FF2D95;border:1px solid rgba(255,45,149,0.4);border-radius:4px;font-family:'Audiowide',sans-serif;text-shadow:0 0 8px rgba(255,45,149,0.4);font-size:11px;"},
-    {k:"comic-book",label:"Comic Book",style:"background:#FFFFFF;color:#16161D;border:3px solid #16161D;border-radius:6px;font-family:'Luckiest Guy',cursive;box-shadow:3px 3px 0 #16161D;text-transform:uppercase;letter-spacing:1px;"}
+    {k:"comic-book",label:"Comic Book",style:"background:#FFFFFF;color:#16161D;border:3px solid #16161D;border-radius:6px;font-family:'Luckiest Guy',cursive;box-shadow:3px 3px 0 #16161D;text-transform:uppercase;letter-spacing:1px;"},
+    {k:"tropical",label:"Tropical",style:"background:linear-gradient(180deg,#36C5F0,#2FC4C0 60%,#FFF4DE);color:#0E2E29;border:2px solid #CDA85A;border-radius:16px;font-family:'Florida Vibes',cursive;box-shadow:0 5px 14px rgba(14,46,41,0.2);"}
   ];
   var grid=tiles.map(function(tt){
     var sel=(S.stage_theme===tt.k);

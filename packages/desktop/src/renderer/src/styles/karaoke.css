@@ -94,6 +94,18 @@
     overflow: hidden;
 }
 
+/* Tomato-throw canvas — sits above lyrics/singers so a thrown tomato reads as
+   splattering against the screen surface. Transient by design (the stain fades
+   in ~3s), so brief lyric occlusion is intentional. */
+.k-tomato-layer {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 40;
+    pointer-events: none;
+}
+
 @keyframes reaction-float-up {
     0%   { transform: translateY(0) scale(0.8); opacity: 0; }
     8%   { transform: translateY(-4vh) scale(1); opacity: 1; }
@@ -497,6 +509,31 @@
     text-shadow: 0 0 4px rgba(0, 255, 200, 0.12);
 }
 
+/* ── Tropical — carved wood plank, read-along by brightness (no blur) ──────
+   On the singer-dyed plank: words already sung sit warm-dim, the current word
+   is bright cream and crisp (it pops by contrast, NOT by a fuzzy glow), and
+   upcoming words stay clearly legible. */
+[data-theme="tropical"] .k-line--now .k-syl--past {
+    opacity: 1;
+    color: rgba(255, 244, 222, 0.62);
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+}
+[data-theme="tropical"] .k-line--now .k-syl--now {
+    /* Crisp bright cream — the highlight is pure brightness/weight contrast so
+       it stays razor-readable. A tight 1px dark shadow keeps the edges sharp on
+       the plank; a small warm halo adds glow without softening the letters. */
+    color: #FFFBEF;
+    text-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.6),
+        0 0 7px rgba(255, 209, 102, 0.55);
+}
+[data-theme="tropical"] .k-line--now .k-syl--future {
+    /* Words not yet sung wait in a darker shade of the singer's own color. */
+    opacity: 1;
+    color: color-mix(in srgb, var(--syl-singer, #FFC83D), #000 30%);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+}
+
 /* ── Psychedelic — Chromatic Vibration ─────────────────────────────────────
    The active word reads at the SAME WEIGHT and color as past words —
    no bold-up, no thicker letters, no heavier outline (those felt like
@@ -752,6 +789,31 @@
     border-radius: 12px;
     padding: 6px 20px;
     background: radial-gradient(ellipse at center, rgba(0,255,200,0.06) 0%, transparent 70%);
+}
+
+/* ── Tropical: carved tiki plank with a warm sun-pulse ─────────────────────
+   The active lyric line is a wooden plank framed in bamboo, washed by the
+   singer's color as a sunset glow rising from below, with a soft brightness
+   pulse like sun rippling off the lagoon. */
+.k-line--tropical {
+    border-radius: 14px;
+}
+
+/* The active line is a real carved-wood plank, evenly DYED to the singer's
+   color (a flat translucent wash over the wood + grain, so the timber still
+   reads through the stain). No animation, no blur — just a crisp, readable
+   plank. Bamboo-tan keyline + a soft drop sells the hanging-plank look. */
+[data-theme="tropical"] .k-line--tropical-active {
+    color: #FFF8E6;
+    background-color: #6E4423;
+    background-image:
+        linear-gradient(0deg,
+            color-mix(in srgb, var(--burst-color, #FFC83D), transparent 56%),
+            color-mix(in srgb, var(--burst-color, #FFC83D), transparent 56%)),
+        linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(0,0,0,0.22) 100%),
+        repeating-linear-gradient(180deg, rgba(0,0,0,0.12) 0 2px, transparent 2px 13px);
+    border: 3px solid #C99A54;
+    box-shadow: 0 10px 26px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.25);
 }
 
 /* ── Psychedelic: per-word shroom breathing + rainbow shadow ────────────── */

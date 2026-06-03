@@ -13,7 +13,7 @@ import type { ThemeTokens } from './tokens'
 export const COMIC_BOOK_TOKENS: ThemeTokens = {
   name: 'comic-book',
   displayName: 'Comic Book',
-  nextThemeName: 'neo-brutal', // tail of the ring loops back
+  nextThemeName: 'tropical', // comic-book → tropical in the theme ring
 
   // ── Raw colors ─────────────────────────────────────────────────────────────
   black: '#16161D', // heavy ink — outlines + text

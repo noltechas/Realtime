@@ -390,8 +390,8 @@ export function bindEvents(){
   // Stage reaction buttons
   var rc=document.getElementById("react-clap");
   if(rc)rc.addEventListener("click",function(){sendReaction("emoji","\uD83D\uDC4F");});
-  var rtd=document.getElementById("react-thumbsdown");
-  if(rtd)rtd.addEventListener("click",function(){sendReaction("emoji","\uD83D\uDC4E");});
+  var rtd=document.getElementById("react-tomato");
+  if(rtd)rtd.addEventListener("click",function(){sendReaction("emoji","\uD83C\uDF45");});
   var rcu=document.getElementById("react-custom");
   if(rcu)rcu.addEventListener("click",function(e){if(e.target.closest("#react-custom-edit")){S.emojiPickerOpen=true;render();return;}sendReaction("emoji",S.customEmoji);});
   var rcup=document.getElementById("react-custom-pick");

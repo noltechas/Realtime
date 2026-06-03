@@ -22,6 +22,7 @@ import { IMFellEnglish_400Regular } from '@expo-google-fonts/im-fell-english'
 import { SpecialElite_400Regular } from '@expo-google-fonts/special-elite'
 import { Monoton_400Regular } from '@expo-google-fonts/monoton'
 import { Audiowide_400Regular } from '@expo-google-fonts/audiowide'
+import { GreatVibes_400Regular } from '@expo-google-fonts/great-vibes'
 
 // Error boundary so a crash anywhere in the render tree shows visibly on
 // screen instead of leaving us staring at a white screen with no logs.
@@ -91,10 +92,16 @@ export default function App() {
     KrabbyPatty: require('./assets/fonts/KrabbyPatty-Regular.ttf'),
     // Awards tab — "Delauney" gilded serif, matching the stage ceremony font.
     Delauney: require('./assets/fonts/Delauney-Regular.ttf'),
+    // Awards tab — "Great Vibes" flowing script for award descriptions.
+    GreatVibes_400Regular,
     // Comic-book theme — Blambot "BadaBoom" display logo face + "Super Squad"
     // secondary (custom .ttf, shared with the desktop/stage + web companion).
     BadaBoomBB: require('./assets/fonts/BadaBoomBB.ttf'),
     SuperSquad: require('./assets/fonts/SuperSquad.ttf'),
+    // Tropical theme — Florida Vibes (surf-logo display) + The Last Trunks
+    // (hand-painted tiki body). Custom .ttf shared with the desktop/stage + web.
+    FloridaVibes: require('./assets/fonts/FloridaVibes.ttf'),
+    TheLastTrunks: require('./assets/fonts/TheLastTrunks.ttf'),
   })
 
   // Render once fonts are loaded OR once we know they failed. Without the
