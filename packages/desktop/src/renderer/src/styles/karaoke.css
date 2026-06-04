@@ -106,6 +106,17 @@
     pointer-events: none;
 }
 
+/* Flower-toss canvas — flowers thrown onto the stage that flutter down and rest
+   along the bottom edge. Sits just below the tomato layer. */
+.k-flower-layer {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 39;
+    pointer-events: none;
+}
+
 @keyframes reaction-float-up {
     0%   { transform: translateY(0) scale(0.8); opacity: 0; }
     8%   { transform: translateY(-4vh) scale(1); opacity: 1; }
@@ -128,11 +139,6 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-}
-
-.reaction-bubble--text {
-    flex-direction: row;
-    align-items: flex-start;
 }
 
 /* Slow drift used by text, photo, and meme reactions — they linger on
@@ -169,70 +175,144 @@
     flex-shrink: 0;
 }
 
-.reaction-bubble--text .reaction-bubble__avatar,
-.reaction-bubble--text .reaction-bubble__avatar-initial {
-    width: 76px;
-    height: 76px;
-    font-size: 32px;
-    margin-top: 0;
-    align-self: flex-end;
-}
-
 .reaction-bubble__emoji {
     font-size: 52px;
     line-height: 1;
     filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
 }
 
-.reaction-bubble__text-wrap {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    margin-left: 12px;
+/* ===========================================================================
+   Text speech bubble — rebuilt. A chat-style row: a ringed avatar sits next to
+   a glassy bubble whose triangular tail points back at the avatar. The whole
+   row flips horizontally depending on which screen edge it's anchored to, so
+   the tail always faces inward toward its avatar. The sender's identity color
+   (--rxn-accent / --rxn-glow) is set inline from the universal singer palette.
+   =========================================================================== */
+.rxn-text {
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
 }
 
-.reaction-bubble__text {
-    max-width: 640px;
-    padding: 24px 36px;
-    background: rgba(0,0,0,0.75);
-    backdrop-filter: blur(10px);
-    border-radius: 22px 22px 22px 6px;
-    color: #fff;
-    font-family: var(--font-body);
-    font-size: 40px;
-    line-height: 1.35;
-    word-break: break-word;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-}
-
-.reaction-bubble__text-name {
-    font-family: var(--font-display);
-    font-size: 22px;
-    font-weight: 700;
-    color: rgba(255,255,255,0.6);
-    margin-top: 6px;
-    margin-left: 8px;
-    text-shadow: 0 1px 4px rgba(0,0,0,0.6);
-}
-
-/* Right-side text bubble: flip layout */
-.reaction-bubble--right {
+.rxn-text--right {
     flex-direction: row-reverse;
 }
 
-.reaction-bubble__text-wrap--right {
-    margin-left: 0;
-    margin-right: 12px;
+/* ---- Ringed avatar ---- */
+.rxn-text__avatar {
+    width: 88px;
+    height: 88px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--rxn-accent, #a78bfa);
+    box-shadow: 0 0 24px var(--rxn-glow, rgba(167,139,250,0.3)), 0 6px 16px rgba(0,0,0,0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.rxn-text__avatar-img,
+.rxn-text__avatar-initial {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid rgba(10,10,14,0.92);
+}
+
+.rxn-text__avatar-initial {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(150deg, var(--rxn-accent, #a78bfa), rgba(8,8,12,0.55));
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 36px;
+    color: #fff;
+}
+
+/* ---- Bubble ---- */
+.rxn-text__bubble {
+    position: relative;
+    max-width: 600px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 18px 28px 20px;
+    /* Fill is OPAQUE on purpose. The tail is a separate ::before layer that
+       laps a couple px into the rect; with a translucent fill the two layers
+       composite to a darker strip right at the join (a visible seam line). An
+       opaque fill makes the overlap fully covered, so the rect + tail read as
+       one solid shape on any background. Over the dark stage this looks the
+       same as the near-opaque glass it replaces. */
+    background: #0e0e14;
+    border-radius: 24px;
+    /* Outline + depth via drop-shadow rather than box-shadow/border: drop-shadow
+       traces the rendered alpha silhouette — which INCLUDES the ::before tail —
+       so the rounded rect and the triangle read as one continuous outlined
+       shape. (A box-shadow/border only follows the rect and would draw a seam
+       straight across the base of the tail.) The four tight, zero-blur shadows
+       form the ~1.4px hairline outline; the last is the soft drop shadow. */
+    filter:
+        drop-shadow(1.4px 0 0 var(--rxn-glow, rgba(167,139,250,0.3)))
+        drop-shadow(-1.4px 0 0 var(--rxn-glow, rgba(167,139,250,0.3)))
+        drop-shadow(0 1.4px 0 var(--rxn-glow, rgba(167,139,250,0.3)))
+        drop-shadow(0 -1.4px 0 var(--rxn-glow, rgba(167,139,250,0.3)))
+        drop-shadow(0 12px 26px rgba(0,0,0,0.5));
+}
+
+.rxn-text--right .rxn-text__bubble {
     align-items: flex-end;
+    text-align: right;
 }
 
-.reaction-bubble__text-wrap--right .reaction-bubble__text {
-    border-radius: 22px 22px 6px 22px;
+/* Triangular tail — points outward toward the avatar, vertically centered.
+   Drawn with the bubble's own fill so it reads as one connected shape. */
+.rxn-text__bubble::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 0;
+    height: 0;
+    border-style: solid;
 }
 
-.reaction-bubble__text-wrap--right .reaction-bubble__text-name {
-    margin-left: 0;
-    margin-right: 8px;
+.rxn-text--left .rxn-text__bubble::before {
+    left: -12px;
+    transform: translateY(-50%);
+    border-width: 11px 14px 11px 0;
+    border-color: transparent #0e0e14 transparent transparent;
+}
+
+.rxn-text--right .rxn-text__bubble::before {
+    right: -12px;
+    transform: translateY(-50%);
+    border-width: 11px 0 11px 14px;
+    border-color: transparent transparent transparent #0e0e14;
+}
+
+.rxn-text__name {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    color: var(--rxn-accent, #a78bfa);
+    margin-bottom: 6px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rxn-text__msg {
+    font-family: var(--font-body);
+    font-size: 38px;
+    line-height: 1.3;
+    color: #fff;
+    word-break: break-word;
+    overflow-wrap: anywhere;
 }
 
 .reaction-bubble__image {

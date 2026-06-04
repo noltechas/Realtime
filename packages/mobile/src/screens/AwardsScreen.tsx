@@ -855,16 +855,10 @@ function AwardCard({
         />
       ) : null}
 
-      {/* Corner bracket flourishes — only on the voted state so they read as
-          an "awarded" treatment, not visual noise on every card. */}
-      {voted ? (
-        <>
-          <CornerBracket corner="tl" size={10} color={P.gold} />
-          <CornerBracket corner="tr" size={10} color={P.gold} />
-          <CornerBracket corner="bl" size={10} color={P.gold} />
-          <CornerBracket corner="br" size={10} color={P.gold} />
-        </>
-      ) : null}
+      {/* (Corner-bracket flourishes were removed here: pinned to the card's
+          square corners, they were clipped by the 12px border radius +
+          overflow:hidden into stray gold fragments. The gold border, gilded
+          wash, and vote badge already mark the "awarded" state.) */}
 
       <AwardMedallion award={award} voted={voted} finalized={finalized} />
 
@@ -974,22 +968,32 @@ function StatusIndicator({ voteCount, finalized }: { voteCount: number; finalize
           flexDirection: 'row',
           alignItems: 'center',
           gap: 5,
-          paddingHorizontal: 9,
-          paddingVertical: 5,
+          paddingHorizontal: 11,
+          paddingVertical: 6,
           borderRadius: 999,
-          overflow: 'hidden',
           borderWidth: 1,
           borderColor: P.goldEdge,
         }}
       >
+        {/* The gradient rounds itself (borderRadius) so the pill doesn't need
+            overflow:hidden — that clip was shaving the bold count glyphs at the
+            top/bottom and the capsule ends. */}
         <LinearGradient
           colors={[P.goldBright, P.goldDeep]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
+          style={[StyleSheet.absoluteFill, { borderRadius: 999 }]}
         />
         <Check tint="#1a140a" size={11} />
-        <Text style={{ color: '#1a140a', fontWeight: '800', fontSize: 11, letterSpacing: 1 }}>
+        <Text
+          style={{
+            color: '#1a140a',
+            fontWeight: '800',
+            fontSize: 11,
+            letterSpacing: 1,
+            lineHeight: 15,
+          }}
+        >
           {voteCount}/3
         </Text>
       </View>
@@ -2940,10 +2944,8 @@ function VoteConfirmModal({
             overflow: 'hidden',
           }}
         >
-          <CornerBracket corner="tl" size={14} color={P.gold} />
-          <CornerBracket corner="tr" size={14} color={P.gold} />
-          <CornerBracket corner="bl" size={14} color={P.gold} />
-          <CornerBracket corner="br" size={14} color={P.gold} />
+          {/* (Corner brackets removed: this dialog also clips them with its
+              radius + overflow:hidden, same stray-fragment bug as the cards.) */}
           <Text
             style={{
               fontFamily: P.fontSerif,

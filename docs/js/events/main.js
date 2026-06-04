@@ -388,8 +388,8 @@ export function bindEvents(){
   var hb=document.getElementById("hide-toggle-btn");
   if(hb)hb.addEventListener("click",function(){S.hide_song=!S.hide_song;render();});
   // Stage reaction buttons
-  var rc=document.getElementById("react-clap");
-  if(rc)rc.addEventListener("click",function(){sendReaction("emoji","\uD83D\uDC4F");});
+  var rc=document.getElementById("react-flowers");
+  if(rc)rc.addEventListener("click",function(){sendReaction("emoji","\uD83D\uDC90");});
   var rtd=document.getElementById("react-tomato");
   if(rtd)rtd.addEventListener("click",function(){sendReaction("emoji","\uD83C\uDF45");});
   var rcu=document.getElementById("react-custom");

@@ -272,9 +272,9 @@ function ReactGrid({
       <View style={[gridStyle, { paddingBottom: bottomPadding }]}>
         <View style={gridRowStyle}>
           <ui.ReactionCell
-            label="Clap"
-            icon={<Text style={cellEmojiStyle}>👏</Text>}
-            onPress={() => sendReaction('emoji', '👏')}
+            label="Flowers"
+            icon={<Text style={cellEmojiStyle}>💐</Text>}
+            onPress={() => sendReaction('emoji', '💐')}
             disabled={cooldownActive}
           />
           <ui.ReactionCell

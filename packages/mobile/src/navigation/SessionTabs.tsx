@@ -10,6 +10,7 @@ import { ProfileScreen } from '../screens/ProfileScreen'
 import { SessionThemeProvider } from '../theme/ThemeContext'
 import { SessionGuestsProvider } from '../hooks/useSessionGuests'
 import { SessionRevealLayer } from '../awards/SessionRevealLayer'
+import { QueueToastOverlay } from '../components/QueueToastOverlay'
 
 const Tabs = createBottomTabNavigator<SessionTabsParamList>()
 
@@ -48,6 +49,8 @@ export function SessionTabs() {
       {/* Global awards-ceremony overlay — always mounted so the reveal takes
           over from any tab (and resumes if the app was reopened mid-show). */}
       <SessionRevealLayer />
+      {/* Queue toast notifications — floats above all tabs. */}
+      <QueueToastOverlay />
       </SessionGuestsProvider>
     </SessionThemeProvider>
   )

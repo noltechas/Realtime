@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { useApp, useGuestsMap, singerFxKey } from '../context/AppContext'
+import { useApp, useGuestsMap, singerFxKey, NEON_COLORS } from '../context/AppContext'
 import { useTheme } from '../context/ThemeContext'
 import { AwardsRevealAnimation } from '../awards/AwardsRevealAnimation'
 import { HiddenSongStagePanel, HiddenSongStageHeading } from '../components/HiddenSongCard'
 import TomatoSplatterLayer, { TOMATO_EMOJI } from '../components/TomatoSplatterLayer'
+import FlowerLayer, { FLOWER_EMOJI } from '../components/FlowerLayer'
 
 import { VoiceEffectsEngine } from '../audio/VoiceEffectsEngine'
 import OSCARS_MUSIC_URL from '../assets/oscars.mp3'
@@ -744,9 +745,9 @@ function ReactionsOverlay() {
         if (!window.electronAPI?.onReaction) return
 
         const handler = window.electronAPI.onReaction((reaction: any) => {
-            // Tomatoes are handled by TomatoSplatterLayer (thrown + splattered),
-            // not rendered as a floating emoji bubble.
-            if (reaction?.content === TOMATO_EMOJI) return
+            // Tomatoes (splatter) and flowers (thrown + settle) have their own
+            // canvas layers — don't also render them as floating emoji bubbles.
+            if (reaction?.content === TOMATO_EMOJI || reaction?.content === FLOWER_EMOJI) return
             const side = Math.random() < 0.5 ? 'left' as const : 'right' as const
             const r: ReactionData = {
                 ...reaction,
@@ -787,6 +788,31 @@ function ReactionsOverlay() {
         )
     }
 
+    // Stable per-sender accent from the universal singer palette, so each guest's
+    // bubble keeps a consistent identity color across all their reactions.
+    const accentFor = (r: ReactionData) => {
+        const key = r.senderGuestId || r.senderName || r.id
+        let h = 0
+        for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0
+        return NEON_COLORS[h % NEON_COLORS.length]
+    }
+
+    // Larger, ringed avatar used by the text speech bubble.
+    const renderTextAvatar = (r: ReactionData) => {
+        const pic = (r.senderGuestId && guestsMap.get(r.senderGuestId)?.profile_picture) || r.senderProfilePicture
+        return (
+            <div className="rxn-text__avatar">
+                {pic ? (
+                    <img className="rxn-text__avatar-img" src={pic} alt="" />
+                ) : (
+                    <div className="rxn-text__avatar-initial">
+                        {(r.senderName || '?').charAt(0).toUpperCase()}
+                    </div>
+                )}
+            </div>
+        )
+    }
+
     return (
         <div className="k-reactions-overlay">
             {reactions.map(r => {
@@ -795,29 +821,23 @@ function ReactionsOverlay() {
                     : { right: r.x + '%' } as React.CSSProperties
 
                 if (r.reactionType === 'text') {
-                    const isRight = r.side === 'right'
+                    const accent = accentFor(r)
+                    const sideClass = r.side === 'right' ? ' rxn-text--right' : ' rxn-text--left'
+                    const textStyle: React.CSSProperties = {
+                        ...pos,
+                        ['--rxn-accent' as string]: accent.color,
+                        ['--rxn-glow' as string]: accent.colorGlow,
+                    } as React.CSSProperties
                     return (
                         <div key={r.id}
-                            className={'reaction-bubble reaction-bubble--text reaction-bubble--persistent' + (isRight ? ' reaction-bubble--right' : '')}
-                            style={pos}
+                            className={'reaction-bubble reaction-bubble--persistent rxn-text' + sideClass}
+                            style={textStyle}
                         >
-                            {isRight ? (
-                                <>
-                                    <div className="reaction-bubble__text-wrap reaction-bubble__text-wrap--right">
-                                        <div className="reaction-bubble__text">{r.content}</div>
-                                        <span className="reaction-bubble__text-name">{r.senderName}</span>
-                                    </div>
-                                    {renderAvatar(r)}
-                                </>
-                            ) : (
-                                <>
-                                    {renderAvatar(r)}
-                                    <div className="reaction-bubble__text-wrap">
-                                        <div className="reaction-bubble__text">{r.content}</div>
-                                        <span className="reaction-bubble__text-name">{r.senderName}</span>
-                                    </div>
-                                </>
-                            )}
+                            {renderTextAvatar(r)}
+                            <div className="rxn-text__bubble">
+                                {r.senderName ? <div className="rxn-text__name">{r.senderName}</div> : null}
+                                <div className="rxn-text__msg">{r.content}</div>
+                            </div>
                         </div>
                     )
                 }
@@ -2752,6 +2772,9 @@ export default function KaraokePage() {
 
             {/* Tomato throws — physical lob + splatter on top of the whole stage */}
             <TomatoSplatterLayer />
+
+            {/* Flower tosses — bouquet thrown, flutters down, rests at the bottom */}
+            <FlowerLayer />
 
             {/* Hidden SVG for Filters */}
             <svg style={{ position: 'fixed', pointerEvents: 'none', width: 0, height: 0 }}>
