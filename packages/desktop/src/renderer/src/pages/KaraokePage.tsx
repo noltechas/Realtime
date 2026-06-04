@@ -3127,25 +3127,17 @@ export default function KaraokePage() {
                                             // (timber + grain still read through the stain). Painted INLINE
                                             // so it overrides the default singer-color `background` set above
                                             // for the active line.
+                                            // A plain carved-wood plank (no singer tint at all). Line-by-line
+                                            // songs show the whole line in the singer's own color; syllable
+                                            // songs override per-word via .k-syl--now/past/future. Painted
+                                            // INLINE so it overrides the default singer-color `background`.
                                             cls += ' k-line--tropical k-line--tropical-active'
                                             inlineStyle.padding = '0.22em 1em'
                                             inlineStyle.borderRadius = '14px'
-                                            inlineStyle['--burst-color'] = activeSingerColor
-                                            // Line-by-line songs (no syllables) show the whole line in the
-                                            // singer's own color — the raised wood plank IS the highlight, so
-                                            // the text doesn't need to flip to white. (Syllable songs override
-                                            // this per-word via .k-syl--now/past/future, so they're unaffected.)
                                             inlineStyle.color = activeSingerColor
                                             inlineStyle.background = undefined
                                             inlineStyle.backgroundColor = '#6E4423'
-                                            // Only DYE the plank to the singer color for syllable (word-timed)
-                                            // songs. Line-by-line songs keep plain timber — their color lives
-                                            // in the line text instead.
-                                            const tropHasSyl = Array.isArray(line.syllables) && line.syllables.length > 0
                                             inlineStyle.backgroundImage =
-                                                (tropHasSyl
-                                                    ? `linear-gradient(0deg, color-mix(in srgb, ${activeSingerColor}, transparent 60%), color-mix(in srgb, ${activeSingerColor}, transparent 60%)), `
-                                                    : '') +
                                                 `linear-gradient(180deg, rgba(255,255,255,0.16), rgba(0,0,0,0.24)), ` +
                                                 `repeating-linear-gradient(180deg, rgba(0,0,0,0.13) 0 2px, transparent 2px 13px)`
                                             inlineStyle.border = '3px solid #C99A54'

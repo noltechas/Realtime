@@ -56,6 +56,14 @@ import {
   RetrowaveAddCrewButton,
 } from './wizard/RetrowaveWizardChrome'
 import { ThemeStageCard } from './wizard/ThemeStageCards'
+import { TropicalRoleCard, TropicalRoleEyebrow, TropicalRoleName, TropicalSingerPaper, TropicalWoodFrame, TropicalPaintSwatch } from './wizard/TropicalWizardChrome'
+
+// Cream text colors for any wizard card rendered as wood under the tropical
+// theme (deep-palm ink would vanish on the brown timber).
+const WOOD_TITLE = '#FFF1C4'
+const WOOD_MUTED = 'rgba(255,241,196,0.72)'
+const woodTitleColor = (t: ThemeTokens) => (t.name === 'tropical' ? WOOD_TITLE : t.black)
+const woodMutedColor = (t: ThemeTokens) => (t.name === 'tropical' ? WOOD_MUTED : t.muted)
 
 type WizardNav = NativeStackNavigationProp<RootStackParamList, 'Wizard'>
 type WizardRouteProp = RouteProp<RootStackParamList, 'Wizard'>
@@ -161,17 +169,18 @@ function wizardCardStyle(tokens: ThemeTokens, color?: string, overrides?: any, i
     }
   }
   if (tokens.name === 'tropical') {
-    // Tropical — a translucent sand panel framed in bamboo (or the singer's
-    // color) with a soft natural sun-shadow. Reads as a slip of beach parchment
-    // pinned to the board.
+    // Tropical — a solid wood-plank base. The grain gradient, sheen and corner
+    // nails are layered on by <TropicalWoodFrame/> rendered inside the card;
+    // overflow:hidden clips that timber overlay to the rounded panel.
     return {
-      backgroundColor: 'rgba(255,250,238,0.94)',
-      borderWidth: 2,
-      borderColor: color || '#E2C684',
-      borderRadius: 18,
+      backgroundColor: '#6E4423',
+      borderWidth: 2.5,
+      borderColor: '#5A3A1E',
+      borderRadius: 16,
+      overflow: 'hidden',
       shadowColor: '#0E2E29',
       shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.18,
+      shadowOpacity: 0.24,
       shadowRadius: 12,
       ...overrides,
     }
@@ -621,6 +630,11 @@ function WizardBody() {
   const stepLabel = step === 2 ? 'Singers' : step === 3 ? 'Roles' : 'Finish'
   const stepCount = hasRoles ? 3 : 2
 
+  // On the Roles step, every singer must be assigned at least one role before
+  // advancing — block "Next" until none are left unassigned. The warning
+  // banner in the roles step explains why the button is disabled.
+  const nextDisabled = step === 3 && singers.some((s) => s.roleIndices.length === 0)
+
   return (
     <SafeAreaView style={ui.styles.screen} edges={['top', 'left', 'right']}>
       <ui.Backdrop />
@@ -733,6 +747,8 @@ function WizardBody() {
             <SteampunkBrassFrame size={8} filigree />
           ) : tokens.name === 'retrowave' ? (
             <RetrowaveNeonFrame size={10} thickness={1.2} inset={2} />
+          ) : tokens.name === 'tropical' ? (
+            <TropicalWoodFrame />
           ) : null}
           <View style={[{ flexDirection: 'row', alignItems: 'center', flex: 1 }, wizardCardUnskew(tokens)]}>
             {track.art_url ? (
@@ -765,13 +781,13 @@ function WizardBody() {
                   textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
                   fontWeight: '900',
                   fontSize: 14,
-                  color: tokens.black,
+                  color: woodTitleColor(tokens),
                 }}
                 numberOfLines={1}
               >
                 {track.name}
               </Text>
-              <Text style={{ fontFamily: tokens.fontBody, fontSize: 13, color: tokens.muted }} numberOfLines={1}>
+              <Text style={{ fontFamily: tokens.fontBody, fontSize: 13, color: woodMutedColor(tokens) }} numberOfLines={1}>
                 {track.artist}
                 {track.duration_ms ? `  ·  ${formatDuration(track.duration_ms)}` : ''}
               </Text>
@@ -837,7 +853,7 @@ function WizardBody() {
                 loading={submitting}
               />
             ) : (
-              <ui.Button label="Next" onPress={goNext} />
+              <ui.Button label="Next" onPress={goNext} disabled={nextDisabled} />
             )}
           </View>
         </View>
@@ -975,6 +991,8 @@ function SingersStep({
             <SteampunkBrassFrame size={9} rivetColor={s.color} filigree />
           ) : tokens.name === 'retrowave' ? (
             <RetrowaveNeonFrame size={10} thickness={1.4} inset={3} topColor={s.color} bottomColor="#00F0FF" />
+          ) : tokens.name === 'tropical' ? (
+            <TropicalWoodFrame />
           ) : null}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, transform: wizardCardUnskew(tokens, i).transform as any }}>
             {tokens.name === 'space' ? (
@@ -1093,7 +1111,7 @@ function SingersStep({
                     textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
                     fontWeight: '900',
                     fontSize: 16,
-                    color: tokens.black,
+                    color: woodTitleColor(tokens),
                   }}
                   numberOfLines={1}
                 >
@@ -1125,7 +1143,7 @@ function SingersStep({
                   </View>
                 ) : null}
               </View>
-              <Text style={{ fontFamily: tokens.fontBody, fontSize: 12, color: tokens.muted }}>
+              <Text style={{ fontFamily: tokens.fontBody, fontSize: 12, color: woodMutedColor(tokens) }}>
                 Singer {i + 1}
               </Text>
             </View>
@@ -1156,7 +1174,7 @@ function SingersStep({
                 fontWeight: '800',
                 fontSize: 10,
                 letterSpacing: 1.5,
-                color: tokens.muted,
+                color: woodMutedColor(tokens),
                 textTransform: 'uppercase',
                 marginBottom: 8,
               }}
@@ -1200,6 +1218,17 @@ function SingersStep({
                       selected={selected}
                       takenByOther={takenByOther}
                       seed={ci}
+                      onPress={() => setColor(i, c.color, c.colorGlow)}
+                    />
+                  )
+                }
+                if (tokens.name === 'tropical') {
+                  return (
+                    <TropicalPaintSwatch
+                      key={c.color}
+                      color={c.color}
+                      selected={selected}
+                      takenByOther={takenByOther}
                       onPress={() => setColor(i, c.color, c.colorGlow)}
                     />
                   )
@@ -1345,6 +1374,26 @@ function RolesStep({
       </Text>
 
       {roles.map((roleName, ri) => (
+        tokens.name === 'tropical' ? (
+          <TropicalRoleCard key={`${ri}-${roleName}`}>
+            <TropicalRoleEyebrow fontBody={tokens.fontBody} />
+            <TropicalRoleName name={roleName} fontBody={tokens.fontBody} />
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+              {singers.map((s, si) => (
+                <TropicalSingerPaper
+                  key={si}
+                  name={s.name || `Singer ${si + 1}`}
+                  color={s.color}
+                  profilePicture={s.profilePicture}
+                  active={s.roleIndices.includes(ri)}
+                  index={si}
+                  onPress={() => toggle(si, ri)}
+                  fontBody={tokens.fontBody}
+                />
+              ))}
+            </View>
+          </TropicalRoleCard>
+        ) : (
         <View
           key={`${ri}-${roleName}`}
           style={wizardCardStyle(tokens, undefined, {
@@ -1456,6 +1505,7 @@ function RolesStep({
           </View>
           </View>
         </View>
+        )
       ))}
 
       {unassigned > 0 ? (
@@ -1557,10 +1607,15 @@ function StageStep({
           flexDirection: 'row',
           alignItems: 'flex-start',
           padding: 14,
-          borderColor: hideSong ? (tokens.isDark ? tokens.accentA : tokens.black) : (tokens.dimBorder),
-          backgroundColor: hideSong ? tokens.creamDark : (tokens.isDark ? tokens.appBg : tokens.white),
+          ...(tokens.name === 'tropical'
+            ? {}
+            : {
+                borderColor: hideSong ? (tokens.isDark ? tokens.accentA : tokens.black) : tokens.dimBorder,
+                backgroundColor: hideSong ? tokens.creamDark : (tokens.isDark ? tokens.appBg : tokens.white),
+              }),
         })}
       >
+        {tokens.name === 'tropical' ? <TropicalWoodFrame /> : null}
         <View style={[{ flexDirection: 'row', flex: 1 }, wizardCardUnskew(tokens)]}>
           <View
             style={{
@@ -1581,16 +1636,16 @@ function StageStep({
           <View style={{ flex: 1 }}>
             <Text
               style={{
-                fontFamily: tokens.fontDisplay,
+                fontFamily: tokens.name === 'tropical' ? tokens.fontBody : tokens.fontDisplay,
                 textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
                 fontWeight: '800',
-                fontSize: 14,
-                color: tokens.black,
+                fontSize: tokens.name === 'tropical' ? 15 : 14,
+                color: woodTitleColor(tokens),
               }}
             >
               Keep the song title hidden until I start
             </Text>
-            <Text style={{ fontFamily: tokens.fontBody, fontSize: 12, color: tokens.muted, marginTop: 4 }}>
+            <Text style={{ fontFamily: tokens.name === 'tropical' ? tokens.fontDisplay : tokens.fontBody, fontSize: tokens.name === 'tropical' ? 14 : 12, color: woodMutedColor(tokens), marginTop: 4 }}>
               {hideSong
                 ? "Other guests won’t see the song name until it plays"
                 : "Surprise everyone — the song name shows up only when it plays"}

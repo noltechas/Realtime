@@ -1,5 +1,6 @@
 import React from 'react'
 import { View, Text, Pressable, Image, type ViewStyle, type TextStyle } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import Svg, {
   Path,
   Polygon,
@@ -868,22 +869,45 @@ function RetroSun() {
   )
 }
 
-// 12. Tropical — a slip of warm beach parchment framed in bamboo, a Florida
-//     Vibes label in lagoon ink, and a hibiscus bloom emblem. Selected gets a
-//     lagoon inset ring + a sunshine corner badge.
+// 12. Tropical — a real WOOD PANEL: a grained timber plank with a cut-wood edge,
+//     a hammered nail in each corner, a cream Florida Vibes label burned into
+//     it, and a bright hibiscus bloom nailed to the side.
 function TropicalHibiscus() {
   return (
-    <Svg width={28} height={28} viewBox="0 0 28 28">
-      <G transform="translate(14 14)">
+    <Svg width={30} height={30} viewBox="0 0 30 30">
+      <G transform="translate(15 15)">
         {[0, 72, 144, 216, 288].map((a) => (
           <G key={a} transform={`rotate(${a})`}>
-            <Ellipse cx={0} cy={-7} rx={5} ry={6.6} fill="#FF3D81" stroke="#E02468" strokeWidth={0.6} />
+            <Ellipse cx={0} cy={-7.5} rx={5.4} ry={7} fill="#FF3D81" stroke="#E02468" strokeWidth={0.7} />
           </G>
         ))}
-        <Circle cx={0} cy={0} r={3.2} fill="#FFC83D" />
-        <Circle cx={0} cy={0} r={1.4} fill="#FF8A3C" />
+        <Circle cx={0} cy={0} r={3.4} fill="#FFC83D" />
+        <Circle cx={0} cy={0} r={1.5} fill="#FF8A3C" />
       </G>
     </Svg>
+  )
+}
+
+// Hammered nail head — a dark dome with a glint, for the panel corners.
+function WoodNail() {
+  return (
+    <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: '#2E2014', alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ width: 2.5, height: 2.5, borderRadius: 1.5, backgroundColor: 'rgba(255,255,255,0.35)' }} />
+    </View>
+  )
+}
+
+// Absolute-fill timber: a vertical wood gradient, faint horizontal grain lines,
+// and a soft top sheen. Sits behind the label/emblem inside the BaseCard.
+function WoodPanel() {
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
+      <LinearGradient colors={['#9C6B3D', '#6E4423']} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={{ flex: 1 }} />
+      {[0.24, 0.46, 0.68, 0.88].map((p, i) => (
+        <View key={i} style={{ position: 'absolute', left: 8, right: 8, top: `${p * 100}%`, height: 1, backgroundColor: 'rgba(0,0,0,0.16)' }} />
+      ))}
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '40%', backgroundColor: 'rgba(255,255,255,0.07)' }} />
+    </View>
   )
 }
 
@@ -892,15 +916,32 @@ function TropicalCard({ label, selected, onPress }: CardProps) {
     <BaseCard
       selected={selected}
       onPress={onPress}
-      bg="#FFF7EA"
-      radius={16}
-      border={{ width: 2, color: '#CDA85A' }}
-      offset={{ w: 0, h: 4, color: '#0E2E29', radius: 8, opacity: 0.2 }}
-      accent="#10B7B0"
-      badge={{ bg: '#FFC83D', fg: '#0E2E29', ring: '#CDA85A' }}
+      bg="#6E4423"
+      radius={10}
+      border={{ width: 2.5, color: '#5A3A1E' }}
+      offset={{ w: 0, h: 4, color: '#0E2E29', radius: 8, opacity: 0.3 }}
+      accent="#FFC83D"
+      badge={{ bg: '#FFC83D', fg: '#0E2E29', ring: '#5A3A1E' }}
     >
+      <WoodPanel />
+      {/* a hammered nail in each corner */}
+      <View pointerEvents="none" style={{ position: 'absolute', top: 5, left: 5 }}><WoodNail /></View>
+      <View pointerEvents="none" style={{ position: 'absolute', top: 5, right: 5 }}><WoodNail /></View>
+      <View pointerEvents="none" style={{ position: 'absolute', bottom: 5, left: 5 }}><WoodNail /></View>
+      <View pointerEvents="none" style={{ position: 'absolute', bottom: 5, right: 5 }}><WoodNail /></View>
       <Row>
-        <CardLabel text={label} color="#0E8F89" font="FloridaVibes" style={{ flex: 1, fontSize: 20 }} />
+        <CardLabel
+          text={label}
+          color="#FFF1C4"
+          font="TheLastTrunks"
+          style={{
+            flex: 1,
+            fontSize: 19,
+            textShadowColor: 'rgba(0,0,0,0.45)',
+            textShadowOffset: { width: 0, height: 1 },
+            textShadowRadius: 2,
+          }}
+        />
         <TropicalHibiscus />
       </Row>
     </BaseCard>

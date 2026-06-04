@@ -268,18 +268,17 @@ const hiddenArtGlyphStyle: TextStyle = {
 }
 
 const titleStyle: TextStyle = {
-  fontFamily: t.fontDisplay, // Florida Vibes (runs small — sized up)
-  fontSize: 25,
-  letterSpacing: 0.2,
+  fontFamily: t.fontBody, // secondary (The Last Trunks) — fonts flipped on this card
+  fontSize: 18,
+  letterSpacing: 0.3,
 }
 
 const artistStyle: TextStyle = {
-  fontFamily: t.fontBody,
-  fontWeight: '700',
-  fontSize: 11,
+  fontFamily: t.fontDisplay, // primary (Florida Vibes script) — fonts flipped on this card
+  fontWeight: '400',
+  fontSize: 17,
   marginTop: 1,
-  textTransform: 'uppercase',
-  letterSpacing: 0.3,
+  letterSpacing: 0.2,
 }
 
 const singerPillsRowStyle: ViewStyle = { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }

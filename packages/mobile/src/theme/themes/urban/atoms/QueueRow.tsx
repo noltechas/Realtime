@@ -255,7 +255,7 @@ function positionStyle(t: ThemeTokens): TextStyle {
     fontFamily: t.fontDisplay,
     fontWeight: '800',
     fontSize: 18,
-    color: t.faint,
+    color: t.accentA,
     minWidth: 22,
     textAlign: 'center',
   }
