@@ -574,6 +574,51 @@ export function useKaraokeSession() {
             })
     }, [state.themeName, state.karaokeSessionId])
 
+    // Keep a fresh Spotify (client-credentials) token in global state for the
+    // WHOLE app — not just while the Admin tab is mounted. The companion site
+    // and mobile app search Spotify with this token (published onto the session
+    // row below) when a guest requests a song we don't have in the catalog yet.
+    // Client-credentials tokens expire in ~1h; refresh every 50min so the token
+    // stays valid regardless of which page the host is on.
+    useEffect(() => {
+        if (window.electronAPI?.isStageWindow) return
+        if (!state.spotifyClientId || !state.spotifyClientSecret) return
+        let cancelled = false
+        const refresh = () => {
+            window.electronAPI?.spotifyAuth(state.spotifyClientId!, state.spotifyClientSecret!)
+                .then((auth: any) => {
+                    if (cancelled) return
+                    if (auth?.access_token) dispatch({ type: 'SET_TOKEN', payload: auth.access_token })
+                })
+                .catch(() => { })
+        }
+        if (!state.spotifyToken) refresh()
+        const id = window.setInterval(refresh, 50 * 60 * 1000)
+        return () => { cancelled = true; window.clearInterval(id) }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [state.spotifyClientId, state.spotifyClientSecret, dispatch])
+
+    // Publish the Spotify token onto the active session row so companion
+    // clients (website + mobile) can search Spotify when requesting a song.
+    // Previously this lived in AdminPage, so the token went stale the moment
+    // the host navigated away from the Admin tab during a live session — which
+    // disabled song-request search on both the website and the app. Running it
+    // here (re-firing whenever the token refreshes above) keeps it fresh for
+    // the whole session. The 55min expiry stays ahead of the 50min refresh.
+    useEffect(() => {
+        if (window.electronAPI?.isStageWindow) return
+        const sessionId = state.karaokeSessionId
+        const token = state.spotifyToken
+        if (!sessionId || !token) return
+        const expires = new Date(Date.now() + 55 * 60 * 1000).toISOString()
+        supabase.from('karaoke_sessions')
+            .update({ spotify_token: token, spotify_token_expires_at: expires })
+            .eq('id', sessionId)
+            .then(({ error }) => {
+                if (error) console.warn('[Karaoke] Failed to publish Spotify token:', error.message)
+            })
+    }, [state.karaokeSessionId, state.spotifyToken])
+
     // Reconcile the remote queue with the host's local queue.
     // Any karaoke_queue row that's still status='queued' but isn't in the
     // host's local state (clearQueue, race, app-restart leftover, dropped

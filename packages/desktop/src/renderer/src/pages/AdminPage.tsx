@@ -183,34 +183,12 @@ export default function AdminPage() {
 
     const debounceRef = useRef<NodeJS.Timeout | null>(null)
 
-    useEffect(() => {
-        if (!state.spotifyClientId || !state.spotifyClientSecret) return
-        let cancelled = false
-        const refresh = () => {
-            window.electronAPI.spotifyAuth(state.spotifyClientId!, state.spotifyClientSecret!).then((auth: any) => {
-                if (cancelled) return
-                if (auth?.access_token) dispatch({ type: 'SET_TOKEN', payload: auth.access_token })
-            }).catch(() => { })
-        }
-        if (!state.spotifyToken) refresh()
-        // Client-credentials tokens expire in 1h; refresh every 50min so the
-        // companion site always has a working token.
-        const id = window.setInterval(refresh, 50 * 60 * 1000)
-        return () => { cancelled = true; window.clearInterval(id) }
-    }, [state.spotifyClientId, state.spotifyClientSecret, dispatch])
-
-    // Share the Spotify token with the companion site (via the session row) so
-    // guests can search Spotify for songs we don't have in the catalog yet.
-    useEffect(() => {
-        const sessionId = state.karaokeSessionId
-        const token = state.spotifyToken
-        if (!sessionId || !token) return
-        const expires = new Date(Date.now() + 55 * 60 * 1000).toISOString()
-        supabase.from('karaoke_sessions')
-            .update({ spotify_token: token, spotify_token_expires_at: expires })
-            .eq('id', sessionId)
-            .then(({ error }) => { if (error) console.warn('Failed to publish Spotify token:', error.message) })
-    }, [state.karaokeSessionId, state.spotifyToken])
+    // Spotify token fetch/refresh + publish-to-session now live in
+    // useKaraokeSession (the app-root session hook) so the token stays fresh on
+    // EVERY page, not just while this Admin tab is mounted. Otherwise the
+    // companion site / mobile lost song-request search the moment the host left
+    // this tab during a live session. `state.spotifyToken` is still populated
+    // globally, so the preset-image fetch below keeps working unchanged.
 
     useEffect(() => {
         const token = state.spotifyToken
