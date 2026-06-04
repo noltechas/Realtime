@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  StyleSheet,
 } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
@@ -48,6 +49,62 @@ function formatDuration(ms: number | null | undefined): string {
 // NowPlayingBanner relies on (`accentB` is always a vivid color). Used for the
 // success toast and the "requested" badge so they read on every theme.
 const ON_BRIGHT = '#16161D'
+
+// Pick a legible ink for text/icons placed ON a themed card. Most themes pair a
+// light card with dark page-ink (or a dark card with light ink), so the page
+// body color works — but zen uses a light cream card on a DARK theme, so its
+// page body color (also cream) is invisible on the card. Deriving the ink from
+// the card's own background luminance keeps on-card content legible on every
+// theme without naming any of them; for the 11 already-correct themes it
+// resolves to the same dark/light they were using. Falls back to the theme's
+// page ink when the card color can't be parsed (e.g. 'transparent').
+function parseRgb(color: string | undefined): { r: number; g: number; b: number } | null {
+  if (!color) return null
+  if (color[0] === '#') {
+    let h = color.slice(1)
+    if (h.length === 3) h = h.split('').map((c) => c + c).join('')
+    if (h.length === 8) h = h.slice(0, 6) // ignore alpha
+    if (h.length !== 6) return null
+    const n = parseInt(h, 16)
+    if (Number.isNaN(n)) return null
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 }
+  }
+  const m = color.match(/rgba?\(([^)]+)\)/i)
+  if (m) {
+    const p = m[1].split(',').map((s) => parseFloat(s))
+    if (p.length >= 3 && !p.slice(0, 3).some((v) => Number.isNaN(v))) {
+      return { r: p[0], g: p[1], b: p[2] }
+    }
+  }
+  return null
+}
+
+function simpleLum(rgb: { r: number; g: number; b: number }): number {
+  // Perceptual luminance (sRGB weights), 0 (black) … 1 (white).
+  return (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255
+}
+
+// Choose the ink for on-card text/icons. Prefer the theme's OWN body color so
+// every already-correct theme keeps its tuned title color exactly (steampunk's
+// parchment tan, retrowave's off-white, etc.); only fall back to a luminance-
+// derived dark/light ink when that body color lacks contrast against the card —
+// which is solely zen's light-cream-on-light-cream case.
+function onCardInk(
+  cardBg: string | undefined,
+  bodyColor: string | undefined,
+  fallback: string,
+): string {
+  const card = parseRgb(cardBg)
+  const body = parseRgb(bodyColor)
+  if (card && body) {
+    const lc = simpleLum(card)
+    const lb = simpleLum(body)
+    const ratio = (Math.max(lc, lb) + 0.05) / (Math.min(lc, lb) + 0.05)
+    if (ratio >= 3 && bodyColor) return bodyColor
+  }
+  if (!card) return fallback
+  return simpleLum(card) > 0.5 ? '#1A1712' : '#F3EADB'
+}
 
 interface ConfirmState {
   title: string
@@ -96,6 +153,16 @@ function RequestScreenBody() {
     () => new Set(catalog.map((c) => c.track_id)),
     [catalog],
   )
+
+  // Legible ink for everything rendered on the result cards, derived from the
+  // active theme's card background (see legibleInk). Fixes zen, whose light
+  // cream card collided with its light page body color.
+  const cardInk = useMemo(() => {
+    const cardBg = (StyleSheet.flatten(ui.styles.card) as { backgroundColor?: string } | undefined)
+      ?.backgroundColor
+    const bodyColor = (StyleSheet.flatten(ui.styles.body) as { color?: string } | undefined)?.color
+    return onCardInk(cardBg, bodyColor, tokens.black)
+  }, [ui, tokens.black])
 
   // Latest query at fetch time, so a slow earlier response can't clobber the
   // results of a newer search (out-of-order responses).
@@ -217,12 +284,13 @@ function RequestScreenBody() {
       <ResultRow
         tokens={tokens}
         ui={ui}
+        ink={cardInk}
         track={item}
         state={rowStateFor(item)}
         onPress={() => onRequest(item)}
       />
     ),
-    [tokens, ui, rowStateFor, onRequest],
+    [tokens, ui, cardInk, rowStateFor, onRequest],
   )
 
   const trimmed = query.trim()
@@ -392,12 +460,14 @@ function RequestScreenBody() {
 function ResultRow({
   tokens,
   ui,
+  ink,
   track,
   state,
   onPress,
 }: {
   tokens: ThemeTokens
   ui: ThemeUIModule
+  ink: string
   track: SpotifyTrackResult
   state: RowState
   onPress: () => void
@@ -453,20 +523,20 @@ function ResultRow({
             justifyContent: 'center',
           }}
         >
-          <Ionicons name="musical-notes" size={22} color={tokens.muted} />
+          <Ionicons name="musical-notes" size={22} color={ink} style={{ opacity: 0.6 }} />
         </View>
       )}
 
       <View style={{ flex: 1, marginLeft: 12, marginRight: 10 }}>
-        <Text style={[ui.styles.body, { fontWeight: '800' }]} numberOfLines={1}>
+        <Text style={[ui.styles.body, { fontWeight: '800', color: ink }]} numberOfLines={1}>
           {track.name}
         </Text>
-        <Text style={ui.styles.muted} numberOfLines={1}>
+        <Text style={[ui.styles.muted, { color: ink, opacity: 0.72 }]} numberOfLines={1}>
           {track.artist}
         </Text>
         {state === 'in-library' ? (
           <Text
-            style={[ui.styles.muted, { marginTop: 2, fontWeight: '700' }]}
+            style={[ui.styles.muted, { marginTop: 2, fontWeight: '700', color: ink, opacity: 0.72 }]}
             numberOfLines={1}
           >
             Already in the library
@@ -476,7 +546,8 @@ function ResultRow({
             style={{
               fontFamily: tokens.fontBody,
               fontSize: 11,
-              color: tokens.faint,
+              color: ink,
+              opacity: 0.5,
               marginTop: 2,
             }}
             numberOfLines={1}
@@ -486,7 +557,7 @@ function ResultRow({
         ) : null}
       </View>
 
-      <RowAffordance tokens={tokens} state={state} />
+      <RowAffordance tokens={tokens} ink={ink} state={state} />
     </Pressable>
   )
 }
@@ -494,14 +565,22 @@ function ResultRow({
 // Right-hand state badge. Idle uses foreground-on-card (always legible); the
 // "requested" check uses a bright accentB fill + dark glyph (same guaranteed-
 // contrast contract as the toast).
-function RowAffordance({ tokens, state }: { tokens: ThemeTokens; state: RowState }) {
+function RowAffordance({
+  tokens,
+  ink,
+  state,
+}: {
+  tokens: ThemeTokens
+  ink: string
+  state: RowState
+}) {
   const size = 34
   const radius = tokens.cornerStyle === 'sharp' ? 0 : 999
 
   if (state === 'busy') {
     return (
       <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color={tokens.black} />
+        <ActivityIndicator color={ink} />
       </View>
     )
   }
@@ -524,9 +603,11 @@ function RowAffordance({ tokens, state }: { tokens: ThemeTokens; state: RowState
     )
   }
   if (state === 'in-library') {
+    // Row already renders at reduced opacity for in-library tracks, so full
+    // ink here reads as a dimmed "done" tick.
     return (
       <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-        <Ionicons name="checkmark-done" size={22} color={tokens.muted} />
+        <Ionicons name="checkmark-done" size={22} color={ink} />
       </View>
     )
   }
@@ -538,12 +619,12 @@ function RowAffordance({ tokens, state }: { tokens: ThemeTokens; state: RowState
         height: size,
         borderRadius: radius,
         borderWidth: 2,
-        borderColor: tokens.black,
+        borderColor: ink,
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
-      <Ionicons name="add" size={22} color={tokens.black} />
+      <Ionicons name="add" size={22} color={ink} />
     </View>
   )
 }

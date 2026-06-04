@@ -48,7 +48,10 @@ export function buildSketchStyles(t: ThemeTokens): ThemeUIStyles {
       fontFamily: t.fontBody,
       fontSize: 16,
       color: t.black,
-      lineHeight: 22,
+      // No explicit lineHeight: the Thin Pencil Handwriting face has tall
+      // ascenders that a tight 22px line box clips at the top (visible on song
+      // titles). Letting it use the font's natural metrics — like `muted` and
+      // the SongCard title already do for this same font — renders them whole.
     },
     muted: {
       fontFamily: t.fontBody,
