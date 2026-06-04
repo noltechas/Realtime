@@ -21,6 +21,11 @@ export interface SessionRowExtras {
   mic_fx_overrides?: Record<string, MicFxOverride> | null
   skip_requested_at?: string | null
   trending_gifs?: TrendingGif[] | null
+  // Spotify access token the host's desktop app publishes onto the session so
+  // guests can search Spotify when requesting a song to be added. Nullable /
+  // short-lived — gate the request UI through `spotifyTokenIfFresh`.
+  spotify_token?: string | null
+  spotify_token_expires_at?: string | null
   // Current awards-ceremony reveal step, persisted by the host so remote
   // devices that join late (or had the app closed) can resume the reveal.
   // Null / absent when no reveal is in progress.

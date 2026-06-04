@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useApp } from '../context/AppContext'
 import { getEngine } from '../audio/playback'
+import { useAudioDevices, parseDeviceId } from './useAudioDevices'
 
 export interface AudioSyncState {
     elapsed: number
@@ -146,6 +147,56 @@ export function useAudioSync(): AudioSyncState {
         if (isStage) return
         getEngine().setVocalOffset(state.vocalOffsetMs)
     }, [state.vocalOffsetMs, isStage])
+
+    // Apply the selected main (track) output device to the engine. load() only
+    // routes the vocal monitor sink, so without this the restored/selected main
+    // output wouldn't take effect on the instrumental track until the user
+    // re-picked it. Empty string resets to the system default device.
+    useEffect(() => {
+        if (isStage) return
+        getEngine().setMainSinkId(state.mainOutputId || '')
+    }, [state.mainOutputId, isStage])
+
+    // Prune persisted device selections that are no longer available, so the
+    // app only auto-selects saved devices that are actually present this launch
+    // ("if they're still available"). Clearing a selection also rewrites the
+    // saved prefs, so we must NOT prune against a half-populated list: we gate
+    // on labels being present, which only happens once media permission is
+    // granted and the real, stable device ids are enumerated. Outputs and
+    // inputs become ready independently, so each is pruned once via its own ref.
+    const { inputs, outputs } = useAudioDevices()
+    const outputsReady = outputs.some(o => !!o.label)
+    const inputsReady = inputs.some(i => !!i.label)
+    const prunedOutputsRef = useRef(false)
+    const prunedInputsRef = useRef(false)
+    useEffect(() => {
+        if (isStage) return
+        if (!prunedOutputsRef.current && outputsReady) {
+            prunedOutputsRef.current = true
+            const outIds = new Set(outputs.map(o => o.deviceId))
+            if (state.mainOutputId && !outIds.has(state.mainOutputId)) {
+                dispatch({ type: 'SET_MAIN_OUTPUT', payload: '' })
+            }
+            const availMonitors = state.monitorDeviceIds.filter(d => outIds.has(d))
+            if (availMonitors.length !== state.monitorDeviceIds.length) {
+                dispatch({ type: 'SET_MONITOR_DEVICES', payload: availMonitors })
+            }
+        }
+        if (!prunedInputsRef.current && inputsReady) {
+            prunedInputsRef.current = true
+            // Match by real (hardware) device id so multi-channel `#ch=N` ids
+            // survive the async channel-expansion step in useAudioDevices.
+            const inRealIds = new Set(inputs.map(i => i.realDeviceId))
+            state.micSlots.forEach((slot, i) => {
+                if (!slot.micDeviceId) return
+                const { realDeviceId } = parseDeviceId(slot.micDeviceId)
+                if (!inRealIds.has(realDeviceId)) {
+                    dispatch({ type: 'SET_MIC_SLOT', payload: { index: i, config: { micDeviceId: '' } } })
+                }
+            })
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isStage, outputsReady, inputsReady, dispatch])
 
     // When the vocal monitor device changes, restore the offset we last
     // measured/applied for that specific device. Depends only on the device

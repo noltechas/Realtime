@@ -7,6 +7,7 @@ import { MainTabs } from './MainTabs'
 import { SessionTabs } from './SessionTabs'
 import { LobbyScreen } from '../screens/LobbyScreen'
 import { WizardScreen } from '../screens/WizardScreen'
+import { RequestScreen } from '../screens/RequestScreen'
 import { useSession } from '../hooks/useSession'
 import { useTheme } from '../theme/ThemeContext'
 
@@ -60,6 +61,11 @@ export function RootNavigator() {
         <RootStack.Screen
           name="Wizard"
           component={WizardScreen}
+          options={{ presentation: 'modal' }}
+        />
+        <RootStack.Screen
+          name="Request"
+          component={RequestScreen}
           options={{ presentation: 'modal' }}
         />
       </RootStack.Navigator>

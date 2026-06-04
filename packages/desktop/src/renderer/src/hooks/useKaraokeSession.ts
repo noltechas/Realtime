@@ -52,6 +52,7 @@ export function useKaraokeSession() {
     const isRemotePlayRef = useRef(false)
     const lastSeenSkipAtRef = useRef<string | null>(null)
     const reconcileTimerRef = useRef<NodeJS.Timeout | null>(null)
+    const restoredNowPlayingForRef = useRef<string | null>(null)
 
     // Load catalog for resolving remote additions
     useEffect(() => {
@@ -312,6 +313,94 @@ export function useKaraokeSession() {
         }
     }, [state.karaokeSessionId, dispatch])
 
+    // Restore the persisted now-playing song when (re)entering a session.
+    // The host's currently-playing song is saved on the session row
+    // (now_playing_* columns); its karaoke_queue row was already marked
+    // 'played', so the queue fetch above never re-adds it. Without this, the
+    // playing song vanishes on restart and the auto-pop effect yanks the
+    // up-next song into the now-playing slot — skipping both. We resolve the
+    // saved song against the local catalog and drop it back into the
+    // now-playing slot (paused), which also lowers the hydratingNowPlaying
+    // gate so the auto-pop stays off until this resolves.
+    useEffect(() => {
+        if (window.electronAPI?.isStageWindow) return
+        const sessionId = state.karaokeSessionId
+        if (!sessionId) return
+        // Only run once per session id, and never clobber a live now-playing.
+        if (restoredNowPlayingForRef.current === sessionId) return
+        restoredNowPlayingForRef.current = sessionId
+        if (state.nowPlaying) {
+            dispatch({ type: 'RESTORE_NOW_PLAYING', payload: null })
+            return
+        }
+
+        const finish = (item: QueueItem | null) =>
+            dispatch({ type: 'RESTORE_NOW_PLAYING', payload: item })
+
+        supabase
+            .from('karaoke_sessions')
+            .select('now_playing_track_id, now_playing_singer_configs, now_playing_stage_theme')
+            .eq('id', sessionId)
+            .single()
+            .then(async ({ data, error }) => {
+                const trackId = (data as any)?.now_playing_track_id
+                if (error || !trackId) { finish(null); return }
+
+                // Resolve against the live catalog (don't trust catalogRef,
+                // which may not have loaded yet on a cold start / resume).
+                const catalog = await window.electronAPI?.listCatalog().catch(() => null)
+                const entry = (catalog || []).find((s: CatalogSong) => s.trackId === trackId)
+                if (!entry) {
+                    console.warn('[Karaoke] Cannot restore now-playing — track not in catalog:', trackId)
+                    finish(null)
+                    return
+                }
+
+                const singerConfigs: any[] = (data as any)?.now_playing_singer_configs || []
+                const singers = singerConfigs.map((sc: any, i: number) => ({
+                    id: i,
+                    name: sc.name || `Singer ${i + 1}`,
+                    color: sc.color || NEON_COLORS[i % NEON_COLORS.length].color,
+                    colorGlow: sc.colorGlow || NEON_COLORS[i % NEON_COLORS.length].colorGlow,
+                    micDeviceId: '',
+                    vocalTrack: i === 0 ? 'lead' as const : 'backing' as const,
+                    roleIndices: sc.roleIndices,
+                    whitePersonCheck: sc.whitePersonCheck || false,
+                    guestId: sc.guestId || undefined,
+                }))
+
+                finish({
+                    id: `np-restore-${entry.trackId}`,
+                    stageTheme: (data as any)?.now_playing_stage_theme || null,
+                    isHidden: false,
+                    track: {
+                        id: entry.trackId,
+                        name: entry.name,
+                        artists: [{ name: entry.artist }],
+                        album: {
+                            name: entry.albumName,
+                            images: entry.artUrl ? [{ url: entry.artUrl, width: 300, height: 300 }] : []
+                        },
+                        duration_ms: entry.durationMs,
+                        uri: ''
+                    },
+                    lyrics: entry.lyrics || [],
+                    roles: entry.roles || [],
+                    singers,
+                    voiceEffects: entry.voiceEffects || DEFAULT_VOICE_EFFECTS,
+                    stemsPath: { instrumental: entry.instrumentalPath, vocals: entry.vocalsPath },
+                    songPath: null,
+                    backgroundVideoPath: entry.youtubeUrl || null,
+                    addedBy: null,
+                    remoteQueueId: undefined,
+                    score: 0,
+                    bonusPoints: 0,
+                    locked: false,
+                    createdAt: new Date().toISOString()
+                })
+            }, () => finish(null))
+    }, [state.karaokeSessionId, state.nowPlaying, dispatch])
+
     // Subscribe to broadcast reactions from companion site
     useEffect(() => {
         if (window.electronAPI?.isStageWindow) return
@@ -348,7 +437,7 @@ export function useKaraokeSession() {
     // the stage shows the wrong (or placeholder) singer and the guest never gets
     // flipped to their Stage tab because their guestId never reaches the session
     // row. Keying on the item id makes every advance publish the right config.
-    const prevNowPlayingRowRef = useRef<{ rowId: string | null; trackId: string | null } | null>(null)
+    const prevNowPlayingRowRef = useRef<{ itemId: string | null; rowId: string | null; trackId: string | null } | null>(null)
 
     useEffect(() => {
         if (window.electronAPI?.isStageWindow) return
@@ -376,17 +465,21 @@ export function useKaraokeSession() {
         }
 
         // Mark the PREVIOUS now-playing row as played when advancing to a
-        // different queue item (defensive: the row was already retired when it
-        // first became now-playing, but a transient failure there shouldn't
-        // strand it in the companion queue).
+        // DIFFERENT song. Compare by queue-item id, NOT row id: the same song
+        // can gain its remoteQueueId moments after becoming now-playing (the
+        // first song dropped on an empty queue auto-pops before its companion
+        // INSERT resolves), and that late id arrival must not be mistaken for
+        // an advance — otherwise it would retire the row by track_id and could
+        // collaterally consume a same-track sibling.
         const prev = prevNowPlayingRowRef.current
         const currentRowId = state.nowPlaying?.remoteQueueId ?? null
-        if (prev && (prev.rowId || prev.trackId) && prev.rowId !== currentRowId) {
+        const currentItemId = state.nowPlaying?.id ?? null
+        if (prev && prev.itemId !== currentItemId && (prev.rowId || prev.trackId)) {
             markRowPlayed(prev.rowId, prev.trackId)
         }
 
         if (state.nowPlaying) {
-            prevNowPlayingRowRef.current = { rowId: currentRowId, trackId: state.nowPlaying.track.id }
+            prevNowPlayingRowRef.current = { itemId: currentItemId, rowId: currentRowId, trackId: state.nowPlaying.track.id }
             window.electronAPI?.syncNowPlaying({
                 trackId: state.nowPlaying.track.id,
                 name: state.nowPlaying.track.name,
@@ -407,12 +500,18 @@ export function useKaraokeSession() {
             // Retire this row from the companion queue now that it's playing —
             // by exact row id so a same-track sibling (e.g. a guest's remote
             // copy) is left intact to play later with its own singer config.
+            // This re-runs when remoteQueueId lands (see deps): the first song
+            // on an empty queue auto-pops to now-playing BEFORE its companion
+            // INSERT resolves, so the initial pass has a null row id and the
+            // track_id fallback races (and usually loses) the INSERT — leaving
+            // the row stuck as 'queued'. The re-run finishes the job once
+            // SET_QUEUE_ITEM_REMOTE_ID stamps the id, after the INSERT exists.
             markRowPlayed(currentRowId, state.nowPlaying.track.id)
         } else {
             prevNowPlayingRowRef.current = null
             window.electronAPI?.syncNowPlaying(null)
         }
-    }, [state.nowPlaying?.id, state.karaokeSessionId])
+    }, [state.nowPlaying?.id, state.nowPlaying?.remoteQueueId, state.karaokeSessionId])
 
     // When the host advances to a new song, bump bonus_points on every
     // remaining queued row so long-waiting songs eventually surface.

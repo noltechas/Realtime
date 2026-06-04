@@ -56,6 +56,13 @@ export function SongsScreen() {
     [session, navigation],
   )
 
+  // Open the "request a song to be added" modal, seeding its Spotify search
+  // with whatever the guest had typed into the catalog filter.
+  const onRequestSong = useCallback(() => {
+    if (!session) return
+    navigation.navigate('Request', { initialQuery: query.trim() || undefined })
+  }, [session, navigation, query])
+
   // Stable keyExtractor + renderItem so memoized SongCard/ItemFloater can
   // bail out across filter/search changes. Without this, FlatList runs a
   // fresh renderItem closure on every keystroke and the theme's heavy SVG
@@ -134,6 +141,22 @@ export function SongsScreen() {
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
+          ListFooterComponent={
+            filtered.length > 0 ? (
+              <View style={{ paddingHorizontal: 24, paddingTop: 20 }}>
+                <Text
+                  style={[ui.styles.muted, { textAlign: 'center', marginBottom: 10 }]}
+                >
+                  Can't find your song?
+                </Text>
+                <ui.Button
+                  label="Request a song to be added"
+                  variant="outline"
+                  onPress={onRequestSong}
+                />
+              </View>
+            ) : null
+          }
           ListEmptyComponent={
             <View
               style={{
@@ -142,18 +165,25 @@ export function SongsScreen() {
                 alignItems: 'center',
               }}
             >
-              <Text style={[ui.styles.h2, { marginBottom: 6 }]}>
+              <Text style={[ui.styles.h2, { marginBottom: 6, textAlign: 'center' }]}>
                 {query
                   ? 'No songs found'
                   : genre !== 'All Songs'
                   ? `No songs in ${genre}`
                   : 'No songs in the catalog yet'}
               </Text>
-              <Text style={[ui.styles.muted, { textAlign: 'center' }]}>
+              <Text style={[ui.styles.muted, { textAlign: 'center', marginBottom: 18 }]}>
                 {query
-                  ? 'Try a different search.'
+                  ? 'Not in the library yet — ask the host to add it.'
                   : 'Ask the host to add some songs from their desktop app.'}
               </Text>
+              <View style={{ alignSelf: 'stretch' }}>
+                <ui.Button
+                  label="Request a song to be added"
+                  variant="outline"
+                  onPress={onRequestSong}
+                />
+              </View>
             </View>
           }
         />

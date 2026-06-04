@@ -51,6 +51,16 @@ export {
 } from './catalog'
 export type { KaraokeCatalogRow, GenreCounts } from './catalog'
 export {
+  spotifyTokenIfFresh,
+  normalizeSpotifyTrack,
+  submitSongRequest,
+} from './requests'
+export type {
+  SpotifyTrackResult,
+  SubmitSongRequestInput,
+  SubmitSongRequestResult,
+} from './requests'
+export {
   loadAwards,
   castAwardVote,
   createCustomAward,

@@ -30,4 +30,8 @@ export type RootStackParamList = {
   Lobby: { code: string }
   Session: NavigatorScreenParams<SessionTabsParamList> | undefined
   Wizard: { track: KaraokeCatalogRow; edit?: WizardEditPayload }
+  // "Request a song to be added" — opened from the Songs tab when a guest
+  // can't find a track. `initialQuery` seeds the Spotify search with whatever
+  // they'd typed into the catalog filter.
+  Request: { initialQuery?: string } | undefined
 }

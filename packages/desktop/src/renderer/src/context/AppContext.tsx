@@ -192,6 +192,12 @@ export interface AppState {
     karaokeSessionCode: string | null
     karaokeSessionName: string | null
     karaokeQrDataUrl: string | null
+    // True while a freshly-set session is restoring its persisted now-playing
+    // song from Supabase. Gates the auto-pop effect so it can't promote the
+    // up-next song into the now-playing slot before the real now-playing song
+    // (saved on the session row) has been restored — otherwise closing/reopening
+    // the app skips both the playing song and the up-next song.
+    hydratingNowPlaying: boolean
     themeName: string
     remotePlayCommand: 'play' | 'pause' | null
     remoteSkipCommand: boolean
@@ -231,6 +237,41 @@ function loadVocalOffsetByDevice(): Record<string, number> {
     }
 }
 
+// Persisted audio-device selections (main output, vocal monitor outputs, mic
+// slots) so the app re-selects the same devices on the next launch. Device ids
+// are stable per-origin in Electron, so a saved id matches the same physical
+// device next time — selections that no longer enumerate are pruned at startup
+// (see useAudioSync). Falls back to the empty defaults on any parse error.
+interface AudioDevicePrefs {
+    mainOutputId: string
+    monitorDeviceIds: string[]
+    micSlots: MicSlotConfig[]
+}
+function loadAudioDevicePrefs(): AudioDevicePrefs {
+    const empty: AudioDevicePrefs = { mainOutputId: '', monitorDeviceIds: [], micSlots: [] }
+    try {
+        if (typeof localStorage === 'undefined') return empty
+        const stored = localStorage.getItem('audioDevicePrefs')
+        if (!stored) return empty
+        const parsed = JSON.parse(stored)
+        if (!parsed || typeof parsed !== 'object') return empty
+        const mainOutputId = typeof parsed.mainOutputId === 'string' ? parsed.mainOutputId : ''
+        const monitorDeviceIds = Array.isArray(parsed.monitorDeviceIds)
+            ? parsed.monitorDeviceIds.filter((d: unknown): d is string => typeof d === 'string')
+            : []
+        const micSlots = Array.isArray(parsed.micSlots)
+            ? parsed.micSlots.map((s: any): MicSlotConfig => ({
+                micDeviceId: typeof s?.micDeviceId === 'string' ? s.micDeviceId : '',
+                micLevel: typeof s?.micLevel === 'number' && Number.isFinite(s.micLevel) ? s.micLevel : 1.0,
+            }))
+            : []
+        return { mainOutputId, monitorDeviceIds, micSlots }
+    } catch {
+        return empty
+    }
+}
+const savedDevicePrefs = loadAudioDevicePrefs()
+
 const initialState: AppState = {
     spotifyToken: null,
     currentTrack: null,
@@ -255,11 +296,11 @@ const initialState: AppState = {
     sessionFx: { vocalFx: true, autotune: true },
     backgroundVideoPath: null,
     songPath: null,
-    monitorDeviceIds: [],
-    mainOutputId: '',
+    monitorDeviceIds: savedDevicePrefs.monitorDeviceIds,
+    mainOutputId: savedDevicePrefs.mainOutputId,
     vocalOffsetMs: 165,
     vocalOffsetByDevice: loadVocalOffsetByDevice(),
-    micSlots: [],
+    micSlots: savedDevicePrefs.micSlots,
     spotifyClientId: import.meta.env.VITE_SPOTIFY_CLIENT_ID || null,
     spotifyClientSecret: import.meta.env.VITE_SPOTIFY_CLIENT_SECRET || null,
     editingQueueIndex: null,
@@ -267,6 +308,7 @@ const initialState: AppState = {
     karaokeSessionCode: null,
     karaokeSessionName: null,
     karaokeQrDataUrl: null,
+    hydratingNowPlaying: false,
     themeName: 'neo-brutal',
     remotePlayCommand: null,
     remoteSkipCommand: false,
@@ -312,6 +354,11 @@ type Action =
     // re-deriving it (see the dispatch wrapper in AppProvider).
     | { type: 'NEXT_SONG'; payload?: Partial<AppState> }
     | { type: 'PREV_SONG'; payload?: Partial<AppState> }
+    // Restore the now-playing song persisted on the session row when resuming a
+    // session. Payload is the resolved QueueItem, or null when there's nothing
+    // to restore. Either way it clears the hydratingNowPlaying gate. Unlike
+    // NEXT_SONG it does NOT pop the queue — the up-next song stays put.
+    | { type: 'RESTORE_NOW_PLAYING'; payload: QueueItem | null }
     | { type: 'CLEAR_QUEUE' }
     | { type: 'REMOVE_FROM_QUEUE'; payload: number }
     | { type: 'REPLACE_QUEUE_ITEM'; payload: { index: number; item: QueueItem } }
@@ -612,9 +659,18 @@ function reducer(state: AppState, action: Action): AppState {
         }
         case 'SET_QUEUE_ITEM_REMOTE_ID': {
             const { itemId, remoteQueueId } = action.payload
+            // Also stamp the id onto nowPlaying: the FIRST song dropped on an
+            // empty queue auto-pops into the now-playing slot BEFORE its
+            // companion INSERT resolves, so by the time this lands the item has
+            // already left state.queue. Without this the now-playing item never
+            // carries its row id and its queue row is never retired — leaving
+            // the active song stuck in the companion/mobile queue.
             return {
                 ...state,
-                queue: state.queue.map(q => q.id === itemId ? { ...q, remoteQueueId } : q)
+                queue: state.queue.map(q => q.id === itemId ? { ...q, remoteQueueId } : q),
+                nowPlaying: state.nowPlaying && state.nowPlaying.id === itemId
+                    ? { ...state.nowPlaying, remoteQueueId }
+                    : state.nowPlaying,
             }
         }
         case 'SET_EDITING_QUEUE_INDEX':
@@ -628,6 +684,27 @@ function reducer(state: AppState, action: Action): AppState {
             const resolved = action.payload ?? resolvePrevSong(state)
             if (!resolved) return state
             return { ...state, ...resolved }
+        }
+        case 'RESTORE_NOW_PLAYING': {
+            // Always lower the gate. With no song to restore (or a live song
+            // already playing), only the flag changes — the auto-pop effect
+            // then handles a genuinely empty now-playing slot.
+            if (!action.payload || state.nowPlaying) {
+                return { ...state, hydratingNowPlaying: false }
+            }
+            // Merge persisted mic slots into the restored singers so the saved
+            // mic devices route correctly without re-selecting them.
+            const item = mergeMicSlotsIntoItem(action.payload, state.micSlots)
+            return {
+                ...state,
+                nowPlaying: item,
+                stageMode: 'ready',
+                isPlaying: false,
+                currentTime: 0,
+                processingStatus: { stage: 'idle', progress: 0, message: '' },
+                micSlots: ensureSlots(state.micSlots, item.singers.length),
+                hydratingNowPlaying: false
+            }
         }
         case 'CLEAR_QUEUE':
             return { ...state, queue: [] }
@@ -755,7 +832,11 @@ function reducer(state: AppState, action: Action): AppState {
                 karaokeSessionId: action.payload.sessionId,
                 karaokeSessionCode: action.payload.sessionCode,
                 karaokeSessionName: action.payload.sessionName,
-                karaokeQrDataUrl: action.payload.qrDataUrl
+                karaokeQrDataUrl: action.payload.qrDataUrl,
+                // Raise the gate atomically with the session id so the auto-pop
+                // effect can't fire while the queue hydrates — it stays down
+                // until RESTORE_NOW_PLAYING resolves the persisted now-playing.
+                hydratingNowPlaying: true
             }
         case 'CLEAR_KARAOKE_SESSION':
             return { ...state, karaokeSessionId: null, karaokeSessionCode: null, karaokeSessionName: null, karaokeQrDataUrl: null }
@@ -839,13 +920,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
     }, [isStageWindow])
 
-    // Auto-pop queue when nothing is playing (main window only)
+    // Auto-pop queue when nothing is playing (main window only). Held off while
+    // a resumed session is still restoring its persisted now-playing song, so
+    // it can't promote the up-next song into the now-playing slot first and
+    // skip both songs on app restart.
     useEffect(() => {
         if (window.electronAPI?.isStageWindow) return
+        if (state.hydratingNowPlaying) return
         if (!state.nowPlaying && state.queue.length > 0) {
             dispatch({ type: 'NEXT_SONG' })
         }
-    }, [state.nowPlaying, state.queue.length, dispatch])
+    }, [state.nowPlaying, state.queue.length, state.hydratingNowPlaying, dispatch])
 
     // Persist the per-device vocal offset map across app restarts.
     useEffect(() => {
@@ -853,6 +938,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
             localStorage.setItem('vocalOffsetByDevice', JSON.stringify(state.vocalOffsetByDevice))
         } catch { /* localStorage may be unavailable; ignore */ }
     }, [state.vocalOffsetByDevice])
+
+    // Persist audio-device selections (main output, vocal monitors, mic slots)
+    // so they auto-select on the next launch. Main window only — device picking
+    // lives there and the stage window just mirrors the relayed state, so we
+    // don't want it writing (possibly pre-INIT) values back to the same store.
+    useEffect(() => {
+        if (window.electronAPI?.isStageWindow) return
+        try {
+            localStorage.setItem('audioDevicePrefs', JSON.stringify({
+                mainOutputId: state.mainOutputId,
+                monitorDeviceIds: state.monitorDeviceIds,
+                micSlots: state.micSlots,
+            }))
+        } catch { /* localStorage may be unavailable; ignore */ }
+    }, [state.mainOutputId, state.monitorDeviceIds, state.micSlots])
 
     useEffect(() => {
         if (!window.electronAPI) return
