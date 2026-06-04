@@ -62,15 +62,34 @@ function ThemeCrossfade({
   const fadeOutRef = useRef<Animated.CompositeAnimation | null>(null)
   const fadeInRef = useRef<Animated.CompositeAnimation | null>(null)
   const bgRef = useRef<Animated.CompositeAnimation | null>(null)
+  // Tracks which phase of the crossfade we're in. Used to detect the case
+  // where desired snaps back to rendered mid-fade-out: without this, the
+  // early-return below skips the .stop() call, the animation completes,
+  // sets rendered to the stale desired, and leaves opacity at 0 (black screen).
+  const phaseRef = useRef<'idle' | 'fading-out' | 'fading-in'>('idle')
 
   useEffect(() => {
-    if (desiredThemeName === renderedThemeName) return
+    if (desiredThemeName === renderedThemeName) {
+      // If desired snapped back to rendered while a fade-out was in-flight,
+      // cancel it and restore opacity — otherwise the fade-out would complete,
+      // set rendered to the wrong theme (stale closure value), and leave
+      // opacity at 0 with no fade-in to recover.
+      if (phaseRef.current === 'fading-out') {
+        fadeOutRef.current?.stop()
+        bgRef.current?.stop()
+        opacity.setValue(1)
+        bgProgress.setValue(1)
+        phaseRef.current = 'idle'
+      }
+      return
+    }
 
-    // Cancel any in-flight transition so a rapid second theme change picks
-    // up from wherever the screen currently is instead of fighting itself.
+    // A new theme is wanted. Cancel any in-flight transition so a rapid
+    // second change picks up from wherever the screen currently is.
     fadeOutRef.current?.stop()
     fadeInRef.current?.stop()
     bgRef.current?.stop()
+    phaseRef.current = 'fading-out'
 
     // Capture the current appBg as the interpolation starting point. Reset
     // bgProgress to 0 so the new transition animates from this color → the
@@ -99,6 +118,7 @@ function ThemeCrossfade({
     fadeOut.start(({ finished }) => {
       if (!finished) return
       // Swap descendants to the new theme while they're invisible.
+      phaseRef.current = 'fading-in'
       setRenderedThemeName(desiredThemeName)
       const fadeIn = Animated.timing(opacity, {
         toValue: 1,
@@ -106,7 +126,9 @@ function ThemeCrossfade({
         useNativeDriver: true,
       })
       fadeInRef.current = fadeIn
-      fadeIn.start()
+      fadeIn.start(({ finished: done }) => {
+        if (done) phaseRef.current = 'idle'
+      })
     })
   }, [desiredThemeName, renderedThemeName, opacity, bgProgress])
 

@@ -11,6 +11,14 @@ import { SessionThemeProvider } from '../theme/ThemeContext'
 import { SessionGuestsProvider } from '../hooks/useSessionGuests'
 import { SessionRevealLayer } from '../awards/SessionRevealLayer'
 import { QueueToastOverlay } from '../components/QueueToastOverlay'
+import { useSession } from '../hooks/useSession'
+import { usePushNotifications } from '../hooks/usePushNotifications'
+
+function PushNotificationRegistrar() {
+  const { session } = useSession()
+  usePushNotifications(session?.guestId)
+  return null
+}
 
 const Tabs = createBottomTabNavigator<SessionTabsParamList>()
 
@@ -51,6 +59,8 @@ export function SessionTabs() {
       <SessionRevealLayer />
       {/* Queue toast notifications — floats above all tabs. */}
       <QueueToastOverlay />
+      {/* Registers this device's push token so the host can notify us when it's our turn. */}
+      <PushNotificationRegistrar />
       </SessionGuestsProvider>
     </SessionThemeProvider>
   )

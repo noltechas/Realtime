@@ -220,7 +220,21 @@ export async function updateNowPlaying(sessionId: string, info: {
             updated_at: new Date().toISOString()
         })
         .eq('id', sessionId)
-    if (error) console.error('Failed to update now playing:', error.message)
+    if (error) {
+        console.error('Failed to update now playing:', error.message)
+        return
+    }
+    // Fire push notifications to singers who have the app closed. Fire-and-forget.
+    if (info?.singerConfigs?.length) {
+        supabase.functions.invoke('notify-singer', {
+            body: {
+                session_id: sessionId,
+                singer_configs: info.singerConfigs,
+                track_name: info.name,
+                track_artist: info.artist,
+            },
+        }).catch((err: unknown) => console.error('Push notify failed:', err))
+    }
 }
 
 export async function updateIsPlaying(sessionId: string, isPlaying: boolean): Promise<void> {
