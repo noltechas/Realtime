@@ -47,9 +47,6 @@ interface AwardIconProps {
   iconDataUrl?: string | null
   color: string
   size: number
-  // Round only matters for the data-URL image fallback (square photos crop to
-  // a circle on award cards). The SVG path always fills the parent.
-  rounded?: boolean
 }
 
 // Renders the visual for an award. Priority matches docs/js/render/awards.js's
@@ -63,7 +60,6 @@ export function AwardIcon({
   iconDataUrl,
   color,
   size,
-  rounded,
 }: AwardIconProps) {
   // Recolor the SVG by injecting `fill="<color>"` on the root <svg> tag and
   // replacing `currentColor` (iconify icons commonly use it). This mirrors the
@@ -89,13 +85,17 @@ export function AwardIcon({
   }, [iconId, iconDataUrl, featuredSvg])
 
   if (iconDataUrl) {
+    // Uploaded photos render as a rounded rectangle (never a circle) so the
+    // image keeps its framing instead of being cropped to a disc. Callers that
+    // want a gold-outlined frame draw it around this; here we just round the
+    // corners to match.
     return (
       <Image
         source={{ uri: iconDataUrl }}
         style={{
           width: size,
           height: size,
-          borderRadius: rounded ? size / 2 : 0,
+          borderRadius: Math.max(4, Math.round(size * 0.22)),
         }}
         resizeMode="cover"
       />

@@ -543,6 +543,27 @@ function Medallion({
   size?: number
   delay?: number
 }) {
+  // Uploaded photo → rounded-rectangle gold-outlined frame filled by the image
+  // (same footprint as the disc). Built-in icons keep the gilded coin.
+  if (iconDataUrl) {
+    return (
+      <Halo size={size} delay={delay}>
+        <View
+          style={{
+            width: size,
+            height: size,
+            borderRadius: Math.round(size * 0.22),
+            borderWidth: 2,
+            borderColor: GOLD,
+            backgroundColor: '#1a140a',
+            overflow: 'hidden',
+          }}
+        >
+          <Image source={{ uri: iconDataUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+        </View>
+      </Halo>
+    )
+  }
   return (
     <Halo size={size} delay={delay}>
       <View
@@ -557,7 +578,7 @@ function Medallion({
           justifyContent: 'center',
         }}
       >
-        <AwardIcon iconId={iconId} iconDataUrl={iconDataUrl} color={GOLD} size={Math.round(size * 0.52)} />
+        <AwardIcon iconId={iconId} iconDataUrl={null} color={GOLD} size={Math.round(size * 0.52)} />
       </View>
     </Halo>
   )
@@ -648,21 +669,38 @@ function Overview({ step }: { step: AwardsRevealStep }) {
           const iconDataUrl = (a as any).iconDataUrl ?? (a as any).icon_data_url ?? null
           return (
             <Pop key={(a as any).id ?? i} delay={180 + i * 90} from={0.7} style={{ width: '33.33%', alignItems: 'center', marginBottom: 24, paddingHorizontal: 4 }}>
-              <View
-                style={{
-                  width: 66,
-                  height: 66,
-                  borderRadius: 33,
-                  backgroundColor: 'rgba(212,175,55,0.08)',
-                  borderWidth: 1,
-                  borderColor: P.goldEdge,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: 9,
-                }}
-              >
-                <AwardIcon iconId={iconId} iconDataUrl={iconDataUrl} color={GOLD} size={36} />
-              </View>
+              {iconDataUrl ? (
+                <View
+                  style={{
+                    width: 66,
+                    height: 66,
+                    borderRadius: 15,
+                    borderWidth: 2,
+                    borderColor: GOLD,
+                    backgroundColor: '#1a140a',
+                    overflow: 'hidden',
+                    marginBottom: 9,
+                  }}
+                >
+                  <Image source={{ uri: iconDataUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                </View>
+              ) : (
+                <View
+                  style={{
+                    width: 66,
+                    height: 66,
+                    borderRadius: 33,
+                    backgroundColor: 'rgba(212,175,55,0.08)',
+                    borderWidth: 1,
+                    borderColor: P.goldEdge,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: 9,
+                  }}
+                >
+                  <AwardIcon iconId={iconId} iconDataUrl={null} color={GOLD} size={36} />
+                </View>
+              )}
               <Text style={{ fontFamily: P.fontDisplay, color: CREAM, fontSize: 14, textAlign: 'center', lineHeight: 21 }} numberOfLines={3}>
                 {a.title}
               </Text>

@@ -1050,6 +1050,43 @@ function AwardMedallion({
 }) {
   const struck = voted || finalized
   const iconColor = struck ? '#1a140a' : P.gold
+
+  // Uploaded photos use a rounded-rectangle gilded frame (same 60×60 footprint
+  // as the coin) with the image filling it, rather than a small icon centered
+  // in a disc.
+  if (award.icon_data_url) {
+    return (
+      <View
+        style={{
+          width: 60,
+          height: 60,
+          borderRadius: 14,
+          padding: 2.5,
+          shadowColor: struck ? P.gold : '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: struck ? 0.5 : 0.35,
+          shadowRadius: 10,
+          elevation: 6,
+        }}
+      >
+        <LinearGradient
+          colors={[P.goldBright, P.gold, P.goldDeep]}
+          locations={[0, 0.5, 1]}
+          start={{ x: 0.1, y: 0 }}
+          end={{ x: 0.9, y: 1 }}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 14 }}
+        />
+        <View style={{ flex: 1, borderRadius: 11.5, overflow: 'hidden', backgroundColor: P.surfaceDeep }}>
+          <Image
+            source={{ uri: award.icon_data_url }}
+            style={{ width: '100%', height: '100%' }}
+            resizeMode="cover"
+          />
+        </View>
+      </View>
+    )
+  }
+
   return (
     <View
       style={{
@@ -1106,10 +1143,9 @@ function AwardMedallion({
         ) : null}
         <AwardIcon
           iconId={award.icon_id}
-          iconDataUrl={award.icon_data_url}
+          iconDataUrl={null}
           color={iconColor}
           size={32}
-          rounded={false}
         />
       </View>
     </View>
@@ -1120,6 +1156,40 @@ function AwardMedallion({
 // list, scaled up to 120px so the award reads as a "trophy moment" when
 // you open it. Uses three-stop gold gradient on both the ring and the face.
 function DetailMedallion({ award }: { award: KaraokeAwardRow; finalized: boolean }) {
+  // Uploaded photo → rounded-rectangle gilded frame filled by the image.
+  if (award.icon_data_url) {
+    return (
+      <View
+        style={{
+          width: 120,
+          height: 120,
+          borderRadius: 26,
+          padding: 3,
+          shadowColor: P.gold,
+          shadowOffset: { width: 0, height: 12 },
+          shadowOpacity: 0.6,
+          shadowRadius: 24,
+          elevation: 14,
+        }}
+      >
+        <LinearGradient
+          colors={[P.goldBright, P.gold, P.goldDeep]}
+          locations={[0, 0.5, 1]}
+          start={{ x: 0.1, y: 0 }}
+          end={{ x: 0.9, y: 1 }}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 26 }}
+        />
+        <View style={{ flex: 1, borderRadius: 23, overflow: 'hidden', backgroundColor: P.surfaceDeep }}>
+          <Image
+            source={{ uri: award.icon_data_url }}
+            style={{ width: '100%', height: '100%' }}
+            resizeMode="cover"
+          />
+        </View>
+      </View>
+    )
+  }
+
   return (
     <View
       style={{
@@ -1166,10 +1236,9 @@ function DetailMedallion({ award }: { award: KaraokeAwardRow; finalized: boolean
         />
         <AwardIcon
           iconId={award.icon_id}
-          iconDataUrl={award.icon_data_url}
+          iconDataUrl={null}
           color="#1a140a"
           size={64}
-          rounded={false}
         />
       </View>
     </View>
@@ -1244,6 +1313,13 @@ function AwardDetail({
     () => buildAwardCandidates(award, history, guests),
     [award, history, guests],
   )
+  // Only the nominees this guest can actually vote for — you can't vote for
+  // yourself, so your own entries are hidden entirely rather than shown as
+  // disabled "Can't vote for yourself" rows.
+  const votableCandidates = useMemo(
+    () => candidates.filter((c) => !awardCandidateBanned(c, guestId, guestName)),
+    [candidates, guestId, guestName],
+  )
   const ballotRows = votes[award.id] || []
   // The voter's current picks, in rank order (index 0 = 1st place).
   const selected = useMemo(
@@ -1265,8 +1341,12 @@ function AwardDetail({
         ? 'Rank your top singers'
         : 'Rank the best duos & groups'
 
-  const emptyMsg =
-    award.subject_type === 'singer'
+  // When the only nominees are this guest's own entries, there's nothing they
+  // can vote for — explain that rather than implying the category is empty.
+  const selfOnly = candidates.length > 0 && votableCandidates.length === 0
+  const emptyMsg = selfOnly
+    ? "You're the only nominee here so far — you can't vote for yourself, but everyone else can vote for you."
+    : award.subject_type === 'singer'
       ? "No singers yet — once someone takes the mic they'll appear here."
       : award.subject_type === 'group'
         ? 'No multi-singer performances yet.'
@@ -1366,7 +1446,7 @@ function AwardDetail({
         ) : null}
       </View>
 
-      {candidates.length === 0 ? (
+      {votableCandidates.length === 0 ? (
         <View
           style={{
             padding: 32,
@@ -1403,20 +1483,17 @@ function AwardDetail({
 
           {/* Nominees */}
           <SectionLabel>Nominees</SectionLabel>
-          {candidates.map((c) => {
+          {votableCandidates.map((c) => {
             const idx = selectedIndex.get(c.key)
             const isSelected = idx !== undefined
-            const banned = awardCandidateBanned(c, guestId, guestName)
             const blockedByFull = full && !isSelected
-            const disabledTap = finalized || banned || blockedByFull
+            const disabledTap = finalized || blockedByFull
             const hint = finalized
               ? 'Voting closed'
-              : banned
-                ? "Can't vote for yourself"
-                : blockedByFull
-                  ? 'Ballot full'
-                  : 'Tap to rank'
-            const dim = finalized || banned || blockedByFull
+              : blockedByFull
+                ? 'Ballot full'
+                : 'Tap to rank'
+            const dim = finalized || blockedByFull
             return (
               <Pressable
                 key={c.key}
