@@ -246,8 +246,6 @@ ipcMain.on('playback:seek', (_event, timeMs) => {
 
 // Reaction relay to stage window
 ipcMain.on('reaction:send', (_event, reaction) => {
-    // [REACT-DBG] temporary diagnostic — remove after debugging
-    console.log('[REACT-DBG] main: relay reaction; stageWindow open?', !!stageWindow, 'content=', reaction?.content)
     if (stageWindow) {
         stageWindow.webContents.send('reaction:receive', reaction)
     }

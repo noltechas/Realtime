@@ -18,6 +18,7 @@ export function SteampunkGenreTabs({ list, counts, value, onChange }: GenreTabsP
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
+      style={{ flexGrow: 0 }}
       contentContainerStyle={{ paddingHorizontal: 24, paddingVertical: 14, gap: 10 }}
     >
       {list.map((g) => (

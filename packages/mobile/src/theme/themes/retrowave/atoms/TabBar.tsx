@@ -69,6 +69,7 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const activeIndex = state.index
 
   const chevronX = useRef(new Animated.Value(0)).current
+  const positioned = useRef(false)
 
   // Slats scroll UPWARD continuously on a 5s loop. Translating from 0 to
   // -STACK_HEIGHT covers exactly one cycle — the doubled stack means the
@@ -82,6 +83,13 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   useEffect(() => {
     if (tabWidth <= 0) return
     const center = tabWidth * (activeIndex + 0.5)
+    // Snap on first measure (avoids springing in from the bar's left edge,
+    // half a tab left of tab 0); spring only on later tab changes.
+    if (!positioned.current) {
+      positioned.current = true
+      chevronX.setValue(center)
+      return
+    }
     Animated.spring(chevronX, {
       toValue: center,
       tension: 130,
@@ -89,12 +97,6 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
       useNativeDriver: true,
     }).start()
   }, [activeIndex, tabWidth, chevronX])
-
-  useEffect(() => {
-    if (tabWidth <= 0) return
-    chevronX.setValue(tabWidth * (activeIndex + 0.5))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tabWidth > 0]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Compose a SINGLE "stack cycle" once and render it twice in the
   // animated container (stack + stack copy, vertically stacked). This is

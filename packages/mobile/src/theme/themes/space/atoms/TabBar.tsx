@@ -106,6 +106,7 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 
   // Planet position — springs to the active tab's center on tab change.
   const planetX = useRef(new Animated.Value(0)).current
+  const positioned = useRef(false)
   // One Animated.Value per route for opacity cross-fade. Created once; the
   // bottom-tab navigator never adds/removes routes at runtime.
   const planetOpacities = useRef(
@@ -133,6 +134,13 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   useEffect(() => {
     if (tabWidth <= 0) return
     const center = tabWidth * (activeIndex + 0.5)
+    // Snap on first measure (avoids springing in from the bar's left edge,
+    // half a tab left of tab 0); spring only on later tab changes.
+    if (!positioned.current) {
+      positioned.current = true
+      planetX.setValue(center)
+      return
+    }
     Animated.spring(planetX, {
       toValue: center,
       tension: 80,
@@ -140,14 +148,6 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
       useNativeDriver: true,
     }).start()
   }, [activeIndex, tabWidth, planetX])
-
-  // First-render snap.
-  useEffect(() => {
-    if (tabWidth <= 0) return
-    const center = tabWidth * (activeIndex + 0.5)
-    planetX.setValue(center)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tabWidth > 0]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Aurora flow along the top edge — continuous left→right slide.
   const auroraX = aurora.interpolate({

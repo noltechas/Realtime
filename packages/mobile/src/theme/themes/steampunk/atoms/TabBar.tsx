@@ -45,6 +45,7 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const activeIndex = state.index
 
   const pillX = useRef(new Animated.Value(0)).current
+  const positioned = useRef(false)
 
   // Filament breath along the top edge.
   const filament = useOscillator(4200)
@@ -62,6 +63,14 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   useEffect(() => {
     if (tabWidth <= 0) return
     const center = tabWidth * (activeIndex + 0.5)
+    // Snap into place the first time we have a measured width — otherwise the
+    // spring animates the marker in from translateX:0 (its center at the bar's
+    // left edge, half a tab left of tab 0). Only spring on later tab changes.
+    if (!positioned.current) {
+      positioned.current = true
+      pillX.setValue(center)
+      return
+    }
     Animated.spring(pillX, {
       toValue: center,
       tension: 90,
@@ -69,13 +78,6 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
       useNativeDriver: true,
     }).start()
   }, [activeIndex, tabWidth, pillX])
-
-  useEffect(() => {
-    if (tabWidth <= 0) return
-    const center = tabWidth * (activeIndex + 0.5)
-    pillX.setValue(center)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tabWidth > 0]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <View

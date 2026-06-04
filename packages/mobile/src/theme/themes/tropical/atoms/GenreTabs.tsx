@@ -17,6 +17,7 @@ export function GenreTabs({ list, counts, value, onChange }: GenreTabsProps) {
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
+      style={{ flexGrow: 0 }}
       contentContainerStyle={{ paddingHorizontal: 24, paddingVertical: 16, gap: 12 }}
     >
       {list.map((g) => {

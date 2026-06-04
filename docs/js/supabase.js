@@ -99,7 +99,10 @@ export function sendReaction(type,content){
       reactionType:type,
       content:content,
       senderName:S.guestName,
-      senderProfilePicture:S.profilePicture
+      // Send only the guest id; the stage resolves the avatar from its loaded
+      // roster. The base64 photo would exceed the Realtime broadcast size limit.
+      senderGuestId:S.guestId,
+      senderProfilePicture:null
     }
   });
 }

@@ -173,6 +173,12 @@ function SetupPanel() {
                 trackArtist: track.artists.map((a: { name: string }) => a.name).join(', '),
                 trackArtUrl: track.album.images[0]?.url || null,
                 trackDurationMs: track.duration_ms,
+                // Persist the per-song stage theme to the queue row. Without this
+                // the row's stage_theme stays null, and the source-agnostic UPDATE
+                // handler in useKaraokeSession (fired by votes / lock-on-deck) then
+                // clobbers the in-memory theme back to null via APPLY_REMOTE_EDIT,
+                // so the stage falls back to the globally-selected theme.
+                stageTheme: state.stageTheme ?? null,
                 singerConfigs: state.singers.map(s => {
                     // Reference identity by guestId when the slot is a linked
                     // guest; otherwise store the inline name (admin/host- or

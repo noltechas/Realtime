@@ -729,19 +729,21 @@ interface ReactionData {
     content: string
     senderName: string
     senderProfilePicture?: string | null
+    senderGuestId?: string | null
     x: number // offset from the anchored edge (%)
     side: 'left' | 'right'
 }
 
 function ReactionsOverlay() {
     const [reactions, setReactions] = useState<ReactionData[]>([])
+    // Clients send only the guest id (the base64 photo is too big for a Realtime
+    // broadcast); resolve the avatar from the locally-loaded guest roster.
+    const guestsMap = useGuestsMap()
 
     useEffect(() => {
         if (!window.electronAPI?.onReaction) return
 
         const handler = window.electronAPI.onReaction((reaction: any) => {
-            // [REACT-DBG] temporary diagnostic — remove after debugging
-            console.log('[REACT-DBG] stage: onReaction', reaction?.reactionType, reaction?.content)
             // Tomatoes are handled by TomatoSplatterLayer (thrown + splattered),
             // not rendered as a floating emoji bubble.
             if (reaction?.content === TOMATO_EMOJI) return
@@ -772,15 +774,18 @@ function ReactionsOverlay() {
 
     if (reactions.length === 0) return null
 
-    const renderAvatar = (r: ReactionData) => (
-        r.senderProfilePicture ? (
-            <img className="reaction-bubble__avatar" src={r.senderProfilePicture} alt="" />
+    const renderAvatar = (r: ReactionData) => {
+        // Prefer the locally-known photo for the guest id; fall back to any photo
+        // sent inline (legacy/website), then to the sender's initial.
+        const pic = (r.senderGuestId && guestsMap.get(r.senderGuestId)?.profile_picture) || r.senderProfilePicture
+        return pic ? (
+            <img className="reaction-bubble__avatar" src={pic} alt="" />
         ) : (
             <div className="reaction-bubble__avatar-initial">
                 {(r.senderName || '?').charAt(0).toUpperCase()}
             </div>
         )
-    )
+    }
 
     return (
         <div className="k-reactions-overlay">
@@ -3133,10 +3138,16 @@ export default function KaraokePage() {
                                             inlineStyle.color = activeSingerColor
                                             inlineStyle.background = undefined
                                             inlineStyle.backgroundColor = '#6E4423'
+                                            // Only DYE the plank to the singer color for syllable (word-timed)
+                                            // songs. Line-by-line songs keep plain timber — their color lives
+                                            // in the line text instead.
+                                            const tropHasSyl = Array.isArray(line.syllables) && line.syllables.length > 0
                                             inlineStyle.backgroundImage =
-                                                `linear-gradient(0deg, color-mix(in srgb, ${activeSingerColor}, transparent 60%), color-mix(in srgb, ${activeSingerColor}, transparent 60%)),` +
-                                                ` linear-gradient(180deg, rgba(255,255,255,0.16), rgba(0,0,0,0.24)),` +
-                                                ` repeating-linear-gradient(180deg, rgba(0,0,0,0.13) 0 2px, transparent 2px 13px)`
+                                                (tropHasSyl
+                                                    ? `linear-gradient(0deg, color-mix(in srgb, ${activeSingerColor}, transparent 60%), color-mix(in srgb, ${activeSingerColor}, transparent 60%)), `
+                                                    : '') +
+                                                `linear-gradient(180deg, rgba(255,255,255,0.16), rgba(0,0,0,0.24)), ` +
+                                                `repeating-linear-gradient(180deg, rgba(0,0,0,0.13) 0 2px, transparent 2px 13px)`
                                             inlineStyle.border = '3px solid #C99A54'
                                             inlineStyle.boxShadow = '0 10px 26px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.25)'
                                         } else {

@@ -26,6 +26,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import * as ImagePicker from 'expo-image-picker'
 import type { ThemeTokens, SingerConfig } from '@karaoke/shared'
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@karaoke/shared'
 import { useSession } from '../hooks/useSession'
 import { useProfile } from '../hooks/useProfile'
 import {
@@ -112,6 +113,7 @@ export function StageScreen() {
         <ReactGrid
           row={row}
           sessionId={session.sessionId}
+          guestId={session.guestId}
           guestName={guestName}
           profilePicture={profile?.profilePicture ?? null}
           bottomPadding={bottomPadding}
@@ -127,12 +129,14 @@ export function StageScreen() {
 function ReactGrid({
   row,
   sessionId,
+  guestId,
   guestName,
   profilePicture,
   bottomPadding,
 }: {
   row: FullSessionRow | null
   sessionId: string
+  guestId: string | undefined
   guestName: string | undefined
   profilePicture: string | null
   bottomPadding: number
@@ -159,32 +163,37 @@ function ReactGrid({
 
   const sendReaction = useCallback(
     (type: 'emoji' | 'text' | 'meme' | 'photo', content: string) => {
-      // [REACT-DBG] temporary diagnostic — remove after debugging
-      console.log('[REACT-DBG] mobile: sendReaction', type, content, 'channel=cr-' + sessionId, 'state=', channelRef.current?.state)
-      if (!channelRef.current) {
-        console.log('[REACT-DBG] mobile: NO channel ref — send aborted')
-        return
-      }
       const now = Date.now()
       if (now - lastReactionAtRef.current < REACTION_COOLDOWN_MS) return
       lastReactionAtRef.current = now
-      Promise.resolve(
-        channelRef.current.send({
-          type: 'broadcast',
-          event: 'reaction',
-          payload: {
-            id: now + '-' + Math.random().toString(36).slice(2, 8),
-            reactionType: type,
-            content,
-            senderName: guestName || '',
-            senderProfilePicture: profilePicture,
-          },
+      // Send reactions over the Realtime *REST* broadcast endpoint — it's simple
+      // and reliable from React Native. Keep the payload tiny: send only the
+      // guest id, NOT the base64 profile photo. A full photo exceeds the Realtime
+      // broadcast payload-size limit (the server returns 422 / silently drops it),
+      // so the stage resolves the avatar from its in-memory guest roster instead.
+      const reaction = {
+        id: now + '-' + Math.random().toString(36).slice(2, 8),
+        reactionType: type,
+        content,
+        senderName: guestName || '',
+        senderGuestId: guestId ?? null,
+        senderProfilePicture: null as string | null,
+      }
+      fetch(SUPABASE_URL + '/realtime/v1/api/broadcast', {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: 'Bearer ' + SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: [{ topic: 'cr-' + sessionId, event: 'reaction', payload: reaction, private: false }],
         }),
-      ).then((r) => console.log('[REACT-DBG] mobile: send result =', r))
+      }).catch(() => { /* reactions are best-effort */ })
       forceRerender((v) => v + 1)
       setTimeout(() => forceRerender((v) => v + 1), REACTION_COOLDOWN_MS + 20)
     },
-    [guestName, profilePicture],
+    [guestName, guestId, sessionId],
   )
 
   const onPickEmoji = useCallback((e: string) => {

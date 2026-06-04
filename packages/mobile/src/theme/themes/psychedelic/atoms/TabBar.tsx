@@ -54,6 +54,7 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   // Position values for the two blob bodies.
   const mainX = useRef(new Animated.Value(0)).current
   const trailX = useRef(new Animated.Value(0)).current
+  const positioned = useRef(false)
 
   // Per-blob continuous scale breathing. Different periods so the two
   // bodies pulse asynchronously — that's what makes the merged blob's
@@ -91,6 +92,14 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   useEffect(() => {
     if (tabWidth <= 0) return
     const center = tabWidth * (activeIndex + 0.5)
+    // Snap on first measure (avoids springing in from the bar's left edge,
+    // half a tab left of tab 0); spring only on later tab changes.
+    if (!positioned.current) {
+      positioned.current = true
+      mainX.setValue(center)
+      trailX.setValue(center)
+      return
+    }
     Animated.spring(mainX, {
       toValue: center,
       tension: 95,
@@ -104,15 +113,6 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
       useNativeDriver: true,
     }).start()
   }, [activeIndex, tabWidth, mainX, trailX])
-
-  // First-render snap.
-  useEffect(() => {
-    if (tabWidth <= 0) return
-    const center = tabWidth * (activeIndex + 0.5)
-    mainX.setValue(center)
-    trailX.setValue(center)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tabWidth > 0]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Scale interpolations — note: NO translateY, NO yBob. Scale only.
   const mainScale = mainBreath.interpolate({

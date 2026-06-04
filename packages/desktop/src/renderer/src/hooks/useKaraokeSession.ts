@@ -321,20 +321,12 @@ export function useKaraokeSession() {
             supabase.removeChannel(reactionChannelRef.current)
         }
 
-        // [REACT-DBG] temporary diagnostic — remove after debugging
-        console.log('[REACT-DBG] desktop: subscribing reaction channel cr-' + state.karaokeSessionId)
         const channel = supabase
             .channel('cr-' + state.karaokeSessionId)
             .on('broadcast', { event: 'reaction' }, (payload) => {
-                console.log('[REACT-DBG] desktop: broadcast RECEIVED', (payload as any)?.payload?.content)
                 window.electronAPI?.sendReaction(payload.payload)
             })
-            .on('broadcast', { event: '*' }, (payload) => {
-                console.log('[REACT-DBG] desktop: ANY-broadcast event=', (payload as any)?.event, 'content=', (payload as any)?.payload?.content)
-            })
-            .subscribe((status) => {
-                console.log('[REACT-DBG] desktop: reaction channel status =', status)
-            })
+            .subscribe()
 
         reactionChannelRef.current = channel
 
