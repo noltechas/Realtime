@@ -9,7 +9,7 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.noltechas.realtimekaraoke",
+      "bundleIdentifier": "com.noltechas.karaoke",
       "infoPlist": {
         "NSCameraUsageDescription": "Used to scan the host's QR code so you can join the session.",
         "NSPhotoLibraryUsageDescription": "Choose a profile photo to show on stage and in the queue.",
