@@ -189,6 +189,13 @@ const GLOBAL_CSS = `
   background: #5C3A1E;
   z-index: -1;
 }
+/* The song chip carries a 3px wood frame, so its absolutely-positioned cords are
+   measured from the padding box (inside the border) — that pushes them 3px down,
+   leaving a gap at the screen top and letting them paint over the plank's border.
+   Pull them up by the border width so they meet the screen top and stop exactly at
+   the plank's top edge. The singer-tag container is unbordered, so it's unchanged. */
+[data-theme="tropical"] .k-song-chip::before,
+[data-theme="tropical"] .k-song-chip::after { top: -39px; }
 [data-theme="tropical"] .k-song-chip::before { left: 22px; }
 [data-theme="tropical"] .k-song-chip::after  { right: 22px; }
 [data-theme="tropical"] .k-singers::before   { left: 22px; }
