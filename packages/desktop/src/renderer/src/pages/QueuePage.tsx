@@ -100,7 +100,30 @@ function SetupPanel() {
     const [customName, setCustomName] = useState('')
     // Joined guests not already added to this song (linked by guestId).
     const addedGuestIds = new Set(state.singers.map(s => s.guestId).filter(Boolean) as string[])
-    const availableGuests = state.guests.filter(g => !addedGuestIds.has(g.id))
+    // A single person can accumulate several karaoke_guests rows — they rejoined
+    // after their row was wiped, or joined from both phone and web — so the raw
+    // roster lists the same name+avatar twice. Collapse rows that share a
+    // normalized name + avatar (keeping the most recent), and drop any duplicate
+    // of an identity that's already a singer, so the picker shows each guest once.
+    const guestIdentity = (g: { name?: string | null; profile_picture?: string | null }) =>
+        (g.name || '').trim().toLowerCase() + '|' + (g.profile_picture || '')
+    const addedIdentities = new Set(
+        state.singers
+            .map(s => (s.guestId ? state.guests.find(g => g.id === s.guestId) : undefined))
+            .filter((g): g is KaraokeGuestRow => !!g)
+            .map(guestIdentity),
+    )
+    const availableGuests = (() => {
+        const byIdentity = new Map<string, KaraokeGuestRow>()
+        for (const g of state.guests) {
+            if (addedGuestIds.has(g.id)) continue
+            const key = guestIdentity(g)
+            if (addedIdentities.has(key)) continue
+            const existing = byIdentity.get(key)
+            if (!existing || (g.created_at || '') > (existing.created_at || '')) byIdentity.set(key, g)
+        }
+        return Array.from(byIdentity.values())
+    })()
 
     const addGuestSinger = (g: KaraokeGuestRow) => {
         // Carry the guest's saved colour through to a NEON pair when it matches

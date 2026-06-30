@@ -154,7 +154,25 @@ export async function rejoinAsGuest(g){
 export async function joinSession(name){
   if(S.joining)return;
   S.joining=true;S.guestName=name.trim();S.joinName="";S.screen="joining";render();
-  var ins={session_id:S.sessionId,name:name.trim()};
+  var trimmed=name.trim();
+  // Reuse an existing identical guest (same name + avatar) before inserting, so
+  // a rejoin after localStorage was cleared doesn't leave the host a ghost
+  // duplicate. Only when an avatar is set — two avatar-less same-name guests may
+  // be different people, so we never merge those. Avatar is compared client-side
+  // (it can be a large data URL that would blow past query-string limits).
+  if(S.profilePicture){
+    var ex=await sb.from("karaoke_guests").select("id,profile_picture").eq("session_id",S.sessionId).eq("name",trimmed).order("created_at",{ascending:false});
+    if(ex.data&&ex.data.length){
+      var mine=null;
+      for(var i=0;i<ex.data.length;i++){if((ex.data[i].profile_picture||"")===S.profilePicture){mine=ex.data[i];break;}}
+      if(mine){
+        S.guestId=mine.id;
+        saveLocal();saveDeviceProfile();
+        await loadCatalog();await loadQueue();await loadGuests();await loadAwards();subRT();S.joining=false;S.screen="songs";render();return;
+      }
+    }
+  }
+  var ins={session_id:S.sessionId,name:trimmed};
   if(S.profilePicture)ins.profile_picture=S.profilePicture;
   if(S.defaultColor)ins.default_color=S.defaultColor;
   var r=await sb.from("karaoke_guests").insert(ins).select("id").single();

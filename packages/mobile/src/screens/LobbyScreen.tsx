@@ -18,6 +18,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
   validateSession,
   createGuest,
+  findReusableGuest,
   getGuest,
   updateGuest,
   subscribeToGuests,
@@ -135,6 +136,25 @@ export function LobbyScreen() {
               defaultColor: color ?? null,
               profilePicture: finalPicture ?? null,
             })
+          }
+        }
+        // No usable prior identity (history was cleared / app reinstalled) but
+        // the row may still be live — reuse a same name+avatar guest before
+        // inserting so the host doesn't get a ghost duplicate.
+        if (!guest) {
+          const reusable = await findReusableGuest(
+            supabase,
+            session.id,
+            trimmedName,
+            finalPicture ?? null,
+          )
+          if (reusable) {
+            guest =
+              (await updateGuest(supabase, reusable.id, {
+                name: trimmedName,
+                defaultColor: color ?? null,
+                profilePicture: finalPicture ?? null,
+              })) ?? reusable
           }
         }
         if (!guest) {

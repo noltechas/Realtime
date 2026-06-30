@@ -54,6 +54,35 @@ export async function updateGuest(
   return (data as KaraokeGuestRow) ?? null
 }
 
+// Finds an existing guest row in this session that almost certainly belongs to
+// the SAME person, so a rejoin can reuse it instead of inserting a ghost
+// duplicate the host then sees twice in the singer picker. We match on name +
+// avatar and ONLY when an avatar is set: two avatar-less guests sharing a name
+// may genuinely be different people, so we never merge those. Returns the most
+// recent match, or null (callers fall back to createGuest). Avatar comparison
+// is done client-side rather than via `.eq()` because avatars can be large
+// data URLs that would blow past query-string length limits.
+export async function findReusableGuest(
+  client: KaraokeClient,
+  sessionId: string,
+  name: string,
+  profilePicture: string | null | undefined,
+): Promise<KaraokeGuestRow | null> {
+  if (!profilePicture) return null
+  const { data, error } = await client
+    .from('karaoke_guests')
+    .select('*')
+    .eq('session_id', sessionId)
+    .eq('name', name.trim())
+    .order('created_at', { ascending: false })
+
+  if (error || !data) return null
+  const match = (data as KaraokeGuestRow[]).find(
+    (g) => (g.profile_picture || '') === profilePicture,
+  )
+  return match ?? null
+}
+
 export async function getGuest(
   client: KaraokeClient,
   guestId: string,

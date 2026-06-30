@@ -17,6 +17,7 @@ export {
 export type { ValidateSessionResult, SessionStatus } from './session'
 export {
   createGuest,
+  findReusableGuest,
   getGuest,
   listGuests,
   subscribeToGuests,
