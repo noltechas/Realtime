@@ -9,7 +9,7 @@ export const sb=supabase.createClient(SB_URL,SB_KEY);
 // iOS: paste a TestFlight invite URL or App Store link here. Leave "" to hide
 // the iOS download button (iOS users still get "Continue in browser").
 export const ANDROID_APP_URL="downloads/realtime-karaoke.apk";
-export const IOS_APP_URL="https://testflight.apple.com/join/MSRV8ekT";
+export const IOS_APP_URL="https://apps.apple.com/us/app/lake-house-karaoke/id6781926955";
 export const NC=[
 {c:"#22d3ee",g:"rgba(34,211,238,0.3)"},
 {c:"#f472b6",g:"rgba(244,114,182,0.3)"},

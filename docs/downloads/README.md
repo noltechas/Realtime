@@ -32,3 +32,6 @@ iOS apps cannot be installed via a direct download — Apple requires App Store
 or TestFlight. Once you have a TestFlight invite URL (or App Store link), paste
 it into `IOS_APP_URL` in `docs/js/state.js`. The iOS download button on the
 companion site will switch from "Coming soon" to an active link automatically.
+
+Currently set to the unlisted App Store listing:
+`https://apps.apple.com/us/app/lake-house-karaoke/id6781926955`.
