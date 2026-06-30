@@ -6,6 +6,7 @@ import {
 } from '@karaoke/shared'
 import { supabase } from '../supabase/client'
 import { useSession } from './useSession'
+import { useForegroundEpoch } from './useAppForeground'
 
 // Live `guestId -> guest` lookup for the active session. Singers reference
 // guests by id, so every renderer (queue rows, stage, wizard, awards) resolves
@@ -24,6 +25,7 @@ export function SessionGuestsProvider({
 }) {
   const { session } = useSession()
   const [map, setMap] = useState<Map<string, KaraokeGuestRow>>(new Map())
+  const foregroundEpoch = useForegroundEpoch()
 
   useEffect(() => {
     const sessionId = session?.sessionId
@@ -37,7 +39,8 @@ export function SessionGuestsProvider({
       setMap(guestsById(rows)),
     )
     return unsub
-  }, [session?.sessionId])
+    // foregroundEpoch re-runs this on app resume — see useAppForeground.
+  }, [session?.sessionId, foregroundEpoch])
 
   return (
     <SessionGuestsContext.Provider value={map}>

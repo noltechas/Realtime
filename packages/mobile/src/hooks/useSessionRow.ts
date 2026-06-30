@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { AwardsRevealStep, KaraokeSessionRow, SingerConfig } from '@karaoke/shared'
 import { supabase } from '../supabase/client'
+import { useForegroundEpoch } from './useAppForeground'
 
 // Extends the shared KaraokeSessionRow with the columns the React/Stage tab
 // reads. These exist in the live DB but aren't in the shared `tables.ts` type
@@ -55,6 +56,9 @@ export interface TrendingGif {
 // realtime sub in one hook keeps StageScreen's lifecycle clean.
 export function useSessionRow(sessionId: string | undefined): FullSessionRow | null {
   const [row, setRow] = useState<FullSessionRow | null>(null)
+  // Re-run on foreground so a song/theme/singer change made while we were
+  // backgrounded (and thus missed over the suspended socket) is picked up.
+  const foregroundEpoch = useForegroundEpoch()
 
   useEffect(() => {
     if (!sessionId) {
@@ -118,7 +122,7 @@ export function useSessionRow(sessionId: string | undefined): FullSessionRow | n
       cancelled = true
       supabase.removeChannel(channel)
     }
-  }, [sessionId])
+  }, [sessionId, foregroundEpoch])
 
   return row
 }

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { subscribeToQueue, type KaraokeQueueRow } from '@karaoke/shared'
 import { supabase } from '../supabase/client'
 import { useSession } from './useSession'
+import { useForegroundEpoch } from './useAppForeground'
 
 export interface QueueToastData {
   id: string
@@ -19,6 +20,7 @@ export function useQueueToast() {
   const [queue, setQueue] = useState<QueueToastData[]>([])
   const seenIds = useRef(new Set<string>())
   const isInitialLoad = useRef(true)
+  const foregroundEpoch = useForegroundEpoch()
 
   useEffect(() => {
     if (!session) return
@@ -58,7 +60,8 @@ export function useQueueToast() {
       isInitialLoad.current = true
       seenIds.current.clear()
     }
-  }, [session?.sessionId])
+    // foregroundEpoch re-runs this on app resume — see useAppForeground.
+  }, [session?.sessionId, foregroundEpoch])
 
   const dismiss = () => setQueue((prev) => prev.slice(1))
 

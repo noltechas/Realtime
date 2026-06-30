@@ -32,6 +32,7 @@ import { useTheme, LocalThemeProvider } from '../theme/ThemeContext'
 import { useSession } from '../hooks/useSession'
 import { useSessionGuests } from '../hooks/useSessionGuests'
 import { useCatalog } from '../hooks/useCatalog'
+import { useForegroundEpoch } from '../hooks/useAppForeground'
 import { supabase } from '../supabase/client'
 
 type QueueNav = CompositeNavigationProp<
@@ -95,12 +96,14 @@ export function QueueScreen() {
   const [rows, setRows] = useState<KaraokeQueueRow[]>([])
   const [refreshing, setRefreshing] = useState(false)
   const { votedMap, markVoted } = useVotedMap(session?.sessionCode)
+  const foregroundEpoch = useForegroundEpoch()
 
   useEffect(() => {
     if (!session) return
     const unsub = subscribeToQueue(supabase, session.sessionId, setRows)
     return () => unsub()
-  }, [session?.sessionId])
+    // foregroundEpoch re-runs this on app resume — see useAppForeground.
+  }, [session?.sessionId, foregroundEpoch])
 
   const onRefresh = async () => {
     if (!session) return
