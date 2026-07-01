@@ -63,6 +63,11 @@ export interface KaraokeGuestRow {
    *  re-queueing. Guests no longer set this from the companion site / app. */
   white_person_check: boolean
   created_at: string
+  /** Presence heartbeat stamped by the mobile companion while foregrounded
+   *  (NULL when backgrounded/closed). The notify-singer edge function skips
+   *  guests whose value is fresh so "it's your turn" pushes only reach users
+   *  who are NOT actively in the app. Optional here — most reads don't select it. */
+  last_active_at?: string | null
 }
 
 export interface KaraokeQueueRow {

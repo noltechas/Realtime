@@ -19,7 +19,7 @@
  *   - harmonic-ratio error  : ±2 cents   (phase vocoder: ~13 cents)
  *   - vowel harmonicity      : 22-26 dB    (phase vocoder: 17-18 dB)
  *   - pitch accuracy         : exact       (phase vocoder: bin-quantized)
- *   - latency                : ~32 ms      (phase vocoder: 64 ms)
+ *   - latency                : ~21 ms      (phase vocoder: 64 ms)
  *   - CPU                     : lower (no per-frame FFT)
  *
  * HOW TD-PSOLA works here (streaming):
@@ -43,8 +43,21 @@
  * - debugRatio: number | null (dev test harness — forces exact pitch ratio,
  *   bypasses clamp and smoothing)
  *
- * Latency: PS_LATENCY = 1536 samples ≈ 32 ms @ 48 kHz (PSOLA needs ~2 pitch
- * periods of lookahead; sized for the lowest voice in the YIN range, ~78 Hz).
+ * Latency: PS_LATENCY = 1024 samples ≈ 21 ms @ 48 kHz. The drain runs a fixed
+ * PS_LATENCY behind the write head; that offset — present whenever autotune is
+ * ON (the engine routes AROUND this node when it's off) — is the only latency
+ * autotune adds, so it's exactly the "slight delay" a singer perceives. The
+ * binding correctness constraint is only PS_LATENCY > grainHalf + search
+ * (≈1.1 pitch periods) for the drain frontier to stay covered by synthesis
+ * grains; the old 1536 ("2 full periods, sized for a 78 Hz bass") was far more
+ * conservative than the algorithm needs. Measured with scripts/latency-sweep.js
+ * + onset-sweep.js: correction coverage stays at 0% dry-fallback down to 90 Hz
+ * even at 768 samples, across steady tone AND per-word gate re-anchoring. 1024
+ * keeps a generous margin over that 768 floor (real voice is noisier than the
+ * synthetic test signal) while shaving ~11 ms off the perceived delay. Voices
+ * whose fundamental drops below ~90 Hz for a sustained note degrade gracefully:
+ * the shortfall shows up as brief clean dry passthrough (uncorrected), never a
+ * click.
  */
 
 export const PITCH_CORRECTION_PROCESSOR_CODE = `
@@ -107,13 +120,17 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
         // ─────────────────────────────────────────────────────────────
         // TD-PSOLA synthesis state
         // ─────────────────────────────────────────────────────────────
-        // Fixed latency. PSOLA needs ~2 pitch periods of lookahead (a grain's
-        // future half + the next grain + one block). Sized for ~78 Hz (the
-        // lowest fundamental the YIN range admits): 2*615 + search + block ≈
-        // 1510. 1536 ≈ 32 ms @ 48 kHz. Voices below ~78 Hz degrade gracefully.
-        this._PS_LATENCY = 1536;
+        // Fixed latency = the drain's constant offset behind the write head,
+        // and the ONLY delay autotune adds (this node is bypassed when autotune
+        // is off). Coverage needs PS_LATENCY > grainHalf + search (≈1.1 pitch
+        // periods): at ~90 Hz that's 533 + 67 ≈ 600, so 1024 leaves a >400-
+        // sample margin. Verified 0% correction dropout down to 90 Hz — steady
+        // and per-word onset — even at 768 (scripts/latency-sweep.js,
+        // onset-sweep.js). 1024 ≈ 21 ms @ 48 kHz; voices below ~90 Hz degrade
+        // to clean dry passthrough (no click). Was 1536 ("2 periods @ 78 Hz").
+        this._PS_LATENCY = 1024;
         // Output OLA ring (absolute positions indexed mod length). Must exceed
-        // PS_LATENCY + 2*grainHalfMax + margin (~1536 + 1400 ≈ 3000); 8192 safe.
+        // PS_LATENCY + 2*grainHalfMax + margin (~1024 + 1400 ≈ 2400); 8192 safe.
         this._psOutLen = 8192;
         this._psOut = new Float32Array(this._psOutLen);   // grain OLA accumulator
         this._psWsum = new Float32Array(this._psOutLen);  // parallel window-sum

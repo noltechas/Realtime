@@ -43,7 +43,7 @@ export class VoiceEffectsEngine {
     private pitchCorrectionReady = false
     private pitchCorrectionBypass: GainNode
     // Whether the signal is currently routed THROUGH the worklet (true) or
-    // AROUND it via pitchCorrectionBypass (false). The PSOLA worklet adds ~32ms
+    // AROUND it via pitchCorrectionBypass (false). The PSOLA worklet adds ~21ms
     // of latency even when not correcting, so we route around it when autotune
     // is off to give that singer near-zero added latency.
     private pitchActive = false
@@ -425,7 +425,7 @@ export class VoiceEffectsEngine {
 
     /**
      * Route the mic either THROUGH the pitch-correction worklet or AROUND it
-     * via the unity bypass node. The PSOLA worklet imposes ~32 ms of latency
+     * via the unity bypass node. The PSOLA worklet imposes ~21 ms of latency
      * even when it isn't correcting (its lookahead ring delays the signal), so
      * when autotune is disabled for a singer we route around it entirely to
      * give that mic near-zero added latency. Only re-wires on an actual state
@@ -676,7 +676,7 @@ export class VoiceEffectsEngine {
                 key: fx.key ?? -1,
                 mode: fx.mode ?? 1,
             })
-            // Route around the worklet when autotune is off (saves ~32ms latency)
+            // Route around the worklet when autotune is off (saves ~21ms latency)
             this.updatePitchRouting()
         }
 
