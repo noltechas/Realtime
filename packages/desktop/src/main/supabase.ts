@@ -202,10 +202,21 @@ export function subscribeToQueue(sessionId: string, callbacks: QueueCallbacks): 
         .subscribe()
 }
 
+// Last queue-turn we fired a "you're up" push for, per session. Keyed by the
+// queue item's own client-generated id (QueueItem.id in AppContext.tsx) —
+// NOT trackId, so the same song queued twice in a row still notifies twice.
+// The renderer's now-playing sync effect legitimately calls updateNowPlaying
+// TWICE for one turn (once when nowPlaying.id changes, again moments later
+// once remoteQueueId lands — see the comment above that effect in
+// useKaraokeSession.ts); both calls carry the same turnId, so this map is
+// what collapses them back into a single push instead of a duplicate.
+const lastNotifiedTurnIdBySession = new Map<string, string>()
+
 export async function updateNowPlaying(sessionId: string, info: {
     trackId: string; name: string; artist: string; artUrl: string | null;
     singerConfigs?: any[];
     stageTheme?: string | null;
+    turnId?: string;
 } | null): Promise<void> {
     const { error } = await supabase
         .from('karaoke_sessions')
@@ -225,15 +236,25 @@ export async function updateNowPlaying(sessionId: string, info: {
         return
     }
     // Fire push notifications to singers who have the app closed. Fire-and-forget.
+    // Deduped by turnId (see lastNotifiedTurnIdBySession above) — the renderer
+    // calls updateNowPlaying twice for the same turn, and without this guard
+    // that means two Expo push messages (two banners) for one "you're up".
     if (info?.singerConfigs?.length) {
-        supabase.functions.invoke('notify-singer', {
-            body: {
-                session_id: sessionId,
-                singer_configs: info.singerConfigs,
-                track_name: info.name,
-                track_artist: info.artist,
-            },
-        }).catch((err: unknown) => console.error('Push notify failed:', err))
+        const alreadyNotified = info.turnId !== undefined
+            && lastNotifiedTurnIdBySession.get(sessionId) === info.turnId
+        if (!alreadyNotified) {
+            if (info.turnId !== undefined) lastNotifiedTurnIdBySession.set(sessionId, info.turnId)
+            supabase.functions.invoke('notify-singer', {
+                body: {
+                    session_id: sessionId,
+                    singer_configs: info.singerConfigs,
+                    track_name: info.name,
+                    track_artist: info.artist,
+                },
+            }).catch((err: unknown) => console.error('Push notify failed:', err))
+        }
+    } else {
+        lastNotifiedTurnIdBySession.delete(sessionId)
     }
 }
 
@@ -425,6 +446,8 @@ export async function closeSession(sessionId: string): Promise<void> {
         .from('karaoke_sessions')
         .update({ is_active: false, updated_at: new Date().toISOString() })
         .eq('id', sessionId)
+
+    lastNotifiedTurnIdBySession.delete(sessionId)
 }
 
 export async function deleteSession(sessionId: string): Promise<void> {
@@ -447,6 +470,8 @@ export async function deleteSession(sessionId: string): Promise<void> {
     await supabase.from('karaoke_catalog').delete().eq('session_id', sessionId)
     const { error } = await supabase.from('karaoke_sessions').delete().eq('id', sessionId)
     if (error) console.error('Failed to delete session:', error.message)
+
+    lastNotifiedTurnIdBySession.delete(sessionId)
 }
 
 // ============================================================================

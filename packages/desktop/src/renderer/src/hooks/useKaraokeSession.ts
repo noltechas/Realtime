@@ -482,6 +482,12 @@ export function useKaraokeSession() {
             prevNowPlayingRowRef.current = { itemId: currentItemId, rowId: currentRowId, trackId: state.nowPlaying.track.id }
             window.electronAPI?.syncNowPlaying({
                 trackId: state.nowPlaying.track.id,
+                // Stable per-turn id (the queue item's own id, not the track's).
+                // This effect re-runs a second time for the same turn once
+                // remoteQueueId lands (see comment above) — turnId lets
+                // updateNowPlaying collapse that into a single push instead of
+                // firing "you're up" twice for one turn.
+                turnId: state.nowPlaying.id,
                 name: state.nowPlaying.track.name,
                 artist: state.nowPlaying.track.artists.map(a => a.name).join(', '),
                 artUrl: state.nowPlaying.track.album.images[0]?.url || null,
