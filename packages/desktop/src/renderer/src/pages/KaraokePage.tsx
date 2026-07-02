@@ -110,18 +110,21 @@ function NbCropMark({ style, rotate = 0 }: { style: React.CSSProperties; rotate?
 // Full-bleed cream poster sheet behind the Up Next lockup — portaled to <body>
 // so it paints between the blurred album backdrop (z 0) and the lyric/chrome
 // layers (z 10/20), same trick as the tropical beach backdrop.
-function NeoBrutalPosterBackdrop() {
+function NeoBrutalPosterBackdrop({ showVideo = false }: { showVideo?: boolean }) {
     const blocks: Array<React.CSSProperties & { rot: number; dur: number }> = [
         { top: '9%', left: '4%', width: 110, height: 110, background: '#FFD60A', rot: -9, dur: 7 },
         { top: '15%', right: '6%', width: 84, height: 84, background: '#B388FF', rot: 11, dur: 8.5 },
         { bottom: '18%', left: '8%', width: 70, height: 70, background: '#00E676', rot: 6, dur: 9.5 },
         { bottom: '24%', right: '9%', width: 96, height: 96, background: '#FF3B30', rot: -7, dur: 8 },
     ]
+    // When a music video plays behind the lockup, drop the opaque cream sheet
+    // and the full-bleed print texture so the clip shows through; keep the
+    // floating ink-bordered color blocks — they read great over video.
     const sheet = (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 2, pointerEvents: 'none', overflow: 'hidden', background: NB_CREAM }}>
-            <div className="nb-print-grid" style={{ position: 'absolute', inset: 0 }} />
-            <div className="nb-dots" style={{ position: 'absolute', top: -110, right: -80, width: 460, height: 460, transform: 'rotate(10deg)' }} />
-            <div className="nb-dots" style={{ position: 'absolute', bottom: -130, left: -90, width: 520, height: 520, transform: 'rotate(-7deg)' }} />
+        <div style={{ position: 'fixed', inset: 0, zIndex: 2, pointerEvents: 'none', overflow: 'hidden', background: showVideo ? 'transparent' : NB_CREAM }}>
+            {!showVideo && <div className="nb-print-grid" style={{ position: 'absolute', inset: 0 }} />}
+            {!showVideo && <div className="nb-dots" style={{ position: 'absolute', top: -110, right: -80, width: 460, height: 460, transform: 'rotate(10deg)' }} />}
+            {!showVideo && <div className="nb-dots" style={{ position: 'absolute', bottom: -130, left: -90, width: 520, height: 520, transform: 'rotate(-7deg)' }} />}
             {blocks.map(({ rot, dur, ...pos }, i) => (
                 <div
                     key={i}
@@ -135,10 +138,6 @@ function NeoBrutalPosterBackdrop() {
                     }}
                 />
             ))}
-            <NbCropMark style={{ top: 18, left: 18 }} />
-            <NbCropMark style={{ top: 18, right: 18 }} rotate={90} />
-            <NbCropMark style={{ bottom: 18, right: 18 }} rotate={180} />
-            <NbCropMark style={{ bottom: 18, left: 18 }} rotate={270} />
         </div>
     )
     return createPortal(sheet, document.body)
@@ -158,6 +157,7 @@ function NeoBrutalUpNext({
     np,
     roles,
     guestsMap,
+    showVideo = false,
 }: {
     theme: any
     art: string | null
@@ -166,6 +166,7 @@ function NeoBrutalUpNext({
     np: any
     roles: string[]
     guestsMap: Map<string, any>
+    showVideo?: boolean
 }) {
     const dur = track?.duration_ms
         ? `${Math.floor(track.duration_ms / 60000)}:${Math.floor((track.duration_ms % 60000) / 1000)
@@ -175,7 +176,7 @@ function NeoBrutalUpNext({
     const title = np?.isHidden ? 'SECRET SONG' : track?.name || ''
     return (
         <div style={{ width: '100%', maxWidth: 1160, margin: '0 auto', padding: '0 48px', position: 'relative' }}>
-            <NeoBrutalPosterBackdrop />
+            <NeoBrutalPosterBackdrop showVideo={showVideo} />
             <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 28 }}>
                 {/* UP NEXT plate on a yellow offset block */}
                 <div style={{ position: 'relative', ['--nb-rot' as string]: '-2deg', animation: 'nb-slam 0.5s var(--ease-bounce) both' }}>
@@ -229,7 +230,6 @@ function NeoBrutalUpNext({
                                 position: 'absolute', top: -15, left: 26, background: '#00E676',
                                 border: `3px solid ${NB_INK}`, boxShadow: `3px 3px 0 ${NB_INK}`, padding: '2px 12px',
                                 fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 12, letterSpacing: '0.22em', color: NB_INK,
-                                animation: 'nb-blink 1.6s steps(1) infinite',
                             }}
                         >
                             READY
@@ -463,10 +463,13 @@ function UrbanWallLayers({ noiseId }: { noiseId: string }) {
 
 // Full-bleed night wall behind the Up Next lockup — portaled to <body> so it
 // paints between the blurred album backdrop (z 0) and the lyric/chrome layers.
-function UrbanPosterBackdrop() {
+function UrbanPosterBackdrop({ showVideo = false }: { showVideo?: boolean }) {
+    // Over a music video: swap the solid night-wall for a translucent dark
+    // wash (keeps the after-dark mood + marker-title legibility) and drop the
+    // opaque wall texture so the clip reads through.
     const wall = (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 2, pointerEvents: 'none', overflow: 'hidden', background: URB_VOID }}>
-            <UrbanWallLayers noiseId="urban-poster-noise" />
+        <div style={{ position: 'fixed', inset: 0, zIndex: 2, pointerEvents: 'none', overflow: 'hidden', background: showVideo ? 'linear-gradient(180deg, rgba(5,5,5,0.55) 0%, rgba(5,5,5,0.32) 40%, rgba(5,5,5,0.62) 100%)' : URB_VOID }}>
+            {!showVideo && <UrbanWallLayers noiseId="urban-poster-noise" />}
         </div>
     )
     return createPortal(wall, document.body)
@@ -478,9 +481,9 @@ function UrbanPosterBackdrop() {
 // tagged in marker with the lead singer's glow, and slashed backstage chips
 // for everyone on the mic.
 function UrbanUpNext({
-    theme, art, track, singers, np, roles, guestsMap,
+    theme, art, track, singers, np, roles, guestsMap, showVideo = false,
 }: {
-    theme: any; art: string | null; track: any; singers: any[]; np: any; roles: string[]; guestsMap: Map<string, any>
+    theme: any; art: string | null; track: any; singers: any[]; np: any; roles: string[]; guestsMap: Map<string, any>; showVideo?: boolean
 }) {
     const dur = track?.duration_ms
         ? `${Math.floor(track.duration_ms / 60000)}:${Math.floor((track.duration_ms % 60000) / 1000).toString().padStart(2, '0')}`
@@ -490,7 +493,7 @@ function UrbanUpNext({
     const tornPaper = 'polygon(0 0, 100% 0, 100% 95%, 92% 100%, 78% 96%, 55% 100%, 34% 96.5%, 14% 100%, 0 96%)'
     return (
         <div style={{ width: '100%', maxWidth: 1160, margin: '0 auto', padding: '0 48px', position: 'relative' }}>
-            <UrbanPosterBackdrop />
+            <UrbanPosterBackdrop showVideo={showVideo} />
             <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 26 }}>
                 {/* UP NEXT spray stencil */}
                 <div style={{ animation: 'urban-spray-in 0.45s ease-out both' }}>
@@ -968,7 +971,10 @@ function TropClouds() {
 // album backdrop (z-index 0) and the lyric/chrome layers (z 10/20) without being
 // clipped by the lyric mask. `live` dims it to a subtle sunset wash + palm
 // silhouettes during playback so lyrics stay readable.
-function TropBeachBackdrop({ live = false }: { live?: boolean }) {
+function TropBeachBackdrop({ live = false, showVideo = false }: { live?: boolean; showVideo?: boolean }) {
+    // Over a music video the sky/sun/clouds/waves would look broken, so we drop
+    // them and let the clip fill the frame under a soft aqua-tinted scrim, then
+    // anchor the palms as dark silhouettes so it still reads as the tiki stage.
     const scene = (
         <div
             style={{
@@ -977,24 +983,26 @@ function TropBeachBackdrop({ live = false }: { live?: boolean }) {
                 zIndex: 2,
                 pointerEvents: 'none',
                 overflow: 'hidden',
-                background: live
+                background: showVideo
+                    ? 'linear-gradient(180deg, rgba(20,46,41,0.35) 0%, rgba(20,46,41,0.12) 45%, rgba(14,46,41,0.6) 100%)'
+                    : live
                     ? 'linear-gradient(180deg, rgba(20,46,41,0) 0%, rgba(20,46,41,0) 55%, rgba(14,46,41,0.55) 100%)'
                     : 'linear-gradient(180deg, #38B6E8 0%, #5ECBE8 28%, #2FC4C0 50%, #7FE0D6 58%, #F4E2B8 70%, #FFF4DE 100%)',
             }}
         >
-            {!live && (
+            {!live && !showVideo && (
                 <>
                     <div style={{ position: 'absolute', top: '9%', right: '12%', width: 130, height: 130, borderRadius: '50%', background: 'radial-gradient(circle, #FFE27A 0%, #FFC83D 58%, #FFB02E 100%)', animation: 'tropSun 6s ease-in-out infinite' }} />
                     <TropClouds />
                     <div style={{ position: 'absolute', left: 0, right: 0, top: '50%', height: '11%', opacity: 0.5, backgroundImage: 'repeating-linear-gradient(95deg, rgba(255,255,255,0.6) 0 3px, transparent 3px 24px)', animation: 'tropWave 6s linear infinite' }} />
                 </>
             )}
-            {/* palms anchored bottom corners — full color for Up Next, dark silhouettes when live */}
-            <div style={{ position: 'absolute', inset: 0, opacity: live ? 0.4 : 1, filter: live ? 'brightness(0.35) saturate(0.7)' : 'none' }}>
-                <TropPalm swayDur={7} style={{ left: -96, bottom: -40 }} scale={live ? 0.8 : 0.92} />
-                <TropPalm flip swayDur={8.5} style={{ right: -96, bottom: -40 }} scale={live ? 0.8 : 0.92} />
+            {/* palms anchored bottom corners — full color for Up Next, dark silhouettes when live or over video */}
+            <div style={{ position: 'absolute', inset: 0, opacity: (live || showVideo) ? 0.4 : 1, filter: (live || showVideo) ? 'brightness(0.35) saturate(0.7)' : 'none' }}>
+                <TropPalm swayDur={7} style={{ left: -96, bottom: -40 }} scale={(live || showVideo) ? 0.8 : 0.92} />
+                <TropPalm flip swayDur={8.5} style={{ right: -96, bottom: -40 }} scale={(live || showVideo) ? 0.8 : 0.92} />
             </div>
-            {!live && (
+            {!live && !showVideo && (
                 <>
                     <TropTorch style={{ bottom: '14%', left: '15%' }} />
                     <TropTorch style={{ bottom: '14%', right: '15%' }} />
@@ -1017,6 +1025,7 @@ function TropicalUpNext({
     np,
     roles,
     guestsMap,
+    showVideo = false,
 }: {
     theme: any
     art: string | null
@@ -1025,6 +1034,7 @@ function TropicalUpNext({
     np: any
     roles: string[]
     guestsMap: Map<string, any>
+    showVideo?: boolean
 }) {
     const dur = track?.duration_ms
         ? `${Math.floor(track.duration_ms / 60000)}:${Math.floor((track.duration_ms % 60000) / 1000).toString().padStart(2, '0')}`
@@ -1032,7 +1042,7 @@ function TropicalUpNext({
     const woodGrain = 'repeating-linear-gradient(180deg, rgba(0,0,0,0.10) 0 2px, transparent 2px 16px)'
     return (
         <div className="anim-enter" style={{ width: '100%', maxWidth: 1100, margin: '0 auto', padding: '0 48px', position: 'relative' }}>
-            <TropBeachBackdrop />
+            <TropBeachBackdrop showVideo={showVideo} />
             <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 26 }}>
                 {/* Carved UP NEXT sign hanging on bamboo */}
                 <div style={{ position: 'relative', background: 'linear-gradient(165deg, #8A5A2F, #6E4423)', border: '5px solid #CDA85A', borderRadius: 18, padding: '12px 40px', boxShadow: '0 16px 34px rgba(14,46,41,0.4)', overflow: 'hidden' }}>
@@ -1199,11 +1209,16 @@ function ZenLantern({ style, scale = 1 }: { style?: React.CSSProperties; scale?:
 // Full-bleed dusk garden behind the Up Next lockup, portaled to <body> so it
 // paints between the blurred album backdrop (z 0) and the lyric/chrome layers
 // (z 10/20) — same trick as the tropical beach + neo-brutal poster backdrops.
-function ZenUpNextBackdrop() {
+function ZenUpNextBackdrop({ showVideo = false }: { showVideo?: boolean }) {
+    // Over a music video: keep the dusk mood with a translucent ink scrim so
+    // the candlelit serif + gold decor stay legible, while the clip shows
+    // through. The garden decorations (lanterns, enso, petals) stay as framing.
     const scene = (
         <div style={{
             position: 'fixed', inset: 0, zIndex: 2, pointerEvents: 'none', overflow: 'hidden',
-            background: 'linear-gradient(180deg, #0e0c09 0%, #1a1814 34%, #201b14 62%, #12100c 100%)',
+            background: showVideo
+                ? 'linear-gradient(180deg, rgba(14,12,9,0.62) 0%, rgba(26,24,20,0.38) 45%, rgba(18,16,12,0.66) 100%)'
+                : 'linear-gradient(180deg, #0e0c09 0%, #1a1814 34%, #201b14 62%, #12100c 100%)',
         }}>
             {/* drifting gold-ink wash */}
             <div style={{
@@ -1271,6 +1286,7 @@ function ZenUpNext({
     np,
     roles,
     guestsMap,
+    showVideo = false,
 }: {
     theme: any
     art: string | null
@@ -1279,6 +1295,7 @@ function ZenUpNext({
     np: any
     roles: string[]
     guestsMap: Map<string, any>
+    showVideo?: boolean
 }) {
     const dur = track?.duration_ms
         ? `${Math.floor(track.duration_ms / 60000)}:${Math.floor((track.duration_ms % 60000) / 1000).toString().padStart(2, '0')}`
@@ -1291,7 +1308,7 @@ function ZenUpNext({
     )
     return (
         <div className="anim-enter" style={{ width: '100%', maxWidth: 1100, margin: '0 auto', padding: '0 48px', position: 'relative' }}>
-            <ZenUpNextBackdrop />
+            <ZenUpNextBackdrop showVideo={showVideo} />
             <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
                 {/* Header: vermillion seal + gold rules */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 18, width: 'min(560px, 82%)', animation: 'zen-scroll-in 0.6s ease-out both' }}>
@@ -1501,11 +1518,16 @@ function SteamPipe({ bottom, joints }: { bottom: string; joints: string[] }) {
 // Full-bleed engine-room wall behind the Up Next lockup, portaled to <body>
 // so it paints between the blurred album backdrop (z 0) and the lyric/chrome
 // layers (z 10/20) — same trick as the other themed backdrops.
-function SteampunkUpNextBackdrop() {
+function SteampunkUpNextBackdrop({ showVideo = false }: { showVideo?: boolean }) {
+    // Over a music video: keep the gaslit-boiler-room mood with a translucent
+    // iron scrim so the brass plates + gauges stay legible while the clip
+    // shows through. Gears, pipes and lanterns stay as framing.
     const scene = (
         <div style={{
             position: 'fixed', inset: 0, zIndex: 2, pointerEvents: 'none', overflow: 'hidden',
-            background: 'linear-gradient(180deg, #0e0b09 0%, #14110F 35%, #1a1510 65%, #100d0a 100%)',
+            background: showVideo
+                ? 'linear-gradient(180deg, rgba(14,11,9,0.62) 0%, rgba(20,17,15,0.4) 45%, rgba(16,13,10,0.66) 100%)'
+                : 'linear-gradient(180deg, #0e0b09 0%, #14110F 35%, #1a1510 65%, #100d0a 100%)',
         }}>
             <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at center, rgba(200,151,62,0.03) 0%, transparent 50%, rgba(0,0,0,0.45) 100%)' }} />
             {/* interlocking gear train */}
@@ -1579,6 +1601,7 @@ function SteampunkUpNext({
     np,
     roles,
     guestsMap,
+    showVideo = false,
 }: {
     theme: any
     art: string | null
@@ -1587,13 +1610,14 @@ function SteampunkUpNext({
     np: any
     roles: string[]
     guestsMap: Map<string, any>
+    showVideo?: boolean
 }) {
     const dur = track?.duration_ms
         ? `${Math.floor(track.duration_ms / 60000)}:${Math.floor((track.duration_ms % 60000) / 1000).toString().padStart(2, '0')}`
         : ''
     return (
         <div className="anim-enter" style={{ width: '100%', maxWidth: 1100, margin: '0 auto', padding: '0 48px', position: 'relative' }}>
-            <SteampunkUpNextBackdrop />
+            <SteampunkUpNextBackdrop showVideo={showVideo} />
             <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
                 {/* Masthead: brass rules + gaslit UP NEXT */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 18, width: 'min(620px, 84%)', animation: 'steam-rise 0.55s ease-out both' }}>
@@ -2082,6 +2106,16 @@ export default function KaraokePage() {
     const voiceEffects = np?.voiceEffects || null
     const art = track?.album.images[0]?.url
     const ytId = np?.backgroundVideoPath ? extractYouTubeId(np.backgroundVideoPath) : null
+    // A music-video snippet preview is showing on the "Up Next" screen: song is
+    // on deck (ready), has a video, has slices computed, and isn't a secret song
+    // (we never leak a hidden song's video). Drives both the iframe visibility
+    // (below) and whether each theme's Up Next backdrop goes see-through so the
+    // clips play behind the lockup.
+    const videoPreviewActive =
+        state.stageMode === 'ready' && !!ytId && previewSlices.length > 0 && !np?.isHidden
+    // Reveal the video behind the themed Up Next art whenever a preview is live,
+    // or during real playback. Secret songs keep their opaque themed backdrop.
+    const showVideoBehindArt = (!!ytId && !np?.isHidden) && (videoPreviewActive || state.stageMode === 'playing')
 
     // When art changes, keep old art visible until new one loads
     useEffect(() => {
@@ -2364,10 +2398,11 @@ export default function KaraokePage() {
         return groups
     }, [lyrics, singers, roles])
 
-    // Themes with the full "stage furniture" set (count-in, break pill, paused
-    // stamp, no-lyrics card). Neo-brutal, urban, zen and steampunk share the
-    // mechanics; each renders its own visual language.
-    const hasStageFurniture = theme.name === 'neo-brutal' || theme.name === 'urban' || theme.name === 'zen' || theme.name === 'steampunk'
+    // Every theme gets the full "stage furniture" set (count-in, break pill,
+    // paused stamp). Each of those three renderers has a bespoke branch per
+    // theme.name; an unrecognized theme gracefully falls back to the neo-brutal
+    // look. Kept as a named flag so the eligibility gates below read clearly.
+    const hasStageFurniture = true
 
     // Detect a long instrumental gap after the active line — only when
     // syllable timing tells us exactly when the line finished being sung
@@ -4085,6 +4120,237 @@ export default function KaraokePage() {
         const barPct = remaining > 0 ? Math.min(100, (elapsed / nbFirstStart) * 100) : 100
         const exitCls = 'k-nb-countin' + (remaining <= 0 ? ' k-nb-countin--exit' : '')
 
+        // ── Cyberpunk: BOOT SEQUENCE — clipped HUD terminal plate, neon-green
+        // mono glyphs that glitch in, a magenta prompt label, scanline bar. ──
+        if (theme.name === 'cyberpunk') {
+            const clip = 'polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)'
+            const cyBig = (label: string, key: string | number, size = 70) => (
+                <div key={key} style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(size), lineHeight: 1.05, color: '#00ff88', textShadow: '0 0 18px rgba(0,255,136,0.7), 0 0 46px rgba(0,255,136,0.35)', letterSpacing: '0.08em', animation: 'cyber-glitch 0.45s steps(2) both', marginTop: 6 }}>{label}</div>
+            )
+            let cyCenter: React.ReactNode
+            if (remaining <= 0) cyCenter = cyBig('EXECUTE', 'go', 46)
+            else if (count <= 3) cyCenter = cyBig(String(count), count)
+            else cyCenter = (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginTop: 12, color: '#00ff88' }}>
+                    <NbEq color="#00ff88" fontSize={stageFont(22)} />
+                    <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(21), letterSpacing: '0.12em', maxWidth: 520, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.name}</span>
+                </div>
+            )
+            return (
+                <div ref={countInRef} className={exitCls} style={{ display: 'flex', justifyContent: 'center', width: '100%', margin: '11vh 0 5vh' }}>
+                    <div style={{ position: 'relative', minWidth: 360, textAlign: 'center', padding: '22px 46px', background: '#0b0b1c', clipPath: clip, boxShadow: '0 0 26px rgba(0,255,136,0.25), inset 0 0 0 1.5px rgba(0,255,136,0.5)', animation: 'cyber-glitch 0.5s steps(2) both' }}>
+                        <p style={{ margin: 0, fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(14), letterSpacing: '0.4em', textTransform: 'uppercase', color: '#ff00aa', textShadow: '0 0 10px rgba(255,0,170,0.6)' }}>&gt; BOOT SEQUENCE</p>
+                        {cyCenter}
+                        <div style={{ marginTop: 16, height: 8, background: 'rgba(0,255,136,0.12)', position: 'relative', overflow: 'hidden' }}>
+                            <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: `${barPct}%`, background: '#00ff88', boxShadow: '0 0 12px rgba(0,255,136,0.8)', transition: 'width 0.28s linear' }} />
+                        </div>
+                    </div>
+                </div>
+            )
+        }
+
+        // ── Sketch: GET READY! — wobbly white notebook plate, hand-inked border
+        // + offset shadow, Kalam numbers over a yellow highlighter swipe. ──
+        if (theme.name === 'sketch') {
+            const skBig = (label: string, key: string | number, size = 72) => (
+                <div key={key} style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(size), lineHeight: 1.05, color: '#2d2d2d', marginTop: 6, position: 'relative', display: 'inline-block' }}>
+                    <span style={{ position: 'absolute', left: -6, right: -6, top: '56%', bottom: '6%', background: '#fff9c4', zIndex: -1, transform: 'rotate(-1.5deg)' }} />
+                    {label}
+                </div>
+            )
+            let skCenter: React.ReactNode
+            if (remaining <= 0) skCenter = skBig('SING!', 'go', 52)
+            else if (count <= 3) skCenter = skBig(String(count), count)
+            else skCenter = (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginTop: 12, color: '#2d2d2d' }}>
+                    <NbNote size={24} color="#ff4d4d" />
+                    <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(23), maxWidth: 520, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.name}</span>
+                </div>
+            )
+            return (
+                <div ref={countInRef} className={exitCls} style={{ display: 'flex', justifyContent: 'center', width: '100%', margin: '11vh 0 5vh' }}>
+                    <div style={{ position: 'relative', minWidth: 340, textAlign: 'center', padding: '22px 44px', background: '#ffffff', border: '2.5px solid #2d2d2d', borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px', boxShadow: '4px 4px 0 rgba(45,45,45,0.9)', transform: 'rotate(-1.4deg)', animation: 'urban-spray-in 0.4s ease-out both' }}>
+                        <p style={{ margin: 0, fontFamily: theme.fontBody, fontWeight: 700, fontSize: stageFont(15), letterSpacing: '0.18em', textTransform: 'uppercase', color: '#2d2d2d' }}>Get Ready!</p>
+                        {skCenter}
+                        <div style={{ marginTop: 16, height: 10, border: '2px solid #2d2d2d', borderRadius: 999, background: '#fff', position: 'relative', overflow: 'hidden' }}>
+                            <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: `${barPct}%`, background: '#ff4d4d', transition: 'width 0.28s linear' }} />
+                        </div>
+                    </div>
+                </div>
+            )
+        }
+
+        // ── Deep-sea: DIVE IN — glassy abyss capsule ringed in bioluminescent
+        // teal, a coral/violet vein bar, KrabbyPatty numerals glowing. ──
+        if (theme.name === 'deep-sea') {
+            const dsBig = (label: string, key: string | number, size = 70) => (
+                <div key={key} style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(size), lineHeight: 1.05, color: '#00ffc8', textShadow: '0 0 20px rgba(0,255,200,0.7), 0 0 52px rgba(0,255,200,0.3)', marginTop: 6 }}>{label}</div>
+            )
+            let dsCenter: React.ReactNode
+            if (remaining <= 0) dsCenter = dsBig('SURFACE!', 'go', 46)
+            else if (count <= 3) dsCenter = dsBig(String(count), count)
+            else dsCenter = (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginTop: 12, color: '#e0fff8' }}>
+                    <NbNote size={22} color="#00ffc8" />
+                    <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(22), maxWidth: 520, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.name}</span>
+                </div>
+            )
+            return (
+                <div ref={countInRef} className={exitCls} style={{ display: 'flex', justifyContent: 'center', width: '100%', margin: '11vh 0 5vh' }}>
+                    <div style={{ position: 'relative', minWidth: 360, textAlign: 'center', padding: '24px 48px', borderRadius: 22, background: 'rgba(4,9,24,0.82)', backdropFilter: 'blur(10px)', boxShadow: '0 0 34px rgba(0,255,200,0.28), inset 0 0 0 1.5px rgba(0,255,200,0.4)', animation: 'urban-spray-in 0.45s ease-out both', overflow: 'hidden' }}>
+                        <p style={{ margin: 0, fontFamily: theme.fontBody, fontWeight: 700, fontSize: stageFont(13), letterSpacing: '0.42em', marginRight: '-0.42em', textTransform: 'uppercase', color: '#8ecfc2' }}>Dive In</p>
+                        {dsCenter}
+                        <div style={{ marginTop: 16, height: 5, borderRadius: 999, background: 'rgba(0,255,200,0.14)', position: 'relative', overflow: 'hidden' }}>
+                            <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, borderRadius: 999, width: `${barPct}%`, background: 'linear-gradient(90deg, #00ffc8, #b44dff)', boxShadow: '0 0 10px rgba(0,255,200,0.7)', transition: 'width 0.28s linear' }} />
+                        </div>
+                    </div>
+                </div>
+            )
+        }
+
+        // ── Psychedelic: TUNE IN — groovy blob plate with a breathing rainbow
+        // wash, Chicle glyphs haloed in pink. ──
+        if (theme.name === 'psychedelic') {
+            const psBig = (label: string, key: string | number, size = 72) => (
+                <div key={key} style={{ fontFamily: theme.fontDisplay, fontWeight: 400, fontSize: stageFont(size), lineHeight: 1.02, color: '#fff', textShadow: '0 0 22px rgba(255,45,149,0.6), 3px 3px 0 rgba(26,10,46,0.5)', marginTop: 6 }}>{label}</div>
+            )
+            let psCenter: React.ReactNode
+            if (remaining <= 0) psCenter = psBig('FAR OUT!', 'go', 46)
+            else if (count <= 3) psCenter = psBig(String(count), count)
+            else psCenter = (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginTop: 12, color: '#f5ecff' }}>
+                    <NbNote size={22} color="#b6ff2d" />
+                    <span style={{ fontFamily: theme.fontDisplay, fontWeight: 400, fontSize: stageFont(24), maxWidth: 520, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.name}</span>
+                </div>
+            )
+            return (
+                <div ref={countInRef} className={exitCls} style={{ display: 'flex', justifyContent: 'center', width: '100%', margin: '11vh 0 5vh' }}>
+                    <div style={{ position: 'relative', minWidth: 360, textAlign: 'center', padding: '26px 48px', borderRadius: '46% 54% 60% 40% / 52% 44% 56% 48%', background: 'linear-gradient(135deg, rgba(255,45,149,0.28), rgba(182,255,45,0.22), rgba(255,140,45,0.28))', boxShadow: '0 0 40px rgba(255,45,149,0.3), inset 0 0 0 2px rgba(245,236,255,0.35)', backdropFilter: 'blur(8px)', animation: 'psyBreathe 5s ease-in-out infinite' }}>
+                        <p style={{ margin: 0, fontFamily: theme.fontBody, fontWeight: 400, fontSize: stageFont(14), letterSpacing: '0.3em', textTransform: 'uppercase', color: '#b6ff2d', textShadow: '0 0 10px rgba(182,255,45,0.5)' }}>Tune In</p>
+                        {psCenter}
+                        <div style={{ marginTop: 16, height: 7, borderRadius: 999, background: 'rgba(245,236,255,0.16)', position: 'relative', overflow: 'hidden' }}>
+                            <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, borderRadius: 999, width: `${barPct}%`, background: 'linear-gradient(90deg, #ff2d95, #b6ff2d, #ff8c2d)', transition: 'width 0.28s linear' }} />
+                        </div>
+                    </div>
+                </div>
+            )
+        }
+
+        // ── Space: LAUNCH IN — sleek void console, Orbitron glyphs with a
+        // magenta→cyan glow; a T-minus countdown, then LIFTOFF. ──
+        if (theme.name === 'space') {
+            const spBig = (label: string, key: string | number, size = 68) => (
+                <div key={key} style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(size), lineHeight: 1.05, color: '#E8E6F0', letterSpacing: '0.06em', textShadow: '0 0 20px rgba(224,64,251,0.7), 0 0 50px rgba(64,224,208,0.4)', marginTop: 6 }}>{label}</div>
+            )
+            let spCenter: React.ReactNode
+            if (remaining <= 0) spCenter = spBig('LIFTOFF!', 'go', 44)
+            else if (count <= 3) spCenter = spBig('T-' + count, count)
+            else spCenter = (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginTop: 12, color: '#E8E6F0' }}>
+                    <NbEq color="#40E0D0" fontSize={stageFont(22)} />
+                    <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(21), letterSpacing: '0.04em', maxWidth: 520, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.name}</span>
+                </div>
+            )
+            return (
+                <div ref={countInRef} className={exitCls} style={{ display: 'flex', justifyContent: 'center', width: '100%', margin: '11vh 0 5vh' }}>
+                    <div style={{ position: 'relative', minWidth: 360, textAlign: 'center', padding: '24px 48px', borderRadius: 10, background: 'rgba(10,10,20,0.86)', backdropFilter: 'blur(10px)', boxShadow: '0 0 30px rgba(224,64,251,0.22), inset 0 0 0 1px rgba(224,64,251,0.3), inset 0 0 24px rgba(64,224,208,0.06)', animation: 'urban-spray-in 0.45s ease-out both' }}>
+                        <p style={{ margin: 0, fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(13), letterSpacing: '0.5em', marginRight: '-0.5em', textTransform: 'uppercase', color: '#40E0D0', textShadow: '0 0 10px rgba(64,224,208,0.5)' }}>Launch In</p>
+                        {spCenter}
+                        <div style={{ marginTop: 16, height: 6, borderRadius: 999, background: 'rgba(224,64,251,0.14)', position: 'relative', overflow: 'hidden' }}>
+                            <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, borderRadius: 999, width: `${barPct}%`, background: 'linear-gradient(90deg, #E040FB, #40E0D0)', boxShadow: '0 0 10px rgba(64,224,208,0.6)', transition: 'width 0.28s linear' }} />
+                        </div>
+                    </div>
+                </div>
+            )
+        }
+
+        // ── Retrowave: GET READY — sharp midnight panel, Audiowide chrome-sunset
+        // glyphs, hot-pink/blue neon edge, sunset progress bar. ──
+        if (theme.name === 'retrowave') {
+            const rwBig = (label: string, key: string | number, size = 62) => (
+                <div key={key} style={{ fontFamily: theme.fontDisplay, fontWeight: 400, fontSize: stageFont(size), lineHeight: 1.1, letterSpacing: '0.04em', marginTop: 8, background: 'linear-gradient(180deg, #FFD700 0%, #FF6B2B 45%, #FF2D95 100%)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', filter: 'drop-shadow(0 0 16px rgba(255,45,149,0.6))' } as React.CSSProperties}>{label}</div>
+            )
+            let rwCenter: React.ReactNode
+            if (remaining <= 0) rwCenter = rwBig('GO!', 'go', 60)
+            else if (count <= 3) rwCenter = rwBig(String(count), count)
+            else rwCenter = (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginTop: 12, color: '#F0E6FF' }}>
+                    <NbEq color="#00BFFF" fontSize={stageFont(22)} />
+                    <span style={{ fontFamily: theme.fontDisplay, fontWeight: 400, fontSize: stageFont(20), letterSpacing: '0.04em', maxWidth: 520, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.name}</span>
+                </div>
+            )
+            return (
+                <div ref={countInRef} className={exitCls} style={{ display: 'flex', justifyContent: 'center', width: '100%', margin: '11vh 0 5vh' }}>
+                    <div style={{ position: 'relative', minWidth: 360, textAlign: 'center', padding: '22px 46px', borderRadius: 4, background: 'linear-gradient(180deg, #15082e, #2a1054)', boxShadow: '0 0 26px rgba(255,45,149,0.3), inset 0 0 0 1.5px rgba(255,45,149,0.5), inset 0 0 24px rgba(0,191,255,0.08)', animation: 'urban-spray-in 0.45s ease-out both' }}>
+                        <p style={{ margin: 0, fontFamily: theme.fontDisplay, fontWeight: 400, fontSize: stageFont(13), letterSpacing: '0.4em', textTransform: 'uppercase', color: '#00BFFF', textShadow: '0 0 10px rgba(0,191,255,0.6)' }}>Get Ready</p>
+                        {rwCenter}
+                        <div style={{ marginTop: 16, height: 7, borderRadius: 2, background: 'rgba(255,45,149,0.14)', position: 'relative', overflow: 'hidden' }}>
+                            <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: `${barPct}%`, background: 'linear-gradient(90deg, #FFD700, #FF6B2B, #FF2D95)', boxShadow: '0 0 10px rgba(255,45,149,0.7)', transition: 'width 0.28s linear' }} />
+                        </div>
+                    </div>
+                </div>
+            )
+        }
+
+        // ── Comic-book: GET READY! — halftone panel with a thick inked border +
+        // hard offset, a star sticker, BadaBoom impact type. ──
+        if (theme.name === 'comic-book') {
+            const cmBig = (label: string, key: string | number, size = 74) => (
+                <div key={key} style={{ fontFamily: theme.fontDisplay, fontWeight: 400, fontSize: stageFont(size), lineHeight: 1, color: '#FFD400', WebkitTextStroke: '2.5px #16161D', textShadow: '4px 4px 0 #16161D', marginTop: 8, animation: 'comic-pop 0.3s var(--ease-bounce) both' } as React.CSSProperties}>{label}</div>
+            )
+            let cmCenter: React.ReactNode
+            if (remaining <= 0) cmCenter = cmBig('GO!', 'go', 64)
+            else if (count <= 3) cmCenter = cmBig(String(count), count)
+            else cmCenter = (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginTop: 12, color: '#16161D' }}>
+                    <NbNote size={24} color="#FF1F4B" />
+                    <span style={{ fontFamily: theme.fontDisplay, fontWeight: 400, fontSize: stageFont(26), maxWidth: 520, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.name}</span>
+                </div>
+            )
+            return (
+                <div ref={countInRef} className={exitCls} style={{ display: 'flex', justifyContent: 'center', width: '100%', margin: '11vh 0 5vh' }}>
+                    <div style={{ position: 'relative', minWidth: 340, textAlign: 'center', padding: '24px 46px', background: '#FFFFFF', backgroundImage: COMIC_DOTS, backgroundSize: '8px 8px', border: '4px solid #16161D', borderRadius: 6, boxShadow: '8px 8px 0 #16161D', animation: 'comic-pop 0.4s var(--ease-bounce) both' }}>
+                        <div style={{ position: 'absolute', top: -18, left: -18, width: 48, height: 48, background: '#2FA8FF', clipPath: COMIC_STAR_CLIP }} />
+                        <p style={{ margin: 0, fontFamily: theme.fontDisplay, fontWeight: 400, fontSize: stageFont(18), letterSpacing: '0.06em', textTransform: 'uppercase', color: '#16161D' }}>Get Ready!</p>
+                        {cmCenter}
+                        <div style={{ marginTop: 16, height: 10, border: '3px solid #16161D', borderRadius: 999, background: '#FFF7E6', position: 'relative', overflow: 'hidden' }}>
+                            <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: `${barPct}%`, background: '#FF1F4B', transition: 'width 0.28s linear' }} />
+                        </div>
+                    </div>
+                </div>
+            )
+        }
+
+        // ── Tropical: GET READY — carved wood plank in a bamboo frame with a
+        // hibiscus pinned to the corner, Florida Vibes script, sun-gold bar. ──
+        if (theme.name === 'tropical') {
+            const trBig = (label: string, key: string | number, size = 76) => (
+                <div key={key} style={{ fontFamily: theme.fontDisplay, fontWeight: 400, fontSize: stageFont(size), lineHeight: 1.02, color: '#FFF1C4', textShadow: '0 2px 0 rgba(0,0,0,0.35), 0 0 22px rgba(255,200,61,0.5)', marginTop: 4 }}>{label}</div>
+            )
+            let trCenter: React.ReactNode
+            if (remaining <= 0) trCenter = trBig('SING!', 'go', 56)
+            else if (count <= 3) trCenter = trBig(String(count), count)
+            else trCenter = (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginTop: 10, color: '#FFF1C4' }}>
+                    <NbNote size={24} color="#FFC83D" />
+                    <span style={{ fontFamily: theme.fontDisplay, fontWeight: 400, fontSize: stageFont(30), maxWidth: 520, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.name}</span>
+                </div>
+            )
+            return (
+                <div ref={countInRef} className={exitCls} style={{ display: 'flex', justifyContent: 'center', width: '100%', margin: '11vh 0 5vh' }}>
+                    <div style={{ position: 'relative', minWidth: 360, textAlign: 'center', padding: '22px 46px', borderRadius: 16, background: 'linear-gradient(165deg, #8A5A2F, #6E4423)', border: '5px solid #CDA85A', boxShadow: '0 16px 34px rgba(14,46,41,0.4)', overflow: 'hidden', animation: 'urban-spray-in 0.45s ease-out both' }}>
+                        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(180deg, rgba(0,0,0,0.10) 0 2px, transparent 2px 17px)', pointerEvents: 'none' }} />
+                        <TropHibiscus size={46} rotate={-14} style={{ position: 'absolute', top: 8, right: 10 }} />
+                        <p style={{ position: 'relative', margin: 0, fontFamily: theme.fontBody, fontWeight: 400, fontSize: stageFont(16), letterSpacing: '0.12em', textTransform: 'uppercase', color: '#FFE7A8' }}>Get Ready</p>
+                        <div style={{ position: 'relative' }}>{trCenter}</div>
+                        <div style={{ position: 'relative', marginTop: 14, height: 8, borderRadius: 999, background: 'rgba(0,0,0,0.25)', overflow: 'hidden' }}>
+                            <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, borderRadius: 999, width: `${barPct}%`, background: 'linear-gradient(90deg, #FFC83D, #FF6B3D)', transition: 'width 0.28s linear' }} />
+                        </div>
+                    </div>
+                </div>
+            )
+        }
+
         // ── Zen: TAKE A BREATH — an unrolled washi plate. Serif numbers press
         // in like a hanko stamp, an enso ring tucked behind the corner traces
         // the remaining time, and a gold→vermillion ink vein fills below. ──
@@ -4304,11 +4570,16 @@ export default function KaraokePage() {
                         className="k-bg__yt-wrap"
                         style={{
                             // Hidden until YouTube confirms it's actually playing (state 1).
-                            // -1 unstarted / 2 paused / 3 buffering / 5 cued all show the
-                            // YT center play-button overlay; we hide the iframe entirely
-                            // during those states so the user never sees it. Album art
-                            // (rendered just below) shows through instead.
-                            opacity: state.isPlaying && ytPlayState === 1 ? 1 : 0,
+                            // -1 unstarted / 2 paused / 5 cued all show the YT center
+                            // play-button overlay; we hide the iframe during those so the
+                            // user never sees it. During the Up Next snippet preview we
+                            // also keep it visible through buffering (3) so the re-seek
+                            // between slices every 4s doesn't flash the blurred art.
+                            opacity:
+                                (state.isPlaying && ytPlayState === 1) ||
+                                (videoPreviewActive && (ytPlayState === 1 || ytPlayState === 3))
+                                    ? 1
+                                    : 0,
                             transition: 'opacity 0.4s ease',
                             // pointer-events: none so user clicks can't summon YT's UI overlay
                             pointerEvents: 'none',
@@ -4537,20 +4808,24 @@ export default function KaraokePage() {
             )}
 
             {/* Lyrics & Stage Centerpiece */}
-            <div className="k-lyrics" ref={lyricsRef}>
+            <div
+                className="k-lyrics"
+                ref={lyricsRef}
+                style={state.stageMode === 'ready' ? { justifyContent: 'center' } : undefined}
+            >
                 {state.stageMode === 'ready' ? (
                   theme.name === 'neo-brutal' ? (
-                    <NeoBrutalUpNext theme={theme} art={art} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} />
+                    <NeoBrutalUpNext theme={theme} art={art} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} showVideo={showVideoBehindArt} />
                   ) : theme.name === 'urban' ? (
-                    <UrbanUpNext theme={theme} art={art} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} />
+                    <UrbanUpNext theme={theme} art={art} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} showVideo={showVideoBehindArt} />
                   ) : theme.name === 'comic-book' ? (
                     <ComicUpNext theme={theme} art={art} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} />
                   ) : theme.name === 'tropical' ? (
-                    <TropicalUpNext theme={theme} art={art} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} />
+                    <TropicalUpNext theme={theme} art={art} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} showVideo={showVideoBehindArt} />
                   ) : theme.name === 'zen' ? (
-                    <ZenUpNext theme={theme} art={art} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} />
+                    <ZenUpNext theme={theme} art={art} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} showVideo={showVideoBehindArt} />
                   ) : theme.name === 'steampunk' ? (
-                    <SteampunkUpNext theme={theme} art={art} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} />
+                    <SteampunkUpNext theme={theme} art={art} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} showVideo={showVideoBehindArt} />
                   ) : (
                     <div className="anim-enter k-upnext" style={{ width: '100%', maxWidth: 1100, margin: '0 auto', padding: '0 48px' }}>
                         <div style={{
@@ -5101,8 +5376,89 @@ export default function KaraokePage() {
                 the line is finished and the next one is far away. */}
             {nbBreak && state.stageMode === 'playing' &&
                 elapsed > nbBreak.start + 1000 && elapsed < nbBreak.end - 800 && (
-                theme.name === 'steampunk' ? (
-                    <div style={{ position: 'absolute', bottom: 64, left: '50%', transform: 'translateX(-50%)', zIndex: 22, animation: 'steam-rise 0.45s ease-out both' }}>
+                <div style={{ position: 'absolute', bottom: 64, left: 0, right: 0, zIndex: 22, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
+                {theme.name === 'cyberpunk' ? (
+                    <div style={{ animation: 'cyber-glitch 0.35s steps(2) both' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '10px 24px', background: '#0b0b1c', clipPath: 'polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)', boxShadow: '0 0 20px rgba(0,255,136,0.22), inset 0 0 0 1.5px rgba(0,255,136,0.5)' }}>
+                            <NbEq color="#00ff88" fontSize={18} />
+                            <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 14, letterSpacing: '0.34em', textTransform: 'uppercase', color: '#00ff88', textShadow: '0 0 8px rgba(0,255,136,0.6)' }}>Buffering</span>
+                            <div style={{ width: 130, height: 6, background: 'rgba(0,255,136,0.14)', position: 'relative', overflow: 'hidden' }}>
+                                <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: `${Math.min(100, Math.max(0, ((elapsed - nbBreak.start) / (nbBreak.end - nbBreak.start)) * 100))}%`, background: '#00ff88', boxShadow: '0 0 10px rgba(0,255,136,0.8)', transition: 'width 0.3s linear' }} />
+                            </div>
+                        </div>
+                    </div>
+                ) : theme.name === 'sketch' ? (
+                    <div style={{ animation: 'urban-spray-in 0.35s ease-out both', transform: 'rotate(-1.5deg)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 24px', background: '#ffffff', border: '2.5px solid #2d2d2d', borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px', boxShadow: '4px 4px 0 rgba(45,45,45,0.9)' }}>
+                            <NbNote size={20} color="#ff4d4d" />
+                            <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 16, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#2d2d2d' }}>Doodle Break</span>
+                            <div style={{ width: 120, height: 8, border: '2px solid #2d2d2d', borderRadius: 999, background: '#fff', position: 'relative', overflow: 'hidden' }}>
+                                <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: `${Math.min(100, Math.max(0, ((elapsed - nbBreak.start) / (nbBreak.end - nbBreak.start)) * 100))}%`, background: '#ff4d4d', transition: 'width 0.3s linear' }} />
+                            </div>
+                        </div>
+                    </div>
+                ) : theme.name === 'deep-sea' ? (
+                    <div style={{ animation: 'urban-spray-in 0.35s ease-out both' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '10px 24px', borderRadius: 999, background: 'rgba(4,9,24,0.82)', backdropFilter: 'blur(10px)', boxShadow: '0 0 22px rgba(0,255,200,0.25), inset 0 0 0 1.5px rgba(0,255,200,0.4)' }}>
+                            <NbNote size={20} color="#00ffc8" />
+                            <span style={{ fontFamily: theme.fontBody, fontWeight: 700, fontSize: 14, letterSpacing: '0.34em', textTransform: 'uppercase', color: '#e0fff8' }}>Drifting</span>
+                            <div style={{ width: 130, height: 5, borderRadius: 999, background: 'rgba(0,255,200,0.14)', position: 'relative', overflow: 'hidden' }}>
+                                <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, borderRadius: 999, width: `${Math.min(100, Math.max(0, ((elapsed - nbBreak.start) / (nbBreak.end - nbBreak.start)) * 100))}%`, background: 'linear-gradient(90deg,#00ffc8,#b44dff)', boxShadow: '0 0 8px rgba(0,255,200,0.7)', transition: 'width 0.3s linear' }} />
+                            </div>
+                        </div>
+                    </div>
+                ) : theme.name === 'psychedelic' ? (
+                    <div style={{ animation: 'psyBreathe 5s ease-in-out infinite' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '10px 26px', borderRadius: '46% 54% 60% 40% / 52% 44% 56% 48%', background: 'linear-gradient(135deg, rgba(255,45,149,0.32), rgba(182,255,45,0.26), rgba(255,140,45,0.32))', backdropFilter: 'blur(8px)', boxShadow: '0 0 26px rgba(255,45,149,0.3), inset 0 0 0 2px rgba(245,236,255,0.35)' }}>
+                            <NbNote size={20} color="#b6ff2d" />
+                            <span style={{ fontFamily: theme.fontBody, fontWeight: 400, fontSize: 15, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#f5ecff', textShadow: '0 0 8px rgba(255,45,149,0.5)' }}>Groove Break</span>
+                            <div style={{ width: 120, height: 7, borderRadius: 999, background: 'rgba(245,236,255,0.16)', position: 'relative', overflow: 'hidden' }}>
+                                <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, borderRadius: 999, width: `${Math.min(100, Math.max(0, ((elapsed - nbBreak.start) / (nbBreak.end - nbBreak.start)) * 100))}%`, background: 'linear-gradient(90deg,#ff2d95,#b6ff2d,#ff8c2d)', transition: 'width 0.3s linear' }} />
+                            </div>
+                        </div>
+                    </div>
+                ) : theme.name === 'space' ? (
+                    <div style={{ animation: 'urban-spray-in 0.35s ease-out both' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '10px 24px', borderRadius: 10, background: 'rgba(10,10,20,0.86)', backdropFilter: 'blur(10px)', boxShadow: '0 0 22px rgba(224,64,251,0.22), inset 0 0 0 1px rgba(224,64,251,0.3)' }}>
+                            <NbEq color="#40E0D0" fontSize={18} />
+                            <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 13, letterSpacing: '0.44em', marginRight: '-0.44em', textTransform: 'uppercase', color: '#E8E6F0' }}>In Orbit</span>
+                            <div style={{ width: 130, height: 6, borderRadius: 999, background: 'rgba(224,64,251,0.14)', position: 'relative', overflow: 'hidden' }}>
+                                <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, borderRadius: 999, width: `${Math.min(100, Math.max(0, ((elapsed - nbBreak.start) / (nbBreak.end - nbBreak.start)) * 100))}%`, background: 'linear-gradient(90deg,#E040FB,#40E0D0)', boxShadow: '0 0 8px rgba(64,224,208,0.6)', transition: 'width 0.3s linear' }} />
+                            </div>
+                        </div>
+                    </div>
+                ) : theme.name === 'retrowave' ? (
+                    <div style={{ animation: 'urban-spray-in 0.35s ease-out both' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '10px 24px', borderRadius: 4, background: 'linear-gradient(180deg,#15082e,#2a1054)', boxShadow: '0 0 22px rgba(255,45,149,0.28), inset 0 0 0 1.5px rgba(255,45,149,0.5)' }}>
+                            <NbEq color="#00BFFF" fontSize={18} />
+                            <span style={{ fontFamily: theme.fontDisplay, fontWeight: 400, fontSize: 14, letterSpacing: '0.34em', textTransform: 'uppercase', color: '#F0E6FF', textShadow: '0 0 8px rgba(255,45,149,0.5)' }}>Interlude</span>
+                            <div style={{ width: 130, height: 7, borderRadius: 2, background: 'rgba(255,45,149,0.14)', position: 'relative', overflow: 'hidden' }}>
+                                <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: `${Math.min(100, Math.max(0, ((elapsed - nbBreak.start) / (nbBreak.end - nbBreak.start)) * 100))}%`, background: 'linear-gradient(90deg,#FFD700,#FF6B2B,#FF2D95)', boxShadow: '0 0 8px rgba(255,45,149,0.7)', transition: 'width 0.3s linear' }} />
+                            </div>
+                        </div>
+                    </div>
+                ) : theme.name === 'comic-book' ? (
+                    <div style={{ animation: 'comic-pop 0.35s var(--ease-bounce) both' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 24px', background: '#FFD400', backgroundImage: COMIC_DOTS, backgroundSize: '7px 7px', border: '3px solid #16161D', borderRadius: 6, boxShadow: '5px 5px 0 #16161D' }}>
+                            <NbNote size={20} color="#FF1F4B" />
+                            <span style={{ fontFamily: theme.fontDisplay, fontWeight: 400, fontSize: 17, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#16161D' }}>Meanwhile…</span>
+                            <div style={{ width: 120, height: 9, border: '2.5px solid #16161D', borderRadius: 999, background: '#FFF', position: 'relative', overflow: 'hidden' }}>
+                                <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: `${Math.min(100, Math.max(0, ((elapsed - nbBreak.start) / (nbBreak.end - nbBreak.start)) * 100))}%`, background: '#FF1F4B', transition: 'width 0.3s linear' }} />
+                            </div>
+                        </div>
+                    </div>
+                ) : theme.name === 'tropical' ? (
+                    <div style={{ animation: 'urban-spray-in 0.35s ease-out both' }}>
+                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 14, padding: '10px 24px', borderRadius: 14, background: 'linear-gradient(165deg,#8A5A2F,#6E4423)', border: '4px solid #CDA85A', boxShadow: '0 12px 26px rgba(14,46,41,0.35)', overflow: 'hidden' }}>
+                            <NbNote size={20} color="#FFC83D" />
+                            <span style={{ fontFamily: theme.fontBody, fontWeight: 400, fontSize: 15, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#FFE7A8' }}>Beach Break</span>
+                            <div style={{ width: 120, height: 8, borderRadius: 999, background: 'rgba(0,0,0,0.25)', position: 'relative', overflow: 'hidden' }}>
+                                <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, borderRadius: 999, width: `${Math.min(100, Math.max(0, ((elapsed - nbBreak.start) / (nbBreak.end - nbBreak.start)) * 100))}%`, background: 'linear-gradient(90deg,#FFC83D,#FF6B3D)', transition: 'width 0.3s linear' }} />
+                            </div>
+                        </div>
+                    </div>
+                ) : theme.name === 'steampunk' ? (
+                    <div style={{ animation: 'steam-rise 0.45s ease-out both' }}>
                         <div style={{
                             display: 'flex', alignItems: 'center', gap: 16, padding: '10px 24px', borderRadius: 999,
                             background: 'rgba(23,19,14,0.88)', backdropFilter: 'blur(12px)',
@@ -5124,7 +5480,7 @@ export default function KaraokePage() {
                         </div>
                     </div>
                 ) : theme.name === 'zen' ? (
-                    <div style={{ position: 'absolute', bottom: 64, left: '50%', transform: 'translateX(-50%)', zIndex: 22, animation: 'zen-scroll-in 0.45s ease-out both' }}>
+                    <div style={{ animation: 'zen-scroll-in 0.45s ease-out both' }}>
                         <div style={{
                             display: 'flex', alignItems: 'center', gap: 16, padding: '10px 24px', borderRadius: 999,
                             background: 'rgba(20,17,12,0.82)', backdropFilter: 'blur(12px)',
@@ -5144,7 +5500,7 @@ export default function KaraokePage() {
                         </div>
                     </div>
                 ) : theme.name === 'urban' ? (
-                    <div style={{ position: 'absolute', bottom: 64, left: '50%', transform: 'translateX(-50%)', zIndex: 22, animation: 'urban-spray-in 0.35s ease-out both' }}>
+                    <div style={{ animation: 'urban-spray-in 0.35s ease-out both' }}>
                         <div style={{
                             display: 'flex', alignItems: 'center', gap: 16,
                             background: 'rgba(8, 8, 8, 0.85)', backdropFilter: 'blur(10px)',
@@ -5165,7 +5521,7 @@ export default function KaraokePage() {
                         </div>
                     </div>
                 ) : (
-                    <div style={{ position: 'absolute', bottom: 64, left: '50%', transform: 'translateX(-50%)', zIndex: 22, animation: 'nb-pop-in 0.35s var(--ease-bounce) both' }}>
+                    <div style={{ animation: 'nb-pop-in 0.35s var(--ease-bounce) both' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 16, background: NB_INK, boxShadow: '5px 5px 0 rgba(26, 26, 26, 0.35)', padding: '10px 22px' }}>
                             <NbEq color="#FFD60A" fontSize={20} />
                             <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 15, letterSpacing: '0.26em', color: NB_CREAM }}>
@@ -5180,13 +5536,66 @@ export default function KaraokePage() {
                             </div>
                         </div>
                     </div>
-                )
+                )}
+                </div>
             )}
 
             {/* PAUSED stamp */}
             {hasStageFurniture && state.stageMode === 'playing' && !state.isPlaying && (
-                theme.name === 'steampunk' ? (
-                    <div style={{ position: 'absolute', top: '13%', left: '50%', zIndex: 25, transform: 'translateX(-50%)', animation: 'steam-stamp 0.45s ease-out both' }}>
+                <div style={{ position: 'absolute', top: '13%', left: 0, right: 0, zIndex: 25, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
+                {theme.name === 'cyberpunk' ? (
+                    <div style={{ animation: 'cyber-glitch 0.4s steps(2) both' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 30px', background: '#0b0b1c', clipPath: 'polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)', boxShadow: '0 0 26px rgba(0,255,136,0.28), inset 0 0 0 1.5px rgba(0,255,136,0.55)' }}>
+                            <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(15), letterSpacing: '0.3em', color: '#ff00aa', textShadow: '0 0 10px rgba(255,0,170,0.6)' }}>||</span>
+                            <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(26), letterSpacing: '0.34em', textTransform: 'uppercase', color: '#00ff88', textShadow: '0 0 14px rgba(0,255,136,0.7)' }}>Suspended</span>
+                        </div>
+                    </div>
+                ) : theme.name === 'sketch' ? (
+                    <div style={{ animation: 'urban-spray-in 0.35s ease-out both', transform: 'rotate(-2deg)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 30px', background: '#fff9c4', border: '2.5px solid #2d2d2d', borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px', boxShadow: '4px 4px 0 rgba(45,45,45,0.9)' }}>
+                            <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(28), letterSpacing: '0.08em', textTransform: 'uppercase', color: '#2d2d2d' }}>Paused</span>
+                        </div>
+                    </div>
+                ) : theme.name === 'deep-sea' ? (
+                    <div style={{ animation: 'urban-spray-in 0.35s ease-out both' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 30px', borderRadius: 999, background: 'rgba(4,9,24,0.85)', backdropFilter: 'blur(10px)', boxShadow: '0 0 28px rgba(0,255,200,0.28), inset 0 0 0 1.5px rgba(0,255,200,0.45)' }}>
+                            <NbNote size={26} color="#00ffc8" />
+                            <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(26), letterSpacing: '0.16em', textTransform: 'uppercase', color: '#e0fff8', textShadow: '0 0 14px rgba(0,255,200,0.6)' }}>Paused</span>
+                        </div>
+                    </div>
+                ) : theme.name === 'psychedelic' ? (
+                    <div style={{ animation: 'psyBreathe 5s ease-in-out infinite' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 32px', borderRadius: '46% 54% 60% 40% / 52% 44% 56% 48%', background: 'linear-gradient(135deg, rgba(255,45,149,0.36), rgba(182,255,45,0.28), rgba(255,140,45,0.36))', backdropFilter: 'blur(8px)', boxShadow: '0 0 30px rgba(255,45,149,0.32), inset 0 0 0 2px rgba(245,236,255,0.4)' }}>
+                            <span style={{ fontFamily: theme.fontDisplay, fontWeight: 400, fontSize: stageFont(28), letterSpacing: '0.06em', textTransform: 'uppercase', color: '#fff', textShadow: '3px 3px 0 rgba(26,10,46,0.5)' }}>Paused</span>
+                        </div>
+                    </div>
+                ) : theme.name === 'space' ? (
+                    <div style={{ animation: 'urban-spray-in 0.35s ease-out both' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 30px', borderRadius: 10, background: 'rgba(10,10,20,0.88)', backdropFilter: 'blur(10px)', boxShadow: '0 0 26px rgba(224,64,251,0.24), inset 0 0 0 1px rgba(224,64,251,0.35)' }}>
+                            <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(26), letterSpacing: '0.3em', marginRight: '-0.3em', textTransform: 'uppercase', color: '#E8E6F0', textShadow: '0 0 16px rgba(224,64,251,0.7), 0 0 40px rgba(64,224,208,0.4)' }}>Paused</span>
+                        </div>
+                    </div>
+                ) : theme.name === 'retrowave' ? (
+                    <div style={{ animation: 'urban-spray-in 0.35s ease-out both' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 30px', borderRadius: 4, background: 'linear-gradient(180deg,#15082e,#2a1054)', boxShadow: '0 0 26px rgba(255,45,149,0.3), inset 0 0 0 1.5px rgba(255,45,149,0.55)' }}>
+                            <span style={{ fontFamily: theme.fontDisplay, fontWeight: 400, fontSize: stageFont(26), letterSpacing: '0.14em', textTransform: 'uppercase', background: 'linear-gradient(180deg,#FFD700,#FF6B2B 50%,#FF2D95)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', filter: 'drop-shadow(0 0 14px rgba(255,45,149,0.6))' } as React.CSSProperties}>Paused</span>
+                        </div>
+                    </div>
+                ) : theme.name === 'comic-book' ? (
+                    <div style={{ animation: 'comic-pop 0.4s var(--ease-bounce) both' }}>
+                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '18px 40px', background: '#FFD400', clipPath: COMIC_BURST_CLIP, transform: 'rotate(-3deg)' }}>
+                            <span style={{ fontFamily: theme.fontDisplay, fontWeight: 400, fontSize: stageFont(30), letterSpacing: '0.02em', textTransform: 'uppercase', color: '#FF1F4B', WebkitTextStroke: '2.5px #16161D', textShadow: '3px 3px 0 #16161D' } as React.CSSProperties}>Hold It!</span>
+                        </div>
+                    </div>
+                ) : theme.name === 'tropical' ? (
+                    <div style={{ animation: 'urban-spray-in 0.35s ease-out both' }}>
+                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 30px', borderRadius: 14, background: 'linear-gradient(165deg,#8A5A2F,#6E4423)', border: '5px solid #CDA85A', boxShadow: '0 14px 30px rgba(14,46,41,0.4)', overflow: 'hidden' }}>
+                            <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(180deg, rgba(0,0,0,0.10) 0 2px, transparent 2px 17px)', pointerEvents: 'none' }} />
+                            <span style={{ position: 'relative', fontFamily: theme.fontDisplay, fontWeight: 400, fontSize: stageFont(30), letterSpacing: '0.04em', color: '#FFF1C4', textShadow: '0 2px 0 rgba(0,0,0,0.35), 0 0 20px rgba(255,200,61,0.5)' }}>Paused</span>
+                        </div>
+                    </div>
+                ) : theme.name === 'steampunk' ? (
+                    <div style={{ animation: 'steam-stamp 0.45s ease-out both' }}>
                         <div style={{
                             position: 'relative', display: 'flex', alignItems: 'center', gap: 18, padding: '12px 28px',
                             background: STM_PLATE_BG, borderRadius: 6, border: '2px solid #0c0a07',
@@ -5201,7 +5610,7 @@ export default function KaraokePage() {
                         </div>
                     </div>
                 ) : theme.name === 'zen' ? (
-                    <div style={{ position: 'absolute', top: '13%', left: '50%', zIndex: 25, transform: 'translateX(-50%)', animation: 'zen-stamp 0.45s ease-out both' }}>
+                    <div style={{ animation: 'zen-stamp 0.45s ease-out both' }}>
                         <div style={{
                             display: 'flex', alignItems: 'center', gap: 16, padding: '12px 28px', borderRadius: 12,
                             background: 'rgba(20,17,12,0.85)', backdropFilter: 'blur(12px)',
@@ -5221,7 +5630,7 @@ export default function KaraokePage() {
                         </div>
                     </div>
                 ) : theme.name === 'urban' ? (
-                    <div style={{ position: 'absolute', top: '13%', left: '50%', zIndex: 25, transform: 'translateX(-50%)', animation: 'urban-spray-in 0.35s ease-out both' }}>
+                    <div style={{ animation: 'urban-spray-in 0.35s ease-out both' }}>
                         <UrbanSprayPlate color={URB_GREEN} filterId="urban-rough-filter" rotate={-3} drips style={{ padding: '4px 18px 8px' }}>
                             <span style={{ fontFamily: URB_STENCIL, fontWeight: 700, fontSize: stageFont(26), letterSpacing: '0.4em', textTransform: 'uppercase', padding: '0 6px' }}>
                                 Hold Up
@@ -5230,8 +5639,7 @@ export default function KaraokePage() {
                     </div>
                 ) : (
                     <div style={{
-                        position: 'absolute', top: '13%', left: '50%', zIndex: 25,
-                        transform: 'translateX(-50%)', ['--nb-rot' as string]: '-3.5deg',
+                        ['--nb-rot' as string]: '-3.5deg',
                         animation: 'nb-slam 0.35s var(--ease-bounce) both',
                         background: '#FFD60A', color: NB_INK, border: `4px solid ${NB_INK}`, boxShadow: `8px 8px 0 ${NB_INK}`,
                         padding: '10px 30px', fontFamily: theme.fontDisplay, fontWeight: 700,
@@ -5239,7 +5647,8 @@ export default function KaraokePage() {
                     }}>
                         PAUSED
                     </div>
-                )
+                )}
+                </div>
             )}
 
         </div>

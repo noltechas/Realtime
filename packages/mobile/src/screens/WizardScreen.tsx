@@ -455,6 +455,10 @@ function WizardBody() {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [guests, setGuests] = useState<KaraokeGuestRow[]>([])
   const [customName, setCustomName] = useState('')
+  // When the picker is opened from a role's "+" button, remember which role so
+  // the newly-added singer is assigned to it immediately. null = opened from the
+  // Singers step (add unassigned).
+  const [roleTarget, setRoleTarget] = useState<number | null>(null)
 
   useEffect(() => {
     if (!session) return
@@ -813,6 +817,11 @@ function WizardBody() {
               singers={singers}
               setSingers={setSingers}
               roles={roles}
+              onAddToRole={(ri) => {
+                if (singers.length >= MAX_SINGERS) return
+                setRoleTarget(ri)
+                setPickerOpen(true)
+              }}
             />
           ) : null}
           {step === 4 ? (
@@ -863,6 +872,7 @@ function WizardBody() {
         <SingerPicker
           guests={guests}
           singers={singers}
+          selfGuestId={session?.guestId}
           customName={customName}
           onCustomNameChange={setCustomName}
           onPickGuest={(g) => {
@@ -876,11 +886,12 @@ function WizardBody() {
                 name: g.name,
                 color: c.color,
                 colorGlow: c.colorGlow,
-                roleIndices: [],
+                roleIndices: roleTarget != null ? [roleTarget] : [],
                 ...(g.profile_picture ? { profilePicture: g.profile_picture } : {}),
                 guestId: g.id,
               },
             ])
+            setRoleTarget(null)
             setPickerOpen(false)
           }}
           onAddCustom={() => {
@@ -896,13 +907,17 @@ function WizardBody() {
                 name: trimmed,
                 color: c.color,
                 colorGlow: c.colorGlow,
-                roleIndices: [],
+                roleIndices: roleTarget != null ? [roleTarget] : [],
               },
             ])
             setCustomName('')
+            setRoleTarget(null)
             setPickerOpen(false)
           }}
-          onClose={() => setPickerOpen(false)}
+          onClose={() => {
+            setRoleTarget(null)
+            setPickerOpen(false)
+          }}
         />
       ) : null}
     </SafeAreaView>
@@ -1319,10 +1334,12 @@ function RolesStep({
   singers,
   setSingers,
   roles,
+  onAddToRole,
 }: {
   singers: WizardSinger[]
   setSingers: React.Dispatch<React.SetStateAction<WizardSinger[]>>
   roles: string[]
+  onAddToRole: (roleIdx: number) => void
 }) {
   const { tokens } = useTheme()
   const toggle = useCallback(
@@ -1344,6 +1361,12 @@ function RolesStep({
   )
 
   const unassigned = singers.filter((s) => s.roleIndices.length === 0).length
+  // Roles that nobody has been assigned to sing — a part of the song with no
+  // vocalist. Drives the warning banner at the bottom of the step.
+  const unsungRoles = roles.filter(
+    (_, ri) => !singers.some((s) => s.roleIndices.includes(ri)),
+  ).length
+  const canAddSinger = singers.length < MAX_SINGERS
 
   return (
     <View style={{ paddingHorizontal: 16 }}>
@@ -1502,11 +1525,72 @@ function RolesStep({
                 </Pressable>
               )
             })}
+            {canAddSinger ? (
+              <Pressable
+                onPress={() => onAddToRole(ri)}
+                style={({ pressed }) => ({
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingVertical: 6,
+                  paddingHorizontal: 10,
+                  borderRadius: 999,
+                  borderWidth: 2,
+                  borderStyle: 'dashed',
+                  borderColor: tokens.isDark ? tokens.accentA : tokens.black,
+                  backgroundColor: pressed ? tokens.pressedOverlay : 'transparent',
+                })}
+              >
+                <Text
+                  style={{
+                    fontFamily: tokens.fontDisplay,
+                    fontWeight: '900',
+                    fontSize: 20,
+                    lineHeight: 22,
+                    marginRight: 6,
+                    color: tokens.isDark ? tokens.accentA : tokens.black,
+                  }}
+                >
+                  +
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: tokens.fontDisplay,
+                    textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
+                    fontWeight: '800',
+                    fontSize: 13,
+                    color: tokens.isDark ? tokens.accentA : tokens.black,
+                  }}
+                >
+                  Add
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
           </View>
         </View>
         )
       ))}
+
+      {unsungRoles > 0 ? (
+        <View
+          style={wizardCardStyle(tokens, tokens.hotRed, {
+            flexDirection: 'row',
+            backgroundColor: tokens.vividYellow,
+            padding: 12,
+            marginTop: 4,
+            marginBottom: unassigned > 0 ? 12 : 0,
+          })}
+        >
+          <View style={[{ flexDirection: 'row', flex: 1 }, wizardCardUnskew(tokens)]}>
+            <Text style={{ fontSize: 18, marginRight: 8, color: '#1a1814' }}>!</Text>
+            <Text style={{ flex: 1, fontFamily: tokens.fontBody, fontSize: 13, color: '#1a1814' }}>
+              {unsungRoles === 1 ? '1 part has' : `${unsungRoles} parts have`} nobody assigned
+              to sing {unsungRoles === 1 ? 'it' : 'them'}. Tap a singer under each part, or use
+              the “+ Add” button to bring someone new in.
+            </Text>
+          </View>
+        </View>
+      ) : null}
 
       {unassigned > 0 ? (
         <View
@@ -1660,6 +1744,7 @@ function StageStep({
 function SingerPicker({
   guests,
   singers,
+  selfGuestId,
   customName,
   onCustomNameChange,
   onPickGuest,
@@ -1668,6 +1753,7 @@ function SingerPicker({
 }: {
   guests: KaraokeGuestRow[]
   singers: WizardSinger[]
+  selfGuestId?: string
   customName: string
   onCustomNameChange: (v: string) => void
   onPickGuest: (g: KaraokeGuestRow) => void
@@ -1681,7 +1767,12 @@ function SingerPicker({
     () => new Set(singers.map((s) => s.guestId).filter(Boolean) as string[]),
     [singers],
   )
-  const available = guests.filter((g) => !usedGuestIds.has(g.id))
+  // Never offer the host themselves — they're already seeded as singer 1, and
+  // re-adding would create a duplicate "you". Guard by guestId even if the
+  // seeded singer didn't capture it (session.guestId can lag on first render).
+  const available = guests.filter(
+    (g) => !usedGuestIds.has(g.id) && g.id !== selfGuestId,
+  )
 
   return (
     <Pressable

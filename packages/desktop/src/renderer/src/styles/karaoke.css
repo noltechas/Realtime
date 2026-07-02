@@ -624,10 +624,6 @@
     0%, 100% { transform: translateY(0) rotate(var(--nb-rot, 0deg)); }
     50%      { transform: translateY(-12px) rotate(calc(var(--nb-rot, 0deg) + 2.5deg)); }
 }
-@keyframes nb-blink {
-    0%, 55%   { opacity: 1; }
-    56%, 100% { opacity: 0.15; }
-}
 @keyframes nb-qr-press {
     0%, 86%, 100% { transform: translate(0, 0); box-shadow: 10px 10px 0 #1A1A1A; }
     90%, 94%      { transform: translate(5px, 5px); box-shadow: 3px 3px 0 #1A1A1A; }
