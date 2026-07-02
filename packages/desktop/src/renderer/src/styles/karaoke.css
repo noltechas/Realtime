@@ -587,6 +587,82 @@
     animation-play-state: paused;
 }
 
+/* ---- Count-in exit for the remaining themes — each lifts/fades away in its
+   own voice once the first line lands (urban/zen/steampunk are defined near
+   their own theme blocks). All pause when the stage is paused. ---- */
+[data-theme="cyberpunk"] .k-nb-countin--exit {
+    animation: cyber-countin-exit 0.5s steps(3) 0.1s forwards;
+}
+@keyframes cyber-countin-exit {
+    0%   { opacity: 1; transform: translateY(0) skewX(0); }
+    40%  { opacity: 0.55; transform: translateY(-30%) skewX(7deg); }
+    100% { opacity: 0; transform: translateY(-165%) skewX(0); }
+}
+[data-theme="cyberpunk"] .k-stage--paused .k-nb-countin--exit { animation-play-state: paused; }
+
+[data-theme="sketch"] .k-nb-countin--exit {
+    animation: sketch-countin-exit 0.7s var(--ease) 0.15s forwards;
+}
+@keyframes sketch-countin-exit {
+    from { opacity: 1; transform: translateY(0) rotate(-1.4deg); }
+    to   { opacity: 0; transform: translateY(-160%) rotate(-6deg); }
+}
+[data-theme="sketch"] .k-stage--paused .k-nb-countin--exit { animation-play-state: paused; }
+
+[data-theme="deep-sea"] .k-nb-countin--exit {
+    animation: deepsea-countin-exit 0.9s ease 0.15s forwards;
+}
+@keyframes deepsea-countin-exit {
+    to { opacity: 0; transform: translateY(-70px) scale(1.04); filter: blur(7px); }
+}
+[data-theme="deep-sea"] .k-stage--paused .k-nb-countin--exit { animation-play-state: paused; }
+
+[data-theme="psychedelic"] .k-nb-countin--exit {
+    animation: psy-countin-exit 0.8s ease 0.1s forwards;
+}
+@keyframes psy-countin-exit {
+    from { opacity: 1; transform: translateY(0) scale(1) rotate(0); }
+    to   { opacity: 0; transform: translateY(-120%) scale(1.3) rotate(8deg); }
+}
+[data-theme="psychedelic"] .k-stage--paused .k-nb-countin--exit { animation-play-state: paused; }
+
+[data-theme="space"] .k-nb-countin--exit {
+    animation: space-countin-exit 0.75s ease 0.1s forwards;
+}
+@keyframes space-countin-exit {
+    from { opacity: 1; transform: translateY(0) scale(1); }
+    to   { opacity: 0; transform: translateY(-150%) scale(0.6); filter: blur(3px); }
+}
+[data-theme="space"] .k-stage--paused .k-nb-countin--exit { animation-play-state: paused; }
+
+[data-theme="retrowave"] .k-nb-countin--exit {
+    animation: retro-countin-exit 0.7s var(--ease) 0.1s forwards;
+}
+@keyframes retro-countin-exit {
+    from { opacity: 1; transform: translateY(0) scaleY(1); }
+    to   { opacity: 0; transform: translateY(-150%) scaleY(0.85); }
+}
+[data-theme="retrowave"] .k-stage--paused .k-nb-countin--exit { animation-play-state: paused; }
+
+[data-theme="comic-book"] .k-nb-countin--exit {
+    animation: comic-countin-exit 0.6s cubic-bezier(0.5, -0.4, 0.5, 1.4) 0.1s forwards;
+}
+@keyframes comic-countin-exit {
+    0%   { opacity: 1; transform: translateY(0) scale(1) rotate(-1.5deg); }
+    30%  { transform: translateY(6%) scale(1.08) rotate(-1.5deg); }
+    100% { opacity: 0; transform: translateY(-165%) scale(0.9) rotate(3deg); }
+}
+[data-theme="comic-book"] .k-stage--paused .k-nb-countin--exit { animation-play-state: paused; }
+
+[data-theme="tropical"] .k-nb-countin--exit {
+    animation: tropical-countin-exit 0.8s ease 0.15s forwards;
+}
+@keyframes tropical-countin-exit {
+    from { opacity: 1; transform: translateY(0) rotate(0); }
+    to   { opacity: 0; transform: translateY(-150%) rotate(3deg); }
+}
+[data-theme="tropical"] .k-stage--paused .k-nb-countin--exit { animation-play-state: paused; }
+
 /* ---- Shared print textures (idle screen + Up Next poster) ---- */
 .nb-print-grid {
     background-image:

@@ -90,11 +90,23 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 export function StageThemeProvider({ themeName, children }: { themeName?: string | null; children: ReactNode }) {
   const parent = useContext(ThemeContext)
   const resolvedName = themeName && THEMES[themeName] ? themeName : undefined
-  const theme = resolvedName ? THEMES[resolvedName] : undefined
+  const override = resolvedName ? THEMES[resolvedName] : undefined
+
+  // The EFFECTIVE stage theme is the per-song override when it's valid,
+  // otherwise the global (parent) theme. We always drive the shared
+  // document `data-theme` + injected `#theme-global-css` from this effective
+  // theme — including when there's no override — so that when a themed song
+  // ends the stage restores the global theme instead of leaving the last
+  // override's `data-theme`/CSS stuck on the document. The parent
+  // ThemeProvider can't clean up after us: its effect only re-fires when the
+  // GLOBAL theme.name/globalCss change, which they didn't. Depending on the
+  // parent's name/globalCss too means we re-assert the effective theme after
+  // any global-theme change while a song is on stage.
+  const effective: Theme = override ?? parent
 
   useEffect(() => {
-    if (!theme) return
-    document.documentElement.dataset.theme = theme.name
+    const root = document.documentElement
+    root.dataset.theme = effective.name
 
     let style = document.getElementById('theme-global-css') as HTMLStyleElement | null
     if (!style) {
@@ -102,17 +114,20 @@ export function StageThemeProvider({ themeName, children }: { themeName?: string
       style.id = 'theme-global-css'
       document.head.appendChild(style)
     }
-    style.textContent = theme.globalCss ?? ''
+    style.textContent = effective.globalCss ?? ''
 
     return () => {
-      if (style) style.textContent = ''
+      // On unmount (leaving the stage) or before re-asserting, fall back to
+      // the global theme so a stale override never lingers on the document.
+      root.dataset.theme = parent.name
+      if (style) style.textContent = parent.globalCss ?? ''
     }
-  }, [theme?.name, theme?.globalCss])
+  }, [effective.name, effective.globalCss, parent.name, parent.globalCss])
 
-  if (!theme) return <>{children}</>
+  if (!override) return <>{children}</>
 
   const value: ThemeContextValue = {
-    ...theme,
+    ...override,
     setThemeName: parent.setThemeName,
     cycleTheme: parent.cycleTheme,
     themeList: THEME_LIST,

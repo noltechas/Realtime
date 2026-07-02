@@ -2341,7 +2341,16 @@ export default function KaraokePage() {
         return () => cancelAnimationFrame(raf)
     }, [activeLineSyllables, activeSylIdx])
 
-    // Scroll active lyric into view
+    // Scroll active lyric into view.
+    //
+    // Normal line-to-line advances glide (behavior: 'smooth'). But if lineIdx
+    // JUMPS by several lines at once — which happens when the stage's audio
+    // clock (`elapsed`, fed over IPC from the controls window) stalls under load
+    // and then catches up in one step — a smooth scroll animates across every
+    // skipped line, reading as the lyrics "rushing" to catch up to the music.
+    // For a catch-up jump we snap instantly instead so the display lands on the
+    // correct line without sprinting through the intervening ones.
+    const prevScrolledLineRef = useRef(-1)
     useEffect(() => {
         if (lineIdx < 0 || !lyricsRef.current) return
         const container = lyricsRef.current
@@ -2349,8 +2358,10 @@ export default function KaraokePage() {
         const target = lines[lineIdx] as HTMLElement | undefined
         if (target) {
             const scrollTo = target.offsetTop - container.clientHeight / 2 + target.offsetHeight / 2
-            container.scrollTo({ top: scrollTo, behavior: 'smooth' })
+            const jump = Math.abs(lineIdx - prevScrolledLineRef.current)
+            container.scrollTo({ top: scrollTo, behavior: jump > 2 ? 'auto' : 'smooth' })
         }
+        prevScrolledLineRef.current = lineIdx
     }, [lineIdx])
 
     // Singer colors and Grouping
