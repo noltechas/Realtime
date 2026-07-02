@@ -32,6 +32,576 @@ const stageFont = (px: number): string => {
     return `clamp(${min}px, ${mid}vh, ${max}px)`
 }
 
+// ── Neo-Brutal stage vocabulary ─────────────────────────────────────────────
+// The neo-brutal stage is a printed gig poster: flat cream sheets, ink borders,
+// hard offset shadows, and vivid color plates. These helpers keep every lyric
+// combination readable no matter which singer colors get mixed on one line.
+const NB_INK = '#1A1A1A'
+const NB_CREAM = '#FFF8EE'
+
+// Relative luminance of a hex color (0..1) for text-contrast decisions.
+function nbLuminance(hex: string): number {
+    const m = (hex || '').replace('#', '')
+    if (m.length < 6) return 0.5
+    const [r, g, b] = [0, 2, 4].map((i) => {
+        const c = parseInt(m.slice(i, i + 2), 16) / 255
+        return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
+    })
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+// Ink text on bright plates, cream text on dark ones. For mixed multi-singer
+// plates, ink wins unless EVERY band is dark (big bold lyric text keeps
+// contrast on mid-tone colors either way).
+const nbTextOn = (colors: string[]): string =>
+    colors.length > 0 && colors.every((c) => nbLuminance(c) < 0.22) ? NB_CREAM : '#141414'
+
+// Hard-edged split background for shared lines: one crisp band per singer,
+// separated by thin ink seams. Neo-brutal doesn't blend colors — it butts
+// panels against each other.
+function nbSplitBackground(colors: string[]): string {
+    const uniq = colors.filter((c, i) => c && colors.indexOf(c) === i)
+    if (uniq.length <= 1) return uniq[0] || NB_INK
+    const seam = '0.09em'
+    const stops: string[] = []
+    uniq.forEach((c, i) => {
+        const a = (i / uniq.length) * 100
+        const b = ((i + 1) / uniq.length) * 100
+        const from = i === 0 ? `${a}%` : `calc(${a}% + ${seam})`
+        const to = i === uniq.length - 1 ? `${b}%` : `calc(${b}% - ${seam})`
+        stops.push(`${c} ${from} ${to}`)
+        if (i < uniq.length - 1) stops.push(`${NB_INK} calc(${b}% - ${seam}) calc(${b}% + ${seam})`)
+    })
+    return `linear-gradient(100deg, ${stops.join(', ')})`
+}
+
+// Shrink display type as the text gets longer so any title length sits on one
+// clean plate (still viewport-relative via stageFont).
+const nbFitFont = (base: number, text: string, min = 24): string =>
+    stageFont(Math.max(min, Math.round(base - Math.max(0, (text || '').length - 14) * 0.9)))
+
+// Chunky three-bar equalizer (pure CSS animation, inherits currentColor).
+function NbEq({ color, fontSize }: { color: string; fontSize: string | number }) {
+    return (
+        <span className="nb-eq" style={{ color, fontSize }}>
+            <span /><span /><span />
+        </span>
+    )
+}
+
+// Ink music-note icon (no emoji on stage chrome — inline SVG only).
+function NbNote({ size = 26, color = NB_INK }: { size?: number; color?: string }) {
+    return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+            <path d="M9 18.5a2.6 2.6 0 1 1-1.6-2.4V6.2a1 1 0 0 1 .76-.97l8-2a1 1 0 0 1 1.24.97v11.3a2.6 2.6 0 1 1-1.6-2.4V7.28l-6.8 1.7v9.52Z" fill={color} />
+        </svg>
+    )
+}
+
+// Print-registration crop mark (corner L), rotated per corner.
+function NbCropMark({ style, rotate = 0 }: { style: React.CSSProperties; rotate?: number }) {
+    return (
+        <svg width="26" height="26" viewBox="0 0 26 26" style={{ position: 'absolute', opacity: 0.45, transform: `rotate(${rotate}deg)`, ...style }}>
+            <path d="M2 25 V2 H25" stroke={NB_INK} strokeWidth="3" fill="none" />
+        </svg>
+    )
+}
+
+// Full-bleed cream poster sheet behind the Up Next lockup — portaled to <body>
+// so it paints between the blurred album backdrop (z 0) and the lyric/chrome
+// layers (z 10/20), same trick as the tropical beach backdrop.
+function NeoBrutalPosterBackdrop() {
+    const blocks: Array<React.CSSProperties & { rot: number; dur: number }> = [
+        { top: '9%', left: '4%', width: 110, height: 110, background: '#FFD60A', rot: -9, dur: 7 },
+        { top: '15%', right: '6%', width: 84, height: 84, background: '#B388FF', rot: 11, dur: 8.5 },
+        { bottom: '18%', left: '8%', width: 70, height: 70, background: '#00E676', rot: 6, dur: 9.5 },
+        { bottom: '24%', right: '9%', width: 96, height: 96, background: '#FF3B30', rot: -7, dur: 8 },
+    ]
+    const sheet = (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 2, pointerEvents: 'none', overflow: 'hidden', background: NB_CREAM }}>
+            <div className="nb-print-grid" style={{ position: 'absolute', inset: 0 }} />
+            <div className="nb-dots" style={{ position: 'absolute', top: -110, right: -80, width: 460, height: 460, transform: 'rotate(10deg)' }} />
+            <div className="nb-dots" style={{ position: 'absolute', bottom: -130, left: -90, width: 520, height: 520, transform: 'rotate(-7deg)' }} />
+            {blocks.map(({ rot, dur, ...pos }, i) => (
+                <div
+                    key={i}
+                    style={{
+                        position: 'absolute',
+                        border: `3px solid ${NB_INK}`,
+                        boxShadow: `6px 6px 0 ${NB_INK}`,
+                        ['--nb-rot' as string]: `${rot}deg`,
+                        animation: `nb-float ${dur}s ease-in-out ${i * 0.7}s infinite`,
+                        ...pos,
+                    }}
+                />
+            ))}
+            <NbCropMark style={{ top: 18, left: 18 }} />
+            <NbCropMark style={{ top: 18, right: 18 }} rotate={90} />
+            <NbCropMark style={{ bottom: 18, right: 18 }} rotate={180} />
+            <NbCropMark style={{ bottom: 18, left: 18 }} rotate={270} />
+        </div>
+    )
+    return createPortal(sheet, document.body)
+}
+
+// ── Neo-Brutal "Up Next" stage screen ───────────────────────────────────────
+// A printed gig poster: cream print sheet behind, a slammed-in ink "UP NEXT"
+// plate on a yellow offset block, the album art mounted on a rotated violet
+// panel with a note sticker, the title on a white plate with a marker
+// highlight (auto-sized to any length), and one color-flagged ticket per
+// singer, all rising in with a stagger.
+function NeoBrutalUpNext({
+    theme,
+    art,
+    track,
+    singers,
+    np,
+    roles,
+    guestsMap,
+}: {
+    theme: any
+    art: string | null
+    track: any
+    singers: any[]
+    np: any
+    roles: string[]
+    guestsMap: Map<string, any>
+}) {
+    const dur = track?.duration_ms
+        ? `${Math.floor(track.duration_ms / 60000)}:${Math.floor((track.duration_ms % 60000) / 1000)
+              .toString()
+              .padStart(2, '0')}`
+        : ''
+    const title = np?.isHidden ? 'SECRET SONG' : track?.name || ''
+    return (
+        <div style={{ width: '100%', maxWidth: 1160, margin: '0 auto', padding: '0 48px', position: 'relative' }}>
+            <NeoBrutalPosterBackdrop />
+            <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 28 }}>
+                {/* UP NEXT plate on a yellow offset block */}
+                <div style={{ position: 'relative', ['--nb-rot' as string]: '-2deg', animation: 'nb-slam 0.5s var(--ease-bounce) both' }}>
+                    <div style={{ position: 'absolute', inset: 0, transform: 'translate(9px, 9px)', background: '#FFD60A', border: `3px solid ${NB_INK}` }} />
+                    <div style={{ position: 'relative', background: NB_INK, padding: '10px 34px 12px', display: 'flex', alignItems: 'center', gap: 16 }}>
+                        <NbEq color="#FFD60A" fontSize={stageFont(20)} />
+                        <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(28), letterSpacing: '0.26em', color: NB_CREAM }}>
+                            UP NEXT
+                        </span>
+                    </div>
+                </div>
+
+                {/* Album art on a rotated violet offset panel */}
+                {np?.isHidden ? (
+                    <div className="nb-rise" style={{ animationDelay: '0.08s', position: 'relative' }}>
+                        <div style={{ position: 'absolute', inset: 0, transform: 'translate(12px, 12px) rotate(1.6deg)', background: '#B388FF', border: `3px solid ${NB_INK}` }} />
+                        <div
+                            className="nb-dots"
+                            style={{
+                                position: 'relative', width: 312, height: 312, background: NB_INK,
+                                border: `4px solid ${NB_INK}`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}
+                        >
+                            <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(130), color: '#FFD60A' }}>?</span>
+                        </div>
+                    </div>
+                ) : art ? (
+                    <div className="nb-rise" style={{ animationDelay: '0.08s', position: 'relative' }}>
+                        <div style={{ position: 'absolute', inset: 0, transform: 'translate(12px, 12px) rotate(1.6deg)', background: '#B388FF', border: `3px solid ${NB_INK}` }} />
+                        <div style={{ position: 'relative', padding: 10, background: '#FFFFFF', border: `4px solid ${NB_INK}` }}>
+                            <img src={art} alt="" style={{ width: 292, height: 292, display: 'block', objectFit: 'cover', border: `3px solid ${NB_INK}` }} />
+                        </div>
+                        <div
+                            style={{
+                                position: 'absolute', top: -22, right: -24, width: 62, height: 62,
+                                background: '#FFD60A', border: `3px solid ${NB_INK}`, boxShadow: `4px 4px 0 ${NB_INK}`,
+                                transform: 'rotate(10deg)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}
+                        >
+                            <NbNote size={32} />
+                        </div>
+                    </div>
+                ) : null}
+
+                {/* Title plate with singer tickets */}
+                <div className="nb-rise" style={{ animationDelay: '0.16s', position: 'relative', maxWidth: 920 }}>
+                    <div style={{ position: 'absolute', inset: 0, transform: 'translate(10px, 10px)', background: NB_INK }} />
+                    <div style={{ position: 'relative', background: '#FFFFFF', border: `4px solid ${NB_INK}`, padding: '28px 48px 30px', textAlign: 'center' }}>
+                        <div
+                            style={{
+                                position: 'absolute', top: -15, left: 26, background: '#00E676',
+                                border: `3px solid ${NB_INK}`, boxShadow: `3px 3px 0 ${NB_INK}`, padding: '2px 12px',
+                                fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 12, letterSpacing: '0.22em', color: NB_INK,
+                                animation: 'nb-blink 1.6s steps(1) infinite',
+                            }}
+                        >
+                            READY
+                        </div>
+                        <h1 style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: nbFitFont(46, title), lineHeight: 1.12, color: NB_INK, margin: 0, letterSpacing: '-0.01em' }}>
+                            <span
+                                style={{
+                                    background: 'linear-gradient(transparent 60%, rgba(255,214,10,0.9) 60%, rgba(255,214,10,0.9) 94%, transparent 94%)',
+                                    WebkitBoxDecorationBreak: 'clone', boxDecorationBreak: 'clone', padding: '0 0.14em',
+                                } as React.CSSProperties}
+                            >
+                                {title}
+                            </span>
+                        </h1>
+                        {!np?.isHidden && (
+                            <p
+                                style={{
+                                    fontFamily: theme.fontBody, fontWeight: 700, fontSize: stageFont(16), color: '#555555',
+                                    margin: '12px 0 0', textTransform: 'uppercase', letterSpacing: '0.12em',
+                                }}
+                            >
+                                {track.artists.map((a: any) => a.name).join(', ')}
+                                {dur ? `  /  ${dur}` : ''}
+                            </p>
+                        )}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 16, marginTop: 24 }}>
+                            {singers.map((s: any, idx: number) => {
+                                const roleStr =
+                                    !np?.isHidden && s.roleIndices && s.roleIndices.length > 0 && roles.length > 0
+                                        ? s.roleIndices.map((ri: number) => roles[ri]).filter(Boolean).join(' & ')
+                                        : ''
+                                const g = s.guestId ? guestsMap.get(s.guestId) : undefined
+                                const nm = g?.name ?? s.name
+                                const pic = g?.profile_picture ?? null
+                                const rot = idx % 2 === 0 ? -1.2 : 1.2
+                                return (
+                                    <div
+                                        key={s.id}
+                                        className="nb-rise"
+                                        style={{
+                                            animationDelay: `${0.26 + idx * 0.07}s`,
+                                            ['--nb-rot' as string]: `${rot}deg`,
+                                            display: 'inline-flex', alignItems: 'stretch',
+                                            background: '#FFFFFF', border: `3px solid ${NB_INK}`, boxShadow: `5px 5px 0 ${NB_INK}`,
+                                        }}
+                                    >
+                                        <div style={{ width: 14, background: s.color, borderRight: `3px solid ${NB_INK}` }} />
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px' }}>
+                                            {pic ? (
+                                                <img src={pic} alt="" style={{ width: 40, height: 40, objectFit: 'cover', border: `2.5px solid ${NB_INK}` }} />
+                                            ) : (
+                                                <span style={{ width: 14, height: 14, background: s.color, border: `2px solid ${NB_INK}`, display: 'inline-block' }} />
+                                            )}
+                                            <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                                                <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(25), color: NB_INK, lineHeight: 1.08 }}>
+                                                    {nm}
+                                                </span>
+                                                {roleStr && (
+                                                    <span style={{ fontFamily: theme.fontBody, fontWeight: 700, fontSize: stageFont(11), letterSpacing: '0.16em', textTransform: 'uppercase', color: '#555555' }}>
+                                                        {roleStr}
+                                                    </span>
+                                                )}
+                                            </span>
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+// ── Urban / Hip-Hop stage vocabulary ────────────────────────────────────────
+// The urban stage is a city wall after dark: streetlight vignette, spray
+// stencils with turbulence-rough edges and wet drips, wheatpasted paper
+// flyers with tape, and a flickering neon accent. Oswald = stencil type,
+// Permanent Marker = the tag hand.
+const URB_VOID = '#050505'
+const URB_GREEN = '#D4FF00'
+const URB_CYAN = '#00F0FF'
+const URB_RED = '#FF1E1E'
+const URB_ASH = '#B0B0B0'
+const URB_PAPER = '#F2EFE6'
+const URB_STENCIL = "'Oswald', sans-serif"
+const URB_MARKER = "'Permanent Marker', cursive"
+
+// Ink for text sitting ON a spray plate of the given singer color(s).
+const urbanTextOn = (colors: string[]): string =>
+    colors.length > 0 && colors.every((c) => nbLuminance(c) < 0.22) ? '#FFFFFF' : '#0A0A0A'
+
+// Local turbulence filter — the idle screen early-returns before the main
+// stage's <defs>, so screens that need the rough-spray edge carry their own.
+function UrbanRoughDefs({ id }: { id: string }) {
+    return (
+        <svg width="0" height="0" style={{ position: 'absolute' }}>
+            <defs>
+                <filter id={id}>
+                    <feTurbulence type="fractalNoise" baseFrequency="0.04 0.15" numOctaves="3" result="noise" />
+                    <feDisplacementMap in="SourceGraphic" in2="noise" scale="12" xChannelSelector="R" yChannelSelector="G" />
+                </filter>
+            </defs>
+        </svg>
+    )
+}
+
+// Soft over-spray splat — a color cloud with satellite droplets.
+function UrbanSplat({ color, size, style, opacity = 0.11 }: { color: string; size: number; style: React.CSSProperties; opacity?: number }) {
+    return (
+        <div
+            style={{
+                position: 'absolute', width: size, height: size, pointerEvents: 'none', opacity,
+                background:
+                    `radial-gradient(circle at 46% 52%, ${color} 0%, transparent 46%), ` +
+                    `radial-gradient(circle at 74% 28%, ${color} 0%, transparent 10%), ` +
+                    `radial-gradient(circle at 22% 24%, ${color} 0%, transparent 8%), ` +
+                    `radial-gradient(circle at 82% 66%, ${color} 0%, transparent 7%), ` +
+                    `radial-gradient(circle at 30% 82%, ${color} 0%, transparent 9%)`,
+                ...style,
+            }}
+        />
+    )
+}
+
+// Hand-scrawled king's crown — the classic tag signature.
+function UrbanCrown({ size = 74, color = 'rgba(255,255,255,0.28)', style }: { size?: number; color?: string; style?: React.CSSProperties }) {
+    return (
+        <svg width={size} height={size * 0.7} viewBox="0 0 100 70" style={{ position: 'absolute', ...style }}>
+            <path
+                d="M10 58 L14 26 L32 42 L50 14 L68 42 L86 26 L90 58 Z"
+                fill="none" stroke={color} strokeWidth="4.5" strokeLinejoin="round" strokeLinecap="round"
+            />
+            <path d="M14 64 L86 64" stroke={color} strokeWidth="4.5" strokeLinecap="round" />
+        </svg>
+    )
+}
+
+// Strip of packing tape holding paper to the wall.
+function UrbanTape({ style, rotate = -3, width = 88 }: { style: React.CSSProperties; rotate?: number; width?: number }) {
+    return (
+        <div
+            style={{
+                position: 'absolute', width, height: 24, transform: `rotate(${rotate}deg)`,
+                background: 'rgba(240, 238, 228, 0.32)', boxShadow: '0 1px 3px rgba(0,0,0,0.35)',
+                ...style,
+            }}
+        />
+    )
+}
+
+// Flickering neon tube sign (bad-bodega-tube stutter via .urban-neon).
+function UrbanNeonSign({ text, color = URB_CYAN, fontSize }: { text: string; color?: string; fontSize: string }) {
+    return (
+        <div
+            className="urban-neon"
+            style={{
+                display: 'inline-block', padding: '10px 28px',
+                border: `2.5px solid ${color}`, borderRadius: 12,
+                color, fontFamily: URB_STENCIL, fontWeight: 300, letterSpacing: '0.45em',
+                textTransform: 'uppercase', fontSize,
+                boxShadow: `0 0 18px ${color}59, inset 0 0 16px ${color}38`,
+                textShadow: `0 0 8px ${color}D9, 0 0 24px ${color}80`,
+            }}
+        >
+            {text}
+        </div>
+    )
+}
+
+// Spray-stencil plate: a rough neon block (turbulence-displaced underlay)
+// with stencil text on top, optionally dripping wet paint off its bottom edge.
+function UrbanSprayPlate({
+    color, ink = '#0A0A0A', filterId, rotate = -2, drips = true, style, children,
+}: {
+    color: string; ink?: string; filterId: string; rotate?: number; drips?: boolean; style?: React.CSSProperties; children: React.ReactNode
+}) {
+    return (
+        <span style={{ position: 'relative', display: 'inline-block', transform: `rotate(${rotate}deg)`, ...style }}>
+            <span style={{ position: 'absolute', inset: 0, background: color, filter: `url(#${filterId})` }} />
+            {drips && (
+                <span
+                    style={{
+                        position: 'absolute', left: '8%', right: '8%', top: '90%', height: '0.6em', pointerEvents: 'none',
+                        background:
+                            `linear-gradient(${color}, ${color}) 7% 0 / 0.09em 90% no-repeat, ` +
+                            `linear-gradient(${color}, ${color}) 18% 0 / 0.055em 55% no-repeat, ` +
+                            `linear-gradient(${color}, ${color}) 63% 0 / 0.07em 40% no-repeat, ` +
+                            `linear-gradient(${color}, ${color}) 86% 0 / 0.08em 100% no-repeat`,
+                        filter: `url(#${filterId})`,
+                    }}
+                />
+            )}
+            <span style={{ position: 'relative', display: 'inline-block', color: ink }}>{children}</span>
+        </span>
+    )
+}
+
+// Shared night-wall layers: streetlight pool + vignette, faint block courses,
+// grunge noise, over-spray splats, and a slow drift of the light.
+function UrbanWallLayers({ noiseId }: { noiseId: string }) {
+    return (
+        <>
+            <div style={{
+                position: 'absolute', inset: 0,
+                background: 'radial-gradient(ellipse at 50% 26%, rgba(255,255,255,0.055) 0%, transparent 55%), radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.85) 100%)',
+            }} />
+            <div style={{
+                position: 'absolute', inset: 0, opacity: 0.5,
+                backgroundImage: 'linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)',
+                backgroundSize: '100% 44px, 88px 44px',
+            }} />
+            <div style={{
+                position: 'absolute', inset: '-10%', pointerEvents: 'none',
+                background: 'radial-gradient(ellipse 42% 58% at 32% 22%, rgba(255,255,255,0.045), transparent 70%)',
+                animation: 'urban-spot 13s ease-in-out infinite alternate',
+            }} />
+            <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.07, mixBlendMode: 'overlay' as const }}>
+                <filter id={noiseId}><feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" /></filter>
+                <rect width="100%" height="100%" filter={`url(#${noiseId})`} />
+            </svg>
+            <UrbanSplat color={URB_GREEN} size={300} style={{ top: '10%', left: '5%' }} />
+            <UrbanSplat color={URB_CYAN} size={230} style={{ bottom: '14%', right: '7%' }} />
+            <UrbanSplat color={URB_RED} size={170} style={{ top: '56%', left: '11%', opacity: 0.09 } as React.CSSProperties} />
+            <UrbanCrown style={{ top: '16%', right: '13%', transform: 'rotate(12deg)' }} />
+            <UrbanCrown size={46} color="rgba(212,255,0,0.3)" style={{ bottom: '24%', left: '18%', transform: 'rotate(-9deg)' }} />
+        </>
+    )
+}
+
+// Full-bleed night wall behind the Up Next lockup — portaled to <body> so it
+// paints between the blurred album backdrop (z 0) and the lyric/chrome layers.
+function UrbanPosterBackdrop() {
+    const wall = (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 2, pointerEvents: 'none', overflow: 'hidden', background: URB_VOID }}>
+            <UrbanWallLayers noiseId="urban-poster-noise" />
+        </div>
+    )
+    return createPortal(wall, document.body)
+}
+
+// ── Urban "Up Next" stage screen ────────────────────────────────────────────
+// A show bill wheatpasted to the night wall: spray-stencil "UP NEXT" plate,
+// the album art as a taped paper poster with a torn bottom edge, the title
+// tagged in marker with the lead singer's glow, and slashed backstage chips
+// for everyone on the mic.
+function UrbanUpNext({
+    theme, art, track, singers, np, roles, guestsMap,
+}: {
+    theme: any; art: string | null; track: any; singers: any[]; np: any; roles: string[]; guestsMap: Map<string, any>
+}) {
+    const dur = track?.duration_ms
+        ? `${Math.floor(track.duration_ms / 60000)}:${Math.floor((track.duration_ms % 60000) / 1000).toString().padStart(2, '0')}`
+        : ''
+    const title = np?.isHidden ? 'SURPRISE JOINT' : track?.name || ''
+    const leadColor = singers[0]?.color || URB_GREEN
+    const tornPaper = 'polygon(0 0, 100% 0, 100% 95%, 92% 100%, 78% 96%, 55% 100%, 34% 96.5%, 14% 100%, 0 96%)'
+    return (
+        <div style={{ width: '100%', maxWidth: 1160, margin: '0 auto', padding: '0 48px', position: 'relative' }}>
+            <UrbanPosterBackdrop />
+            <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 26 }}>
+                {/* UP NEXT spray stencil */}
+                <div style={{ animation: 'urban-spray-in 0.45s ease-out both' }}>
+                    <UrbanSprayPlate color={URB_GREEN} filterId="urban-rough-filter" rotate={-2} style={{ padding: '6px 26px 8px' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 16, padding: '4px 6px' }}>
+                            <NbEq color="#0A0A0A" fontSize={stageFont(19)} />
+                            <span style={{ fontFamily: URB_STENCIL, fontWeight: 700, fontSize: stageFont(27), letterSpacing: '0.42em', textTransform: 'uppercase' }}>
+                                Up Next
+                            </span>
+                        </span>
+                    </UrbanSprayPlate>
+                </div>
+
+                {/* Wheatpasted poster (or the blacked-out surprise bill) */}
+                {np?.isHidden ? (
+                    <div className="nb-rise" style={{ animationDelay: '0.08s', position: 'relative', transform: 'rotate(1.4deg)' }}>
+                        <div style={{
+                            width: 316, height: 316, background: '#0D0D0D', clipPath: tornPaper,
+                            boxShadow: '0 22px 50px rgba(0,0,0,0.85)', display: 'flex', flexDirection: 'column',
+                            alignItems: 'center', justifyContent: 'center', gap: 6,
+                            border: '1px solid rgba(255,255,255,0.07)',
+                        }}>
+                            <span style={{ fontFamily: URB_MARKER, fontSize: stageFont(120), color: URB_GREEN, textShadow: `0 0 26px ${URB_GREEN}66`, transform: 'rotate(-6deg)' }}>?</span>
+                        </div>
+                        <UrbanTape style={{ top: -12, left: 24 }} rotate={-5} />
+                        <UrbanTape style={{ top: -10, right: 20 }} rotate={4} />
+                    </div>
+                ) : art ? (
+                    <div className="nb-rise" style={{ animationDelay: '0.08s', position: 'relative', transform: 'rotate(1.4deg)' }}>
+                        <div style={{ background: URB_PAPER, padding: '12px 12px 20px', clipPath: tornPaper, boxShadow: '0 22px 50px rgba(0,0,0,0.85)' }}>
+                            <img src={art} alt="" style={{ width: 292, height: 292, display: 'block', objectFit: 'cover' }} />
+                        </div>
+                        <UrbanTape style={{ top: -12, left: 24 }} rotate={-5} />
+                        <UrbanTape style={{ top: -10, right: 20 }} rotate={4} />
+                    </div>
+                ) : null}
+
+                {/* Title tagged straight onto the wall */}
+                <div className="nb-rise" style={{ animationDelay: '0.16s', textAlign: 'center', maxWidth: 940 }}>
+                    <h1 style={{
+                        fontFamily: URB_MARKER, fontWeight: 400, fontSize: nbFitFont(48, title, 26), lineHeight: 1.15,
+                        color: '#FFFFFF', margin: 0, transform: 'rotate(-1.6deg)',
+                        textShadow: `0.05em 0.05em 0 #000, 0 0 30px ${leadColor}59`,
+                    }}>
+                        {title}
+                    </h1>
+                    {!np?.isHidden && (
+                        <p style={{
+                            fontFamily: URB_STENCIL, fontWeight: 300, fontSize: stageFont(16), color: URB_ASH,
+                            margin: '12px 0 0', textTransform: 'uppercase', letterSpacing: '0.32em',
+                        }}>
+                            {track.artists.map((a: any) => a.name).join(', ')}
+                            {dur ? `  —  ${dur}` : ''}
+                        </p>
+                    )}
+                </div>
+
+                {/* ON THE MIC — slashed backstage chips */}
+                <div className="nb-rise" style={{ animationDelay: '0.24s', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
+                    <span style={{ fontFamily: URB_STENCIL, fontWeight: 700, fontSize: stageFont(12), letterSpacing: '0.5em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)' }}>
+                        On The Mic
+                    </span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 14 }}>
+                        {singers.map((s: any, idx: number) => {
+                            const roleStr =
+                                !np?.isHidden && s.roleIndices && s.roleIndices.length > 0 && roles.length > 0
+                                    ? s.roleIndices.map((ri: number) => roles[ri]).filter(Boolean).join(' & ')
+                                    : ''
+                            const g = s.guestId ? guestsMap.get(s.guestId) : undefined
+                            const nm = g?.name ?? s.name
+                            const pic = g?.profile_picture ?? null
+                            return (
+                                <div
+                                    key={s.id}
+                                    className="nb-rise"
+                                    style={{
+                                        animationDelay: `${0.3 + idx * 0.07}s`,
+                                        display: 'inline-flex', alignItems: 'center', gap: 12,
+                                        background: 'rgba(12,12,12,0.82)', backdropFilter: 'blur(10px)',
+                                        borderLeft: `6px solid ${s.color}`,
+                                        clipPath: 'polygon(0 0, 100% 0, calc(100% - 12px) 100%, 0 100%)',
+                                        padding: '12px 30px 12px 16px',
+                                        boxShadow: '0 12px 28px rgba(0,0,0,0.7)',
+                                        transform: `rotate(${idx % 2 === 0 ? -0.8 : 0.8}deg)`,
+                                    }}
+                                >
+                                    {pic ? (
+                                        <img src={pic} alt="" style={{ width: 42, height: 42, borderRadius: '50%', objectFit: 'cover', border: `2.5px solid ${s.color}` }} />
+                                    ) : (
+                                        <span style={{ width: 13, height: 13, borderRadius: '50%', background: s.color, boxShadow: `0 0 10px ${s.color}` }} />
+                                    )}
+                                    <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                                        <span style={{ fontFamily: URB_STENCIL, fontWeight: 700, fontSize: stageFont(24), color: '#FFFFFF', lineHeight: 1.1, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                            {nm}
+                                        </span>
+                                        {roleStr && (
+                                            <span style={{ fontFamily: URB_STENCIL, fontWeight: 300, fontSize: stageFont(11), letterSpacing: '0.28em', textTransform: 'uppercase', color: URB_ASH }}>
+                                                {roleStr}
+                                            </span>
+                                        )}
+                                    </span>
+                                </div>
+                            )
+                        })}
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}
+
 // ── Comic-Book "Up Next" stage screen ───────────────────────────────────────
 // A bespoke, comic-original waiting screen: a halftone-printed page with a
 // pop-art "UP NEXT!" starburst banner, the album art mounted in a heavy inked
@@ -527,6 +1097,620 @@ function TropicalUpNext({
     )
 }
 
+// ── Zen / Japanese garden stage vocabulary ──────────────────────────────────
+// The zen stage is a tokonoma alcove at dusk: warm stone dark, washi paper,
+// kintsugi gold, and the singer's color used the way a calligrapher uses a
+// hanko seal — a small vivid accent on quiet paper. Every treatment below is
+// built from that vocabulary so any singer-color combination stays serene and
+// readable (colors are accents on ink-on-paper, never the text fill itself).
+const ZEN_INK = '#241f16'
+const ZEN_WASHI = '#F0E6D3'
+const ZEN_WASHI_DIM = '#B8A898'
+const ZEN_GOLD = '#C9A84C'
+const ZEN_VERM = '#D4442A'
+const ZEN_SAKURA = '#E8A0BF'
+const ZEN_SERIF = "'Cormorant Garamond', Georgia, serif"
+const ZEN_SANS = "'Zen Kaku Gothic New', 'Noto Sans JP', sans-serif"
+const ZEN_PAPER = 'linear-gradient(168deg, #F7EEDC 0%, #F0E6D3 55%, #E7DAC2 100%)'
+
+// Shrink the display serif as titles get longer so any length sits on one or
+// two calm lines (still viewport-relative via stageFont).
+const zenFitFont = (base: number, text: string, min = 26): string =>
+    stageFont(Math.max(min, Math.round(base - Math.max(0, (text || '').length - 16) * 0.75)))
+
+// Enso brush circle. Pass `progress` (0..1) to draw that fraction of the
+// stroke (count-in / interlude rings get a smooth 0.28s glide between ticks);
+// omit it for the endlessly re-drawing meditative loop.
+function ZenEnso({ size = 44, color = ZEN_GOLD, strokeWidth = 6, progress, style }: {
+    size?: number; color?: string; strokeWidth?: number; progress?: number; style?: React.CSSProperties
+}) {
+    const C = 2 * Math.PI * 38
+    return (
+        <svg width={size} height={size} viewBox="0 0 100 100" style={style}>
+            <circle
+                cx="50" cy="50" r="38" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"
+                strokeDasharray={C}
+                transform="rotate(-80 50 50)"
+                style={progress !== undefined
+                    ? { strokeDashoffset: C * (1 - Math.min(1, Math.max(0, progress))), transition: 'stroke-dashoffset 0.28s linear' }
+                    : { animation: 'zenEnsoDraw 6s ease-in-out infinite alternate', strokeDashoffset: 240 }}
+            />
+        </svg>
+    )
+}
+
+// Falling sakura petals. Deterministic layout (no Math.random — stable across
+// re-renders); each petal loops its own fall with sway + tumble.
+const ZEN_PETALS: Array<{ x: string; size: number; dur: number; delay: number; o: number }> = [
+    { x: '6%', size: 13, dur: 17, delay: 0, o: 0.32 },
+    { x: '16%', size: 9, dur: 21, delay: 6, o: 0.22 },
+    { x: '27%', size: 11, dur: 19, delay: 11, o: 0.26 },
+    { x: '38%', size: 8, dur: 23, delay: 3, o: 0.2 },
+    { x: '49%', size: 12, dur: 18, delay: 14, o: 0.28 },
+    { x: '60%', size: 9, dur: 22, delay: 8, o: 0.2 },
+    { x: '71%', size: 13, dur: 17.5, delay: 1.5, o: 0.3 },
+    { x: '82%', size: 10, dur: 20, delay: 10, o: 0.24 },
+    { x: '92%', size: 8, dur: 24, delay: 5, o: 0.18 },
+]
+function ZenPetalField({ dim = 1 }: { dim?: number }) {
+    return (
+        <>
+            {ZEN_PETALS.map((p, i) => (
+                <svg
+                    key={i} width={p.size} height={p.size} viewBox="0 0 10 10"
+                    style={{
+                        position: 'absolute', left: p.x, top: '-6%', opacity: 0,
+                        ['--petal-o' as string]: String(+(p.o * dim).toFixed(3)),
+                        animation: `zen-petal-live ${p.dur}s linear ${p.delay}s infinite`,
+                    }}
+                >
+                    <path d="M5 0.6 C7.6 1.4 8.8 3.7 8.1 6.2 C7.5 8.5 5.7 9.5 5 9.5 C4.3 9.5 2.5 8.5 1.9 6.2 C1.2 3.7 2.4 1.4 5 0.6 Z" fill={ZEN_SAKURA} />
+                </svg>
+            ))}
+        </>
+    )
+}
+
+// Stone garden lantern (tōrō) with a warm breathing candle glow.
+function ZenLantern({ style, scale = 1 }: { style?: React.CSSProperties; scale?: number }) {
+    return (
+        <div style={{ position: 'absolute', width: 120 * scale, height: 190 * scale, ...style }}>
+            <div style={{
+                position: 'absolute', left: '50%', top: '34%', width: 96 * scale, height: 96 * scale,
+                marginLeft: -48 * scale, borderRadius: '50%', filter: 'blur(2px)',
+                background: 'radial-gradient(circle, rgba(255,196,110,0.35) 0%, rgba(255,180,90,0.12) 45%, transparent 70%)',
+                animation: 'zen-lantern-glow 5s ease-in-out infinite',
+            }} />
+            <svg width={120 * scale} height={190 * scale} viewBox="0 0 120 190" style={{ position: 'relative' }}>
+                <circle cx="60" cy="14" r="7" fill="#3a332a" />
+                <path d="M14 52 Q60 18 106 52 L92 58 L28 58 Z" fill="#3a332a" />
+                <rect x="36" y="58" width="48" height="40" rx="4" fill="#2c261e" />
+                <rect x="46" y="64" width="28" height="28" rx="3" fill="#FFC46E" opacity="0.85" style={{ animation: 'zen-lantern-glow 5s ease-in-out infinite' }} />
+                <line x1="60" y1="64" x2="60" y2="92" stroke="#2c261e" strokeWidth="3" />
+                <line x1="46" y1="78" x2="74" y2="78" stroke="#2c261e" strokeWidth="3" />
+                <rect x="40" y="98" width="40" height="8" rx="3" fill="#3a332a" />
+                <rect x="50" y="106" width="20" height="52" fill="#332c23" />
+                <path d="M26 178 Q60 158 94 178 L94 190 L26 190 Z" fill="#3a332a" />
+            </svg>
+        </div>
+    )
+}
+
+// Full-bleed dusk garden behind the Up Next lockup, portaled to <body> so it
+// paints between the blurred album backdrop (z 0) and the lyric/chrome layers
+// (z 10/20) — same trick as the tropical beach + neo-brutal poster backdrops.
+function ZenUpNextBackdrop() {
+    const scene = (
+        <div style={{
+            position: 'fixed', inset: 0, zIndex: 2, pointerEvents: 'none', overflow: 'hidden',
+            background: 'linear-gradient(180deg, #0e0c09 0%, #1a1814 34%, #201b14 62%, #12100c 100%)',
+        }}>
+            {/* drifting gold-ink wash */}
+            <div style={{
+                position: 'absolute', inset: '-20%', opacity: 0.05, filter: 'blur(40px)',
+                background: 'radial-gradient(ellipse 60% 50% at 25% 30%, rgba(201,168,76,0.5) 0%, transparent 70%), radial-gradient(ellipse 50% 60% at 70% 60%, rgba(139,107,74,0.4) 0%, transparent 70%)',
+                animation: 'zenInkDrift 30s ease-in-out infinite',
+            }} />
+            {/* ink mountains, two depths */}
+            <svg style={{ position: 'absolute', bottom: '8%', left: 0, width: '100%', height: '42%', opacity: 0.08 }} viewBox="0 0 1200 400" preserveAspectRatio="none">
+                <path d="M0 400 L0 280 Q150 120 300 220 Q450 100 600 180 Q750 60 900 200 Q1050 130 1200 250 L1200 400 Z" fill="#B8A898" />
+            </svg>
+            <svg style={{ position: 'absolute', bottom: '5%', left: 0, width: '100%', height: '36%', opacity: 0.05 }} viewBox="0 0 1200 400" preserveAspectRatio="none">
+                <path d="M0 400 L0 320 Q200 180 400 280 Q550 150 700 240 Q850 170 1000 260 Q1100 200 1200 300 L1200 400 Z" fill="#8B7B6B" />
+            </svg>
+            {/* drifting mist */}
+            <div style={{
+                position: 'absolute', top: '42%', left: '-100%', width: '300%', height: 80, filter: 'blur(9px)',
+                background: 'linear-gradient(90deg, transparent 0%, rgba(240,230,211,0.03) 20%, rgba(240,230,211,0.05) 50%, rgba(240,230,211,0.03) 80%, transparent 100%)',
+                animation: 'zenMistDrift 35s linear infinite',
+            }} />
+            <div style={{
+                position: 'absolute', top: '62%', left: '-100%', width: '300%', height: 60, filter: 'blur(13px)',
+                background: 'linear-gradient(90deg, transparent 0%, rgba(201,168,76,0.02) 30%, rgba(201,168,76,0.04) 50%, rgba(201,168,76,0.02) 70%, transparent 100%)',
+                animation: 'zenMistDrift 25s linear infinite reverse',
+            }} />
+            {/* enso watermark, endlessly re-drawing */}
+            <ZenEnso size={130} color="rgba(201,168,76,0.6)" strokeWidth={4} style={{ position: 'absolute', top: '7%', right: '9%', opacity: 0.14 }} />
+            {/* glowing stone lanterns */}
+            <ZenLantern style={{ left: '6%', bottom: '5%' }} />
+            <ZenLantern style={{ right: '6%', bottom: '5%' }} scale={0.78} />
+            <ZenPetalField />
+        </div>
+    )
+    return createPortal(scene, document.body)
+}
+
+// Quiet ambience over the LIVE zen stage: a handful of drifting petals and a
+// low mist band. Sits above the art/video backdrop (z 0) and below the
+// reactions (z 5) and lyrics (z 10) so it never fights the words.
+function ZenAmbient() {
+    return (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 3, pointerEvents: 'none', overflow: 'hidden' }}>
+            <ZenPetalField dim={0.65} />
+            <div style={{
+                position: 'absolute', left: '-100%', bottom: 0, width: '300%', height: 110, filter: 'blur(10px)',
+                background: 'linear-gradient(90deg, transparent, rgba(240,230,211,0.045) 30%, rgba(240,230,211,0.07) 50%, rgba(240,230,211,0.045) 70%, transparent)',
+                animation: 'zenMistDrift 40s linear infinite',
+            }} />
+        </div>
+    )
+}
+
+// ── Zen "Up Next" stage screen ──────────────────────────────────────────────
+// A tokonoma alcove at dusk: the garden scene behind, a vermillion seal +
+// gold-ruled "UP NEXT" header, the album art mounted on a hanging kakemono
+// scroll with dark wood rollers, the title in candlelit serif (auto-sized to
+// any length), a kintsugi vein divider, and each singer on a washi tag
+// hanging from its own gold pin, swaying gently. Everything unrolls in with a
+// soft staggered rise.
+function ZenUpNext({
+    theme,
+    art,
+    track,
+    singers,
+    np,
+    roles,
+    guestsMap,
+}: {
+    theme: any
+    art: string | null
+    track: any
+    singers: any[]
+    np: any
+    roles: string[]
+    guestsMap: Map<string, any>
+}) {
+    const dur = track?.duration_ms
+        ? `${Math.floor(track.duration_ms / 60000)}:${Math.floor((track.duration_ms % 60000) / 1000).toString().padStart(2, '0')}`
+        : ''
+    const roller = (shadow: string) => (
+        <div style={{ width: 360, height: 14, borderRadius: 999, background: 'linear-gradient(180deg, #4a4036, #2c261e)', boxShadow: shadow, position: 'relative' }}>
+            <div style={{ position: 'absolute', left: -9, top: 2, width: 10, height: 10, borderRadius: '50%', background: ZEN_GOLD, boxShadow: '0 0 8px rgba(201,168,76,0.5)' }} />
+            <div style={{ position: 'absolute', right: -9, top: 2, width: 10, height: 10, borderRadius: '50%', background: ZEN_GOLD, boxShadow: '0 0 8px rgba(201,168,76,0.5)' }} />
+        </div>
+    )
+    return (
+        <div className="anim-enter" style={{ width: '100%', maxWidth: 1100, margin: '0 auto', padding: '0 48px', position: 'relative' }}>
+            <ZenUpNextBackdrop />
+            <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
+                {/* Header: vermillion seal + gold rules */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 18, width: 'min(560px, 82%)', animation: 'zen-scroll-in 0.6s ease-out both' }}>
+                    <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, transparent, rgba(201,168,76,0.55))' }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ width: 30, height: 30, borderRadius: 6, background: ZEN_VERM, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 14px rgba(212,68,42,0.45), inset 0 0 0 1.5px rgba(247,238,220,0.35)' }}>
+                            <span style={{ fontFamily: ZEN_SANS, fontWeight: 700, fontSize: 16, color: '#F7EEDC', lineHeight: 1 }}>次</span>
+                        </div>
+                        <span style={{ fontFamily: ZEN_SANS, fontWeight: 500, fontSize: stageFont(15), letterSpacing: '0.5em', marginRight: '-0.5em', textTransform: 'uppercase', color: ZEN_GOLD, textShadow: '0 0 12px rgba(201,168,76,0.35)' }}>
+                            Up Next
+                        </span>
+                    </div>
+                    <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, rgba(201,168,76,0.55), transparent)' }} />
+                </div>
+
+                {/* Kakemono hanging scroll with the album art */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', animation: 'zen-scroll-in 0.65s ease-out 0.08s both' }}>
+                    {roller('0 3px 8px rgba(0,0,0,0.5)')}
+                    <div style={{ width: 336, padding: 16, background: ZEN_PAPER, boxShadow: '0 26px 54px rgba(0,0,0,0.55)', display: 'flex', justifyContent: 'center' }}>
+                        {np?.isHidden ? (
+                            <div style={{ width: 304, height: 304, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, border: '1px solid rgba(60,50,38,0.25)' }}>
+                                <ZenEnso size={140} color="#2c261e" strokeWidth={5} />
+                                <span style={{ fontFamily: ZEN_SERIF, fontStyle: 'italic', fontWeight: 600, fontSize: stageFont(22), color: '#3c3226' }}>a secret song</span>
+                            </div>
+                        ) : art ? (
+                            <img src={art} alt="" style={{ width: 304, height: 304, objectFit: 'cover', display: 'block', border: '1px solid rgba(60,50,38,0.3)' }} />
+                        ) : null}
+                    </div>
+                    {roller('0 8px 14px rgba(0,0,0,0.55)')}
+                </div>
+
+                {/* Title + artist + kintsugi vein */}
+                <div style={{ textAlign: 'center', maxWidth: 940, animation: 'zen-scroll-in 0.65s ease-out 0.16s both' }}>
+                    <h1 style={{
+                        fontFamily: ZEN_SERIF, fontStyle: 'italic', fontWeight: 500, lineHeight: 1.12, margin: 0,
+                        fontSize: zenFitFont(58, np?.isHidden ? 'A Surprise Awaits' : track.name),
+                        color: ZEN_WASHI, letterSpacing: '0.02em',
+                        textShadow: '0 0 30px rgba(201,168,76,0.28), 0 0 60px rgba(201,168,76,0.12)',
+                    }}>
+                        {np?.isHidden ? 'A Surprise Awaits' : track.name}
+                    </h1>
+                    {!np?.isHidden && (
+                        <p style={{ fontFamily: ZEN_SANS, fontWeight: 500, fontSize: stageFont(15), letterSpacing: '0.32em', textTransform: 'uppercase', color: ZEN_WASHI_DIM, margin: '14px 0 0' }}>
+                            {track.artists.map((a: any) => a.name).join(', ')}{dur ? '  ·  ' + dur : ''}
+                        </p>
+                    )}
+                    <svg width="320" height="12" viewBox="0 0 320 12" style={{ marginTop: 16, opacity: 0.8 }}>
+                        <path d="M0 7 L74 7 L92 3.5 L118 8.5 L166 5 L208 8 L242 4.5 L320 6.5" fill="none" stroke={ZEN_GOLD} strokeWidth="1.4" strokeLinecap="round" />
+                        <circle cx="92" cy="3.5" r="1.8" fill={ZEN_GOLD} />
+                        <circle cx="242" cy="4.5" r="1.8" fill={ZEN_GOLD} />
+                    </svg>
+                </div>
+
+                {/* Singers: washi tags hanging from gold pins, gently swaying */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'flex-start', gap: 30, maxWidth: 980 }}>
+                    {singers.map((s: any, i: number) => {
+                        const roleStr =
+                            !np?.isHidden && s.roleIndices && s.roleIndices.length > 0 && roles.length > 0
+                                ? s.roleIndices.map((idx: number) => roles[idx]).filter(Boolean).join(' & ')
+                                : ''
+                        const g = s.guestId ? guestsMap.get(s.guestId) : undefined
+                        const nm = g?.name ?? s.name
+                        const pic = g?.profile_picture ?? null
+                        return (
+                            <div key={s.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', animation: `zen-scroll-in 0.6s ease-out ${0.24 + i * 0.07}s both` }}>
+                                <div style={{ width: 7, height: 7, borderRadius: '50%', background: ZEN_GOLD, boxShadow: '0 0 8px rgba(201,168,76,0.6)' }} />
+                                <div style={{ transformOrigin: 'top center', animation: `zen-tag-sway ${5.5 + (i % 3)}s ease-in-out ${i * 0.4}s infinite`, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                    <div style={{ width: 2, height: 16, background: 'rgba(201,168,76,0.55)' }} />
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 22px 12px 18px', background: ZEN_PAPER, borderLeft: `5px solid ${s.color}`, borderRadius: 6, boxShadow: '0 12px 26px rgba(0,0,0,0.45)' }}>
+                                        {pic ? (
+                                            <img src={pic} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', border: `2.5px solid ${s.color}` }} />
+                                        ) : (
+                                            <span style={{ width: 14, height: 14, borderRadius: 4, background: s.color, boxShadow: `0 0 10px ${s.color}` }} />
+                                        )}
+                                        <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                                            <span style={{ fontFamily: ZEN_SERIF, fontWeight: 600, fontSize: stageFont(27), color: ZEN_INK, lineHeight: 1.12 }}>{nm}</span>
+                                            {roleStr && (
+                                                <span style={{ fontFamily: ZEN_SANS, fontWeight: 500, fontSize: stageFont(11), letterSpacing: '0.22em', textTransform: 'uppercase', color: '#8a7a64' }}>{roleStr}</span>
+                                            )}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        )
+                    })}
+                </div>
+            </div>
+        </div>
+    )
+}
+
+// ── Steampunk / Victorian engine-room stage vocabulary ──────────────────────
+// The steampunk stage is a music-hall engine room: cast iron, riveted brass,
+// gaslight, and pressure gauges. The singer's color is treated as LIGHT — an
+// Edison-filament lettering color and an enamel indicator band on machinery —
+// so any color (or combination on shared lines) stays bright on dark iron.
+const STM_BRASS = '#C8973E'
+const STM_COPPER = '#E07040'
+const STM_RUST = '#B84030'
+const STM_PARCH = '#E8DCC8'
+const STM_MID = '#A89878'
+const STM_HEADING = "'Cinzel Decorative', 'Cinzel', serif"
+const STM_SERIF = "'Spectral', Georgia, serif"
+const STM_PLATE_BG = 'linear-gradient(180deg, #262019, #17130e)'
+
+// Shrink the display serif as titles get longer so any length fits the board.
+const stmFitFont = (base: number, text: string, min = 24): string =>
+    stageFont(Math.max(min, Math.round(base - Math.max(0, (text || '').length - 14) * 0.85)))
+
+// Point on a dial: angle in degrees measured clockwise from 12 o'clock.
+const stmPt = (deg: number, r: number, cx = 50, cy = 50): [number, number] => {
+    const rad = (deg * Math.PI) / 180
+    return [cx + Math.sin(rad) * r, cy - Math.cos(rad) * r]
+}
+
+// Toothed gear, spinning forever. Reused across the backdrop, ambience and
+// chrome; teeth/size/speed parametrized so neighbouring gears interlock.
+function SteamGear({ size = 120, color = STM_BRASS, teeth = 12, dur = 30, reverse = false, opacity = 0.08, style }: {
+    size?: number; color?: string; teeth?: number; dur?: number; reverse?: boolean; opacity?: number; style?: React.CSSProperties
+}) {
+    return (
+        <svg
+            width={size} height={size} viewBox="0 0 200 200"
+            style={{ opacity, animation: `${reverse ? 'steamGearSpinReverse' : 'steamGearSpin'} ${dur}s linear infinite`, ...style }}
+        >
+            <circle cx="100" cy="100" r="60" fill="none" stroke={color} strokeWidth="3" />
+            <circle cx="100" cy="100" r="25" fill="none" stroke={color} strokeWidth="2" />
+            <circle cx="100" cy="100" r="8" fill={color} fillOpacity="0.35" />
+            {Array.from({ length: teeth }).map((_, i) => {
+                const a = (i / teeth) * Math.PI * 2
+                return (
+                    <line
+                        key={i}
+                        x1={100 + Math.cos(a) * 60} y1={100 + Math.sin(a) * 60}
+                        x2={100 + Math.cos(a) * 78} y2={100 + Math.sin(a) * 78}
+                        stroke={color} strokeWidth="10" strokeLinecap="round"
+                    />
+                )
+            })}
+        </svg>
+    )
+}
+
+// Pressure gauge. `progress` (0..1) sweeps the copper needle from -120° to
+// +120° with a smooth glide between ticks; the last 30% of the dial is the
+// red zone, so the needle "hits red" right as the song lands.
+function SteamGauge({ size = 90, progress = 0, style }: { size?: number; progress?: number; style?: React.CSSProperties }) {
+    const p = Math.min(1, Math.max(0, progress))
+    const [rx1, ry1] = stmPt(48, 34)
+    const [rx2, ry2] = stmPt(120, 34)
+    return (
+        <svg width={size} height={size} viewBox="0 0 100 100" style={style}>
+            <circle cx="50" cy="50" r="45" fill="#1a1510" stroke={STM_BRASS} strokeWidth="3" />
+            <circle cx="50" cy="50" r="39" fill="none" stroke="rgba(200,151,62,0.25)" strokeWidth="1" />
+            <path d={`M ${rx1} ${ry1} A 34 34 0 0 1 ${rx2} ${ry2}`} fill="none" stroke={STM_RUST} strokeWidth="4" strokeLinecap="round" opacity="0.85" />
+            {Array.from({ length: 9 }).map((_, i) => {
+                const deg = -120 + i * 30
+                const [x1, y1] = stmPt(deg, 34)
+                const [x2, y2] = stmPt(deg, 39)
+                return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={STM_BRASS} strokeWidth="1.6" />
+            })}
+            <line
+                x1="50" y1="50" x2="50" y2="19" stroke={STM_COPPER} strokeWidth="3" strokeLinecap="round"
+                style={{ transformOrigin: '50px 50px', transform: `rotate(${-120 + p * 240}deg)`, transition: 'transform 0.28s linear' }}
+            />
+            <circle cx="50" cy="50" r="4.5" fill={STM_BRASS} />
+        </svg>
+    )
+}
+
+// Four brass corner rivets for iron plates.
+function SteamRivets({ inset = 7 }: { inset?: number }) {
+    const dot: React.CSSProperties = {
+        position: 'absolute', width: 7, height: 7, borderRadius: '50%',
+        background: 'radial-gradient(circle at 35% 30%, #F0DFBE 0%, #C8973E 40%, #6d4f1c 100%)',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.7)',
+    }
+    return (
+        <>
+            <div style={{ ...dot, top: inset, left: inset }} />
+            <div style={{ ...dot, top: inset, right: inset }} />
+            <div style={{ ...dot, bottom: inset, left: inset }} />
+            <div style={{ ...dot, bottom: inset, right: inset }} />
+        </>
+    )
+}
+
+// Brass pipe run with bolted joints and steam wisps rising from them.
+function SteamPipe({ bottom, joints }: { bottom: string; joints: string[] }) {
+    return (
+        <>
+            <div style={{ position: 'absolute', bottom, left: 0, width: '100%', height: 3, background: 'rgba(200,151,62,0.12)' }} />
+            {joints.map((x, i) => (
+                <div key={i} style={{ position: 'absolute', bottom: `calc(${bottom} - 4px)`, left: x, width: 11, height: 11, borderRadius: '50%', border: '1.5px solid rgba(200,151,62,0.2)', background: 'rgba(200,151,62,0.07)' }} />
+            ))}
+            {joints.map((x, i) => (
+                <div key={`w-${i}`} style={{
+                    position: 'absolute', bottom: `calc(${bottom} + 8px)`, left: x, width: 6, height: 6, borderRadius: '50%',
+                    background: 'rgba(212,206,192,0.16)', filter: 'blur(2px)',
+                    animation: `steamPuff 9s ease-out ${i * 2.3}s infinite`,
+                }} />
+            ))}
+        </>
+    )
+}
+
+// Full-bleed engine-room wall behind the Up Next lockup, portaled to <body>
+// so it paints between the blurred album backdrop (z 0) and the lyric/chrome
+// layers (z 10/20) — same trick as the other themed backdrops.
+function SteampunkUpNextBackdrop() {
+    const scene = (
+        <div style={{
+            position: 'fixed', inset: 0, zIndex: 2, pointerEvents: 'none', overflow: 'hidden',
+            background: 'linear-gradient(180deg, #0e0b09 0%, #14110F 35%, #1a1510 65%, #100d0a 100%)',
+        }}>
+            <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at center, rgba(200,151,62,0.03) 0%, transparent 50%, rgba(0,0,0,0.45) 100%)' }} />
+            {/* interlocking gear train */}
+            <SteamGear size={290} teeth={12} dur={36} opacity={0.08} style={{ position: 'absolute', top: -70, right: -50 }} />
+            <SteamGear size={170} teeth={8} dur={24} reverse opacity={0.06} color={STM_COPPER} style={{ position: 'absolute', top: 96, right: 170 }} />
+            <SteamGear size={210} teeth={10} dur={30} reverse opacity={0.06} color={STM_COPPER} style={{ position: 'absolute', bottom: -40, left: -30 }} />
+            <SteamGear size={110} teeth={6} dur={18} opacity={0.05} color="#5A9E8F" style={{ position: 'absolute', bottom: 120, left: 150 }} />
+            {/* pipe run with venting joints */}
+            <SteamPipe bottom="16%" joints={['7%', '24%', '46%', '68%', '88%']} />
+            {/* scrollwork corners */}
+            <svg style={{ position: 'absolute', top: 20, left: 20, width: 80, height: 80, opacity: 0.1 }} viewBox="0 0 80 80">
+                <path d="M5 5 Q5 25 15 18 Q28 8 22 22 Q16 36 28 28 Q40 20 34 34" fill="none" stroke={STM_BRASS} strokeWidth="1.2" strokeLinecap="round" />
+                <circle cx="8" cy="8" r="2" fill="rgba(200,151,62,0.4)" />
+            </svg>
+            <svg style={{ position: 'absolute', bottom: 20, right: 20, width: 80, height: 80, opacity: 0.1, transform: 'rotate(180deg)' }} viewBox="0 0 80 80">
+                <path d="M5 5 Q5 25 15 18 Q28 8 22 22 Q16 36 28 28 Q40 20 34 34" fill="none" stroke={STM_BRASS} strokeWidth="1.2" strokeLinecap="round" />
+                <circle cx="8" cy="8" r="2" fill="rgba(200,151,62,0.4)" />
+            </svg>
+            {/* flanking gaslight lanterns */}
+            {(['8%', '92%'] as const).map((left, i) => (
+                <div key={i} style={{ position: 'absolute', top: '18%', left, width: 30, marginLeft: -15 }}>
+                    <div style={{
+                        position: 'absolute', top: 6, left: -20, width: 70, height: 70, borderRadius: '50%', filter: 'blur(4px)',
+                        background: 'radial-gradient(circle, rgba(232,184,76,0.22) 0%, rgba(232,184,76,0.07) 50%, transparent 70%)',
+                        animation: 'steamFlicker 4s ease-in-out infinite',
+                    }} />
+                    <svg width="30" height="50" viewBox="0 0 30 50" style={{ position: 'relative', opacity: 0.35 }}>
+                        <line x1="15" y1="0" x2="15" y2="10" stroke={STM_BRASS} strokeWidth="1.5" />
+                        <rect x="8" y="10" width="14" height="20" rx="2" fill="none" stroke={STM_BRASS} strokeWidth="1.5" />
+                        <ellipse cx="15" cy="22" rx="3" ry="5" fill="rgba(232,184,76,0.55)" style={{ animation: 'steamFlicker 3s ease-in-out infinite' }} />
+                        <line x1="6" y1="30" x2="24" y2="30" stroke={STM_BRASS} strokeWidth="1.5" />
+                    </svg>
+                </div>
+            ))}
+        </div>
+    )
+    return createPortal(scene, document.body)
+}
+
+// Quiet machinery over the LIVE steampunk stage: two faint slow gears in the
+// corners and steam wisps venting along the bottom. Above the art/video (z 0),
+// below the reactions (z 5) and lyrics (z 10).
+function SteamAmbient() {
+    return (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 3, pointerEvents: 'none', overflow: 'hidden' }}>
+            <SteamGear size={240} teeth={12} dur={44} opacity={0.05} style={{ position: 'absolute', top: -60, right: -60 }} />
+            <SteamGear size={170} teeth={8} dur={30} reverse opacity={0.04} color={STM_COPPER} style={{ position: 'absolute', bottom: -50, left: -40 }} />
+            {['12%', '34%', '58%', '80%'].map((x, i) => (
+                <div key={i} style={{
+                    position: 'absolute', bottom: 12, left: x, width: 7, height: 7, borderRadius: '50%',
+                    background: 'rgba(212,206,192,0.13)', filter: 'blur(2.5px)',
+                    animation: `steamPuff ${10 + i * 2}s ease-out ${i * 2.7}s infinite`,
+                }} />
+            ))}
+        </div>
+    )
+}
+
+// ── Steampunk "Up Next" stage screen ────────────────────────────────────────
+// A Victorian programme board in the engine room: gear train + pipe run
+// behind, a gaslit "UP NEXT" masthead, the album art bolted into a riveted
+// brass porthole, the title in candlelit Cinzel (auto-sized to any length),
+// a pipe divider, and each singer on an engraved brass nameplate with a
+// glowing enamel indicator lamp in their color. Everything rises in with a
+// mechanical stagger.
+function SteampunkUpNext({
+    theme,
+    art,
+    track,
+    singers,
+    np,
+    roles,
+    guestsMap,
+}: {
+    theme: any
+    art: string | null
+    track: any
+    singers: any[]
+    np: any
+    roles: string[]
+    guestsMap: Map<string, any>
+}) {
+    const dur = track?.duration_ms
+        ? `${Math.floor(track.duration_ms / 60000)}:${Math.floor((track.duration_ms % 60000) / 1000).toString().padStart(2, '0')}`
+        : ''
+    return (
+        <div className="anim-enter" style={{ width: '100%', maxWidth: 1100, margin: '0 auto', padding: '0 48px', position: 'relative' }}>
+            <SteampunkUpNextBackdrop />
+            <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
+                {/* Masthead: brass rules + gaslit UP NEXT */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 18, width: 'min(620px, 84%)', animation: 'steam-rise 0.55s ease-out both' }}>
+                    <div style={{ flex: 1, height: 2, background: 'linear-gradient(90deg, transparent, rgba(200,151,62,0.5))', position: 'relative' }}>
+                        <div style={{ position: 'absolute', right: -3, top: -3, width: 8, height: 8, borderRadius: '50%', border: '1.5px solid rgba(200,151,62,0.5)' }} />
+                    </div>
+                    <span style={{
+                        fontFamily: STM_HEADING, fontWeight: 700, fontSize: stageFont(26), letterSpacing: '0.34em', marginRight: '-0.34em',
+                        textTransform: 'uppercase', color: STM_BRASS,
+                        textShadow: '0 0 14px rgba(200,151,62,0.45), 0 0 34px rgba(224,112,64,0.18)',
+                        animation: 'steamFlicker 4s ease-in-out infinite',
+                    }}>
+                        Up Next
+                    </span>
+                    <div style={{ flex: 1, height: 2, background: 'linear-gradient(90deg, rgba(200,151,62,0.5), transparent)', position: 'relative' }}>
+                        <div style={{ position: 'absolute', left: -3, top: -3, width: 8, height: 8, borderRadius: '50%', border: '1.5px solid rgba(200,151,62,0.5)' }} />
+                    </div>
+                </div>
+
+                {/* Album art bolted into a riveted brass porthole */}
+                <div style={{ position: 'relative', animation: 'steam-rise 0.6s ease-out 0.08s both' }}>
+                    <div style={{
+                        position: 'relative', width: 330, height: 330, borderRadius: '50%', padding: 15,
+                        background: 'conic-gradient(from 30deg, #8a6524, #E0B360, #C8973E, #7a5418, #D8AC5A, #8a6524)',
+                        boxShadow: '0 22px 50px rgba(0,0,0,0.6), 0 0 30px rgba(200,151,62,0.18), inset 0 2px 3px rgba(255,235,180,0.5), inset 0 -2px 3px rgba(0,0,0,0.6)',
+                    }}>
+                        {np?.isHidden ? (
+                            <div style={{
+                                width: 300, height: 300, borderRadius: '50%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4,
+                                background: 'radial-gradient(circle at 38% 32%, #2e3d38 0%, #1a2320 60%, #101614 100%)',
+                                boxShadow: 'inset 0 0 40px rgba(0,0,0,0.7)',
+                            }}>
+                                <span style={{ fontFamily: STM_HEADING, fontWeight: 700, fontSize: stageFont(120), color: 'rgba(90,158,143,0.75)', textShadow: '0 0 24px rgba(90,158,143,0.4)', lineHeight: 1 }}>?</span>
+                                <span style={{ fontFamily: STM_SERIF, fontStyle: 'italic', fontSize: stageFont(16), color: STM_MID, letterSpacing: '0.1em' }}>contents under pressure</span>
+                            </div>
+                        ) : art ? (
+                            <img src={art} alt="" style={{ width: 300, height: 300, borderRadius: '50%', objectFit: 'cover', display: 'block', boxShadow: 'inset 0 0 30px rgba(0,0,0,0.6)' }} />
+                        ) : null}
+                        {/* porthole bolts */}
+                        {Array.from({ length: 8 }).map((_, i) => {
+                            const [x, y] = stmPt(i * 45, 157.5, 165, 165)
+                            return (
+                                <div key={i} style={{
+                                    position: 'absolute', left: x - 5, top: y - 5, width: 10, height: 10, borderRadius: '50%',
+                                    background: 'radial-gradient(circle at 35% 30%, #F0DFBE 0%, #C8973E 40%, #5d431a 100%)',
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.8)',
+                                }} />
+                            )
+                        })}
+                    </div>
+                </div>
+
+                {/* Title + artist + pipe divider */}
+                <div style={{ textAlign: 'center', maxWidth: 940, animation: 'steam-rise 0.6s ease-out 0.16s both' }}>
+                    <h1 style={{
+                        fontFamily: STM_HEADING, fontWeight: 700, lineHeight: 1.14, margin: 0,
+                        fontSize: stmFitFont(52, np?.isHidden ? 'A Mystery Machine' : track.name),
+                        color: STM_PARCH, letterSpacing: '0.03em',
+                        textShadow: '0 0 20px rgba(200,151,62,0.35), 0 0 50px rgba(200,151,62,0.12), 0 2px 0 rgba(0,0,0,0.5)',
+                    }}>
+                        {np?.isHidden ? 'A Mystery Machine' : track.name}
+                    </h1>
+                    {!np?.isHidden && (
+                        <p style={{ fontFamily: STM_SERIF, fontStyle: 'italic', fontWeight: 500, fontSize: stageFont(16), letterSpacing: '0.26em', textTransform: 'uppercase', color: STM_MID, margin: '12px 0 0' }}>
+                            {track.artists.map((a: any) => a.name).join(', ')}{dur ? '  ·  ' + dur : ''}
+                        </p>
+                    )}
+                    <svg width="340" height="14" viewBox="0 0 340 14" style={{ marginTop: 14, opacity: 0.7 }}>
+                        <line x1="0" y1="7" x2="340" y2="7" stroke={STM_BRASS} strokeWidth="2" />
+                        {[60, 170, 280].map((x, i) => (
+                            <circle key={i} cx={x} cy="7" r="4.5" fill="#17130e" stroke={STM_BRASS} strokeWidth="1.5" />
+                        ))}
+                    </svg>
+                </div>
+
+                {/* Singers: engraved brass nameplates with enamel indicator lamps */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 18, maxWidth: 980 }}>
+                    {singers.map((s: any, i: number) => {
+                        const roleStr =
+                            !np?.isHidden && s.roleIndices && s.roleIndices.length > 0 && roles.length > 0
+                                ? s.roleIndices.map((idx: number) => roles[idx]).filter(Boolean).join(' & ')
+                                : ''
+                        const g = s.guestId ? guestsMap.get(s.guestId) : undefined
+                        const nm = g?.name ?? s.name
+                        const pic = g?.profile_picture ?? null
+                        return (
+                            <div key={s.id} style={{
+                                position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 14, padding: '14px 26px',
+                                background: STM_PLATE_BG, borderRadius: 5, border: '2px solid #0c0a07',
+                                boxShadow: `inset 0 0 0 2px ${STM_BRASS}, inset 0 0 16px rgba(0,0,0,0.5), 0 12px 26px rgba(0,0,0,0.55), 0 0 14px color-mix(in srgb, ${s.color}, transparent 65%)`,
+                                animation: `steam-rise 0.55s ease-out ${0.24 + i * 0.07}s both`,
+                            }}>
+                                <SteamRivets />
+                                {pic ? (
+                                    <img src={pic} alt="" style={{ width: 42, height: 42, borderRadius: '50%', objectFit: 'cover', border: `2.5px solid ${s.color}`, boxShadow: `0 0 10px color-mix(in srgb, ${s.color}, transparent 50%)` }} />
+                                ) : (
+                                    <span style={{
+                                        width: 15, height: 15, borderRadius: '50%',
+                                        background: `radial-gradient(circle at 35% 30%, #FFF3D6 0%, ${s.color} 45%, color-mix(in srgb, ${s.color}, #000 45%) 100%)`,
+                                        boxShadow: `0 0 12px ${s.color}`,
+                                    }} />
+                                )}
+                                <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                                    <span style={{ fontFamily: "'Cinzel', serif", fontWeight: 600, fontSize: stageFont(26), color: STM_PARCH, lineHeight: 1.18, textShadow: '0 0 10px rgba(200,151,62,0.25), 0 1px 0 rgba(0,0,0,0.5)' }}>{nm}</span>
+                                    {roleStr && (
+                                        <span style={{ fontFamily: STM_SERIF, fontStyle: 'italic', fontWeight: 500, fontSize: stageFont(12), letterSpacing: '0.2em', textTransform: 'uppercase', color: STM_MID }}>{roleStr}</span>
+                                    )}
+                                </span>
+                            </div>
+                        )
+                    })}
+                </div>
+            </div>
+        </div>
+    )
+}
+
 // ---- Singer Mic Processing Hook ----
 function useSingerMic(deviceId: string, enabled: boolean, effects: any, mainOutputId: string) {
     const [level, setLevel] = useState(0)
@@ -870,6 +2054,7 @@ export default function KaraokePage() {
     const timeAnchorRef = useRef<{ eventMs: number; perfAt: number }>({ eventMs: 0, perfAt: 0 })
     const [showUI, setShowUI] = useState(true)
     const lyricsRef = useRef<HTMLDivElement>(null)
+    const countInRef = useRef<HTMLDivElement>(null)
     const hideRef = useRef<NodeJS.Timeout | null>(null)
 
     // YouTube player sync
@@ -1179,6 +2364,52 @@ export default function KaraokePage() {
         return groups
     }, [lyrics, singers, roles])
 
+    // Themes with the full "stage furniture" set (count-in, break pill, paused
+    // stamp, no-lyrics card). Neo-brutal, urban, zen and steampunk share the
+    // mechanics; each renders its own visual language.
+    const hasStageFurniture = theme.name === 'neo-brutal' || theme.name === 'urban' || theme.name === 'zen' || theme.name === 'steampunk'
+
+    // Detect a long instrumental gap after the active line — only when
+    // syllable timing tells us exactly when the line finished being sung
+    // (an LRC line has no end time, so a held note would false-positive).
+    const nbBreak = useMemo(() => {
+        if (!hasStageFurniture || lineIdx < 0) return null
+        const line: any = lyrics[lineIdx]
+        const syls = line?.syllables as Array<{ startMs: number; durMs: number }> | undefined
+        if (!syls || syls.length === 0) return null
+        const last = syls[syls.length - 1]
+        const lineEnd = last.startMs + (last.durMs || 0)
+        const next = (lyrics[lineIdx + 1] as any)?.startTimeMs
+        if (typeof next !== 'number' || next - lineEnd < 7000) return null
+        return { start: lineEnd, end: next }
+    }, [theme.name, lyrics, lineIdx])
+
+    // Count-in: a themed plate shown whenever the first lyric is more than
+    // 1.5s into the track. It renders as the first block INSIDE the lyric
+    // flow (above the lines). It counts while no line is active, then fades +
+    // lifts away (exit animation) once the first line is live.
+    const nbFirstStart = lyrics.length > 0 ? ((lyrics[0] as any).startTimeMs as number) : 0
+    const nbCountEligible =
+        hasStageFurniture && state.stageMode === 'playing' && lyrics.length > 0 && nbFirstStart > 1500
+    const nbShowCountIn = nbCountEligible && lineIdx === -1 && elapsed < nbFirstStart // live counting phase
+    // Stays mounted for the WHOLE song, not just the first line. It behaves
+    // like a past lyric: after it fades/lifts away its box REMAINS in the flow
+    // and simply scrolls off the top as the song advances. Unmounting it the
+    // moment the 2nd line arrived yanked ~350px out of the flow in one frame,
+    // snapping every lyric upward — the "shoots up to the top" glitch.
+    const nbCountMounted = nbCountEligible
+
+    // When the count-in first appears, reset the lyric scroll so it's centered
+    // (a previous song may have left the container scrolled down). Fires only on
+    // the false→true edge of the counting phase, not every time-tick.
+    useEffect(() => {
+        if (!nbShowCountIn || !lyricsRef.current || !countInRef.current) return
+        const container = lyricsRef.current
+        const target = countInRef.current
+        const scrollTo = Math.max(0, target.offsetTop - container.clientHeight / 2 + target.offsetHeight / 2)
+        container.scrollTo({ top: scrollTo, behavior: 'smooth' })
+    }, [nbShowCountIn])
+
     // Awards reveal takes over the ENTIRE stage — idle or mid-song — so the host
     // can run it whether or not anything is queued. AwardsRevealAnimation portals
     // a full-screen opaque overlay to <body>, so returning it alone replaces
@@ -1216,44 +2447,81 @@ export default function KaraokePage() {
         const sessionCode = state.karaokeSessionCode
 
         // ---- Neo-Brutal idle ----
+        // A printed gig poster at rest: print grid + halftone fields, floating
+        // color blocks, scrolling ink tickers top and bottom, a two-layer
+        // display headline, and a QR plate that periodically "presses" itself
+        // to pull eyes to the code.
         if (theme.name === 'neo-brutal') {
+            const heading = 'ADD A SONG'
+            const idleBlocks: Array<React.CSSProperties & { rot: number; dur: number }> = [
+                { top: '13%', left: '6%', width: 120, height: 120, background: '#FFD60A', rot: -8, dur: 7 },
+                { bottom: '15%', right: '7%', width: 92, height: 92, background: '#B388FF', rot: 12, dur: 8.5 },
+                { top: '22%', right: '13%', width: 62, height: 62, background: '#00E676', rot: -3, dur: 9.5 },
+                { bottom: '22%', left: '12%', width: 74, height: 74, background: '#FF3B30', rot: 6, dur: 8 },
+            ]
             return (
                 <div style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
-                    background: '#FFF8EE', position: 'relative', overflow: 'hidden',
+                    background: NB_CREAM, position: 'relative', overflow: 'hidden',
                 }}>
-                    {/* Decorative offset blocks */}
-                    <div style={{ position: 'absolute', top: 60, left: 80, width: 120, height: 120, background: '#FFD60A', border: '3px solid #1A1A1A', boxShadow: '6px 6px 0 #1A1A1A', borderRadius: 0, transform: 'rotate(-8deg)' }} />
-                    <div style={{ position: 'absolute', bottom: 80, right: 100, width: 90, height: 90, background: '#B388FF', border: '3px solid #1A1A1A', boxShadow: '6px 6px 0 #1A1A1A', borderRadius: 0, transform: 'rotate(12deg)' }} />
-                    <div style={{ position: 'absolute', top: 140, right: 200, width: 60, height: 60, background: '#00E676', border: '3px solid #1A1A1A', boxShadow: '4px 4px 0 #1A1A1A', borderRadius: 0, transform: 'rotate(-3deg)' }} />
-                    <div style={{ position: 'absolute', bottom: 160, left: 180, width: 70, height: 70, background: '#FF3B30', border: '3px solid #1A1A1A', boxShadow: '5px 5px 0 #1A1A1A', borderRadius: 0, transform: 'rotate(6deg)' }} />
+                    <div className="nb-print-grid" style={{ position: 'absolute', inset: 0 }} />
+                    <div className="nb-dots" style={{ position: 'absolute', top: -120, right: -90, width: 480, height: 480, transform: 'rotate(9deg)' }} />
+                    <div className="nb-dots" style={{ position: 'absolute', bottom: -140, left: -100, width: 540, height: 540, transform: 'rotate(-6deg)' }} />
+                    {idleBlocks.map(({ rot, dur, ...pos }, i) => (
+                        <div
+                            key={i}
+                            style={{
+                                position: 'absolute', border: `3px solid ${NB_INK}`, boxShadow: `6px 6px 0 ${NB_INK}`,
+                                ['--nb-rot' as string]: `${rot}deg`,
+                                animation: `nb-float ${dur}s ease-in-out ${i * 0.6}s infinite`,
+                                ...pos,
+                            }}
+                        />
+                    ))}
+                    <NbCropMark style={{ top: 26, left: 26 }} />
+                    <NbCropMark style={{ top: 26, right: 26 }} rotate={90} />
+                    <NbCropMark style={{ bottom: 26, right: 26 }} rotate={180} />
+                    <NbCropMark style={{ bottom: 26, left: 26 }} rotate={270} />
 
-                    <div style={{ textAlign: 'center', zIndex: 1 }}>
-                        <h1 style={{
-                            fontFamily: 'Space Grotesk, sans-serif', fontSize: stageFont(72), fontWeight: 800, color: '#1A1A1A',
-                            lineHeight: 1.1, marginBottom: 16,
-                            textShadow: 'none',
-                        }}>
-                            Add a Song!
+                    <div style={{ textAlign: 'center', zIndex: 1, position: 'relative' }}>
+                        {/* Ink chip above the headline */}
+                        <div className="nb-rise" style={{ display: 'inline-flex', alignItems: 'center', gap: 12, background: NB_INK, padding: '7px 20px', marginBottom: 22, transform: 'rotate(-1.4deg)' }}>
+                            <NbEq color="#FFD60A" fontSize={stageFont(15)} />
+                            <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(14), letterSpacing: '0.3em', color: NB_CREAM }}>
+                                MIC IS OPEN
+                            </span>
+                        </div>
+                        {/* Two-layer display headline: yellow offset print behind ink */}
+                        <h1 className="nb-rise" style={{ position: 'relative', fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(88), lineHeight: 1.02, margin: '0 0 14px', animationDelay: '0.06s' }}>
+                            <span aria-hidden style={{ position: 'absolute', left: '0.055em', top: '0.055em', color: '#FFD60A', WebkitTextStroke: `0.028em ${NB_INK}`, whiteSpace: 'nowrap' }}>
+                                {heading}
+                            </span>
+                            <span style={{ position: 'relative', color: NB_INK, whiteSpace: 'nowrap' }}>{heading}</span>
                         </h1>
-                        <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: stageFont(20), color: '#1A1A1A', opacity: 0.6, marginBottom: 48 }}>
-                            Scan to join the queue
+                        <p className="nb-rise" style={{ fontFamily: theme.fontBody, fontWeight: 700, fontSize: stageFont(17), color: NB_INK, opacity: 0.65, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 40, animationDelay: '0.12s' }}>
+                            Scan the code to load the queue
                         </p>
                         {qrUrl && (
-                            <div style={{
-                                display: 'inline-block', padding: 20,
-                                background: 'white', border: '4px solid #1A1A1A', boxShadow: '8px 8px 0 #1A1A1A',
-                            }}>
-                                <img src={qrUrl} alt="QR" style={{ width: 220, height: 220, display: 'block' }} />
+                            <div className="nb-rise" style={{ display: 'inline-block', animationDelay: '0.18s' }}>
+                                <div style={{
+                                    padding: 18, background: '#FFFFFF', border: `4px solid ${NB_INK}`,
+                                    boxShadow: `10px 10px 0 ${NB_INK}`, animation: 'nb-qr-press 5.5s ease-in-out 2s infinite',
+                                }}>
+                                    <img src={qrUrl} alt="QR" style={{ width: 216, height: 216, display: 'block' }} />
+                                </div>
                             </div>
                         )}
                         {sessionCode && (
-                            <p style={{
-                                fontFamily: 'Space Grotesk, sans-serif', fontSize: stageFont(28), fontWeight: 800, color: '#1A1A1A',
-                                letterSpacing: '0.25em', textTransform: 'uppercase', marginTop: 24,
-                            }}>
-                                {sessionCode}
-                            </p>
+                            <div className="nb-rise" style={{ display: 'flex', justifyContent: 'center', marginTop: 30, animationDelay: '0.24s' }}>
+                                <div style={{
+                                    padding: '8px 28px', background: '#FFD60A', border: `3px solid ${NB_INK}`,
+                                    boxShadow: `5px 5px 0 ${NB_INK}`, transform: 'rotate(-1.5deg)',
+                                }}>
+                                    <p style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(26), color: NB_INK, letterSpacing: '0.3em', margin: 0 }}>
+                                        {sessionCode}
+                                    </p>
+                                </div>
+                            </div>
                         )}
                     </div>
                 </div>
@@ -2577,64 +3845,73 @@ export default function KaraokePage() {
             )
         }
 
-        // ---- Urban (Hip Hop) idle ----
+        // ---- Urban (Hip Hop) idle — also the fallback for unthemed idles ----
+        // A city wall after dark: streetlight pool + faint block courses, a
+        // flickering neon OPEN MIC sign, the headline sprayed as a dripping
+        // stencil plate, and the QR wheatpasted up as a taped paper flyer.
         return (
             <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
-                background: '#050505', position: 'relative', overflow: 'hidden',
+                background: URB_VOID, position: 'relative', overflow: 'hidden',
             }}>
-                {/* Spotlight vignette */}
-                <div style={{
-                    position: 'absolute', inset: 0,
-                    background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.04) 0%, transparent 50%, rgba(0,0,0,0.8) 100%)',
-                }} />
-                {/* Grunge texture */}
-                <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.06, mixBlendMode: 'overlay' as const }}>
-                    <filter id="idle-noise"><feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" /></filter>
-                    <rect width="100%" height="100%" filter="url(#idle-noise)" />
-                </svg>
+                <UrbanRoughDefs id="urban-idle-rough" />
+                <UrbanWallLayers noiseId="urban-idle-noise" />
 
-                {/* Diagonal accent slashes */}
-                <div style={{
-                    position: 'absolute', top: 0, right: 0, width: 300, height: '100%',
-                    background: 'linear-gradient(135deg, transparent 40%, rgba(212,255,0,0.04) 40%, rgba(212,255,0,0.04) 42%, transparent 42%)',
-                }} />
-                <div style={{
-                    position: 'absolute', bottom: 0, left: 0, width: 250, height: '100%',
-                    background: 'linear-gradient(135deg, transparent 55%, rgba(255,30,30,0.03) 55%, rgba(255,30,30,0.03) 57%, transparent 57%)',
-                }} />
+                <div style={{ textAlign: 'center', zIndex: 1, position: 'relative' }}>
+                    {/* Flickering neon sign */}
+                    <div className="nb-rise" style={{ marginBottom: 30 }}>
+                        <UrbanNeonSign text="Open Mic" fontSize={stageFont(19)} />
+                    </div>
 
-                <div style={{ textAlign: 'center', zIndex: 1 }}>
-                    <h1 style={{
-                        fontFamily: 'Permanent Marker, cursive', fontSize: stageFont(76), color: '#FFFFFF',
-                        lineHeight: 1.1, marginBottom: 4,
-                        textShadow: '3px 3px 0 rgba(0,0,0,0.8)',
+                    {/* Sprayed, dripping headline plate */}
+                    <div className="nb-rise" style={{ animationDelay: '0.06s', marginBottom: 18 }}>
+                        <UrbanSprayPlate color={URB_GREEN} filterId="urban-idle-rough" rotate={-2} style={{ padding: '2px 18px 6px' }}>
+                            <h1 style={{
+                                fontFamily: URB_MARKER, fontSize: stageFont(64), fontWeight: 400,
+                                lineHeight: 1.12, margin: 0, padding: '0 8px', letterSpacing: '2px',
+                            }}>
+                                DROP A TRACK
+                            </h1>
+                        </UrbanSprayPlate>
+                    </div>
+                    <p className="nb-rise" style={{
+                        animationDelay: '0.12s',
+                        fontFamily: URB_STENCIL, fontWeight: 300, fontSize: stageFont(16), color: URB_ASH,
+                        letterSpacing: '0.42em', textTransform: 'uppercase', marginBottom: 44,
                     }}>
-                        DROP A TRACK
-                    </h1>
-                    <p style={{
-                        fontFamily: 'Oswald, sans-serif', fontSize: stageFont(18), color: '#B0B0B0',
-                        letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: 48,
-                    }}>
-                        Scan to add your song
+                        Scan the flyer — run the queue
                     </p>
+
+                    {/* Wheatpasted QR flyer */}
                     {qrUrl && (
-                        <div style={{
-                            display: 'inline-block', padding: 12,
-                            border: '2px solid #D4FF00',
-                            clipPath: 'polygon(3% 0%, 100% 0%, 97% 100%, 0% 100%)',
-                            background: 'rgba(0,0,0,0.6)',
-                        }}>
-                            <img src={qrUrl} alt="QR" style={{ width: 210, height: 210, display: 'block' }} />
+                        <div className="nb-rise" style={{ display: 'inline-block', animationDelay: '0.18s', position: 'relative', transform: 'rotate(-1.8deg)' }}>
+                            <div style={{
+                                background: URB_PAPER, padding: '16px 16px 12px',
+                                clipPath: 'polygon(0 0, 100% 0, 100% 94%, 90% 100%, 72% 95%, 48% 100%, 26% 96%, 10% 100%, 0 95%)',
+                                boxShadow: '0 24px 55px rgba(0,0,0,0.85)',
+                            }}>
+                                <img src={qrUrl} alt="QR" style={{ width: 208, height: 208, display: 'block' }} />
+                                <span style={{
+                                    display: 'block', marginTop: 10, marginBottom: 4, textAlign: 'center',
+                                    fontFamily: URB_STENCIL, fontWeight: 700, fontSize: stageFont(13),
+                                    letterSpacing: '0.4em', textTransform: 'uppercase', color: '#0A0A0A',
+                                }}>
+                                    Pull Up
+                                </span>
+                            </div>
+                            <UrbanTape style={{ top: -12, left: '50%', marginLeft: -52 }} rotate={-2} width={104} />
                         </div>
                     )}
+
+                    {/* Session code — stencil sprayed under the flyer */}
                     {sessionCode && (
-                        <p style={{
-                            fontFamily: 'Oswald, sans-serif', fontSize: stageFont(26), fontWeight: 600, color: '#D4FF00',
-                            letterSpacing: '0.35em', textTransform: 'uppercase', marginTop: 20,
-                            textShadow: '0 0 10px rgba(212,255,0,0.3)',
+                        <p className="nb-rise" style={{
+                            animationDelay: '0.24s',
+                            fontFamily: URB_STENCIL, fontSize: stageFont(25), fontWeight: 600, color: URB_GREEN,
+                            letterSpacing: '0.45em', textTransform: 'uppercase', marginTop: 26,
+                            textShadow: `0 0 14px ${URB_GREEN}66, 0 0 34px ${URB_GREEN}33`,
                         }}>
-                            {sessionCode}
+                            [ {sessionCode} ]
                         </p>
                     )}
                 </div>
@@ -2667,6 +3944,81 @@ export default function KaraokePage() {
                     </div>
                 </div>
             </div>
+        ) : theme.name === 'neo-brutal' ? (
+        <div style={{ position: 'fixed', top: 'calc(100vh - 168px)', left: 80, zIndex: 9999 }}>
+            <div className="k-qr-card" style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                background: '#FFFFFF', border: `3px solid ${NB_INK}`, boxShadow: `6px 6px 0 ${NB_INK}`,
+                padding: 8, transform: 'rotate(-1.2deg)',
+            }}>
+                <img src={state.karaokeQrDataUrl} alt="QR" style={{ width: 82, height: 82, display: 'block' }} />
+                <span style={{
+                    marginTop: 7, alignSelf: 'stretch', textAlign: 'center',
+                    background: '#FFD60A', border: `2px solid ${NB_INK}`, color: NB_INK,
+                    fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 10, letterSpacing: '0.2em',
+                    padding: '2px 0', textTransform: 'uppercase',
+                }}>
+                    Join
+                </span>
+            </div>
+        </div>
+        ) : theme.name === 'urban' ? (
+        <div style={{ position: 'fixed', top: 'calc(100vh - 176px)', left: 80, zIndex: 9999, transform: 'rotate(-1.8deg)' }}>
+            <div className="k-qr-card" style={{
+                position: 'relative', background: URB_PAPER, padding: '9px 9px 5px',
+                clipPath: 'polygon(0 0, 100% 0, 100% 93%, 88% 100%, 66% 95%, 40% 100%, 18% 96%, 0 100%)',
+                boxShadow: '0 16px 34px rgba(0, 0, 0, 0.75)',
+            }}>
+                <img src={state.karaokeQrDataUrl} alt="QR" style={{ width: 84, height: 84, display: 'block' }} />
+                <span style={{
+                    display: 'block', marginTop: 5, marginBottom: 3, textAlign: 'center',
+                    fontFamily: URB_STENCIL, fontWeight: 700, fontSize: 9, letterSpacing: '0.34em',
+                    textTransform: 'uppercase', color: '#0A0A0A',
+                }}>
+                    Pull Up
+                </span>
+                <div style={{
+                    position: 'absolute', top: -8, left: '50%', width: 56, height: 16, marginLeft: -28,
+                    transform: 'rotate(-2deg)', background: 'rgba(240, 238, 228, 0.35)',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                }} />
+            </div>
+        </div>
+        ) : theme.name === 'zen' ? (
+        <div style={{ position: 'fixed', top: 'calc(100vh - 186px)', left: 80, zIndex: 9999 }}>
+            {/* A temple ema tag: dark washi plaque pinned by a vermillion cord knot */}
+            <div className="k-qr-card" style={{
+                position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7,
+                background: 'rgba(24,20,15,0.86)', border: '1px solid rgba(201,168,76,0.35)', borderRadius: 10,
+                padding: '14px 12px 9px', backdropFilter: 'blur(14px)',
+                boxShadow: '0 12px 28px rgba(0,0,0,0.55), 0 0 20px rgba(201,168,76,0.08)',
+            }}>
+                <div style={{
+                    position: 'absolute', top: -6, left: '50%', marginLeft: -6, width: 12, height: 12, borderRadius: '50%',
+                    background: ZEN_VERM, boxShadow: '0 0 10px rgba(212,68,42,0.55), inset 0 0 0 2px rgba(247,238,220,0.3)',
+                }} />
+                <img src={state.karaokeQrDataUrl} alt="QR" style={{ width: 82, height: 82, display: 'block', borderRadius: 6 }} />
+                <span style={{ fontFamily: ZEN_SANS, fontWeight: 500, fontSize: 10, letterSpacing: '0.42em', marginRight: '-0.42em', textTransform: 'uppercase', color: ZEN_GOLD }}>
+                    Join
+                </span>
+            </div>
+        </div>
+        ) : theme.name === 'steampunk' ? (
+        <div style={{ position: 'fixed', top: 'calc(100vh - 182px)', left: 80, zIndex: 9999 }}>
+            {/* A riveted brass ticket plate at the box-office window */}
+            <div className="k-qr-card" style={{
+                position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                background: STM_PLATE_BG, border: '2px solid #0c0a07', borderRadius: 5,
+                padding: '13px 13px 8px',
+                boxShadow: `inset 0 0 0 2px ${STM_BRASS}, inset 0 0 14px rgba(0,0,0,0.5), 0 12px 28px rgba(0,0,0,0.6), 0 0 16px rgba(200,151,62,0.12)`,
+            }}>
+                <SteamRivets inset={5} />
+                <img src={state.karaokeQrDataUrl} alt="QR" style={{ width: 80, height: 80, display: 'block', borderRadius: 3 }} />
+                <span style={{ fontFamily: STM_HEADING, fontWeight: 700, fontSize: 10, letterSpacing: '0.34em', marginRight: '-0.34em', textTransform: 'uppercase', color: STM_BRASS, textShadow: '0 0 8px rgba(200,151,62,0.4)' }}>
+                    Join
+                </span>
+            </div>
+        </div>
         ) : (
         <div style={{
             position: 'fixed', top: 'calc(100vh - 150px)', left: 80, zIndex: 9999,
@@ -2686,11 +4038,6 @@ export default function KaraokePage() {
                     border: '1px solid rgba(64,224,208,0.25)',
                     boxShadow: '0 0 15px rgba(64,224,208,0.1), 0 0 30px rgba(224,64,251,0.05), inset 0 0 20px rgba(64,224,208,0.03)',
                     borderRadius: 6,
-                } : theme.name === 'steampunk' ? {
-                    background: 'rgba(20,17,15,0.88)',
-                    border: '1px solid rgba(200,151,62,0.3)',
-                    boxShadow: '0 0 12px rgba(200,151,62,0.1), inset 0 0 15px rgba(200,151,62,0.03)',
-                    borderRadius: 3,
                 } : theme.name === 'retrowave' ? {
                     background: 'rgba(10,6,20,0.88)',
                     border: '1px solid rgba(255,45,149,0.3)',
@@ -2702,7 +4049,7 @@ export default function KaraokePage() {
                     width: 80, height: 80,
                     borderRadius: theme.radiusSmall,
                     display: 'block',
-                    ...(theme.name === 'space' ? { boxShadow: '0 0 10px rgba(64,224,208,0.15)' } : theme.name === 'steampunk' ? { boxShadow: '0 0 8px rgba(200,151,62,0.15)' } : theme.name === 'retrowave' ? { boxShadow: '0 0 8px rgba(255,45,149,0.15)' } : {}),
+                    ...(theme.name === 'space' ? { boxShadow: '0 0 10px rgba(64,224,208,0.15)' } : theme.name === 'retrowave' ? { boxShadow: '0 0 8px rgba(255,45,149,0.15)' } : {}),
                 }} />
                 <span style={{
                     fontFamily: theme.fontDisplay,
@@ -2717,9 +4064,6 @@ export default function KaraokePage() {
                     ...(theme.name === 'space' ? {
                         color: '#40E0D0',
                         textShadow: '0 0 8px rgba(64,224,208,0.5)',
-                    } : theme.name === 'steampunk' ? {
-                        color: '#C8973E',
-                        textShadow: '0 0 8px rgba(200,151,62,0.4)',
                     } : theme.name === 'retrowave' ? {
                         color: '#FF2D95',
                         textShadow: '0 0 8px rgba(255,45,149,0.5)',
@@ -2732,9 +4076,221 @@ export default function KaraokePage() {
         )
     ) : null
 
+    // Themed count-in plate, rendered as the first block inside the lyric
+    // flow so it scrolls up like a lyric once the first line goes live. Sits a
+    // little below the top of the flow (clear of the fade mask) via vh margin.
+    const nbCountIn = nbCountMounted ? (() => {
+        const remaining = Math.max(0, nbFirstStart - elapsed)
+        const count = Math.ceil(remaining / 1000)
+        const barPct = remaining > 0 ? Math.min(100, (elapsed / nbFirstStart) * 100) : 100
+        const exitCls = 'k-nb-countin' + (remaining <= 0 ? ' k-nb-countin--exit' : '')
+
+        // ── Zen: TAKE A BREATH — an unrolled washi plate. Serif numbers press
+        // in like a hanko stamp, an enso ring tucked behind the corner traces
+        // the remaining time, and a gold→vermillion ink vein fills below. ──
+        if (theme.name === 'zen') {
+            let zCenter: React.ReactNode
+            const zNum = (label: string, key: string | number, size = 74) => (
+                <div key={key} style={{
+                    fontFamily: ZEN_SERIF, fontWeight: 600, fontSize: stageFont(size), lineHeight: 1.05,
+                    color: ZEN_VERM, textShadow: '0 0 18px rgba(212,68,42,0.3)',
+                    animation: 'zen-stamp 0.4s ease-out both', marginTop: 2,
+                }}>
+                    {label}
+                </div>
+            )
+            if (remaining <= 0) zCenter = zNum('SING', 'go', 56)
+            else if (count <= 3) zCenter = zNum(String(count), count)
+            else {
+                zCenter = (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginTop: 12 }}>
+                        <NbNote size={22} color={ZEN_INK} />
+                        <span style={{ fontFamily: ZEN_SERIF, fontStyle: 'italic', fontWeight: 600, fontSize: stageFont(24), color: ZEN_INK, maxWidth: 520, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {track.name}
+                        </span>
+                    </div>
+                )
+            }
+            return (
+                <div ref={countInRef} className={exitCls} style={{ display: 'flex', justifyContent: 'center', width: '100%', margin: '11vh 0 5vh' }}>
+                    <div style={{ position: 'relative', animation: 'zen-scroll-in 0.55s ease-out both' }}>
+                        <div style={{
+                            position: 'relative', minWidth: 380, textAlign: 'center', padding: '24px 46px', borderRadius: 12,
+                            background: ZEN_PAPER, overflow: 'hidden',
+                            boxShadow: '0 18px 48px rgba(0,0,0,0.55), 0 0 30px rgba(201,168,76,0.14), inset 0 0 0 1px rgba(201,168,76,0.35)',
+                        }}>
+                            <ZenEnso size={104} color="rgba(201,168,76,0.5)" progress={barPct / 100} style={{ position: 'absolute', top: -26, right: -22 }} />
+                            <p style={{ margin: 0, fontFamily: ZEN_SANS, fontWeight: 500, fontSize: stageFont(13), letterSpacing: '0.5em', textTransform: 'uppercase', color: '#8a7a64' }}>
+                                Take a Breath
+                            </p>
+                            {zCenter}
+                            <div style={{ marginTop: 16, height: 4, borderRadius: 999, background: 'rgba(36,31,22,0.12)', position: 'relative', overflow: 'hidden' }}>
+                                <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: `${barPct}%`, borderRadius: 999, background: `linear-gradient(90deg, ${ZEN_GOLD}, ${ZEN_VERM})`, transition: 'width 0.28s linear' }} />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )
+        }
+
+        // ── Steampunk: BUILDING PRESSURE — a riveted iron plate. The gauge
+        // needle sweeps into the red as the first line approaches, Cinzel
+        // numbers punch in like a metal press, and a copper pressure tube
+        // fills below. "FULL STEAM!" fires as the song lands. ──
+        if (theme.name === 'steampunk') {
+            let sCenter: React.ReactNode
+            const sNum = (label: string, key: string | number, size = 70) => (
+                <div key={key} style={{
+                    fontFamily: STM_HEADING, fontWeight: 700, fontSize: stageFont(size), lineHeight: 1.08,
+                    color: '#F0DFBE',
+                    textShadow: '0 0 14px rgba(200,151,62,0.55), 0 0 34px rgba(224,112,64,0.3), 0 2px 0 rgba(0,0,0,0.5)',
+                    animation: 'steam-stamp 0.4s ease-out both', marginTop: 4,
+                }}>
+                    {label}
+                </div>
+            )
+            if (remaining <= 0) sCenter = sNum('FULL STEAM!', 'go', 38)
+            else if (count <= 3) sCenter = sNum(String(count))
+            else {
+                sCenter = (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginTop: 14 }}>
+                        <NbNote size={22} color={STM_BRASS} />
+                        <span style={{ fontFamily: STM_SERIF, fontStyle: 'italic', fontWeight: 600, fontSize: stageFont(23), color: STM_PARCH, maxWidth: 480, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {track.name}
+                        </span>
+                    </div>
+                )
+            }
+            return (
+                <div ref={countInRef} className={exitCls} style={{ display: 'flex', justifyContent: 'center', width: '100%', margin: '11vh 0 5vh' }}>
+                    <div style={{ position: 'relative', animation: 'steam-rise 0.5s ease-out both' }}>
+                        <div style={{
+                            position: 'relative', display: 'flex', alignItems: 'center', gap: 26, padding: '22px 34px',
+                            background: STM_PLATE_BG, borderRadius: 6, border: '2px solid #0c0a07',
+                            boxShadow: `inset 0 0 0 2px ${STM_BRASS}, inset 0 0 24px rgba(0,0,0,0.5), 0 16px 44px rgba(0,0,0,0.6), 0 0 26px rgba(200,151,62,0.18)`,
+                        }}>
+                            <SteamRivets />
+                            <SteamGauge size={92} progress={barPct / 100} />
+                            <div style={{ minWidth: 300, textAlign: 'center' }}>
+                                <p style={{ margin: 0, fontFamily: STM_HEADING, fontWeight: 700, fontSize: stageFont(13), letterSpacing: '0.42em', marginRight: '-0.42em', textTransform: 'uppercase', color: STM_BRASS, textShadow: '0 0 10px rgba(200,151,62,0.4)' }}>
+                                    Building Pressure
+                                </p>
+                                {sCenter}
+                                <div style={{
+                                    marginTop: 14, height: 8, borderRadius: 999, position: 'relative', overflow: 'hidden',
+                                    background: '#0d0a07', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.8), 0 1px 0 rgba(200,151,62,0.25)',
+                                }}>
+                                    <div style={{
+                                        position: 'absolute', top: 0, bottom: 0, left: 0, width: `${barPct}%`, borderRadius: 999,
+                                        background: `linear-gradient(90deg, ${STM_BRASS}, ${STM_COPPER} 70%, ${STM_RUST})`,
+                                        boxShadow: '0 0 10px rgba(224,112,64,0.6)', transition: 'width 0.28s linear',
+                                    }} />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )
+        }
+
+        // ── Urban: MIC CHECK — slashed dark-glass plate, spray-glow numbers ──
+        if (theme.name === 'urban') {
+            let uCenter: React.ReactNode
+            const uNum = (label: string, key: string | number) => (
+                <div key={key} style={{ fontFamily: URB_MARKER, fontSize: stageFont(64), lineHeight: 1.08, color: '#FFFFFF', textShadow: `0.05em 0.05em 0 #000, 0 0 26px ${URB_GREEN}80`, animation: 'urban-spray-in 0.26s ease-out both', marginTop: 4, transform: 'rotate(-2deg)' }}>
+                    {label}
+                </div>
+            )
+            if (remaining <= 0) uCenter = uNum('GO!', 'go')
+            else if (count <= 3) uCenter = uNum(String(count), count)
+            else {
+                uCenter = (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginTop: 12, color: '#FFFFFF' }}>
+                        <NbEq color={URB_GREEN} fontSize={stageFont(22)} />
+                        <span style={{ fontFamily: URB_STENCIL, fontWeight: 700, fontSize: stageFont(22), textTransform: 'uppercase', letterSpacing: '0.06em', maxWidth: 520, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {track.name}
+                        </span>
+                    </div>
+                )
+            }
+            return (
+                <div ref={countInRef} className={exitCls} style={{ display: 'flex', justifyContent: 'center', width: '100%', margin: '11vh 0 5vh' }}>
+                    <div style={{ position: 'relative', display: 'inline-block', animation: 'urban-spray-in 0.45s ease-out both' }}>
+                        <div style={{
+                            position: 'relative', background: 'rgba(8, 8, 8, 0.85)', backdropFilter: 'blur(10px)',
+                            clipPath: 'polygon(1.5% 0, 100% 3%, 98.5% 100%, 0 97%)',
+                            boxShadow: '0 18px 44px rgba(0, 0, 0, 0.8)',
+                            padding: '24px 46px 26px', minWidth: 360, textAlign: 'center',
+                        }}>
+                            <p style={{ margin: 0, fontFamily: URB_STENCIL, fontWeight: 700, fontSize: stageFont(14), letterSpacing: '0.55em', textTransform: 'uppercase', color: URB_GREEN, textShadow: `0 0 12px ${URB_GREEN}66` }}>
+                                Mic Check
+                            </p>
+                            {uCenter}
+                            <div style={{ marginTop: 16, height: 8, background: 'rgba(255, 255, 255, 0.12)', clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)', position: 'relative', overflow: 'hidden' }}>
+                                <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: `${barPct}%`, background: URB_GREEN, boxShadow: `0 0 12px ${URB_GREEN}99`, transition: 'width 0.28s linear' }} />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )
+        }
+
+        // ── Neo-brutal: GET READY — slammed white plate on a yellow offset ──
+        // Centerpiece: eq + title while there's time, 3-2-1 in the last three
+        // seconds, then a GO! as the first line lands (keyed so each state
+        // re-slams). The GO! frame is what's on screen while the plate scrolls up.
+        let center: React.ReactNode
+        if (remaining <= 0) {
+            center = (
+                <div key="go" style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(72), lineHeight: 1.05, color: NB_INK, animation: 'nb-slam 0.3s var(--ease-bounce) both', marginTop: 6 }}>
+                    GO!
+                </div>
+            )
+        } else if (count <= 3) {
+            center = (
+                <div key={count} style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(72), lineHeight: 1.05, color: NB_INK, animation: 'nb-slam 0.3s var(--ease-bounce) both', marginTop: 6 }}>
+                    {count}
+                </div>
+            )
+        } else {
+            center = (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginTop: 14, color: NB_INK }}>
+                    <NbEq color={NB_INK} fontSize={stageFont(24)} />
+                    <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(23), maxWidth: 520, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {track.name}
+                    </span>
+                </div>
+            )
+        }
+        return (
+            <div ref={countInRef} className={exitCls} style={{ display: 'flex', justifyContent: 'center', width: '100%', margin: '11vh 0 5vh' }}>
+                <div style={{ position: 'relative', display: 'inline-block', animation: 'nb-slam 0.45s var(--ease-bounce) both' }}>
+                    <div style={{ position: 'absolute', inset: 0, transform: 'translate(9px, 9px)', background: '#FFD60A', border: `3px solid ${NB_INK}` }} />
+                    <div style={{ position: 'relative', background: '#FFFFFF', border: `4px solid ${NB_INK}`, padding: '22px 42px 24px', minWidth: 340, textAlign: 'center' }}>
+                        <p style={{ margin: 0, fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(15), letterSpacing: '0.34em', color: NB_INK, opacity: 0.65 }}>
+                            GET READY
+                        </p>
+                        {center}
+                        <div style={{ marginTop: 16, height: 10, border: `2.5px solid ${NB_INK}`, background: '#F5ECDC', position: 'relative', overflow: 'hidden' }}>
+                            <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: `${barPct}%`, background: NB_INK, transition: 'width 0.28s linear' }} />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )
+    })() : null
+
     return (
         <>
-        <div className="karaoke-stage" onMouseMove={handleMouse} style={{ cursor: showUI ? 'default' : 'none' }}>
+        <div
+            className={
+                'karaoke-stage' +
+                (ytId ? ' k-stage--video' : '') +
+                (state.stageMode === 'playing' && !state.isPlaying ? ' k-stage--paused' : '')
+            }
+            onMouseMove={handleMouse}
+            style={{ cursor: showUI ? 'default' : 'none' }}
+        >
             {/* Background with crossfade — blurred art / video are hidden while a secret song waits in ready state.
                 The YT player DOM element stays mounted so it can initialize; we just make it invisible until the song actually plays. */}
             <div className="k-bg">
@@ -2776,6 +4332,12 @@ export default function KaraokePage() {
             {/* Flower tosses — bouquet thrown, flutters down, rests at the bottom */}
             <FlowerLayer />
 
+            {/* Zen ambience — drifting petals + low mist over the live stage */}
+            {theme.name === 'zen' && state.stageMode === 'playing' && <ZenAmbient />}
+
+            {/* Steampunk ambience — faint corner gears + venting steam wisps */}
+            {theme.name === 'steampunk' && state.stageMode === 'playing' && <SteamAmbient />}
+
             {/* Hidden SVG for Filters */}
             <svg style={{ position: 'fixed', pointerEvents: 'none', width: 0, height: 0 }}>
                 <defs>
@@ -2798,6 +4360,46 @@ export default function KaraokePage() {
             {!(np?.isHidden && state.stageMode === 'ready') && (
             <div className="k-song-chip" style={{
                 background: theme.appBg, ...theme.stickerLabel, position: 'absolute', opacity: 1,
+                ...(theme.name === 'neo-brutal' ? {
+                    background: '#FFFFFF',
+                    border: `3px solid ${NB_INK}`,
+                    borderRadius: 0,
+                    boxShadow: `6px 6px 0 ${NB_INK}`,
+                    padding: '8px 14px 8px 10px',
+                    color: NB_INK,
+                    maxWidth: 'min(38vw, 520px)',
+                    ['--nb-rot' as string]: '-0.6deg',
+                    animation: 'nb-pop-in 0.4s var(--ease-bounce) both',
+                } as React.CSSProperties : {}),
+                ...(theme.name === 'urban' ? {
+                    background: 'rgba(10, 10, 10, 0.78)',
+                    backdropFilter: 'blur(14px)',
+                    border: 'none',
+                    borderLeft: `3px solid ${URB_GREEN}`,
+                    borderRadius: 0,
+                    clipPath: 'polygon(0 0, 100% 0, calc(100% - 12px) 100%, 0 100%)',
+                    boxShadow: '0 12px 30px rgba(0, 0, 0, 0.7)',
+                    padding: '8px 26px 8px 12px',
+                    color: '#FFFFFF',
+                    maxWidth: 'min(38vw, 520px)',
+                    transform: 'none',
+                    textShadow: 'none',
+                    letterSpacing: 'normal',
+                    animation: 'urban-spray-in 0.4s ease-out both',
+                } as React.CSSProperties : {}),
+                ...(theme.name === 'zen' ? {
+                    background: 'rgba(24,20,15,0.82)',
+                    border: '1px solid rgba(201,168,76,0.3)',
+                    borderRadius: 10,
+                    backdropFilter: 'blur(16px)',
+                    boxShadow: '0 10px 26px rgba(0,0,0,0.45), 0 0 18px rgba(201,168,76,0.08)',
+                    color: ZEN_WASHI,
+                    textTransform: 'none',
+                    letterSpacing: 'normal',
+                    textShadow: 'none',
+                    maxWidth: 'min(38vw, 520px)',
+                    animation: 'zen-scroll-in 0.5s ease-out both',
+                } as React.CSSProperties : {}),
                 ...(theme.name === 'space' ? {
                     background: 'rgba(8,8,15,0.85)',
                     border: '1px solid rgba(64,224,208,0.2)',
@@ -2806,12 +4408,17 @@ export default function KaraokePage() {
                     backdropFilter: 'blur(16px)',
                     color: '#E8E6F0',
                 } : theme.name === 'steampunk' ? {
-                    background: 'rgba(20,17,15,0.88)',
-                    border: '1px solid rgba(200,151,62,0.25)',
-                    boxShadow: '0 0 10px rgba(200,151,62,0.08), inset 0 0 12px rgba(200,151,62,0.03)',
-                    borderRadius: 3,
+                    background: 'rgba(23,19,14,0.88)',
+                    border: '1px solid #0c0a07',
+                    boxShadow: `inset 0 0 0 1.5px rgba(200,151,62,0.55), inset 0 0 12px rgba(0,0,0,0.5), 0 10px 26px rgba(0,0,0,0.55)`,
+                    borderRadius: 4,
                     backdropFilter: 'blur(16px)',
                     color: '#E8DCC8',
+                    textTransform: 'none',
+                    letterSpacing: 'normal',
+                    textShadow: 'none',
+                    maxWidth: 'min(38vw, 520px)',
+                    animation: 'steam-rise 0.5s ease-out both',
                 } : theme.name === 'retrowave' ? {
                     background: 'rgba(10,6,20,0.88)',
                     border: '1px solid rgba(255,45,149,0.25)',
@@ -2822,11 +4429,11 @@ export default function KaraokePage() {
                 } : {}),
             }}>
                 {art && <img className="k-song-chip__art" src={art} alt="" style={
-                    theme.name === 'space' ? { boxShadow: '0 0 15px rgba(224,64,251,0.2), 0 6px 20px rgba(0,0,0,0.5)', borderRadius: 8, border: '1px solid rgba(224,64,251,0.15)' } : theme.name === 'steampunk' ? { boxShadow: '0 0 10px rgba(200,151,62,0.15), 0 6px 20px rgba(0,0,0,0.5)', borderRadius: 3, border: '1px solid rgba(200,151,62,0.2)' } : theme.name === 'retrowave' ? { boxShadow: '0 0 10px rgba(255,45,149,0.15), 0 6px 20px rgba(0,0,0,0.5)', borderRadius: 4, border: '1px solid rgba(255,45,149,0.15)' } : {}
+                    theme.name === 'neo-brutal' ? { borderRadius: 0, border: `2.5px solid ${NB_INK}`, boxShadow: 'none' } : theme.name === 'urban' ? { borderRadius: 0, clipPath: 'polygon(8% 0, 100% 0, 92% 100%, 0 100%)', boxShadow: 'none' } : theme.name === 'zen' ? { borderRadius: 8, border: '1px solid rgba(201,168,76,0.35)', boxShadow: '0 4px 14px rgba(0,0,0,0.5)' } : theme.name === 'space' ? { boxShadow: '0 0 15px rgba(224,64,251,0.2), 0 6px 20px rgba(0,0,0,0.5)', borderRadius: 8, border: '1px solid rgba(224,64,251,0.15)' } : theme.name === 'steampunk' ? { boxShadow: '0 0 10px rgba(200,151,62,0.15), 0 6px 20px rgba(0,0,0,0.5)', borderRadius: 3, border: '1px solid rgba(200,151,62,0.2)' } : theme.name === 'retrowave' ? { boxShadow: '0 0 10px rgba(255,45,149,0.15), 0 6px 20px rgba(0,0,0,0.5)', borderRadius: 4, border: '1px solid rgba(255,45,149,0.15)' } : {}
                 } />}
-                <div className="k-song-chip__text">
-                    <h3 style={{ fontFamily: theme.fontDisplay, ...(theme.name === 'space' ? { color: '#E8E6F0', textShadow: '0 0 10px rgba(64,224,208,0.3)' } : theme.name === 'steampunk' ? { color: '#E8DCC8', textShadow: '0 0 10px rgba(200,151,62,0.25)' } : theme.name === 'retrowave' ? { color: '#F0E6FF', textShadow: '0 0 10px rgba(255,45,149,0.25)' } : {}) }}>{track.name}</h3>
-                    <p style={{ color: theme.muted, ...(theme.name === 'space' ? { color: '#9896A8' } : theme.name === 'steampunk' ? { color: '#A89878' } : theme.name === 'retrowave' ? { color: '#9B8CBF' } : {}) }}>{track.artists.map((a: any) => a.name).join(', ')}</p>
+                <div className="k-song-chip__text" style={theme.name === 'neo-brutal' || theme.name === 'urban' || theme.name === 'zen' || theme.name === 'steampunk' ? { minWidth: 0 } : {}}>
+                    <h3 style={{ fontFamily: theme.fontDisplay, ...(theme.name === 'neo-brutal' ? { color: NB_INK, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'urban' ? { color: '#FFFFFF', fontFamily: URB_STENCIL, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'zen' ? { color: '#F5EBD8', fontFamily: ZEN_SERIF, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'space' ? { color: '#E8E6F0', textShadow: '0 0 10px rgba(64,224,208,0.3)' } : theme.name === 'steampunk' ? { color: '#E8DCC8', fontFamily: "'Cinzel', serif", fontWeight: 600, textShadow: '0 0 10px rgba(200,151,62,0.25), 0 1px 0 rgba(0,0,0,0.5)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'retrowave' ? { color: '#F0E6FF', textShadow: '0 0 10px rgba(255,45,149,0.25)' } : {}) }}>{track.name}</h3>
+                    <p style={{ color: theme.muted, ...(theme.name === 'neo-brutal' ? { color: '#555555', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'urban' ? { color: URB_ASH, fontFamily: URB_STENCIL, fontWeight: 300, letterSpacing: '0.18em', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'zen' ? { color: ZEN_WASHI_DIM, fontFamily: ZEN_SANS, fontWeight: 500, letterSpacing: '0.14em', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'space' ? { color: '#9896A8' } : theme.name === 'steampunk' ? { color: '#A89878', fontStyle: 'italic', letterSpacing: '0.12em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'retrowave' ? { color: '#9B8CBF' } : {}) }}>{track.artists.map((a: any) => a.name).join(', ')}</p>
                 </div>
             </div>
             )}
@@ -2834,8 +4441,43 @@ export default function KaraokePage() {
             {/* Singer tags (top-right) */}
             {singers.length > 0 && (
                 <div className="k-singers" style={{ opacity: 1, flexDirection: 'column', alignItems: 'flex-end' }}>
-                    {singers.map((s: any) => {
-                        const spaceSingerStyle = theme.name === 'space' ? {
+                    {singers.map((s: any, singerIdx: number) => {
+                        const spaceSingerStyle = theme.name === 'neo-brutal' ? {
+                            background: '#FFFFFF',
+                            border: `2.5px solid ${NB_INK}`,
+                            borderLeft: `10px solid ${s.color}`,
+                            borderRadius: 0,
+                            boxShadow: `4px 4px 0 ${NB_INK}`,
+                            color: NB_INK,
+                            ['--nb-rot' as string]: `${singerIdx % 2 === 0 ? -0.9 : 0.9}deg`,
+                            animation: `nb-pop-in 0.4s var(--ease-bounce) ${singerIdx * 0.07}s both`,
+                        } as React.CSSProperties : theme.name === 'urban' ? {
+                            background: 'rgba(10, 10, 10, 0.78)',
+                            backdropFilter: 'blur(12px)',
+                            border: 'none',
+                            borderRight: `5px solid ${s.color}`,
+                            borderRadius: 0,
+                            clipPath: 'polygon(10px 0, 100% 0, 100% 100%, 0 100%)',
+                            boxShadow: '0 10px 24px rgba(0, 0, 0, 0.65)',
+                            color: '#FFFFFF',
+                            transform: 'none',
+                            textShadow: 'none',
+                            letterSpacing: 'normal',
+                            animation: `urban-spray-in 0.4s ease-out ${singerIdx * 0.08}s both`,
+                        } as React.CSSProperties : theme.name === 'zen' ? {
+                            background: 'rgba(24,20,15,0.82)',
+                            border: '1px solid rgba(201,168,76,0.22)',
+                            borderRight: `4px solid ${s.color}`,
+                            borderRadius: 8,
+                            backdropFilter: 'blur(14px)',
+                            boxShadow: '0 8px 20px rgba(0,0,0,0.4)',
+                            color: ZEN_WASHI,
+                            fontFamily: ZEN_SERIF,
+                            textTransform: 'none',
+                            letterSpacing: 'normal',
+                            textShadow: 'none',
+                            animation: `zen-scroll-in 0.5s ease-out ${singerIdx * 0.08}s both`,
+                        } as React.CSSProperties : theme.name === 'space' ? {
                             background: 'rgba(8,8,15,0.85)',
                             border: '1px solid ' + (s.color ? s.color.replace(')', ',0.3)').replace('rgb(', 'rgba(') : 'rgba(64,224,208,0.2)'),
                             boxShadow: '0 0 10px ' + (s.color ? s.color.replace(')', ',0.1)').replace('rgb(', 'rgba(') : 'rgba(64,224,208,0.08)'),
@@ -2843,12 +4485,16 @@ export default function KaraokePage() {
                             backdropFilter: 'blur(16px)',
                             color: '#E8E6F0',
                         } as React.CSSProperties : theme.name === 'steampunk' ? {
-                            background: 'rgba(20,17,15,0.88)',
-                            border: '1px solid rgba(200,151,62,0.25)',
-                            boxShadow: '0 0 8px rgba(200,151,62,0.1)',
-                            borderRadius: 3,
+                            background: 'rgba(23,19,14,0.88)',
+                            border: '1px solid #0c0a07',
+                            borderRadius: 4,
                             backdropFilter: 'blur(16px)',
+                            boxShadow: `inset 0 0 0 1.5px rgba(200,151,62,0.5), inset 0 0 10px rgba(0,0,0,0.5), 0 8px 20px rgba(0,0,0,0.5), 0 0 10px color-mix(in srgb, ${s.color}, transparent 65%)`,
                             color: '#E8DCC8',
+                            textTransform: 'none',
+                            letterSpacing: 'normal',
+                            textShadow: 'none',
+                            animation: `steam-rise 0.5s ease-out ${singerIdx * 0.08}s both`,
                         } as React.CSSProperties : theme.name === 'retrowave' ? {
                             background: 'rgba(10,6,20,0.88)',
                             border: '1px solid rgba(255,45,149,0.25)',
@@ -2893,10 +4539,18 @@ export default function KaraokePage() {
             {/* Lyrics & Stage Centerpiece */}
             <div className="k-lyrics" ref={lyricsRef}>
                 {state.stageMode === 'ready' ? (
-                  theme.name === 'comic-book' ? (
+                  theme.name === 'neo-brutal' ? (
+                    <NeoBrutalUpNext theme={theme} art={art} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} />
+                  ) : theme.name === 'urban' ? (
+                    <UrbanUpNext theme={theme} art={art} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} />
+                  ) : theme.name === 'comic-book' ? (
                     <ComicUpNext theme={theme} art={art} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} />
                   ) : theme.name === 'tropical' ? (
                     <TropicalUpNext theme={theme} art={art} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} />
+                  ) : theme.name === 'zen' ? (
+                    <ZenUpNext theme={theme} art={art} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} />
+                  ) : theme.name === 'steampunk' ? (
+                    <SteampunkUpNext theme={theme} art={art} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} />
                   ) : (
                     <div className="anim-enter k-upnext" style={{ width: '100%', maxWidth: 1100, margin: '0 auto', padding: '0 48px' }}>
                         <div style={{
@@ -2995,13 +4649,68 @@ export default function KaraokePage() {
                     </div>
                   )
                 ) : groupedLyrics.length === 0 ? (
+                    theme.name === 'neo-brutal' ? (
+                        <div className="nb-rise" style={{ textAlign: 'center' }}>
+                            <div style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 18,
+                                background: '#FFFFFF', border: `4px solid ${NB_INK}`, boxShadow: `8px 8px 0 ${NB_INK}`,
+                                padding: '20px 36px', transform: 'rotate(-1deg)',
+                            }}>
+                                <NbEq color="#FF3B30" fontSize={stageFont(24)} />
+                                <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(24), color: NB_INK, letterSpacing: '0.04em' }}>
+                                    NO LYRICS — FREESTYLE IT
+                                </span>
+                            </div>
+                        </div>
+                    ) : theme.name === 'urban' ? (
+                        <div style={{ textAlign: 'center', animation: 'urban-spray-in 0.45s ease-out both' }}>
+                            <UrbanSprayPlate color={URB_GREEN} filterId="urban-rough-filter" rotate={-2} drips style={{ padding: '6px 22px 10px' }}>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 16, padding: '2px 6px' }}>
+                                    <NbEq color="#0A0A0A" fontSize={stageFont(22)} />
+                                    <span style={{ fontFamily: URB_STENCIL, fontWeight: 700, fontSize: stageFont(23), letterSpacing: '0.24em', textTransform: 'uppercase' }}>
+                                        No Lyrics — Freestyle
+                                    </span>
+                                </span>
+                            </UrbanSprayPlate>
+                        </div>
+                    ) : theme.name === 'steampunk' ? (
+                        <div style={{ textAlign: 'center', animation: 'steam-rise 0.55s ease-out both' }}>
+                            <div style={{
+                                position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 18, padding: '20px 36px',
+                                background: STM_PLATE_BG, borderRadius: 6, border: '2px solid #0c0a07',
+                                boxShadow: `inset 0 0 0 2px ${STM_BRASS}, inset 0 0 18px rgba(0,0,0,0.5), 0 16px 40px rgba(0,0,0,0.6), 0 0 22px rgba(200,151,62,0.15)`,
+                            }}>
+                                <SteamRivets />
+                                <NbNote size={26} color={STM_BRASS} />
+                                <span style={{ fontFamily: STM_SERIF, fontStyle: 'italic', fontWeight: 600, fontSize: stageFont(25), color: STM_PARCH, textShadow: '0 0 12px rgba(200,151,62,0.25)' }}>
+                                    No libretto — improvise!
+                                </span>
+                            </div>
+                        </div>
+                    ) : theme.name === 'zen' ? (
+                        <div style={{ textAlign: 'center', animation: 'zen-scroll-in 0.55s ease-out both' }}>
+                            <div style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 18, padding: '20px 36px', borderRadius: 12,
+                                background: ZEN_PAPER,
+                                boxShadow: '0 16px 40px rgba(0,0,0,0.5), 0 0 26px rgba(201,168,76,0.12), inset 0 0 0 1px rgba(201,168,76,0.4)',
+                            }}>
+                                <ZenEnso size={34} color={ZEN_VERM} strokeWidth={7} progress={1} />
+                                <span style={{ fontFamily: ZEN_SERIF, fontStyle: 'italic', fontWeight: 600, fontSize: stageFont(26), color: ZEN_INK }}>
+                                    No lyrics — sing from the heart
+                                </span>
+                            </div>
+                        </div>
+                    ) : (
                     <div style={{ textAlign: 'center' }}>
                         <p style={{ fontFamily: 'var(--font-display)', fontSize: stageFont(22), fontWeight: 700, color: 'var(--white-faint)' }}>
                             No lyrics available
                         </p>
                     </div>
+                    )
                 ) : (
-                    groupedLyrics.map((group: any[], i: number) => {
+                    <>
+                    {nbCountIn}
+                    {groupedLyrics.map((group: any[], i: number) => {
                         const isActiveGroup = lineIdx >= 0 && group.some(l => l.originalIndex === lineIdx)
                         const isPastGroup = lineIdx >= 0 && group[group.length - 1].originalIndex < lineIdx
 
@@ -3038,12 +4747,35 @@ export default function KaraokePage() {
                                         inlineStyle['--syl-singer'] = sylSinger
 
                                         if (theme.name === 'neo-brutal') {
+                                            // Stamped color plate. Shared lines get hard-split
+                                            // color bands with ink seams (no gradients — panels
+                                            // butted against each other); the text color is
+                                            // luminance-chosen so ANY singer color combo stays
+                                            // readable. Sizes are em-based so the plate scales
+                                            // with the viewport-relative lyric font.
                                             cls += ' k-line--neo-brutal-active'
-                                            inlineStyle.padding = '8px 24px'
-                                            inlineStyle.border = '4px solid #0a0a0a'
-                                            inlineStyle.boxShadow = '6px 6px 0 #0a0a0a'
-                                            inlineStyle.margin = '4px'
-                                            inlineStyle.borderRadius = '0px'
+                                            const nbColors = activeColors.length > 1 ? activeColors : [activeSingerColor]
+                                            const nbInkColor = nbTextOn(nbColors)
+                                            const nbHasSyls = !!(line.syllables && line.syllables.length > 0)
+                                            if (!nbHasSyls) {
+                                                // Pacing underline timed to the line's real duration
+                                                // (next group's start), for songs without syllables.
+                                                const nbNextStart = groupedLyrics[i + 1]?.[0]?.startTimeMs
+                                                const nbLineDur = typeof nbNextStart === 'number' ? nbNextStart - group[0].startTimeMs : 0
+                                                if (nbLineDur > 1200) {
+                                                    cls += ' k-line--nb-timed'
+                                                    inlineStyle['--nb-line-dur'] = `${nbLineDur}ms`
+                                                }
+                                            }
+                                            inlineStyle.background = nbSplitBackground(nbColors)
+                                            inlineStyle.color = nbInkColor
+                                            inlineStyle['--nb-card-ink'] = nbInkColor
+                                            inlineStyle.textShadow = 'none'
+                                            inlineStyle.padding = '0.16em 0.6em 0.2em'
+                                            inlineStyle.border = '0.08em solid #141414'
+                                            inlineStyle.borderRadius = 0
+                                            inlineStyle.boxShadow = '0.17em 0.17em 0 rgba(20, 20, 20, 0.95)'
+                                            inlineStyle.margin = '0.06em 0'
                                         } else if (theme.name === 'sketch') {
                                             cls += ' k-line--sketch-active'
                                             inlineStyle.padding = '0.22em 0.95em'
@@ -3062,12 +4794,39 @@ export default function KaraokePage() {
                                             // the ::before/::after of .k-line--cyber-active).
                                             inlineStyle.boxShadow = `0 0 22px ${activeSingerColor}, 0 0 54px ${activeSingerColor}, inset 0 0 0 2px rgba(0,0,0,0.55), inset 0 0 16px rgba(0,0,0,0.4)`
                                         } else if (theme.name === 'urban') {
+                                            // Spray-painted tag: rough turbulence plate in the
+                                            // singer's color (a gradient fade for shared lines —
+                                            // the fade IS the graffiti piece), wet drips off the
+                                            // bottom in the first/last singer's solid colors, and
+                                            // luminance-chosen ink so dark colors flip the text
+                                            // to white. Blur-mist entrance lives on the class.
                                             cls += ' k-line--urban-active'
-                                            // @ts-ignore (CSS variables)
+                                            const uColors = activeColors.length > 1 ? activeColors : [activeSingerColor]
+                                            const uInk = urbanTextOn(uColors)
+                                            const uHasSyls = !!(line.syllables && line.syllables.length > 0)
+                                            if (!uHasSyls) {
+                                                // Marker-stroke pacing underline for LRC-only lines,
+                                                // timed to the line's real duration.
+                                                const uNextStart = groupedLyrics[i + 1]?.[0]?.startTimeMs
+                                                const uLineDur = typeof uNextStart === 'number' ? uNextStart - group[0].startTimeMs : 0
+                                                if (uLineDur > 1200) {
+                                                    cls += ' k-line--urban-timed'
+                                                    inlineStyle['--nb-line-dur'] = `${uLineDur}ms`
+                                                }
+                                            }
                                             inlineStyle['--highlight-color'] = activeHighlight
-                                            inlineStyle.background = 'transparent'
-                                            inlineStyle.color = ACTIVE_TEXT
-                                            inlineStyle.padding = '0.1em 0.4em'
+                                            inlineStyle['--urban-drip-a'] = uColors[0]
+                                            inlineStyle['--urban-drip-b'] = uColors[uColors.length - 1]
+                                            inlineStyle['--urban-plate-ink'] = uInk
+                                            // Clear the generic singer-color fill via backgroundColor
+                                            // ONLY — a `background` shorthand would also wipe the
+                                            // pacing-underline background-image that the
+                                            // .k-line--urban-timed class paints on this element.
+                                            inlineStyle.background = undefined
+                                            inlineStyle.backgroundColor = 'transparent'
+                                            inlineStyle.color = uInk
+                                            inlineStyle.padding = '0.12em 0.45em'
+                                            inlineStyle.textShadow = 'none'
                                         } else if (theme.name === 'deep-sea') {
                                             cls += ' k-line--deep-sea k-line--deep-sea-active'
                                             inlineStyle.padding = '0.22em 0.85em'
@@ -3087,16 +4846,40 @@ export default function KaraokePage() {
                                             }
                                             inlineStyle.boxShadow = `0 0 28px ${activeSingerColor}, 0 0 60px ${activeSingerColor}80`
                                         } else if (theme.name === 'zen') {
-                                            // Sumi-e calligraphy: deep ink on warm washi paper, with the
-                                            // singer's color marking the line like a scroll signature stripe.
-                                            // Box-shadow / candlelight breath is handled by the CSS animation
-                                            // on .k-line--zen so we don't set it inline (animation needs to win).
+                                            // An unrolled strip of washi: warm paper, deep sumi ink, and the
+                                            // singer's color as a vertical ink band on the left edge — shared
+                                            // lines get one hard-split band per singer (stacked sumi bands,
+                                            // not a blend). The singer color also breathes as candlelight in
+                                            // the card's halo via --zen-glow; box-shadow stays OUT of the
+                                            // inline style so the zen-card-breath animation wins. The unroll
+                                            // entrance (clip-path sweep) lives on .k-line--zen-active.
                                             cls += ' k-line--zen k-line--zen-active'
-                                            inlineStyle.background = 'rgba(240, 230, 211, 0.94)'
-                                            inlineStyle.color = '#1a1814'
-                                            inlineStyle.padding = '0.22em 1em 0.22em 0.85em'
-                                            inlineStyle.borderRadius = '4px'
-                                            inlineStyle.borderLeft = `4px solid ${activeSingerColor}`
+                                            const zColors = activeColors.length > 1 ? activeColors : [activeSingerColor]
+                                            const zStripe = zColors.length > 1
+                                                ? `linear-gradient(180deg, ${zColors.map((c: string, k: number) => `${c} ${(k / zColors.length) * 100}% ${((k + 1) / zColors.length) * 100}%`).join(', ')})`
+                                                : `linear-gradient(180deg, ${zColors[0]}, ${zColors[0]})`
+                                            const zHasSyls = !!(line.syllables && line.syllables.length > 0)
+                                            if (!zHasSyls) {
+                                                // Gold ink vein tracing the line's real duration along the
+                                                // card's bottom edge (LRC-only songs — syllable songs pace
+                                                // word by word instead).
+                                                const zNextStart = groupedLyrics[i + 1]?.[0]?.startTimeMs
+                                                const zLineDur = typeof zNextStart === 'number' ? zNextStart - group[0].startTimeMs : 0
+                                                if (zLineDur > 1200) {
+                                                    cls += ' k-line--zen-timed'
+                                                    inlineStyle['--nb-line-dur'] = `${zLineDur}ms`
+                                                }
+                                            }
+                                            inlineStyle.background = undefined
+                                            inlineStyle.backgroundColor = '#F2E8D5'
+                                            inlineStyle.backgroundImage = `${zStripe}, linear-gradient(168deg, rgba(255,252,244,0.95) 0%, rgba(240,230,211,0.6) 55%, rgba(228,215,190,0.95) 100%)`
+                                            inlineStyle.backgroundSize = '0.16em 100%, 100% 100%'
+                                            inlineStyle.backgroundRepeat = 'no-repeat'
+                                            inlineStyle.color = ZEN_INK
+                                            inlineStyle.padding = '0.2em 0.9em 0.24em 1.05em'
+                                            inlineStyle.borderRadius = '0.14em'
+                                            inlineStyle.textShadow = 'none'
+                                            inlineStyle['--zen-glow'] = `color-mix(in srgb, ${zColors[0]}, transparent 62%)`
                                         } else if (theme.name === 'space') {
                                             cls += ' k-line--space k-line--space-active'
                                             inlineStyle.padding = '0.18em 0.75em'
@@ -3109,8 +4892,43 @@ export default function KaraokePage() {
                                             inlineStyle['--space-glow'] = spaceGlow
                                             inlineStyle.boxShadow = 'inset 0 0 14px rgba(255,255,255,0.18)'
                                         } else if (theme.name === 'steampunk') {
+                                            // Illuminated engine nameplate: the riveted brass frame stays
+                                            // (plate classes in steampunk.ts), but the face is dark iron —
+                                            // singer colors become LIGHT, not paint. An enamel indicator
+                                            // band runs along the top edge (hard-split segments per singer
+                                            // on shared lines, butted like machine enamel), and the letters
+                                            // are Edison filaments: each word ignites in the singer's color
+                                            // mixed toward warm white so ANY color glows on iron. The plate
+                                            // halo breathes in the singer's color via --stm-glow; box-shadow
+                                            // stays OUT of the inline style so the CSS animation wins.
                                             cls += ' k-line--steampunk k-line--steampunk-active k-line--steampunk-plate'
-                                            inlineStyle.padding = '0.22em 1.1em'
+                                            const sColors = activeColors.length > 1 ? activeColors : [activeSingerColor]
+                                            const sBand = sColors.length > 1
+                                                ? sColors.map((c: string, k: number) => `${c} ${(k / sColors.length) * 100}% ${((k + 1) / sColors.length) * 100}%`).join(', ')
+                                                : `${sColors[0]}, ${sColors[0]}`
+                                            const sHasSyls = !!(line.syllables && line.syllables.length > 0)
+                                            if (!sHasSyls) {
+                                                // Copper pressure tube tracing the line's real duration
+                                                // along the plate's bottom edge (LRC-only songs).
+                                                const sNextStart = groupedLyrics[i + 1]?.[0]?.startTimeMs
+                                                const sLineDur = typeof sNextStart === 'number' ? sNextStart - group[0].startTimeMs : 0
+                                                if (sLineDur > 1200) {
+                                                    cls += ' k-line--steampunk-timed'
+                                                    inlineStyle['--nb-line-dur'] = `${sLineDur}ms`
+                                                }
+                                            }
+                                            inlineStyle.background = undefined
+                                            inlineStyle.backgroundColor = '#221c14'
+                                            inlineStyle.backgroundImage = `linear-gradient(90deg, ${sBand}), linear-gradient(180deg, rgba(255,235,190,0.07) 0%, rgba(0,0,0,0.28) 100%)`
+                                            inlineStyle.backgroundSize = '100% 0.12em, 100% 100%'
+                                            inlineStyle.backgroundRepeat = 'no-repeat'
+                                            inlineStyle.backgroundPosition = 'left top, left top'
+                                            inlineStyle.color = sColors.length > 1
+                                                ? '#F2E6CC'
+                                                : `color-mix(in srgb, ${sColors[0]}, #F5E9D0 45%)`
+                                            inlineStyle.textShadow = `0 0 0.3em color-mix(in srgb, ${sColors[0]}, transparent 55%), 0 0.03em 0 rgba(0,0,0,0.55)`
+                                            inlineStyle.padding = '0.24em 0.9em 0.22em'
+                                            inlineStyle['--stm-glow'] = `color-mix(in srgb, ${sColors[0]}, transparent 55%)`
                                         } else if (theme.name === 'retrowave') {
                                             // Override the singer-color line bg with a deep synthwave
                                             // night gradient. Retrowave needs a dark void for the neon
@@ -3186,6 +5004,24 @@ export default function KaraokePage() {
                                             // back to the lagoon accent when a line has no assigned singer).
                                             inlineStyle.color = activeSingerColor
                                         }
+                                        if (theme.name === 'neo-brutal') {
+                                            // Hard offset print shadow: separates singer-colored
+                                            // type from the cream print backdrop AND from a color
+                                            // music video — one treatment for both stage modes.
+                                            inlineStyle.textShadow = `0.055em 0.055em 0 rgba(26, 26, 26, ${ytId ? 0.8 : 0.45})`
+                                        } else if (theme.name === 'urban') {
+                                            // Marker throw-up shadow: keeps singer-colored tags
+                                            // legible over the crushed-black night backdrop.
+                                            inlineStyle.textShadow = '0.05em 0.05em 0 rgba(0, 0, 0, 0.85)'
+                                        } else if (theme.name === 'zen') {
+                                            // Soft sumi shadow keeps singer-colored ink readable
+                                            // over album art or a bright music video.
+                                            inlineStyle.textShadow = '0 0.05em 0.4em rgba(8, 6, 4, 0.8)'
+                                        } else if (theme.name === 'steampunk') {
+                                            // Soot shadow: keeps singer-colored type legible over
+                                            // the warm sepia backdrop or a bright music video.
+                                            inlineStyle.textShadow = '0 0.05em 0.35em rgba(6, 4, 2, 0.85)'
+                                        }
                                         inlineStyle.opacity = 1
                                     }
 
@@ -3255,9 +5091,156 @@ export default function KaraokePage() {
                                 })}
                             </div>
                         )
-                    })
+                    })}
+                    </>
                 )}
             </div>
+
+            {/* ── Themed stage furniture (playing mode) ─────────────────────── */}
+            {/* Instrumental-break pill: appears only when syllable timing proves
+                the line is finished and the next one is far away. */}
+            {nbBreak && state.stageMode === 'playing' &&
+                elapsed > nbBreak.start + 1000 && elapsed < nbBreak.end - 800 && (
+                theme.name === 'steampunk' ? (
+                    <div style={{ position: 'absolute', bottom: 64, left: '50%', transform: 'translateX(-50%)', zIndex: 22, animation: 'steam-rise 0.45s ease-out both' }}>
+                        <div style={{
+                            display: 'flex', alignItems: 'center', gap: 16, padding: '10px 24px', borderRadius: 999,
+                            background: 'rgba(23,19,14,0.88)', backdropFilter: 'blur(12px)',
+                            border: '1px solid #0c0a07',
+                            boxShadow: `inset 0 0 0 1.5px rgba(200,151,62,0.5), 0 12px 30px rgba(0,0,0,0.55)`,
+                        }}>
+                            <SteamGear size={24} teeth={8} dur={7} opacity={0.9} style={{ display: 'block' }} />
+                            <span style={{ fontFamily: STM_HEADING, fontWeight: 700, fontSize: 14, letterSpacing: '0.34em', marginRight: '-0.34em', textTransform: 'uppercase', color: STM_PARCH, textShadow: '0 0 10px rgba(200,151,62,0.3)' }}>
+                                Intermission
+                            </span>
+                            <div style={{ width: 130, height: 6, borderRadius: 999, background: '#0d0a07', boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.8), 0 1px 0 rgba(200,151,62,0.2)', position: 'relative', overflow: 'hidden' }}>
+                                <div style={{
+                                    position: 'absolute', top: 0, bottom: 0, left: 0, borderRadius: 999,
+                                    width: `${Math.min(100, Math.max(0, ((elapsed - nbBreak.start) / (nbBreak.end - nbBreak.start)) * 100))}%`,
+                                    background: `linear-gradient(90deg, ${STM_BRASS}, ${STM_COPPER})`,
+                                    boxShadow: '0 0 8px rgba(224,112,64,0.6)', transition: 'width 0.3s linear',
+                                }} />
+                            </div>
+                        </div>
+                    </div>
+                ) : theme.name === 'zen' ? (
+                    <div style={{ position: 'absolute', bottom: 64, left: '50%', transform: 'translateX(-50%)', zIndex: 22, animation: 'zen-scroll-in 0.45s ease-out both' }}>
+                        <div style={{
+                            display: 'flex', alignItems: 'center', gap: 16, padding: '10px 24px', borderRadius: 999,
+                            background: 'rgba(20,17,12,0.82)', backdropFilter: 'blur(12px)',
+                            border: '1px solid rgba(201,168,76,0.3)', boxShadow: '0 12px 30px rgba(0,0,0,0.5)',
+                        }}>
+                            <ZenEnso size={22} color={ZEN_GOLD} strokeWidth={9} progress={(elapsed - nbBreak.start) / (nbBreak.end - nbBreak.start)} />
+                            <span style={{ fontFamily: ZEN_SANS, fontWeight: 500, fontSize: 14, letterSpacing: '0.42em', marginRight: '-0.42em', textTransform: 'uppercase', color: ZEN_WASHI }}>
+                                Interlude
+                            </span>
+                            <div style={{ width: 130, height: 3, borderRadius: 999, background: 'rgba(240,230,211,0.16)', position: 'relative', overflow: 'hidden' }}>
+                                <div style={{
+                                    position: 'absolute', top: 0, bottom: 0, left: 0, borderRadius: 999,
+                                    width: `${Math.min(100, Math.max(0, ((elapsed - nbBreak.start) / (nbBreak.end - nbBreak.start)) * 100))}%`,
+                                    background: ZEN_GOLD, boxShadow: '0 0 8px rgba(201,168,76,0.7)', transition: 'width 0.3s linear',
+                                }} />
+                            </div>
+                        </div>
+                    </div>
+                ) : theme.name === 'urban' ? (
+                    <div style={{ position: 'absolute', bottom: 64, left: '50%', transform: 'translateX(-50%)', zIndex: 22, animation: 'urban-spray-in 0.35s ease-out both' }}>
+                        <div style={{
+                            display: 'flex', alignItems: 'center', gap: 16,
+                            background: 'rgba(8, 8, 8, 0.85)', backdropFilter: 'blur(10px)',
+                            clipPath: 'polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)',
+                            boxShadow: '0 14px 32px rgba(0, 0, 0, 0.75)', padding: '10px 26px',
+                        }}>
+                            <NbEq color={URB_GREEN} fontSize={20} />
+                            <span style={{ fontFamily: URB_STENCIL, fontWeight: 700, fontSize: 15, letterSpacing: '0.4em', textTransform: 'uppercase', color: '#FFFFFF' }}>
+                                Beat Break
+                            </span>
+                            <div style={{ width: 130, height: 8, background: 'rgba(255, 255, 255, 0.14)', position: 'relative', overflow: 'hidden', clipPath: 'polygon(3px 0, 100% 0, calc(100% - 3px) 100%, 0 100%)' }}>
+                                <div style={{
+                                    position: 'absolute', top: 0, bottom: 0, left: 0,
+                                    width: `${Math.min(100, Math.max(0, ((elapsed - nbBreak.start) / (nbBreak.end - nbBreak.start)) * 100))}%`,
+                                    background: URB_GREEN, boxShadow: `0 0 10px ${URB_GREEN}99`, transition: 'width 0.3s linear',
+                                }} />
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div style={{ position: 'absolute', bottom: 64, left: '50%', transform: 'translateX(-50%)', zIndex: 22, animation: 'nb-pop-in 0.35s var(--ease-bounce) both' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, background: NB_INK, boxShadow: '5px 5px 0 rgba(26, 26, 26, 0.35)', padding: '10px 22px' }}>
+                            <NbEq color="#FFD60A" fontSize={20} />
+                            <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 15, letterSpacing: '0.26em', color: NB_CREAM }}>
+                                INSTRUMENTAL
+                            </span>
+                            <div style={{ width: 130, height: 9, border: `2px solid ${NB_CREAM}`, position: 'relative', overflow: 'hidden' }}>
+                                <div style={{
+                                    position: 'absolute', top: 0, bottom: 0, left: 0,
+                                    width: `${Math.min(100, Math.max(0, ((elapsed - nbBreak.start) / (nbBreak.end - nbBreak.start)) * 100))}%`,
+                                    background: '#FFD60A', transition: 'width 0.3s linear',
+                                }} />
+                            </div>
+                        </div>
+                    </div>
+                )
+            )}
+
+            {/* PAUSED stamp */}
+            {hasStageFurniture && state.stageMode === 'playing' && !state.isPlaying && (
+                theme.name === 'steampunk' ? (
+                    <div style={{ position: 'absolute', top: '13%', left: '50%', zIndex: 25, transform: 'translateX(-50%)', animation: 'steam-stamp 0.45s ease-out both' }}>
+                        <div style={{
+                            position: 'relative', display: 'flex', alignItems: 'center', gap: 18, padding: '12px 28px',
+                            background: STM_PLATE_BG, borderRadius: 6, border: '2px solid #0c0a07',
+                            boxShadow: `inset 0 0 0 2px ${STM_BRASS}, inset 0 0 18px rgba(0,0,0,0.5), 0 14px 34px rgba(0,0,0,0.6)`,
+                        }}>
+                            <SteamRivets />
+                            {/* needle dropped to zero — pressure released */}
+                            <SteamGauge size={46} progress={0} />
+                            <span style={{ fontFamily: STM_HEADING, fontWeight: 700, fontSize: stageFont(25), letterSpacing: '0.34em', marginRight: '-0.34em', color: STM_PARCH, textShadow: '0 0 12px rgba(200,151,62,0.3), 0 2px 0 rgba(0,0,0,0.5)' }}>
+                                PAUSED
+                            </span>
+                        </div>
+                    </div>
+                ) : theme.name === 'zen' ? (
+                    <div style={{ position: 'absolute', top: '13%', left: '50%', zIndex: 25, transform: 'translateX(-50%)', animation: 'zen-stamp 0.45s ease-out both' }}>
+                        <div style={{
+                            display: 'flex', alignItems: 'center', gap: 16, padding: '12px 28px', borderRadius: 12,
+                            background: 'rgba(20,17,12,0.85)', backdropFilter: 'blur(12px)',
+                            border: '1px solid rgba(201,168,76,0.35)', boxShadow: '0 14px 34px rgba(0,0,0,0.55)',
+                        }}>
+                            {/* vermillion hanko: 休 — "rest" */}
+                            <div style={{
+                                width: 44, height: 44, borderRadius: 9, background: ZEN_VERM,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                boxShadow: '0 0 18px rgba(212,68,42,0.5), inset 0 0 0 2px rgba(247,238,220,0.35)',
+                            }}>
+                                <span style={{ fontFamily: ZEN_SANS, fontWeight: 700, fontSize: 24, color: '#F7EEDC', lineHeight: 1 }}>休</span>
+                            </div>
+                            <span style={{ fontFamily: ZEN_SERIF, fontWeight: 600, fontSize: stageFont(26), letterSpacing: '0.42em', marginRight: '-0.42em', color: ZEN_WASHI }}>
+                                PAUSED
+                            </span>
+                        </div>
+                    </div>
+                ) : theme.name === 'urban' ? (
+                    <div style={{ position: 'absolute', top: '13%', left: '50%', zIndex: 25, transform: 'translateX(-50%)', animation: 'urban-spray-in 0.35s ease-out both' }}>
+                        <UrbanSprayPlate color={URB_GREEN} filterId="urban-rough-filter" rotate={-3} drips style={{ padding: '4px 18px 8px' }}>
+                            <span style={{ fontFamily: URB_STENCIL, fontWeight: 700, fontSize: stageFont(26), letterSpacing: '0.4em', textTransform: 'uppercase', padding: '0 6px' }}>
+                                Hold Up
+                            </span>
+                        </UrbanSprayPlate>
+                    </div>
+                ) : (
+                    <div style={{
+                        position: 'absolute', top: '13%', left: '50%', zIndex: 25,
+                        transform: 'translateX(-50%)', ['--nb-rot' as string]: '-3.5deg',
+                        animation: 'nb-slam 0.35s var(--ease-bounce) both',
+                        background: '#FFD60A', color: NB_INK, border: `4px solid ${NB_INK}`, boxShadow: `8px 8px 0 ${NB_INK}`,
+                        padding: '10px 30px', fontFamily: theme.fontDisplay, fontWeight: 700,
+                        fontSize: stageFont(28), letterSpacing: '0.3em',
+                    }}>
+                        PAUSED
+                    </div>
+                )
+            )}
 
         </div>
         {qrOverlay}

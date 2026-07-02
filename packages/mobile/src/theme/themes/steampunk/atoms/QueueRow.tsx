@@ -8,32 +8,39 @@ import {
   StyleSheet,
   type ViewStyle,
   type TextStyle,
-  type ImageStyle,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
-import Svg, { Circle } from 'react-native-svg'
 import { Ionicons } from '@expo/vector-icons'
-import {
-  type KaraokeQueueRow,
-  type SingerConfig,
-  type ThemeTokens,
-} from '@karaoke/shared'
+import { type KaraokeQueueRow, type SingerConfig } from '@karaoke/shared'
 import { useTheme } from '../../../ThemeContext'
-import { hashKey, hexToRgba } from '../../../helpers'
-import { useLinearLoop, useOscillator } from '../_shared'
-import { Gear, Rivet } from '../Gear'
+import { hexToRgba } from '../../../helpers'
+import {
+  Plaque,
+  BRASS_FACE,
+  BRASS_INK,
+  IRON_WELL,
+  BRASS,
+  BRASS_BRIGHT,
+  AMBER,
+  COPPER,
+  PARCH,
+  PARCH_DIM,
+  VERDIGRIS,
+  OXBLOOD,
+  HAIRLINE,
+  HAIRLINE_SOFT,
+} from './_steam'
 import type { QueueRowProps } from '../../../types'
 
-// Steampunk QueueRow — a wide riveted brass plate fastened over mahogany:
-//   • Mahogany row body with a 2px brass rim and four corner rivets.
-//   • Position badge is a small brass numbered medallion with a rotating
-//     gear behind the number (slow, continuous).
-//   • Album art sits inside a circular brass-bezel porthole.
-//   • Singer pills are tiny copper-edged plaques with a colored cabochon at
-//     the leading edge.
-//   • Vote buttons are pressure-valve bellows: pressing them puffs a tiny
-//     steam burst (handled here as a soft amber overlay).
-//   • The active row gets a slow brass shimmer sweep moving left→right.
+// Steampunk QueueRow — one line of the evening's manifest, machined:
+//   • An iron instrument plate with hairline frame + corner screws.
+//   • The position is an engraved brass bezel ring — position 1 is polished
+//     brass (the next specimen up); later positions are quiet iron rings.
+//   • Square art under a thin brass frame; hidden songs show a "?" well.
+//   • Singers are punch tags: dark chips with the singer's color as a thin
+//     enamel bar on the leading edge — color as an accent, never a fill.
+//   • Vote controls are machined valve buttons: brass raises the pressure,
+//     iron vents it; pressing puffs a small burst of steam.
 export function SteampunkQueueRow({
   item,
   position,
@@ -48,16 +55,12 @@ export function SteampunkQueueRow({
   const score = (item.score ?? 0) + (item.bonus_points ?? 0)
   const singers = useMemo<SingerConfig[]>(
     () =>
-      (Array.isArray(item.singer_configs) ? item.singer_configs : []).map(
-        (sc) => {
-          // Resolve the singer's LIVE name + avatar from the canonical guest
-          // record (so profile edits propagate). Name-only singers pass through.
-          const g = sc.guestId ? guests.get(sc.guestId) : undefined
-          return g
-            ? { ...sc, name: g.name, profilePicture: g.profile_picture ?? undefined }
-            : sc
-        },
-      ),
+      (Array.isArray(item.singer_configs) ? item.singer_configs : []).map((sc) => {
+        // Resolve the singer's LIVE name + avatar from the canonical guest
+        // record (so profile edits propagate). Name-only singers pass through.
+        const g = sc.guestId ? guests.get(sc.guestId) : undefined
+        return g ? { ...sc, name: g.name, profilePicture: g.profile_picture ?? undefined } : sc
+      }),
     [item.singer_configs, guests],
   )
   const isLocked = item.locked && position === 1
@@ -69,132 +72,41 @@ export function SteampunkQueueRow({
   const isMine = !isLocked && !!guestId && item.added_by_guest_id === guestId
   const isHidden = !!item.is_hidden
 
-  const rowSeed = item.id ?? `${position}`
-  const seedHash = hashKey(rowSeed)
-
-  // Brass shimmer sweep — periodic specular highlight sliding across.
-  const shimmer = useLinearLoop(7800 + (seedHash % 13) * 240)
-  const shimmerX = shimmer.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['-60%', '160%'],
-  })
-
   return (
-    <View
-      style={{
-        backgroundColor: '#2A1A0E',
-        borderWidth: 2,
-        borderColor: '#B8762D',
-        borderRadius: 8,
-        overflow: 'hidden',
-        shadowColor: '#E8A93B',
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.4,
-        shadowRadius: 8,
-      }}
-    >
-      {/* Warm interior tint */}
-      <LinearGradient
-        pointerEvents="none"
-        colors={[
-          'rgba(232,169,59,0.06)',
-          'rgba(122,77,26,0.08)',
-          'rgba(58,30,8,0.16)',
-        ]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* Shimmer sweep */}
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          StyleSheet.absoluteFill,
-          { transform: [{ translateX: shimmerX }] },
-        ]}
-      >
-        <LinearGradient
-          colors={[
-            'rgba(232,196,120,0)',
-            'rgba(232,196,120,0.18)',
-            'rgba(232,169,59,0.24)',
-            'rgba(232,196,120,0.12)',
-            'rgba(232,196,120,0)',
-          ]}
-          start={{ x: 0, y: 0.5 }}
-          end={{ x: 1, y: 0.5 }}
-          style={[StyleSheet.absoluteFill, { width: '60%' }]}
-        />
-      </Animated.View>
-
-      {/* Corner rivets */}
-      <View style={{ position: 'absolute', top: 4, left: 4 }}><Rivet size={9} /></View>
-      <View style={{ position: 'absolute', top: 4, right: 4 }}><Rivet size={9} /></View>
-      <View style={{ position: 'absolute', bottom: 4, left: 4 }}><Rivet size={9} /></View>
-      <View style={{ position: 'absolute', bottom: 4, right: 4 }}><Rivet size={9} /></View>
-
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 12,
-          padding: 12,
-        }}
-      >
-        <PositionBadge n={position} seed={seedHash} />
+    <Plaque screws seed={item.id ?? position} radius={12}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 }}>
+        <PositionRing n={position} fontDisplay={tokens.fontDisplay} />
 
         {isHidden ? (
-          <View style={hiddenArtStyle(tokens)}>
-            <Text style={hiddenArtGlyphStyle(tokens)}>?</Text>
+          <View style={hiddenArtStyle}>
+            <Text style={{ color: AMBER, fontFamily: tokens.fontDisplay, fontSize: 20, includeFontPadding: false }}>?</Text>
           </View>
         ) : item.track_art_url ? (
-          <View style={{ width: 56, height: 56, alignItems: 'center', justifyContent: 'center' }}>
-            {/* Outer brass ring */}
-            <View
+          <View style={artFrameStyle}>
+            <Image source={{ uri: item.track_art_url }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+            <LinearGradient
               pointerEvents="none"
-              style={{
-                position: 'absolute',
-                width: 56,
-                height: 56,
-                borderRadius: 999,
-                borderWidth: 2,
-                borderColor: '#B8762D',
-              }}
-            />
-            <Image source={{ uri: item.track_art_url }} style={artStyle(tokens)} />
-            {/* Sepia tint */}
-            <View
-              pointerEvents="none"
-              style={{
-                position: 'absolute',
-                width: 46,
-                height: 46,
-                borderRadius: 999,
-                backgroundColor: 'rgba(232,169,59,0.10)',
-              }}
+              colors={['rgba(255,246,224,0.10)', 'rgba(255,246,224,0)']}
+              style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '30%' }}
             />
           </View>
         ) : (
-          <View style={[artStyle(tokens) as ViewStyle, { backgroundColor: tokens.appBg }]} />
+          <View style={[artFrameStyle, { backgroundColor: IRON_WELL }]} />
         )}
 
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={titleStyle(tokens)} numberOfLines={1}>
-            {isHidden ? 'HIDDEN SONG' : item.track_name}
+          <Text style={titleStyle(tokens.fontDisplay)} numberOfLines={1}>
+            {isHidden ? 'Hidden Song' : item.track_name}
           </Text>
           {!isHidden && (
-            <Text style={artistStyle(tokens)} numberOfLines={1}>
+            <Text style={artistStyle(tokens.fontBody)} numberOfLines={1}>
               {item.track_artist}
             </Text>
           )}
           {singers.length > 0 ? (
-            <View style={singerPillsStyle}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
               {singers.map((singer, i) => (
-                <SingerChip
-                  key={`${item.id}-${i}-${singer.name}`}
-                  singer={singer}
-                />
+                <PunchTag key={`${item.id}-${i}-${singer.name}`} singer={singer} fontBody={tokens.fontBody} fontDisplay={tokens.fontDisplay} />
               ))}
             </View>
           ) : null}
@@ -210,83 +122,112 @@ export function SteampunkQueueRow({
             isLocked={isLocked}
             inSong={inSong}
             onVote={onVote}
+            fontDisplay={tokens.fontDisplay}
           />
         )}
       </View>
+    </Plaque>
+  )
+}
+
+// Engraved bezel ring holding the queue position. Position 1 gets the
+// polished-brass treatment; everything else waits in iron.
+function PositionRing({ n, fontDisplay }: { n: number; fontDisplay: string }) {
+  const isNext = n === 1
+  return (
+    <View
+      style={{
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1.5,
+        borderColor: isNext ? BRASS_BRIGHT : HAIRLINE,
+        backgroundColor: isNext ? 'rgba(200,151,62,0.16)' : 'rgba(0,0,0,0.3)',
+        ...(isNext
+          ? { shadowColor: AMBER, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.55, shadowRadius: 7 }
+          : {}),
+      }}
+    >
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          width: 28,
+          height: 28,
+          borderRadius: 14,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: HAIRLINE_SOFT,
+        }}
+      />
+      <Text
+        style={{
+          fontFamily: fontDisplay,
+          fontSize: 13,
+          color: isNext ? BRASS_BRIGHT : PARCH_DIM,
+          includeFontPadding: false,
+        }}
+      >
+        {n}
+      </Text>
     </View>
   )
 }
 
-function PositionBadge({ n, seed }: { n: number; seed: number }) {
-  const { tokens } = useTheme()
-  const spin = useLinearLoop(11000 + (seed % 7) * 280)
-  const rot = spin.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  })
-  const lamp = useOscillator(2400 + (seed % 5) * 220)
-  const ringOpacity = lamp.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] })
-
+// Singer punch tag — the singer's color is a thin enamel bar, never a fill.
+function PunchTag({
+  singer,
+  fontBody,
+  fontDisplay,
+}: {
+  singer: SingerConfig
+  fontBody: string
+  fontDisplay: string
+}) {
+  const tint = singer.color || BRASS
+  const initial = (singer.name || '?').charAt(0).toUpperCase()
   return (
     <View
       style={{
-        width: 40,
-        height: 40,
+        flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
+        gap: 6,
+        paddingRight: 8,
+        paddingLeft: 6,
+        paddingVertical: 3,
+        backgroundColor: 'rgba(0,0,0,0.32)',
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: HAIRLINE_SOFT,
+        borderLeftWidth: 3,
+        borderLeftColor: tint,
+        borderRadius: 4,
       }}
     >
-      {/* Rotating gear behind */}
-      <Animated.View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          width: 40,
-          height: 40,
-          opacity: 0.55,
-          transform: [{ rotate: rot }],
-        }}
-      >
-        <Gear size={40} teeth={10} bodyColor="#C97D3E" edgeColor="#6E3A14" hubColor="#3A1E0A" highlightColor="#F0A058" />
-      </Animated.View>
-      {/* Brass medallion with the number */}
-      <View
-        style={{
-          width: 26,
-          height: 26,
-          borderRadius: 13,
-          backgroundColor: '#1F1108',
-          borderWidth: 1.5,
-          borderColor: '#E8A93B',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Animated.View
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            width: 26,
-            height: 26,
-            borderRadius: 13,
-            borderWidth: 1,
-            borderColor: '#E8A93B',
-            opacity: ringOpacity,
-          }}
+      {singer.profilePicture ? (
+        <Image
+          source={{ uri: singer.profilePicture }}
+          style={{ width: 16, height: 16, borderRadius: 8, borderWidth: StyleSheet.hairlineWidth, borderColor: tint }}
         />
-        <Text
+      ) : (
+        <View
           style={{
-            fontFamily: tokens.fontDisplay,
-            fontSize: 12,
-            color: '#E8A93B',
-            textShadowColor: 'rgba(232,169,59,0.7)',
-            textShadowRadius: 5,
-            textShadowOffset: { width: 0, height: 0 },
+            width: 15,
+            height: 15,
+            borderRadius: 8,
+            backgroundColor: hexToRgba(tint, 0.25) ?? 'rgba(200,151,62,0.25)',
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: tint,
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
-          {n}
-        </Text>
-      </View>
+          <Text style={{ color: PARCH, fontFamily: fontDisplay, fontSize: 8, includeFontPadding: false }}>{initial}</Text>
+        </View>
+      )}
+      <Text style={{ color: '#D9C49A', fontFamily: fontBody, fontSize: 11 }} numberOfLines={1}>
+        {singer.name || 'Singer'}
+      </Text>
     </View>
   )
 }
@@ -297,73 +238,23 @@ function EditButton({ onPress }: { onPress: () => void }) {
       onPress={onPress}
       accessibilityLabel="Edit song"
       style={({ pressed }) => [
-        editBtnStyle(),
-        pressed ? { opacity: 0.7 } : null,
-      ]}
-    >
-      <Ionicons name="create-outline" size={20} color="#E8A93B" />
-    </Pressable>
-  )
-}
-
-function SingerChip({ singer }: { singer: SingerConfig }) {
-  const { tokens } = useTheme()
-  const initial = (singer.name || '?').charAt(0).toUpperCase()
-  const tint = singer.color || '#B8762D'
-  return (
-    <View
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        paddingHorizontal: 8,
-        paddingLeft: 4,
-        paddingVertical: 2,
-        backgroundColor: hexToRgba(tint, 0.18) ?? 'rgba(184,118,45,0.2)',
-        borderWidth: 1.5,
-        borderColor: '#B8762D',
-        borderRadius: 3,
-      }}
-    >
-      <View
-        style={{
-          width: 16,
-          height: 16,
-          borderRadius: 8,
-          backgroundColor: tint,
+        {
+          width: 36,
+          height: 36,
+          borderRadius: 7,
+          borderWidth: 1,
+          borderColor: HAIRLINE,
+          backgroundColor: 'rgba(200,151,62,0.10)',
           alignItems: 'center',
           justifyContent: 'center',
-          overflow: 'hidden',
-          borderWidth: 1,
-          borderColor: '#5C3A12',
-        }}
-      >
-        {singer.profilePicture ? (
-          <Image source={{ uri: singer.profilePicture }} style={{ width: '100%', height: '100%' }} />
-        ) : (
-          <Text
-            style={{
-              color: '#1F1108',
-              fontFamily: tokens.fontDisplay,
-              fontSize: 9,
-            }}
-          >
-            {initial}
-          </Text>
-        )}
-      </View>
-      <Text
-        style={{
-          color: '#E8C9A0',
-          fontFamily: tokens.fontDisplay,
-          fontSize: 11,
-          letterSpacing: 0.8,
-        }}
-        numberOfLines={1}
-      >
-        {singer.name || 'Singer'}
-      </Text>
-    </View>
+          alignSelf: 'center',
+          marginLeft: 4,
+        },
+        pressed ? { opacity: 0.7, transform: [{ translateY: 1 }] } : null,
+      ]}
+    >
+      <Ionicons name="create-outline" size={18} color={AMBER} />
+    </Pressable>
   )
 }
 
@@ -374,6 +265,7 @@ function VoteColumn({
   isLocked,
   inSong,
   onVote,
+  fontDisplay,
 }: {
   row: KaraokeQueueRow
   score: number
@@ -381,13 +273,13 @@ function VoteColumn({
   isLocked: boolean
   inSong: boolean
   onVote: (row: KaraokeQueueRow, value: 1 | -1) => void
+  fontDisplay: string
 }) {
-  const { tokens } = useTheme()
   if (isLocked) {
     return (
-      <View style={lockBadgeStyle()}>
-        <Ionicons name="lock-closed" size={16} color="#E8A93B" />
-        <Text style={lockLabelStyle(tokens)}>Next{'\n'}Locked</Text>
+      <View style={lockBadgeStyle}>
+        <Ionicons name="lock-closed" size={14} color={AMBER} />
+        <Text style={lockLabelStyle(fontDisplay)}>Next{'\n'}Locked</Text>
       </View>
     )
   }
@@ -396,7 +288,7 @@ function VoteColumn({
     if (score === 0) return null
     return (
       <View style={voteColStyle}>
-        <ScoreLabel score={score} />
+        <ScoreLabel score={score} fontDisplay={fontDisplay} />
       </View>
     )
   }
@@ -404,12 +296,10 @@ function VoteColumn({
   if (voted) {
     return (
       <View style={voteColStyle}>
-        {score !== 0 ? <ScoreLabel score={score} /> : null}
-        <View style={votedPillStyle(voted > 0)}>
-          <Ionicons name="checkmark" size={11} color="#1F1108" />
-          <Text style={votedPillLabelStyle(tokens)}>
-            {voted > 0 ? 'STOKED' : 'VENTED'}
-          </Text>
+        {score !== 0 ? <ScoreLabel score={score} fontDisplay={fontDisplay} /> : null}
+        <View style={votedPlateStyle(voted > 0)}>
+          <Ionicons name="checkmark" size={10} color="#10130E" />
+          <Text style={votedPlateLabelStyle(fontDisplay)}>{voted > 0 ? 'STOKED' : 'VENTED'}</Text>
         </View>
       </View>
     )
@@ -417,31 +307,26 @@ function VoteColumn({
 
   return (
     <View style={voteColStyle}>
-      {score !== 0 ? <ScoreLabel score={score} /> : null}
-      <View style={voteButtonsStyle}>
-        <VoteButton dir="up" onPress={() => onVote(row, 1)} />
-        <VoteButton dir="down" onPress={() => onVote(row, -1)} />
+      {score !== 0 ? <ScoreLabel score={score} fontDisplay={fontDisplay} /> : null}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <ValveButton dir="up" onPress={() => onVote(row, 1)} />
+        <ValveButton dir="down" onPress={() => onVote(row, -1)} />
       </View>
     </View>
   )
 }
 
-function VoteButton({ dir, onPress }: { dir: 'up' | 'down'; onPress: () => void }) {
-  const press = useRef(new Animated.Value(0)).current
+// Machined valve button: brass to raise pressure, iron to vent it. A small
+// steam puff escapes on press.
+function ValveButton({ dir, onPress }: { dir: 'up' | 'down'; onPress: () => void }) {
   const isUp = dir === 'up'
+  const press = useRef(new Animated.Value(0)).current
   const triggerPress = () => {
     press.setValue(0)
-    Animated.timing(press, {
-      toValue: 1,
-      duration: 480,
-      useNativeDriver: true,
-    }).start()
+    Animated.timing(press, { toValue: 1, duration: 440, useNativeDriver: true }).start()
   }
-  const steamScale = press.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1.8] })
-  const steamOpacity = press.interpolate({
-    inputRange: [0, 0.1, 1],
-    outputRange: [0, 0.7, 0],
-  })
+  const steamScale = press.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1.7] })
+  const steamOpacity = press.interpolate({ inputRange: [0, 0.12, 1], outputRange: [0, 0.55, 0] })
 
   return (
     <Pressable
@@ -449,109 +334,102 @@ function VoteButton({ dir, onPress }: { dir: 'up' | 'down'; onPress: () => void 
         triggerPress()
         onPress()
       }}
+      accessibilityLabel={isUp ? 'Upvote' : 'Downvote'}
       style={({ pressed }) => [
-        voteBtnStyle(isUp),
+        {
+          width: 32,
+          height: 32,
+          borderRadius: 7,
+          borderWidth: 1,
+          borderColor: isUp ? 'rgba(46,30,8,0.9)' : HAIRLINE,
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
+          backgroundColor: isUp ? undefined : 'rgba(0,0,0,0.3)',
+        },
         pressed ? { opacity: 0.85, transform: [{ translateY: 1 }] } : null,
       ]}
-      accessibilityLabel={isUp ? 'Upvote' : 'Downvote'}
     >
-      {/* Brass plate gradient fill */}
-      <LinearGradient
-        colors={isUp ? ['#E8C078', '#B8762D', '#7A4D1A'] : ['#A88555', '#5C3A12', '#3A1E0A']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[StyleSheet.absoluteFill, { borderRadius: 4 }]}
-      />
-      <Ionicons
-        name={isUp ? 'chevron-up' : 'chevron-down'}
-        size={16}
-        color={isUp ? '#1F1108' : '#E8C9A0'}
-      />
-      {/* Steam burst on press */}
+      {isUp ? (
+        <LinearGradient
+          colors={BRASS_FACE}
+          locations={[0, 0.55, 1]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+      ) : null}
+      <Ionicons name={isUp ? 'chevron-up' : 'chevron-down'} size={16} color={isUp ? BRASS_INK : PARCH_DIM} />
       <Animated.View
         pointerEvents="none"
         style={{
           position: 'absolute',
-          left: '50%',
-          top: isUp ? -8 : '100%',
-          width: 40,
-          height: 40,
-          marginLeft: -20,
-          marginTop: isUp ? -20 : -20,
+          left: 0,
+          right: 0,
+          top: 0,
+          bottom: 0,
+          borderRadius: 16,
+          backgroundColor: '#F2E3BC',
           opacity: steamOpacity,
           transform: [{ scale: steamScale }],
         }}
-      >
-        <Svg width={40} height={40}>
-          <Circle cx={20} cy={20} r={18} fill="#FFE4A0" opacity={0.55} />
-        </Svg>
-      </Animated.View>
+      />
     </Pressable>
   )
 }
 
-function ScoreLabel({ score }: { score: number }) {
-  const { tokens } = useTheme()
-  const color = score > 0 ? '#E8A93B' : score < 0 ? '#C97D3E' : '#E8C9A0'
-  return <Text style={[scoreStyle(tokens), { color }]}>{score}</Text>
+function ScoreLabel({ score, fontDisplay }: { score: number; fontDisplay: string }) {
+  const color = score > 0 ? AMBER : score < 0 ? COPPER : PARCH_DIM
+  return (
+    <Text
+      style={{
+        fontFamily: fontDisplay,
+        fontSize: 15,
+        minWidth: 28,
+        textAlign: 'center',
+        lineHeight: 19,
+        letterSpacing: 0.8,
+        color,
+      }}
+    >
+      {score}
+    </Text>
+  )
 }
 
-function artStyle(t: ThemeTokens): ImageStyle {
+const artFrameStyle: ViewStyle = {
+  width: 52,
+  height: 52,
+  borderRadius: 6,
+  overflow: 'hidden',
+  borderWidth: 1,
+  borderColor: HAIRLINE,
+}
+const hiddenArtStyle: ViewStyle = {
+  width: 52,
+  height: 52,
+  borderRadius: 6,
+  borderWidth: 1,
+  borderColor: HAIRLINE,
+  backgroundColor: IRON_WELL,
+  alignItems: 'center',
+  justifyContent: 'center',
+}
+function titleStyle(fontDisplay: string): TextStyle {
   return {
-    width: 46,
-    height: 46,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: '#5C3A12',
+    fontFamily: fontDisplay,
+    fontSize: 13,
+    color: PARCH,
+    letterSpacing: 0.5,
   }
 }
-function hiddenArtStyle(t: ThemeTokens): ViewStyle {
+function artistStyle(fontBody: string): TextStyle {
   return {
-    width: 48,
-    height: 48,
-    borderRadius: 999,
-    borderWidth: 2,
-    borderColor: '#B8762D',
-    backgroundColor: '#1A0E04',
-    alignItems: 'center',
-    justifyContent: 'center',
-  }
-}
-function hiddenArtGlyphStyle(t: ThemeTokens): TextStyle {
-  return {
-    color: '#E8A93B',
-    fontFamily: t.fontDisplay,
-    fontSize: 22,
-    lineHeight: 26,
-  }
-}
-function titleStyle(t: ThemeTokens): TextStyle {
-  return {
-    fontFamily: t.fontDisplay,
-    fontSize: 14,
-    color: '#F0DDB5',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    textShadowColor: 'rgba(232,169,59,0.5)',
-    textShadowRadius: 5,
-    textShadowOffset: { width: 0, height: 0 },
-  }
-}
-function artistStyle(t: ThemeTokens): TextStyle {
-  return {
-    fontFamily: t.fontBody,
+    fontFamily: fontBody,
     fontSize: 12,
-    color: '#C9A878',
+    color: PARCH_DIM,
     marginTop: 2,
-    letterSpacing: 0.3,
-    fontStyle: 'italic',
   }
-}
-const singerPillsStyle: ViewStyle = {
-  flexDirection: 'row',
-  flexWrap: 'wrap',
-  gap: 6,
-  marginTop: 8,
 }
 const voteColStyle: ViewStyle = {
   flexDirection: 'column',
@@ -561,98 +439,47 @@ const voteColStyle: ViewStyle = {
   marginLeft: 4,
   alignSelf: 'center',
 }
-function scoreStyle(t: ThemeTokens): TextStyle {
-  return {
-    fontFamily: t.fontDisplay,
-    fontSize: 16,
-    minWidth: 28,
-    textAlign: 'center',
-    lineHeight: 20,
-    letterSpacing: 1,
-  }
-}
-const voteButtonsStyle: ViewStyle = {
-  flexDirection: 'row',
-  alignItems: 'center',
-  gap: 6,
-}
-function voteBtnStyle(isUp: boolean): ViewStyle {
-  return {
-    width: 34,
-    height: 34,
-    borderRadius: 4,
-    borderWidth: 1.5,
-    borderColor: isUp ? '#E8A93B' : '#7A4D1A',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    shadowColor: isUp ? '#E8A93B' : '#5C3A12',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.7,
-    shadowRadius: 5,
-  }
-}
-function votedPillStyle(up: boolean): ViewStyle {
+function votedPlateStyle(up: boolean): ViewStyle {
   return {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 8,
+    paddingHorizontal: 7,
     paddingVertical: 3,
-    backgroundColor: up ? '#E8A93B' : '#5C8A7A',
-    borderWidth: 1.5,
-    borderColor: up ? '#7A4D1A' : '#2E4640',
-    borderRadius: 3,
+    backgroundColor: up ? VERDIGRIS : OXBLOOD,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 4,
   }
 }
-function votedPillLabelStyle(t: ThemeTokens): TextStyle {
+function votedPlateLabelStyle(fontDisplay: string): TextStyle {
   return {
-    color: '#1F1108',
-    fontFamily: t.fontDisplay,
-    fontSize: 9,
+    color: '#10130E',
+    fontFamily: fontDisplay,
+    fontSize: 8.5,
     letterSpacing: 1.2,
   }
 }
-function lockBadgeStyle(): ViewStyle {
-  return {
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    backgroundColor: 'rgba(232,169,59,0.18)',
-    borderWidth: 1.5,
-    borderColor: '#E8A93B',
-    borderRadius: 4,
-    marginLeft: 4,
-  }
+const lockBadgeStyle: ViewStyle = {
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 2,
+  paddingHorizontal: 9,
+  paddingVertical: 6,
+  backgroundColor: 'rgba(232,169,59,0.12)',
+  borderWidth: 1,
+  borderColor: HAIRLINE,
+  borderRadius: 7,
+  marginLeft: 4,
 }
-function lockLabelStyle(t: ThemeTokens): TextStyle {
+function lockLabelStyle(fontDisplay: string): TextStyle {
   return {
-    color: '#E8A93B',
-    fontFamily: t.fontDisplay,
-    fontSize: 9,
+    color: AMBER,
+    fontFamily: fontDisplay,
+    fontSize: 8.5,
     lineHeight: 11,
     textAlign: 'center',
-    letterSpacing: 0.6,
-  }
-}
-function editBtnStyle(): ViewStyle {
-  return {
-    width: 38,
-    height: 38,
-    borderRadius: 4,
-    borderWidth: 1.5,
-    borderColor: '#E8A93B',
-    backgroundColor: 'rgba(232,169,59,0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 4,
-    alignSelf: 'center',
-    shadowColor: '#E8A93B',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 6,
+    letterSpacing: 0.8,
   }
 }

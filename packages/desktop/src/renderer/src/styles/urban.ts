@@ -104,60 +104,9 @@ const GLOBAL_CSS = `
   transform: rotate(-2deg);
 }
 
-/* Urban Lyric Highlight (Crisp Text + Rough Background) */
-[data-theme="urban"] .k-line--urban-active {
-  position: relative;
-  display: inline;
-  padding: 0.1em 0.4em;
-  box-decoration-break: clone;
-  -webkit-box-decoration-break: clone;
-  z-index: 1;
-}
-
-[data-theme="urban"] .k-line--urban-active::before {
-  content: "";
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: var(--highlight-color, ` + TOXIC_GREEN + `);
-  filter: url(#urban-rough-filter);
-  z-index: -1;
-  pointer-events: none;
-  box-decoration-break: clone;
-  -webkit-box-decoration-break: clone;
-}
-
-/* ── Urban per-syllable highlighting ───────────────────────────────────────
-   The active line is a rough neon spray block with dark text on top. Past
-   and future words stay full-strength black — the user reads the line by
-   contrast against neon, not from grey-out.
-
-   The current word uses the classic hip-hop graphic-design "punch tag"
-   language: white fill + hard offset black shadow (no blur). It's the
-   visual vocabulary of Run-DMC / Public Enemy / modern rap covers,
-   readable on every neon singer color, and it doesn't fight the
-   Permanent Marker font the way a thick text-stroke does. */
-[data-theme="urban"] .k-line--urban-active .k-syl--past,
-[data-theme="urban"] .k-line--urban-active .k-syl--future {
-  opacity: 1;
-  color: ` + DARK_VOID + `;
-  text-shadow: none;
-  -webkit-text-stroke: 0;
-}
-[data-theme="urban"] .k-line--urban-active .k-syl--now {
-  /* Fill is a high-lightness tint of the singer color — stays in the
-     singer's hue family so it reads as their tag, but lightness contrast
-     against the saturated bg makes it pop. Black outline + hard offset
-     shadow are the hip-hop "punch tag" graphic vocabulary. */
-  color: color-mix(in srgb, var(--syl-singer, ` + PURE_WHITE + `), white 65%);
-  font-weight: 900;
-  letter-spacing: 0.015em;
-  text-shadow:
-     0.06em 0.06em 0 ` + DARK_VOID + `,
-    -1px 0 0 ` + DARK_VOID + `,
-     1px 0 0 ` + DARK_VOID + `,
-     0 -1px 0 ` + DARK_VOID + `,
-     0  1px 0 ` + DARK_VOID + `;
-}
+/* Stage lyric styling (.k-line--urban-active, drips, per-syllable punch tag,
+   count-in, backdrop scrim) lives in karaoke.css — the always-loaded stage
+   stylesheet — so it isn't wiped + re-injected on every per-song theme swap. */
 `
 
 export const URBAN: Theme = {

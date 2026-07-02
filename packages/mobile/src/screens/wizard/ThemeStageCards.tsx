@@ -17,7 +17,7 @@ import Svg, {
 import { HudBrackets } from './SpaceWizardChrome'
 import { BrassFrame } from './SteampunkWizardChrome'
 import { NeonFrame } from './RetrowaveWizardChrome'
-import { Gear } from '../../theme/themes/steampunk/Gear'
+import { Gear } from '../../theme/themes/steampunk/atoms/_steam'
 
 // The deep-sea theme's actual bubble PNG (same asset its backdrop + tab bar
 // use) — rendered un-tinted so the 3D highlight reads.
@@ -577,7 +577,7 @@ function SteampunkCard({ label, selected, onPress }: CardProps) {
             textShadowOffset: { width: 0, height: 0 },
           }}
         />
-        <Gear size={28} teeth={10} bodyColor="#B8762D" edgeColor="#7A4D1A" hubColor="#5C3A12" highlightColor="#E8C078" />
+        <Gear size={28} teeth={10} tone="brass" />
       </Row>
     </BaseCard>
   )

@@ -437,34 +437,387 @@
    that dim. The non-active lines simply use the base .k-syl--* rules.
 
    Selector pattern:   [data-theme="X"] .k-line--now .k-syl--past/--now/--future
-   Sketch & urban have their syllable rules co-located in their theme .ts
-   files (sketch.ts / urban.ts) to match the existing convention there. */
+   Sketch has its syllable rules co-located in sketch.ts to match the existing
+   convention there. Urban's stage rules live in the URBAN STAGE section below
+   (moved out of urban.ts so they aren't wiped/re-injected per song). */
 
-/* ── Neo Brutal — stamped inked block ─────────────────────────────────────
-   Background/box styling lives on .k-syl__word (the inner span around just
-   the visible glyphs) so the black stamp doesn't cover the trailing space. */
-[data-theme="neo-brutal"] .k-line--now .k-syl--past {
-    opacity: 1;
-    color: #0a0a0a;
-    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.18);
+/* ═══════════════════════════════════════════════════════════════════════════
+   NEO-BRUTAL STAGE — riso-print karaoke
+   The stage is a printed gig poster. With no music video, the blurred-art
+   backdrop becomes a sharp grayscale print under a flat cream wash + halftone
+   (riso duotone). Lyrics are ink type with hard offset shadows; the active
+   line is a stamped color plate (hard-split bands for shared lines); the
+   active word is wiped by an ink marker timed to its exact syllable duration,
+   and sung words stay behind as ink stamps with singer-tinted text.
+   Two backdrop modes — `.k-stage--video` (dark, video visible) vs default
+   (cream print) — drive the ladder text colors below.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ---- Backdrop: duotone print (only when no music video exists) ---- */
+[data-theme="neo-brutal"] .karaoke-stage:not(.k-stage--video) {
+    background: #FFF8EE;
 }
-[data-theme="neo-brutal"] .k-line--now .k-syl--now {
-    /* The black stamp box (on .k-syl__word) guarantees contrast for any
-       singer color, so we can use the singer color directly as the fill —
-       the active word reads as the singer's brand color, stamped. */
-    color: var(--syl-singer, #fffce6);
+[data-theme="neo-brutal"] .karaoke-stage:not(.k-stage--video) .k-bg__img,
+[data-theme="neo-brutal"] .karaoke-stage:not(.k-stage--video) .k-bg__img--prev {
+    filter: grayscale(1) contrast(1.06) brightness(1.1);
+    transform: scale(1.03);
 }
-[data-theme="neo-brutal"] .k-line--now .k-syl--now .k-syl__word {
-    background: #0a0a0a;
-    padding: 0 0.12em;
-    box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.92);
-    -webkit-box-decoration-break: clone;
-            box-decoration-break: clone;
-    border-radius: 2px;
+[data-theme="neo-brutal"] .karaoke-stage:not(.k-stage--video) .k-bg__scrim {
+    background:
+        radial-gradient(rgba(26, 26, 26, 0.055) 1.2px, transparent 1.6px),
+        linear-gradient(180deg, rgba(255, 248, 238, 0.92) 0%, rgba(255, 248, 238, 0.84) 45%, rgba(255, 248, 238, 0.92) 100%);
+    background-size: 11px 11px, 100% 100%;
 }
+
+/* ---- Lyric ladder: ink type on print, cream type on video ---- */
+[data-theme="neo-brutal"] .karaoke-stage:not(.k-stage--video) .k-line--future {
+    color: rgba(26, 26, 26, 0.85);
+}
+[data-theme="neo-brutal"] .karaoke-stage:not(.k-stage--video) .k-line--past {
+    color: rgba(26, 26, 26, 0.32);
+    opacity: 0.55;
+    text-shadow: none;
+}
+[data-theme="neo-brutal"] .k-stage--video .k-line--future {
+    color: #FFF8EE;
+}
+[data-theme="neo-brutal"] .k-stage--video .k-line--past {
+    color: rgba(255, 248, 238, 0.4);
+    text-shadow: none;
+}
+
+/* ---- Active line: the stamped color plate ----
+   Card colors/border/shadow are set inline (they depend on singer colors);
+   the entrance is a rubber-stamp slam. --nb-card-ink is the luminance-chosen
+   text color (ink on bright plates, cream on dark ones); --nb-syl-lit is the
+   singer-tinted fill used on top of the ink wipe stamps. */
+[data-theme="neo-brutal"] .k-line--neo-brutal-active {
+    position: relative;
+    animation: nb-stamp-in 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    --nb-syl-lit: color-mix(in srgb, var(--syl-singer, #FFD60A), white 58%);
+}
+@keyframes nb-stamp-in {
+    0%   { transform: scale(1.055); box-shadow: 0 0 0 rgba(20, 20, 20, 0.95); }
+    62%  { transform: scale(0.988); }
+    100% { transform: scale(1); }
+}
+
+/* Pacing underline for lines WITHOUT syllable timing: a thin bar fills across
+   the plate bottom over the line's exact duration (set inline as
+   --nb-line-dur), so singers can pace themselves even on LRC-only songs. */
+[data-theme="neo-brutal"] .k-line--nb-timed {
+    overflow: hidden;
+}
+[data-theme="neo-brutal"] .k-line--nb-timed::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 0.11em;
+    background: var(--nb-card-ink, #141414);
+    opacity: 0.9;
+    transform: scaleX(0);
+    transform-origin: left center;
+    animation: nb-line-fill var(--nb-line-dur, 4000ms) linear 0.02s forwards;
+}
+@keyframes nb-line-fill {
+    to { transform: scaleX(1); }
+}
+
+/* ---- Per-syllable: whole-syllable ink stamp (no glide) ----
+   Each word in the active line keeps a CONSTANT footprint (padding offset by a
+   negative margin) so stamps appearing never reflow the line. The base bold-up
+   on the active word is disabled for the same reason — emphasis is the stamp,
+   not a weight change. When a syllable is reached it snaps to fully highlighted
+   at once (the ink box appears whole and the text lights up); a short color
+   fade keeps the pop smooth without any left-to-right sweep. */
+[data-theme="neo-brutal"] .k-line--now .k-syl {
+    font-weight: inherit;
+    letter-spacing: inherit;
+}
+[data-theme="neo-brutal"] .k-line--now .k-syl__word {
+    position: relative;
+    z-index: 0;
+    display: inline-block;
+    padding: 0.06em 0.07em;
+    margin: -0.06em -0.07em; /* net-zero footprint: no reflow when stamps appear */
+    white-space: pre;
+}
+/* Solid ink stamp behind the current + already-sung words. It's either fully
+   present or absent — never partially swept. */
+[data-theme="neo-brutal"] .k-line--now .k-syl--now .k-syl__word::before,
+[data-theme="neo-brutal"] .k-line--now .k-syl--past .k-syl__word::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: #141414;
+    border-radius: 0.045em;
+}
+/* Text: upcoming words are a faint tint of the plate's text color; the current
+   and sung words are fully lit on their stamps. */
 [data-theme="neo-brutal"] .k-line--now .k-syl--future {
     opacity: 1;
-    color: rgba(10, 10, 10, 0.42);
+    color: color-mix(in srgb, var(--nb-card-ink, #141414) 40%, transparent);
+    text-shadow: none;
+}
+[data-theme="neo-brutal"] .k-line--now .k-syl--now,
+[data-theme="neo-brutal"] .k-line--now .k-syl--past {
+    opacity: 1;
+    color: var(--nb-syl-lit, #FFF8EE);
+    text-shadow: none;
+}
+
+/* ---- Pause: freeze every timed animation with the music ---- */
+[data-theme="neo-brutal"] .k-stage--paused .k-line--nb-timed::after {
+    animation-play-state: paused;
+}
+
+/* ---- Count-in exit: slides up and fades as the first line lands, so it
+   reads as scrolling away like a lyric even when the flow can't scroll yet. --- */
+[data-theme="neo-brutal"] .k-nb-countin--exit {
+    animation: nb-countin-exit 0.7s var(--ease) 0.2s forwards;
+}
+@keyframes nb-countin-exit {
+    from { opacity: 1; transform: translateY(0); }
+    to   { opacity: 0; transform: translateY(-165%); }
+}
+[data-theme="neo-brutal"] .k-stage--paused .k-nb-countin--exit {
+    animation-play-state: paused;
+}
+
+/* ---- Shared print textures (idle screen + Up Next poster) ---- */
+.nb-print-grid {
+    background-image:
+        linear-gradient(rgba(26, 26, 26, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(26, 26, 26, 0.05) 1px, transparent 1px);
+    background-size: 54px 54px;
+}
+.nb-dots {
+    background-image: radial-gradient(rgba(26, 26, 26, 0.13) 1.4px, transparent 1.8px);
+    background-size: 12px 12px;
+}
+
+/* ---- Neo-brutal motion vocabulary ---- */
+@keyframes nb-pop-in {
+    from { opacity: 0; transform: translateY(-10px) rotate(var(--nb-rot, 0deg)) scale(0.94); }
+    to   { opacity: 1; transform: translateY(0) rotate(var(--nb-rot, 0deg)) scale(1); }
+}
+.nb-pop-in {
+    animation: nb-pop-in 0.4s var(--ease-bounce) both;
+}
+@keyframes nb-rise {
+    from { opacity: 0; transform: translateY(22px) rotate(var(--nb-rot, 0deg)); }
+    to   { opacity: 1; transform: translateY(0) rotate(var(--nb-rot, 0deg)); }
+}
+.nb-rise {
+    animation: nb-rise 0.5s var(--ease) both;
+}
+@keyframes nb-slam {
+    0%   { opacity: 0; transform: scale(1.7) rotate(var(--nb-rot, 0deg)); }
+    55%  { opacity: 1; transform: scale(0.93) rotate(var(--nb-rot, 0deg)); }
+    78%  { transform: scale(1.03) rotate(var(--nb-rot, 0deg)); }
+    100% { opacity: 1; transform: scale(1) rotate(var(--nb-rot, 0deg)); }
+}
+@keyframes nb-float {
+    0%, 100% { transform: translateY(0) rotate(var(--nb-rot, 0deg)); }
+    50%      { transform: translateY(-12px) rotate(calc(var(--nb-rot, 0deg) + 2.5deg)); }
+}
+@keyframes nb-blink {
+    0%, 55%   { opacity: 1; }
+    56%, 100% { opacity: 0.15; }
+}
+@keyframes nb-qr-press {
+    0%, 86%, 100% { transform: translate(0, 0); box-shadow: 10px 10px 0 #1A1A1A; }
+    90%, 94%      { transform: translate(5px, 5px); box-shadow: 3px 3px 0 #1A1A1A; }
+}
+
+/* Chunky mini equalizer — bars pump from the baseline. */
+.nb-eq {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 0.14em;
+    height: 1em;
+}
+.nb-eq span {
+    width: 0.22em;
+    height: 100%;
+    background: currentColor;
+    transform-origin: bottom;
+    animation: nb-eq 0.9s ease-in-out infinite;
+}
+.nb-eq span:nth-child(2) { animation-delay: 0.15s; animation-duration: 0.75s; }
+.nb-eq span:nth-child(3) { animation-delay: 0.3s; animation-duration: 1.05s; }
+@keyframes nb-eq {
+    0%, 100% { transform: scaleY(0.3); }
+    35%      { transform: scaleY(1); }
+    65%      { transform: scaleY(0.55); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   URBAN STAGE — night cypher on a wheatpaste wall
+   The stage is a city wall after dark: a cinematic streetlight vignette over
+   the album backdrop, lyrics as spray-painted tags with turbulence-rough
+   edges and wet paint drips, wheatpasted paper flyers with tape, stencil
+   type (Oswald) against marker tags (Permanent Marker), and a flickering
+   neon accent. Moved here from urban.ts so the rules aren't wiped and
+   re-injected on every per-song theme swap.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ---- Backdrop: cinematic night — crushed blacks, letterboxed scrim ---- */
+[data-theme="urban"] .k-bg__img,
+[data-theme="urban"] .k-bg__img--prev {
+    filter: blur(60px) saturate(1.15) brightness(0.45) contrast(1.08);
+}
+[data-theme="urban"] .k-bg__scrim {
+    background:
+        linear-gradient(180deg, rgba(3, 3, 3, 0.92) 0%, rgba(3, 3, 3, 0.28) 18%, rgba(3, 3, 3, 0.22) 62%, rgba(3, 3, 3, 0.95) 100%),
+        radial-gradient(ellipse at 50% 32%, transparent 25%, rgba(3, 3, 3, 0.8) 100%);
+}
+
+/* ---- Lyric ladder ---- */
+[data-theme="urban"] .k-line--future {
+    color: rgba(255, 255, 255, 0.92);
+}
+[data-theme="urban"] .k-line--past {
+    color: rgba(255, 255, 255, 0.2);
+}
+
+/* ---- Active line: the spray-painted tag ----
+   A rough neon block (feTurbulence-displaced ::before) in the singer's color
+   — multi-singer lines get a graffiti "fade" (the gradient IS the piece).
+   The tag mists on (blur -> sharp, like a spray pass) and drips wet paint
+   from its bottom edge (::after, roughened by the same filter).
+   NOTE: the element is display:inline (box-decoration-break: clone), so
+   transforms don't apply — entrance motion is opacity + blur only. */
+[data-theme="urban"] .k-line--urban-active {
+    position: relative;
+    display: inline;
+    padding: 0.12em 0.45em;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+    z-index: 1;
+    animation: urban-spray-in 0.34s ease-out both;
+}
+[data-theme="urban"] .k-line--urban-active::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--highlight-color, #D4FF00);
+    filter: url(#urban-rough-filter);
+    z-index: -1;
+    pointer-events: none;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+}
+/* Wet paint drips — a few uneven bars hanging off the tag, drawn as gradient
+   strips in the first/last singer colors and organically roughened by the
+   turbulence filter. Solid colors only (--urban-drip-a/b are set inline;
+   --highlight-color may be a gradient and can't be used inside gradients). */
+[data-theme="urban"] .k-line--urban-active::after {
+    content: "";
+    position: absolute;
+    left: 0.4em;
+    right: 0.4em;
+    top: 92%;
+    height: 0.55em;
+    z-index: -1;
+    pointer-events: none;
+    background:
+        linear-gradient(var(--urban-drip-a, #D4FF00), var(--urban-drip-a, #D4FF00)) 5% 0 / 0.085em 88% no-repeat,
+        linear-gradient(var(--urban-drip-a, #D4FF00), var(--urban-drip-a, #D4FF00)) 13% 0 / 0.055em 52% no-repeat,
+        linear-gradient(var(--urban-drip-a, #D4FF00), var(--urban-drip-a, #D4FF00)) 27% 0 / 0.07em 34% no-repeat,
+        linear-gradient(var(--urban-drip-b, #D4FF00), var(--urban-drip-b, #D4FF00)) 74% 0 / 0.075em 100% no-repeat,
+        linear-gradient(var(--urban-drip-b, #D4FF00), var(--urban-drip-b, #D4FF00)) 88% 0 / 0.05em 46% no-repeat;
+    filter: url(#urban-rough-filter);
+}
+@keyframes urban-spray-in {
+    from { opacity: 0; filter: blur(7px); }
+    to   { opacity: 1; filter: blur(0); }
+}
+
+/* Pacing underline for lines WITHOUT syllable timing: a marker stroke drawn
+   under the words (a background layer on the root — NOT on the filtered
+   ::before, so the turbulence filter never re-renders per frame), filling
+   over the line's real duration (--nb-line-dur, set inline). */
+[data-theme="urban"] .k-line--urban-timed {
+    background-image: linear-gradient(
+        color-mix(in srgb, var(--urban-plate-ink, #0A0A0A) 55%, transparent),
+        color-mix(in srgb, var(--urban-plate-ink, #0A0A0A) 55%, transparent)
+    );
+    background-repeat: no-repeat;
+    background-position: 0.1em calc(100% - 0.06em);
+    background-size: 0% 0.09em;
+    animation:
+        urban-spray-in 0.34s ease-out both,
+        urban-line-fill var(--nb-line-dur, 4000ms) linear 0.05s forwards;
+}
+@keyframes urban-line-fill {
+    from { background-size: 0% 0.09em; }
+    to   { background-size: 100% 0.09em; }
+}
+[data-theme="urban"] .k-stage--paused .k-line--urban-timed {
+    animation-play-state: paused;
+}
+
+/* ---- Per-syllable: the punch tag ----
+   Past + future words sit full-strength in the plate's ink (chosen by
+   luminance so dark singer colors flip to white text). The current word
+   snaps — whole-syllable, no glide — to a high-lightness tint of the
+   singer color with a hard offset black shadow: the Run-DMC / battle-
+   poster "punch tag" vocabulary. Weight stays inherited so word widths
+   never shift mid-line. */
+[data-theme="urban"] .k-line--urban-active .k-syl {
+    font-weight: inherit;
+    letter-spacing: inherit;
+}
+[data-theme="urban"] .k-line--urban-active .k-syl--past,
+[data-theme="urban"] .k-line--urban-active .k-syl--future {
+    opacity: 1;
+    color: var(--urban-plate-ink, #0A0A0A);
+    text-shadow: none;
+    -webkit-text-stroke: 0;
+}
+[data-theme="urban"] .k-line--urban-active .k-syl--now {
+    opacity: 1;
+    color: color-mix(in srgb, var(--syl-singer, #FFFFFF), white 68%);
+    text-shadow:
+        0.06em 0.06em 0 #050505,
+        -1px 0 0 #050505,
+        1px 0 0 #050505,
+        0 -1px 0 #050505,
+        0 1px 0 #050505;
+}
+
+/* ---- Count-in exit (shared mechanism with neo-brutal) ---- */
+[data-theme="urban"] .k-nb-countin--exit {
+    animation: nb-countin-exit 0.7s var(--ease) 0.2s forwards;
+}
+[data-theme="urban"] .k-stage--paused .k-nb-countin--exit {
+    animation-play-state: paused;
+}
+
+/* ---- Neon sign flicker — the occasional bad-tube stutter ---- */
+@keyframes urban-neon-flicker {
+    0%, 100% { opacity: 1; }
+    41%      { opacity: 1; }
+    42%      { opacity: 0.45; }
+    43%      { opacity: 1; }
+    45%      { opacity: 0.7; }
+    46%      { opacity: 1; }
+    71%      { opacity: 1; }
+    72%      { opacity: 0.35; }
+    73.5%    { opacity: 1; }
+}
+.urban-neon {
+    animation: urban-neon-flicker 7s linear infinite;
+}
+
+/* ---- Streetlight sweep — a slow drift of the wall's light pool ---- */
+@keyframes urban-spot {
+    from { transform: translateX(-5%); }
+    to   { transform: translateX(5%); }
 }
 
 /* ── Cyberpunk — chromatic data-stream cursor ───────────────────────────── */
@@ -670,29 +1023,80 @@
     filter: none;
 }
 
-/* ── Zen — sumi-e calligraphy on washi paper ──────────────────────────────
-   The active line is a warm cream card with deep ink. Past syllables are
-   solid ink (settled). The current syllable is set in VERMILLION — the
-   calligrapher's red seal stamp, placed at the focal point of the brush.
-   Future syllables fade to soft charcoal so the eye is drawn to the seal,
-   not to a wall of identical ink. Singer identity is shown by a thin
-   colored stripe on the active line's left edge (JSX inline style). */
+/* ── Zen — ink & washi (the calligrapher's brush) ─────────────────────────
+   The active line is an unrolled strip of washi with a singer-ink band on
+   its left edge (JSX inline style). Past syllables are settled sumi ink,
+   joined by a faint brush TRAIL in the singer's color, so the sung portion
+   reads as one continuous stroke. The current syllable is the brush tip:
+   singer-colored ink (mixed toward sumi so ANY neon stays readable on warm
+   paper), a fresh underline stroke sweeping in, and a soft ink bleed into
+   the paper behind the word. Future syllables stay pale so the eye rests on
+   the brush, never a wall of ink. No transform on the syllable itself —
+   the bleed/underline live on absolutely-positioned pseudos, so neighbours
+   never shift mid-line. */
+[data-theme="zen"] .k-line--now .k-syl {
+    position: relative;
+}
+[data-theme="zen"] .k-line--now .k-syl .k-syl__word {
+    position: relative;
+    display: inline-block;
+}
+/* Brush trail: every sung word keeps a faint singer-color underline. */
+[data-theme="zen"] .k-line--now .k-syl--past .k-syl__word::after,
+[data-theme="zen"] .k-line--now .k-syl--now .k-syl__word::after {
+    content: '';
+    position: absolute;
+    left: 0.02em;
+    right: 0.02em;
+    bottom: -0.06em;
+    height: 0.075em;
+    border-radius: 999px;
+    background: var(--syl-singer, #D4442A);
+    transition: opacity 0.3s ease, box-shadow 0.3s ease;
+}
+[data-theme="zen"] .k-line--now .k-syl--past .k-syl__word::after {
+    opacity: 0.28;
+}
+[data-theme="zen"] .k-line--now .k-syl--now .k-syl__word::after {
+    opacity: 0.95;
+    transform-origin: left center;
+    animation: zen-brush-under 0.32s cubic-bezier(0.25, 1, 0.4, 1) both;
+    box-shadow: 0 0.03em 0.28em color-mix(in srgb, var(--syl-singer, #D4442A), transparent 45%);
+}
+/* Fresh ink bleeding into the paper behind the word at the brush tip. */
+[data-theme="zen"] .k-line--now .k-syl--now .k-syl__word::before {
+    content: '';
+    position: absolute;
+    inset: -0.08em -0.16em -0.12em;
+    border-radius: 0.3em;
+    background: radial-gradient(ellipse 100% 90% at 50% 62%,
+        color-mix(in srgb, var(--syl-singer, #D4442A), transparent 84%) 0%,
+        transparent 72%);
+    animation: zen-ink-bleed 0.5s ease-out both;
+    z-index: -1;
+}
 [data-theme="zen"] .k-line--now .k-syl--past {
     opacity: 1;
-    color: #1a1814;
+    color: #241f16;
     text-shadow: none;
 }
 [data-theme="zen"] .k-line--now .k-syl--now {
-    color: #D4442A;
+    color: color-mix(in srgb, var(--syl-singer, #D4442A), #241f16 32%);
     font-weight: 900;
-    text-shadow:
-        0 0 1px rgba(212, 68, 42, 0.55),
-        0 0 10px rgba(212, 68, 42, 0.28);
+    text-shadow: 0 0 0.4em color-mix(in srgb, var(--syl-singer, #D4442A), transparent 60%);
 }
 [data-theme="zen"] .k-line--now .k-syl--future {
     opacity: 1;
-    color: rgba(26, 24, 20, 0.48);
+    color: rgba(36, 31, 22, 0.34);
     text-shadow: none;
+}
+@keyframes zen-brush-under {
+    from { transform: scaleX(0); }
+    to   { transform: scaleX(1); }
+}
+@keyframes zen-ink-bleed {
+    0%   { opacity: 0; transform: scale(0.6); }
+    100% { opacity: 1; transform: scale(1); }
 }
 
 /* ── Space — pulsar burst (in the singer's color) ───────────────────────── */
@@ -725,30 +1129,64 @@
     color: rgba(190, 200, 235, 0.45);
 }
 
-/* ── Steampunk — engraved → glowing brass ───────────────────────────────── */
+/* ── Steampunk — Edison filament ignition (in the singer's color) ─────────
+   The plate face is dark iron (JSX inline); the letters are lamp filaments.
+   Future words are unlit glass — dark and engraved. Sung words hold a steady
+   glow in the singer's color (mixed toward warm white so any color stays
+   bright on iron). The current word IGNITES: a hot white-core flare with a
+   gas-lamp catch-flicker, plus a soft bulb backlight behind the word on an
+   absolutely-positioned pseudo — neighbouring words never shift. */
+[data-theme="steampunk"] .k-line--now .k-syl {
+    position: relative;
+}
+[data-theme="steampunk"] .k-line--now .k-syl .k-syl__word {
+    position: relative;
+    display: inline-block;
+}
 [data-theme="steampunk"] .k-line--now .k-syl--past {
     opacity: 1;
-    color: #2a1a08;
+    color: color-mix(in srgb, var(--syl-singer, #C8973E), #F5E9D0 40%);
     text-shadow:
-        0 1px 0 rgba(255, 220, 150, 0.35),
-        0 -1px 0 rgba(0, 0, 0, 0.25);
+        0 0 0.22em color-mix(in srgb, var(--syl-singer, #C8973E), transparent 55%),
+        0 0.03em 0 rgba(0, 0, 0, 0.5);
 }
 [data-theme="steampunk"] .k-line--now .k-syl--now {
-    color: transparent;
-    background: linear-gradient(180deg, #ffeab0 0%, #f3c266 30%, #c8973e 60%, #7a5418 100%);
-    -webkit-background-clip: text;
-            background-clip: text;
-    -webkit-text-fill-color: transparent;
-    filter:
-        drop-shadow(0 1px 0 rgba(255, 240, 200, 0.7))
-        drop-shadow(0 -1px 0 rgba(0, 0, 0, 0.5))
-        drop-shadow(0 0 8px rgba(224, 112, 64, 0.55))
-        drop-shadow(0 0 18px rgba(200, 151, 62, 0.4));
+    color: color-mix(in srgb, var(--syl-singer, #C8973E), #FFF6E0 62%);
+    font-weight: 900;
+    text-shadow:
+        0 0 0.14em rgba(255, 246, 224, 0.7),
+        0 0 0.34em var(--syl-singer, #C8973E),
+        0 0 0.7em color-mix(in srgb, var(--syl-singer, #C8973E), transparent 35%),
+        0 0.03em 0 rgba(0, 0, 0, 0.45);
+    animation: steam-ignite 0.38s ease-out both;
+}
+[data-theme="steampunk"] .k-line--now .k-syl--now .k-syl__word::before {
+    content: '';
+    position: absolute;
+    inset: -0.12em -0.2em;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at 50% 55%,
+        color-mix(in srgb, var(--syl-singer, #C8973E), transparent 78%) 0%,
+        transparent 70%);
+    animation: steam-bulb-on 0.4s ease-out both;
+    z-index: -1;
 }
 [data-theme="steampunk"] .k-line--now .k-syl--future {
     opacity: 1;
-    color: rgba(42, 26, 8, 0.48);
-    text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.2);
+    color: rgba(238, 224, 196, 0.3);
+    text-shadow: 0 -0.02em 0 rgba(0, 0, 0, 0.35);
+}
+/* Gas catching in the mantle: two quick stutters, then steady light. */
+@keyframes steam-ignite {
+    0%   { filter: brightness(0.6); }
+    18%  { filter: brightness(1.6); }
+    30%  { filter: brightness(0.9); }
+    48%  { filter: brightness(1.5); }
+    100% { filter: brightness(1); }
+}
+@keyframes steam-bulb-on {
+    0%   { opacity: 0; transform: scale(0.5); }
+    100% { opacity: 1; transform: scale(1); }
 }
 
 /* ── Retrowave — Chrome Synthwave on the Dark Void ──────────────────────────
@@ -917,33 +1355,136 @@
     animation: psy-word-breathe 3s ease-in-out infinite;
 }
 
-/* ── Zen: candlelight breath — soft gold halo on the washi card ─────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   ZEN STAGE — the tokonoma alcove at dusk
+   Warm stone dark, washi paper, kintsugi gold; the singer's color is used
+   like a hanko seal — a vivid accent on quiet paper, never the text fill.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ---- Backdrop: candlelit dusk — warm, desaturated, gently vignetted ---- */
+[data-theme="zen"] .k-bg__img,
+[data-theme="zen"] .k-bg__img--prev {
+    filter: blur(60px) saturate(0.55) sepia(0.22) brightness(0.5);
+}
+[data-theme="zen"] .k-bg__scrim {
+    background:
+        linear-gradient(180deg, rgba(14, 12, 9, 0.82) 0%, rgba(20, 17, 12, 0.35) 32%, rgba(20, 17, 12, 0.35) 62%, rgba(12, 10, 7, 0.88) 100%),
+        radial-gradient(ellipse at center, transparent 32%, rgba(12, 10, 7, 0.62) 100%);
+}
+
+/* ---- Lyric ladder: warm paper tones instead of stark white ---- */
+[data-theme="zen"] .k-line--future {
+    color: rgba(240, 230, 211, 0.9);
+}
+[data-theme="zen"] .k-line--past {
+    color: rgba(240, 230, 211, 0.22);
+}
+
+/* ---- Active washi strip ----
+   Candlelight breath in the singer's color: --zen-glow is set inline per
+   line, so any singer color (or a shared line's lead color) drives the halo. */
 @keyframes zen-card-breath {
     0%, 100% {
         box-shadow:
-            0 0 24px rgba(201, 168, 76, 0.20),
-            0 4px 18px rgba(0, 0, 0, 0.55);
+            0 0 22px var(--zen-glow, rgba(201, 168, 76, 0.22)),
+            0 6px 22px rgba(0, 0, 0, 0.5),
+            inset 0 0 0 1px rgba(201, 168, 76, 0.3);
     }
     50% {
         box-shadow:
-            0 0 36px rgba(201, 168, 76, 0.34),
-            0 4px 22px rgba(0, 0, 0, 0.45);
+            0 0 44px var(--zen-glow, rgba(201, 168, 76, 0.34)),
+            0 6px 26px rgba(0, 0, 0, 0.42),
+            inset 0 0 0 1px rgba(201, 168, 76, 0.42);
     }
 }
 
-.k-line--zen {
-    animation: zen-card-breath 5s ease-in-out infinite;
+/* The strip unrolls left→right (clip-path sweep with a breath of blur), then
+   keeps breathing. Negative top/left/bottom insets keep the halo visible
+   while only the right edge sweeps open; the static box-shadow matches the
+   breath's 0% frame so the hand-off at 0.6s is seamless. */
+[data-theme="zen"] .k-line--zen-active {
+    position: relative;
+    box-shadow:
+        0 0 22px var(--zen-glow, rgba(201, 168, 76, 0.22)),
+        0 6px 22px rgba(0, 0, 0, 0.5),
+        inset 0 0 0 1px rgba(201, 168, 76, 0.3);
+    animation:
+        zen-ink-in 0.6s cubic-bezier(0.3, 0.9, 0.3, 1) both,
+        zen-card-breath 5s ease-in-out 0.6s infinite;
+}
+@keyframes zen-ink-in {
+    0%   { clip-path: inset(-3em 100% -3em -3em); opacity: 0.25; filter: blur(5px); }
+    55%  { opacity: 1; }
+    70%  { clip-path: inset(-3em 0% -3em -3em); filter: blur(0); }
+    100% { clip-path: inset(-3em -3em -3em -3em); opacity: 1; filter: blur(0); }
 }
 
-/* ── Zen: ink brush stroke reveal ────────────────────────────────────────── */
-@keyframes zen-brush-reveal {
-    0%   { stroke-dashoffset: 100; opacity: 0; }
-    20%  { opacity: 0.6; }
-    100% { stroke-dashoffset: 0; opacity: 0.6; }
+/* ---- Pacing vein for lines WITHOUT syllable timing ----
+   A gold ink vein traces the card's bottom edge across the line's real
+   duration (--nb-line-dur, shared mechanism with neo-brutal/urban). It
+   starts in the singer's color and settles into kintsugi gold. */
+[data-theme="zen"] .k-line--zen-timed::after {
+    content: '';
+    position: absolute;
+    left: 1.05em;
+    right: 0.9em;
+    bottom: 0.09em;
+    height: 0.07em;
+    border-radius: 999px;
+    background: linear-gradient(90deg,
+        color-mix(in srgb, var(--syl-singer, #C9A84C), #C9A84C 35%),
+        #C9A84C);
+    transform-origin: left center;
+    transform: scaleX(0);
+    opacity: 0.85;
+    animation: zen-line-fill var(--nb-line-dur, 3000ms) linear 0.1s both;
+}
+@keyframes zen-line-fill {
+    to { transform: scaleX(1); }
 }
 
-.zen-brush-stroke {
-    animation: zen-brush-reveal 0.8s ease-out forwards;
+/* ---- Pause: freeze the timed animations with the music ---- */
+[data-theme="zen"] .k-stage--paused .k-line--zen-timed::after,
+[data-theme="zen"] .k-stage--paused .k-line--zen-active {
+    animation-play-state: paused;
+}
+
+/* ---- Count-in exit: the washi plate lifts away like rising incense ---- */
+[data-theme="zen"] .k-nb-countin--exit {
+    animation: zen-countin-exit 0.8s ease both;
+}
+@keyframes zen-countin-exit {
+    to { opacity: 0; transform: translateY(-34px); filter: blur(6px); }
+}
+[data-theme="zen"] .k-stage--paused .k-nb-countin--exit {
+    animation-play-state: paused;
+}
+
+/* ---- Zen motion vocabulary ---- */
+@keyframes zen-scroll-in {
+    0%   { opacity: 0; transform: translateY(16px); filter: blur(5px); }
+    100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+@keyframes zen-stamp {
+    0%   { opacity: 0; transform: scale(1.4); filter: blur(4px); }
+    55%  { opacity: 1; filter: blur(0); }
+    100% { opacity: 1; transform: scale(1); }
+}
+@keyframes zen-tag-sway {
+    0%, 100% { transform: rotate(-1.2deg); }
+    50%      { transform: rotate(1.2deg); }
+}
+@keyframes zen-lantern-glow {
+    0%, 100% { opacity: 0.55; }
+    50%      { opacity: 0.95; }
+}
+@keyframes zen-petal-live {
+    0%   { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 0; }
+    6%   { opacity: var(--petal-o, 0.2); }
+    30%  { transform: translate3d(2.4vw, 32vh, 0) rotate(80deg); }
+    60%  { transform: translate3d(-1.8vw, 64vh, 0) rotate(160deg); }
+    88%  { opacity: var(--petal-o, 0.2); }
+    100% { transform: translate3d(1.4vw, 112vh, 0) rotate(250deg); opacity: 0; }
 }
 
 /* ── Zen: idle screen keyframes ──────────────────────────────────────────── */
@@ -997,13 +1538,123 @@
     100% { transform: translate(0, 0) rotate(360deg); }
 }
 
-/* ── Steampunk: warm brass background highlight ──────────────────────────── */
-.k-line--steampunk {
-    border-radius: 4px;
-    padding: 6px 20px;
-    background: linear-gradient(90deg, transparent 0%, rgba(200,151,62,0.08) 15%, rgba(200,151,62,0.12) 50%, rgba(200,151,62,0.08) 85%, transparent 100%);
-    border-left: 2px solid rgba(200,151,62,0.3);
-    border-right: 2px solid rgba(200,151,62,0.3);
+/* ═══════════════════════════════════════════════════════════════════════════
+   STEAMPUNK STAGE — the music-hall engine room
+   Cast iron, riveted brass, gaslight. The singer's color is treated as
+   LIGHT — Edison-filament lettering and an enamel indicator band on the
+   machinery — never as paint, so any color combination stays luminous.
+   (The riveted plate frame itself lives in steampunk.ts globalCss.)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ---- Backdrop: gaslit daguerreotype — warm sepia, heavy vignette ---- */
+[data-theme="steampunk"] .k-bg__img,
+[data-theme="steampunk"] .k-bg__img--prev {
+    filter: blur(60px) saturate(0.5) sepia(0.35) brightness(0.45);
+}
+[data-theme="steampunk"] .k-bg__scrim {
+    background:
+        linear-gradient(180deg, rgba(14, 11, 9, 0.85) 0%, rgba(20, 17, 15, 0.35) 32%, rgba(20, 17, 15, 0.35) 62%, rgba(12, 10, 8, 0.9) 100%),
+        radial-gradient(ellipse at center, transparent 30%, rgba(10, 8, 6, 0.65) 100%);
+}
+
+/* ---- Lyric ladder: aged parchment tones instead of stark white ---- */
+[data-theme="steampunk"] .k-line--future {
+    color: rgba(232, 220, 200, 0.88);
+}
+[data-theme="steampunk"] .k-line--past {
+    color: rgba(232, 220, 200, 0.2);
+}
+
+/* ---- Active plate motion ----
+   Entrance: the nameplate is pressed into place with a mechanical overshoot.
+   Then the halo breathes in the singer's color (--stm-glow, set inline) —
+   the keyframes carry the brass inset ring so the animation can own
+   box-shadow without losing the frame from .k-line--steampunk-plate. */
+[data-theme="steampunk"] .k-line--steampunk-active {
+    animation:
+        steam-plate-in 0.5s cubic-bezier(0.34, 1.4, 0.5, 1) both,
+        steam-plate-breath 4.5s ease-in-out 0.5s infinite;
+}
+/* Static shadow matching the breath's 0% frame, so the singer-colored halo
+   is right from the first paint (before the delayed breath kicks in). The
+   compound selector out-ranks the plate rule injected via theme globalCss. */
+[data-theme="steampunk"] .k-line--steampunk-active.k-line--steampunk-plate {
+    box-shadow:
+        inset 0 0 0 2px #C8973E,
+        inset 0 0 18px rgba(0, 0, 0, 0.35),
+        0 0 16px var(--stm-glow, rgba(200, 151, 62, 0.45));
+}
+@keyframes steam-plate-in {
+    0%   { opacity: 0; transform: translateY(0.35em) scale(0.96); }
+    70%  { opacity: 1; transform: translateY(-0.04em) scale(1.005); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes steam-plate-breath {
+    0%, 100% {
+        box-shadow:
+            inset 0 0 0 2px #C8973E,
+            inset 0 0 18px rgba(0, 0, 0, 0.35),
+            0 0 16px var(--stm-glow, rgba(200, 151, 62, 0.45));
+    }
+    50% {
+        box-shadow:
+            inset 0 0 0 2px #D8AC5A,
+            inset 0 0 18px rgba(0, 0, 0, 0.3),
+            0 0 32px var(--stm-glow, rgba(200, 151, 62, 0.6));
+    }
+}
+
+/* ---- Pacing tube for lines WITHOUT syllable timing ----
+   A copper pressure tube fills along the plate's bottom edge across the
+   line's real duration (--nb-line-dur). It repurposes the plate's sheen
+   ::after (higher specificity wins), so LRC-only lines trade the sheen
+   sweep for the pacing readout. */
+[data-theme="steampunk"] .k-line--steampunk-plate.k-line--steampunk-timed::after {
+    inset: auto 0.9em 0.12em 0.9em;
+    height: 0.08em;
+    border-radius: 999px;
+    background: linear-gradient(90deg,
+        color-mix(in srgb, var(--syl-singer, #E07040), #C8973E 30%),
+        #E07040);
+    background-size: 100% 100%;
+    mix-blend-mode: normal;
+    transform-origin: left center;
+    transform: scaleX(0);
+    opacity: 0.9;
+    animation: steam-line-fill var(--nb-line-dur, 3000ms) linear 0.1s both;
+}
+@keyframes steam-line-fill {
+    to { transform: scaleX(1); }
+}
+
+/* ---- Pause: freeze the machinery with the music ---- */
+[data-theme="steampunk"] .k-stage--paused .k-line--steampunk-plate.k-line--steampunk-timed::after,
+[data-theme="steampunk"] .k-stage--paused .k-line--steampunk-active {
+    animation-play-state: paused;
+}
+
+/* ---- Count-in exit: the plate vents upward like released steam ---- */
+[data-theme="steampunk"] .k-nb-countin--exit {
+    animation: steam-countin-exit 0.75s ease both;
+}
+@keyframes steam-countin-exit {
+    to { opacity: 0; transform: translateY(-32px); filter: blur(5px); }
+}
+[data-theme="steampunk"] .k-stage--paused .k-nb-countin--exit {
+    animation-play-state: paused;
+}
+
+/* ---- Steampunk motion vocabulary ---- */
+@keyframes steam-rise {
+    0%   { opacity: 0; transform: translateY(16px); }
+    70%  { opacity: 1; transform: translateY(-2px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes steam-stamp {
+    0%   { opacity: 0; transform: scale(1.55); }
+    55%  { opacity: 1; transform: scale(0.96); }
+    75%  { transform: scale(1.03); }
+    100% { opacity: 1; transform: scale(1); }
 }
 
 /* ── Steampunk: idle screen keyframes ────────────────────────────────────── */

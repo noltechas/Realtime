@@ -7,21 +7,28 @@ import { useEffect, useRef } from 'react'
  * "tomato" reaction on the phone / companion site, that reaction arrives here
  * (content === TOMATO_EMOJI) and we launch a fully physical tomato-throw:
  *
- *   1. FLIGHT  — the tomato is lobbed in from below the screen along a real
- *                parabolic (quadratic-Bézier) arc, tumbling end over end with a
- *                fading motion-blur trail behind it. It grows as it nears the
- *                "glass" to sell the it's-coming-at-you depth.
- *   2. BURST   — on impact it stops dead, a thin shockwave ring snaps outward,
- *                an irregular splat stain pops in with an ease-out-back overshoot
- *                and a spray of juice droplets + pulp + seeds explodes outward
- *                under gravity.
- *   3. HOLD    — the stain sits at full opacity while a few drips ooze down the
- *                screen, lengthening with eased gravity and ending in a bulb.
- *   4. FADE    — the whole stain (drips included) dissolves away.
+ *   1. FLIGHT — the tomato is lobbed in from below the screen along a real
+ *               parabolic (quadratic-Bézier) arc, tumbling end over end with a
+ *               ghosted motion-blur trail. The fruit itself is pre-rendered once
+ *               into an offscreen sprite (gradient skin, rib creases, curled
+ *               calyx, dual specular highlights, rim bounce-light) and blitted
+ *               each frame, growing as it nears the "glass".
+ *   2. SQUASH — on contact the body flattens against the screen for a few
+ *               frames before letting go — the classic impact frame.
+ *   3. BURST  — an impact flash + thin shockwave ring, and the stain pops in
+ *               with an ease-out-back overshoot. The stain is a pre-rendered
+ *               sprite: watery juice halo, directional tendrils ending in
+ *               thrown droplets, dark-rimmed pulp mass, chunky flesh, embedded
+ *               seeds and a wet sheen. A burst of juice streaks, tumbling pulp
+ *               chunks, seeds and a fine mist flies out under gravity.
+ *   4. HOLD   — the stain sits while gravity drips ooze down the glass,
+ *               swaying slightly and ending in a glossy bulb.
+ *   5. FADE   — the whole stain (drips included) dissolves away.
  *
  * Everything is drawn imperatively on one canvas in a single rAF loop. The loop
- * only runs while tomatoes are in flight / fading, then parks itself. Positions
- * are stored as 0..1 fractions of the canvas so the effect survives resizes.
+ * only runs while tomatoes are in flight / fading, then parks itself. Flight
+ * positions are stored as 0..1 fractions of the canvas so throws survive
+ * resizes; stains are resolved to px at impact.
  *
  * This is intentionally self-contained: it subscribes to window.electronAPI
  * .onReaction independently of the floating-bubble ReactionsOverlay (the IPC
@@ -34,21 +41,28 @@ export const TOMATO_EMOJI = '🍅'
 // ---- tunables --------------------------------------------------------------
 const FLIGHT_MIN = 620 // ms
 const FLIGHT_VAR = 240
+const SQUASH_MS = 70 // impact flatten before the burst
 const BURST_MS = 170 // stain pops in over this window
-const HOLD_MS = 1500 // stain sits at full opacity
+const HOLD_MS = 1800 // stain sits at full opacity
 const FADE_MS = 950 // stain dissolves over this window
 
-// tomato + juice palette (vivid against the dark stage)
-const SKIN_HOT = '#ff7b54'
-const SKIN_MID = '#ec3a1c'
-const SKIN_DEEP = '#9d1c0d'
-const JUICE = ['#e23b1e', '#c8210f', '#d8311c', '#ff5b3a']
-const SEED = '#f4e7a8'
-const STAIN_RIM = '#6f1206'
+// palette — ripe tomato + juice (vivid against the dark stage)
+const SKIN_HOT = '#ff7040'
+const SKIN_MID = '#e8290c'
+const SKIN_DEEP = '#8f130a'
+const SKIN_EDGE = '#6d0e05'
+const STAIN_RIM = '#5e0f04'
+const STAIN_DARK = '#a81a09'
+const STAIN_MID = '#c02411'
+const STAIN_HOT = '#d93516'
+const JUICE = ['#e0300f', '#c8210f', '#d8311c', '#ff5b3a']
+const PULP = ['#c23a17', '#a51e0b', '#d0492b']
+const SEED = '#f2e3a0'
 
 // ---- geometry helpers ------------------------------------------------------
 const TAU = Math.PI * 2
 const rand = (a: number, b: number) => a + Math.random() * (b - a)
+const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)]
 const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3)
 const easeOutBack = (t: number) => {
     const c1 = 1.70158
@@ -75,48 +89,42 @@ function makeBlob(baseR: number, points: number, irregularity: number): Vec[] {
 function traceBlob(ctx: CanvasRenderingContext2D, pts: Vec[]) {
     const n = pts.length
     ctx.beginPath()
-    let mx = (pts[n - 1].x + pts[0].x) / 2
-    let my = (pts[n - 1].y + pts[0].y) / 2
+    const mx = (pts[n - 1].x + pts[0].x) / 2
+    const my = (pts[n - 1].y + pts[0].y) / 2
     ctx.moveTo(mx, my)
     for (let i = 0; i < n; i++) {
         const cur = pts[i]
         const nxt = pts[(i + 1) % n]
-        const nmx = (cur.x + nxt.x) / 2
-        const nmy = (cur.y + nxt.y) / 2
-        ctx.quadraticCurveTo(cur.x, cur.y, nmx, nmy)
+        ctx.quadraticCurveTo(cur.x, cur.y, (cur.x + nxt.x) / 2, (cur.y + nxt.y) / 2)
     }
     ctx.closePath()
 }
 
-// ---- data model ------------------------------------------------------------
-interface Lobe {
-    dx: number; dy: number // offset from impact center, as fraction of baseR
-    verts: Vec[]
-    rot: number
-    squash: number // y-axis squash for a spread-out splatter look
-    light: number // -1 darker .. +1 lighter color jitter
+// quadratic Bézier
+const qb = (a: number, b: number, c: number, t: number) => {
+    const mt = 1 - t
+    return mt * mt * a + 2 * mt * t * b + t * t * c
 }
-interface Speckle { dx: number; dy: number; r: number; light: number }
-interface SeedDot { dx: number; dy: number; r: number; rot: number }
+
+// ---- data model ------------------------------------------------------------
 interface Drip {
-    angle: number // start point around the lobe (radians, lower hemisphere)
-    startR: number // start distance from center (fraction of baseR)
+    ox: number // start x offset from impact centre (× baseR)
+    oy: number // start y offset (× baseR, positive = below centre)
     w: number // width px
     maxLen: number // px
     delay: number // ms after burst before it starts running
     grow: number // ms to reach full length
+    swayAmp: number // px of lateral wander as it runs
+    swayFreq: number
 }
+type ParticleKind = 'juice' | 'seed' | 'pulp'
 interface Particle {
     x: number; y: number; vx: number; vy: number // px, px/s
     r: number; life: number; maxLife: number
-    color: string; seed: boolean
-}
-interface Splat {
-    baseR: number // px
-    lobes: Lobe[]
-    speckles: Speckle[]
-    seeds: SeedDot[]
-    drips: Drip[]
+    color: string
+    kind: ParticleKind
+    rot: number; rotVel: number
+    verts: Vec[] | null // pulp chunk outline
 }
 interface Tomato {
     // flight path as fractions of canvas (resize-robust)
@@ -125,64 +133,16 @@ interface Tomato {
     rEnd: number // impact radius as fraction of canvas height
     flightDur: number
     born: number // performance.now() at spawn
-    trail: Vec[] // recent px positions for the motion blur
-    splat: Splat
+    trail: Vec[] // recent px positions for the ghost trail
+    ripeness: number // subtle per-fruit skin variation
+    body: HTMLCanvasElement | null // pre-rendered fruit sprite
+    stain: HTMLCanvasElement | null // pre-rendered splat sprite (built at impact)
+    stainHalf: number // css-px half-extent of the stain sprite when drawn
+    baseR: number // stain body radius px (resolved at impact)
+    drips: Drip[]
     impactPx: Vec // resolved at impact, px
     particles: Particle[]
-    burstAt: number // performance.now() at impact (0 until it lands)
-}
-
-// Build the stain geometry up front so it's deterministic for this throw.
-function buildSplat(baseR: number): Splat {
-    const lobes: Lobe[] = []
-    // main body
-    lobes.push({ dx: 0, dy: 0, verts: makeBlob(baseR, 11, 0.22), rot: rand(0, TAU), squash: rand(0.82, 1.12), light: 0 })
-    // satellite splotches flung off the main hit — kept mostly outside the main
-    // mass so they read as lumpy edges / detached splats rather than internal
-    // bubbles
-    const sat = 3 + Math.floor(Math.random() * 3)
-    for (let i = 0; i < sat; i++) {
-        const a = rand(0, TAU)
-        const dist = rand(0.85, 1.6)
-        lobes.push({
-            dx: Math.cos(a) * dist,
-            dy: Math.sin(a) * dist,
-            verts: makeBlob(baseR * rand(0.2, 0.46), 8, 0.34),
-            rot: rand(0, TAU),
-            squash: rand(0.6, 1.3),
-            light: rand(-0.25, 0.2),
-        })
-    }
-    // fine spray that stuck to the glass
-    const speckles: Speckle[] = []
-    const spcount = 10 + Math.floor(Math.random() * 12)
-    for (let i = 0; i < spcount; i++) {
-        const a = rand(0, TAU)
-        const dist = rand(0.7, 2.3)
-        speckles.push({ dx: Math.cos(a) * dist, dy: Math.sin(a) * dist, r: rand(1.5, 5), light: rand(-0.2, 0.3) })
-    }
-    // embedded seeds
-    const seeds: SeedDot[] = []
-    const sd = 5 + Math.floor(Math.random() * 5)
-    for (let i = 0; i < sd; i++) {
-        const a = rand(0, TAU)
-        const dist = rand(0, 0.7)
-        seeds.push({ dx: Math.cos(a) * dist, dy: Math.sin(a) * dist, r: rand(2, 4), rot: rand(0, TAU) })
-    }
-    // gravity drips from the lower edge
-    const drips: Drip[] = []
-    const dn = 2 + Math.floor(Math.random() * 3)
-    for (let i = 0; i < dn; i++) {
-        drips.push({
-            angle: rand(Math.PI * 0.18, Math.PI * 0.82), // lower hemisphere (y down)
-            startR: rand(0.55, 0.95),
-            w: rand(4, 9),
-            maxLen: baseR * rand(0.7, 2.4),
-            delay: rand(40, 260),
-            grow: rand(650, 1150),
-        })
-    }
-    return { baseR, lobes, speckles, seeds, drips }
+    burstAt: number // performance.now() at burst (0 until it lands)
 }
 
 function spawnTomato(now: number): Tomato {
@@ -194,37 +154,416 @@ function spawnTomato(now: number): Tomato {
     const p2: Vec = { x: tx, y: ty }
     // control point well above the target so it reads as a real lob
     const p1: Vec = { x: (x0 + tx) / 2 + rand(-0.16, 0.16), y: Math.min(ty, p0.y) - rand(0.45, 0.85) }
-    const rEnd = rand(0.045, 0.06)
     return {
         p0, p1, p2,
         spin0: rand(0, TAU),
         spinTurns: rand(1.6, 3.2) * (Math.random() < 0.5 ? -1 : 1),
-        rEnd,
+        rEnd: rand(0.045, 0.06),
         flightDur: FLIGHT_MIN + Math.random() * FLIGHT_VAR,
         born: now,
         trail: [],
-        splat: buildSplat(1), // baseR rescaled to px at impact
+        ripeness: rand(-0.08, 0.08),
+        body: null,
+        stain: null,
+        stainHalf: 0,
+        baseR: 0,
+        drips: [],
         impactPx: { x: 0, y: 0 },
         particles: [],
         burstAt: 0,
     }
 }
 
-// quadratic Bézier
-const qb = (a: number, b: number, c: number, t: number) => {
-    const mt = 1 - t
-    return mt * mt * a + 2 * mt * t * b + t * t * c
+function shiftColor(base: string, f: number): string {
+    const n = parseInt(base.slice(1), 16)
+    const r = Math.max(0, Math.min(255, Math.round(((n >> 16) & 255) * (1 + f))))
+    const g = Math.max(0, Math.min(255, Math.round(((n >> 8) & 255) * (1 + f))))
+    const b = Math.max(0, Math.min(255, Math.round((n & 255) * (1 + f))))
+    return `rgb(${r},${g},${b})`
 }
 
-function colorJitter(base: string, light: number): string {
-    // nudge a hex color lighter (+) / darker (-) cheaply via rgb scaling
-    const n = parseInt(base.slice(1), 16)
-    let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255
-    const f = 1 + light
-    r = Math.max(0, Math.min(255, Math.round(r * f)))
-    g = Math.max(0, Math.min(255, Math.round(g * f)))
-    b = Math.max(0, Math.min(255, Math.round(b * f)))
-    return `rgb(${r},${g},${b})`
+// ---- fruit sprite -----------------------------------------------------------
+// Drawn in "r-units" (fruit radius = 1) centred on the origin. The box must
+// contain the calyx curl: [-1.6, 1.6]².
+const BODY_EXT = 1.6
+
+function buildBodySprite(t: Tomato, rMaxPx: number, dpr: number): void {
+    const k = Math.max(20, Math.min(140, rMaxPx * dpr * 1.25)) // px per r-unit
+    const cv = document.createElement('canvas')
+    cv.width = cv.height = Math.ceil(BODY_EXT * 2 * k)
+    const c = cv.getContext('2d')
+    if (!c) return
+    c.scale(k, k)
+    c.translate(BODY_EXT, BODY_EXT)
+    c.lineJoin = 'round'
+    c.lineCap = 'round'
+    const f = t.ripeness
+
+    // body — slightly oblate, gently lobed silhouette like a real beefsteak
+    c.save()
+    c.scale(1, 0.92)
+    c.beginPath()
+    const lobes = 6
+    for (let i = 0; i <= 48; i++) {
+        const a = (i / 48) * TAU
+        const rr = 1 + 0.022 * Math.cos(a * lobes + 0.7)
+        const px = Math.cos(a) * rr, py = Math.sin(a) * rr
+        if (i === 0) c.moveTo(px, py)
+        else c.lineTo(px, py)
+    }
+    c.closePath()
+    const g = c.createRadialGradient(-0.38, -0.42, 0.08, 0, 0.05, 1.18)
+    g.addColorStop(0, shiftColor(SKIN_HOT, f))
+    g.addColorStop(0.42, shiftColor(SKIN_MID, f))
+    g.addColorStop(0.8, shiftColor(SKIN_DEEP, f))
+    g.addColorStop(1, shiftColor(SKIN_EDGE, f))
+    c.fillStyle = g
+    c.fill()
+
+    // faint rib creases sweeping down from the shoulder
+    c.strokeStyle = 'rgba(70,8,4,0.16)'
+    c.lineWidth = 0.045
+    for (const rx of [-0.55, -0.2, 0.18, 0.55]) {
+        c.beginPath()
+        c.moveTo(rx * 0.45, -0.82)
+        c.quadraticCurveTo(rx * 1.25, -0.1, rx * 0.85, 0.78)
+        c.stroke()
+    }
+    // bounce light along the lower-right limb so the sphere reads round
+    c.beginPath()
+    c.arc(0, 0, 0.93, TAU * 0.02, TAU * 0.24)
+    c.strokeStyle = 'rgba(255,130,80,0.35)'
+    c.lineWidth = 0.09
+    c.stroke()
+    c.restore()
+
+    // shading pooled under the calyx
+    const sg = c.createRadialGradient(0, -0.72, 0, 0, -0.72, 0.5)
+    sg.addColorStop(0, 'rgba(60,10,4,0.35)')
+    sg.addColorStop(1, 'rgba(60,10,4,0)')
+    c.beginPath()
+    c.arc(0, -0.72, 0.5, 0, TAU)
+    c.fillStyle = sg
+    c.fill()
+
+    // calyx — five curled sepals + a cut stem stub
+    const topY = -0.78
+    for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * TAU - Math.PI / 2 + 0.3
+        c.save()
+        c.translate(0, topY)
+        c.rotate(a)
+        c.beginPath()
+        c.moveTo(0, 0)
+        c.bezierCurveTo(0.13, -0.1, 0.2, -0.3, 0.05, -0.48) // out
+        c.bezierCurveTo(0.12, -0.32, -0.05, -0.12, -0.04, 0) // curl back
+        c.closePath()
+        const lg = c.createLinearGradient(0, 0, 0.05, -0.48)
+        lg.addColorStop(0, '#2e6b22')
+        lg.addColorStop(1, '#59a13e')
+        c.fillStyle = lg
+        c.fill()
+        c.beginPath()
+        c.moveTo(0.01, -0.04)
+        c.quadraticCurveTo(0.1, -0.22, 0.04, -0.42)
+        c.strokeStyle = 'rgba(20,50,12,0.5)'
+        c.lineWidth = 0.02
+        c.stroke()
+        c.restore()
+    }
+    c.beginPath()
+    c.arc(0, topY - 0.02, 0.08, 0, TAU)
+    c.fillStyle = '#4a7a2f'
+    c.fill()
+    c.beginPath()
+    c.arc(-0.015, topY - 0.035, 0.035, 0, TAU)
+    c.fillStyle = '#79a854'
+    c.fill()
+
+    // dual speculars — one broad soft sheen, one hot glint
+    c.beginPath()
+    c.ellipse(-0.34, -0.38, 0.3, 0.17, -0.6, 0, TAU)
+    c.fillStyle = 'rgba(255,225,205,0.4)'
+    c.fill()
+    c.beginPath()
+    c.ellipse(-0.45, -0.3, 0.07, 0.045, -0.5, 0, TAU)
+    c.fillStyle = 'rgba(255,255,255,0.85)'
+    c.fill()
+
+    t.body = cv
+}
+
+// ---- stain sprite -----------------------------------------------------------
+// Built once at impact: everything static about the splat (halo, tendrils,
+// pulp mass, chunks, seeds, sheen, spray) baked into one canvas. Drips animate
+// live on top.
+
+function drawTendril(c: CanvasRenderingContext2D, ang: number, inner: number, len: number, w: number, bow: number, color: string) {
+    const cos = Math.cos(ang), sin = Math.sin(ang)
+    const px = -sin, py = cos // perpendicular
+    const bx = cos * inner, by = sin * inner
+    const tx = cos * (inner + len), ty = sin * (inner + len)
+    const mx = cos * (inner + len * 0.5) + px * bow
+    const my = sin * (inner + len * 0.5) + py * bow
+    c.beginPath()
+    c.moveTo(bx + px * w, by + py * w)
+    c.quadraticCurveTo(mx + px * w * 0.35, my + py * w * 0.35, tx, ty)
+    c.quadraticCurveTo(mx - px * w * 0.35, my - py * w * 0.35, bx - px * w, by - py * w)
+    c.closePath()
+    c.fillStyle = color
+    c.fill()
+}
+
+function buildStainSprite(t: Tomato, dpr: number): void {
+    const R = t.baseR
+    const half = R * 3.1
+    const k = Math.min(dpr, 2)
+    const cv = document.createElement('canvas')
+    cv.width = cv.height = Math.ceil(half * 2 * k)
+    const c = cv.getContext('2d')
+    if (!c) return
+    c.scale(k, k)
+    c.translate(half, half)
+    c.lineJoin = 'round'
+
+    // 1 — watery juice halo, the thin film that spreads past the pulp
+    const halo = makeBlob(R * 1.5, 15, 0.3)
+    traceBlob(c, halo)
+    const hg = c.createRadialGradient(0, 0, R * 0.3, 0, 0, R * 1.75)
+    hg.addColorStop(0, 'rgba(168,22,6,0.3)')
+    hg.addColorStop(1, 'rgba(168,22,6,0.04)')
+    c.fillStyle = hg
+    c.fill()
+
+    // 2 — directional tendrils: tapered spikes flung outward, longest few get
+    //     detached droplets past the tip (the classic splat silhouette). They
+    //     start well inside the mass so their bases merge with the pulp.
+    const tendrils = 11 + Math.floor(Math.random() * 5)
+    const baseAng = rand(0, TAU)
+    for (let i = 0; i < tendrils; i++) {
+        const ang = baseAng + (i / tendrils) * TAU + rand(-0.24, 0.24)
+        const len = R * rand(0.55, 2.0)
+        const w = R * rand(0.09, 0.2)
+        const bow = R * rand(-0.2, 0.2)
+        drawTendril(c, ang, R * 0.35, len + R * 0.15, w, bow, i % 3 === 0 ? STAIN_RIM : STAIN_DARK)
+        if (len > R * 1.1) {
+            const dropD = R * 0.5 + len + R * rand(0.12, 0.3)
+            const dr = w * rand(0.7, 1.1)
+            c.beginPath()
+            c.ellipse(Math.cos(ang) * dropD, Math.sin(ang) * dropD, dr * 1.25, dr, ang, 0, TAU)
+            c.fillStyle = STAIN_DARK
+            c.fill()
+            if (Math.random() < 0.5) {
+                const d2 = dropD + R * rand(0.18, 0.34)
+                c.beginPath()
+                c.arc(Math.cos(ang) * d2, Math.sin(ang) * d2, dr * 0.45, 0, TAU)
+                c.fillStyle = STAIN_MID
+                c.fill()
+            }
+        }
+    }
+
+    // 3 — main pulp mass: an independently-jittered dark underlay (so the rim
+    //     width varies organically instead of tracing a uniform outline), then
+    //     the wet body on top
+    const rim = makeBlob(R * 1.08, 14, 0.3)
+    const body = makeBlob(R, 14, 0.32)
+    c.save()
+    c.shadowColor = 'rgba(0,0,0,0.4)'
+    c.shadowBlur = R * 0.28
+    c.shadowOffsetY = R * 0.08
+    traceBlob(c, rim)
+    c.fillStyle = STAIN_RIM
+    c.fill()
+    c.restore()
+    traceBlob(c, body)
+    const bg = c.createRadialGradient(-R * 0.1, -R * 0.1, 0, 0, 0, R * 1.1)
+    bg.addColorStop(0, STAIN_HOT)
+    bg.addColorStop(0.55, STAIN_MID)
+    bg.addColorStop(1, STAIN_DARK)
+    c.fillStyle = bg
+    c.fill()
+
+    // small satellite splats with their own rims
+    const sats = 3 + Math.floor(Math.random() * 3)
+    for (let i = 0; i < sats; i++) {
+        const a = rand(0, TAU)
+        const d = R * rand(1.15, 1.8)
+        const sr = R * rand(0.14, 0.32)
+        const blob = makeBlob(sr, 8, 0.32)
+        c.save()
+        c.translate(Math.cos(a) * d, Math.sin(a) * d)
+        c.rotate(rand(0, TAU))
+        c.scale(rand(0.7, 1.25), rand(0.7, 1.25))
+        c.save()
+        c.scale(1.12, 1.12)
+        traceBlob(c, blob)
+        c.fillStyle = STAIN_RIM
+        c.fill()
+        c.restore()
+        traceBlob(c, blob)
+        c.fillStyle = shiftColor(STAIN_MID, rand(-0.15, 0.1))
+        c.fill()
+        c.restore()
+    }
+
+    // 4 — chunky flesh: irregular pulp pieces inside the main mass
+    const chunks = 6 + Math.floor(Math.random() * 5)
+    for (let i = 0; i < chunks; i++) {
+        const a = rand(0, TAU)
+        const d = R * rand(0, 0.72)
+        const cr = R * rand(0.08, 0.2)
+        c.save()
+        c.translate(Math.cos(a) * d, Math.sin(a) * d)
+        c.rotate(rand(0, TAU))
+        c.beginPath()
+        const n = 4 + Math.floor(Math.random() * 2)
+        for (let v = 0; v < n; v++) {
+            const va = (v / n) * TAU
+            const vr = cr * rand(0.6, 1.3)
+            if (v === 0) c.moveTo(Math.cos(va) * vr, Math.sin(va) * vr)
+            else c.lineTo(Math.cos(va) * vr, Math.sin(va) * vr)
+        }
+        c.closePath()
+        c.fillStyle = pick(PULP)
+        c.fill()
+        c.strokeStyle = 'rgba(70,8,4,0.35)'
+        c.lineWidth = Math.max(0.5, cr * 0.12)
+        c.stroke()
+        c.restore()
+    }
+
+    // 5 — embedded seeds, each with a glint
+    const seeds = 5 + Math.floor(Math.random() * 5)
+    for (let i = 0; i < seeds; i++) {
+        const a = rand(0, TAU)
+        const d = R * rand(0.05, 0.8)
+        const sr = Math.max(1.6, R * rand(0.035, 0.055))
+        const rot = rand(0, TAU)
+        c.save()
+        c.translate(Math.cos(a) * d, Math.sin(a) * d)
+        c.rotate(rot)
+        c.beginPath()
+        c.ellipse(0, 0, sr, sr * 0.62, 0, 0, TAU)
+        c.fillStyle = SEED
+        c.fill()
+        c.strokeStyle = 'rgba(120,90,30,0.5)'
+        c.lineWidth = 0.6
+        c.stroke()
+        c.beginPath()
+        c.arc(-sr * 0.25, -sr * 0.15, sr * 0.18, 0, TAU)
+        c.fillStyle = 'rgba(255,255,255,0.7)'
+        c.fill()
+        c.restore()
+    }
+
+    // 6 — wet sheen streaks catching the stage light
+    c.beginPath()
+    c.ellipse(-R * 0.22, -R * 0.26, R * 0.36, R * 0.16, -0.5, 0, TAU)
+    c.fillStyle = 'rgba(255,160,130,0.22)'
+    c.fill()
+    c.beginPath()
+    c.ellipse(R * 0.15, R * 0.1, R * 0.2, R * 0.07, 0.4, 0, TAU)
+    c.fillStyle = 'rgba(255,180,150,0.13)'
+    c.fill()
+
+    // 7 — fine spray stuck to the glass, radially streaked
+    const spray = 16 + Math.floor(Math.random() * 12)
+    for (let i = 0; i < spray; i++) {
+        const a = rand(0, TAU)
+        const d = R * rand(1.2, 2.8)
+        const sr = rand(1, 3.6)
+        c.save()
+        c.translate(Math.cos(a) * d, Math.sin(a) * d)
+        c.rotate(a)
+        c.globalAlpha = rand(0.45, 0.9)
+        c.beginPath()
+        c.ellipse(0, 0, sr * rand(1, 2.2), sr, 0, 0, TAU)
+        c.fillStyle = shiftColor(STAIN_MID, rand(-0.2, 0.25))
+        c.fill()
+        c.restore()
+    }
+
+    t.stain = cv
+    t.stainHalf = half
+}
+
+function buildDrips(baseR: number): Drip[] {
+    const drips: Drip[] = []
+    const dn = 2 + Math.floor(Math.random() * 3)
+    for (let i = 0; i < dn; i++) {
+        drips.push({
+            ox: rand(-0.75, 0.75),
+            oy: rand(0.5, 0.85),
+            w: rand(4, 9),
+            maxLen: baseR * rand(0.8, 2.8),
+            delay: rand(40, 320),
+            grow: rand(700, 1400),
+            swayAmp: rand(1.5, 5),
+            swayFreq: rand(0.8, 1.6),
+        })
+    }
+    return drips
+}
+
+function spawnParticles(t: Tomato): void {
+    const { x, y } = t.impactPx
+    const out: Particle[] = []
+    // juice streaks
+    const juice = 26 + Math.floor(Math.random() * 12)
+    for (let i = 0; i < juice; i++) {
+        const a = rand(0, TAU)
+        const sp = rand(180, 680)
+        out.push({
+            x, y,
+            vx: Math.cos(a) * sp,
+            vy: Math.sin(a) * sp - rand(40, 220), // bias upward off the splat
+            r: rand(2.2, 6.5),
+            maxLife: rand(0.38, 0.85), life: 0,
+            color: pick(JUICE),
+            kind: 'juice', rot: 0, rotVel: 0, verts: null,
+        })
+    }
+    // tumbling pulp chunks
+    const pulp = 7 + Math.floor(Math.random() * 5)
+    for (let i = 0; i < pulp; i++) {
+        const a = rand(0, TAU)
+        const sp = rand(120, 420)
+        const cr = rand(3, 7)
+        const n = 4 + Math.floor(Math.random() * 2)
+        const verts: Vec[] = []
+        for (let v = 0; v < n; v++) {
+            const va = (v / n) * TAU
+            const vr = cr * rand(0.6, 1.3)
+            verts.push({ x: Math.cos(va) * vr, y: Math.sin(va) * vr })
+        }
+        out.push({
+            x, y,
+            vx: Math.cos(a) * sp,
+            vy: Math.sin(a) * sp - rand(60, 240),
+            r: cr,
+            maxLife: rand(0.5, 0.95), life: 0,
+            color: pick(PULP),
+            kind: 'pulp', rot: rand(0, TAU), rotVel: rand(-9, 9), verts,
+        })
+    }
+    // seeds
+    const seeds = 4 + Math.floor(Math.random() * 4)
+    for (let i = 0; i < seeds; i++) {
+        const a = rand(0, TAU)
+        const sp = rand(200, 560)
+        out.push({
+            x, y,
+            vx: Math.cos(a) * sp,
+            vy: Math.sin(a) * sp - rand(60, 200),
+            r: rand(2, 3.5),
+            maxLife: rand(0.45, 0.8), life: 0,
+            color: SEED,
+            kind: 'seed', rot: 0, rotVel: 0, verts: null,
+        })
+    }
+    for (const p of out) p.life = p.maxLife
+    t.particles = out
 }
 
 export default function TomatoSplatterLayer() {
@@ -243,164 +582,104 @@ export default function TomatoSplatterLayer() {
             dpr = Math.min(window.devicePixelRatio || 1, 2)
             canvas.width = Math.floor(canvas.clientWidth * dpr)
             canvas.height = Math.floor(canvas.clientHeight * dpr)
+            for (const t of tomatoesRef.current) t.body = null // rebuilt at new res
         }
         resize()
         window.addEventListener('resize', resize)
 
-        const drawTomatoBody = (cx: number, cy: number, r: number, rot: number) => {
+        const drawBody = (t: Tomato, x: number, y: number, r: number, rot: number, sx: number, sy: number, alpha: number) => {
+            if (!t.body) buildBodySprite(t, t.rEnd * canvas.clientHeight, dpr)
+            if (!t.body) return
             ctx.save()
-            ctx.translate(cx, cy)
+            ctx.globalAlpha = alpha
+            ctx.translate(x, y)
             ctx.rotate(rot)
-            ctx.scale(1, 0.94) // tomatoes sit slightly wider than tall
-            // soft contact shadow under the fruit
-            ctx.beginPath()
-            ctx.arc(0, 0, r, 0, TAU)
-            const g = ctx.createRadialGradient(-r * 0.32, -r * 0.34, r * 0.12, 0, 0, r)
-            g.addColorStop(0, SKIN_HOT)
-            g.addColorStop(0.5, SKIN_MID)
-            g.addColorStop(1, SKIN_DEEP)
-            ctx.fillStyle = g
-            ctx.shadowColor = 'rgba(0,0,0,0.45)'
-            ctx.shadowBlur = r * 0.4
-            ctx.shadowOffsetY = r * 0.18
-            ctx.fill()
-            ctx.shadowColor = 'transparent'
-            // glossy highlight
-            ctx.beginPath()
-            ctx.ellipse(-r * 0.3, -r * 0.36, r * 0.28, r * 0.16, -0.6, 0, TAU)
-            ctx.fillStyle = 'rgba(255,228,210,0.55)'
-            ctx.fill()
-            // green calyx / star on top
-            ctx.fillStyle = '#3f8a2e'
-            const leaves = 5
-            const topY = -r * 0.84
-            for (let i = 0; i < leaves; i++) {
-                const a = (i / leaves) * TAU - Math.PI / 2 + rot * 0.0
-                ctx.save()
-                ctx.translate(0, topY)
-                ctx.rotate(a)
-                ctx.beginPath()
-                ctx.moveTo(0, 0)
-                ctx.quadraticCurveTo(r * 0.1, -r * 0.06, r * 0.04, -r * 0.34)
-                ctx.quadraticCurveTo(-r * 0.05, -r * 0.06, 0, 0)
-                ctx.fill()
-                ctx.restore()
-            }
-            ctx.beginPath()
-            ctx.arc(0, topY, r * 0.09, 0, TAU)
-            ctx.fillStyle = '#2f6b22'
-            ctx.fill()
+            ctx.scale(sx, sy)
+            ctx.drawImage(t.body, -BODY_EXT * r, -BODY_EXT * r, BODY_EXT * 2 * r, BODY_EXT * 2 * r)
             ctx.restore()
         }
 
-        const drawStain = (t: Tomato, age: number) => {
-            const s = t.splat
-            const cx = t.impactPx.x
-            const cy = t.impactPx.y
-            // overall opacity envelope: pop-in handled by scale; fade at the end
-            let alpha = 0.92
-            const fadeStart = BURST_MS + HOLD_MS
-            if (age > fadeStart) alpha = 0.92 * (1 - (age - fadeStart) / FADE_MS)
-            if (alpha <= 0) return
-            // grow factor for the pop-in (overshoot)
-            const grow = age >= BURST_MS ? 1 : easeOutBack(age / BURST_MS)
-
-            ctx.save()
-            ctx.globalAlpha = alpha
-
-            // shockwave ring at the very start of the burst
-            if (age < 280) {
-                const rp = easeOutCubic(age / 280)
+        const drawDrips = (t: Tomato, sage: number, alpha: number) => {
+            const cx = t.impactPx.x, cy = t.impactPx.y
+            for (const d of t.drips) {
+                const dt = sage - BURST_MS - d.delay
+                if (dt <= 0) continue
+                const p = Math.min(1, dt / d.grow)
+                const len = d.maxLen * easeOutCubic(p)
+                const ox = cx + d.ox * t.baseR
+                const oy = cy + d.oy * t.baseR
+                const sway = Math.sin(dt / 1000 * d.swayFreq * TAU) * d.swayAmp * p
+                const halfTop = d.w / 2
+                const halfBot = d.w * 0.3
+                ctx.save()
+                ctx.globalAlpha = alpha
+                // tapering wet track with a slight wander
                 ctx.beginPath()
-                ctx.arc(cx, cy, s.baseR * (0.4 + rp * 1.9), 0, TAU)
-                ctx.strokeStyle = `rgba(255,150,120,${0.5 * (1 - rp)})`
-                ctx.lineWidth = s.baseR * 0.12 * (1 - rp) + 1
+                ctx.moveTo(ox - halfTop, oy)
+                ctx.quadraticCurveTo(ox - halfTop * 0.7 + sway * 0.5, oy + len * 0.55, ox + sway - halfBot, oy + len)
+                ctx.lineTo(ox + sway + halfBot, oy + len)
+                ctx.quadraticCurveTo(ox + halfTop * 0.7 + sway * 0.5, oy + len * 0.55, ox + halfTop, oy)
+                ctx.closePath()
+                const g = ctx.createLinearGradient(0, oy, 0, oy + len)
+                g.addColorStop(0, STAIN_RIM)
+                g.addColorStop(1, STAIN_MID)
+                ctx.fillStyle = g
+                ctx.fill()
+                // glossy bulb head
+                const bx = ox + sway, by = oy + len
+                const br = d.w * 0.62
+                ctx.beginPath()
+                ctx.arc(bx, by, br, 0, TAU)
+                const bgr = ctx.createRadialGradient(bx - br * 0.3, by - br * 0.35, 0, bx, by, br)
+                bgr.addColorStop(0, STAIN_HOT)
+                bgr.addColorStop(1, STAIN_DARK)
+                ctx.fillStyle = bgr
+                ctx.fill()
+                ctx.beginPath()
+                ctx.arc(bx - br * 0.3, by - br * 0.35, br * 0.22, 0, TAU)
+                ctx.fillStyle = 'rgba(255,220,200,0.75)'
+                ctx.fill()
+                ctx.restore()
+            }
+        }
+
+        const drawStain = (t: Tomato, sage: number) => {
+            if (!t.stain) return
+            let alpha = 0.94
+            const fadeStart = BURST_MS + HOLD_MS
+            if (sage > fadeStart) alpha = 0.94 * (1 - (sage - fadeStart) / FADE_MS)
+            if (alpha <= 0) return
+            const cx = t.impactPx.x, cy = t.impactPx.y
+
+            // impact flash + thin shockwave ring, right at the burst
+            if (sage < 140) {
+                const fp = sage / 140
+                const fg = ctx.createRadialGradient(cx, cy, 0, cx, cy, t.baseR * 1.6)
+                fg.addColorStop(0, `rgba(255,190,150,${0.4 * (1 - fp)})`)
+                fg.addColorStop(1, 'rgba(255,190,150,0)')
+                ctx.beginPath()
+                ctx.arc(cx, cy, t.baseR * 1.6, 0, TAU)
+                ctx.fillStyle = fg
+                ctx.fill()
+            }
+            if (sage < 300) {
+                const rp = easeOutCubic(sage / 300)
+                ctx.beginPath()
+                ctx.arc(cx, cy, t.baseR * (0.4 + rp * 2.1), 0, TAU)
+                ctx.strokeStyle = `rgba(255,150,120,${0.4 * (1 - rp)})`
+                ctx.lineWidth = t.baseR * 0.1 * (1 - rp) + 1
                 ctx.stroke()
             }
 
-            // drips run first so the lobes overlap their tops cleanly
-            for (const d of s.drips) {
-                const dt = age - BURST_MS - d.delay
-                if (dt <= 0) continue
-                const len = d.maxLen * easeOutCubic(Math.min(1, dt / d.grow))
-                const ox = cx + Math.cos(d.angle) * s.baseR * d.startR
-                const oy = cy + Math.sin(d.angle) * s.baseR * d.startR
-                const halfTop = d.w / 2
-                const halfBot = d.w * 0.32
-                ctx.beginPath()
-                ctx.moveTo(ox - halfTop, oy)
-                ctx.lineTo(ox - halfBot, oy + len)
-                ctx.lineTo(ox + halfBot, oy + len)
-                ctx.lineTo(ox + halfTop, oy)
-                ctx.closePath()
-                ctx.fillStyle = STAIN_RIM
-                ctx.fill()
-                // bulb head
-                ctx.beginPath()
-                ctx.arc(ox, oy + len, d.w * 0.62, 0, TAU)
-                ctx.fillStyle = colorJitter(SKIN_MID, -0.2)
-                ctx.fill()
-            }
+            drawDrips(t, sage, alpha)
 
-            // satellite + main lobes — dark rim then body then sheen
-            s.lobes.forEach((lobe, li) => {
-                const lx = cx + lobe.dx * s.baseR * grow
-                const ly = cy + lobe.dy * s.baseR * grow
-                ctx.save()
-                ctx.translate(lx, ly)
-                ctx.rotate(lobe.rot)
-                ctx.scale(grow, grow * lobe.squash)
-                // dark rim (slightly larger underlay). The main mass casts a soft
-                // shadow so the stain reads as wet-on-glass with real depth.
-                ctx.save()
-                if (li === 0) {
-                    ctx.shadowColor = 'rgba(0,0,0,0.5)'
-                    ctx.shadowBlur = s.baseR * 0.32
-                    ctx.shadowOffsetY = s.baseR * 0.1
-                }
-                ctx.scale(1.08, 1.08)
-                traceBlob(ctx, lobe.verts)
-                ctx.fillStyle = STAIN_RIM
-                ctx.fill()
-                ctx.restore()
-                // body
-                traceBlob(ctx, lobe.verts)
-                ctx.fillStyle = colorJitter('#cf2a16', lobe.light)
-                ctx.fill()
-                ctx.restore()
-            })
-
-            // wet sheen + seeds on the main body (no grow scaling so they read crisp)
-            if (grow > 0.6) {
-                ctx.save()
-                ctx.translate(cx, cy)
-                // sheen
-                ctx.beginPath()
-                ctx.ellipse(-s.baseR * 0.2, -s.baseR * 0.22, s.baseR * 0.34, s.baseR * 0.2, -0.5, 0, TAU)
-                ctx.fillStyle = 'rgba(255,150,125,0.28)'
-                ctx.fill()
-                // seeds
-                for (const sd of s.seeds) {
-                    ctx.save()
-                    ctx.translate(sd.dx * s.baseR, sd.dy * s.baseR)
-                    ctx.rotate(sd.rot)
-                    ctx.beginPath()
-                    ctx.ellipse(0, 0, sd.r, sd.r * 0.62, 0, 0, TAU)
-                    ctx.fillStyle = SEED
-                    ctx.fill()
-                    ctx.restore()
-                }
-                ctx.restore()
-            }
-
-            // stuck spray speckles
-            for (const sp of s.speckles) {
-                ctx.beginPath()
-                ctx.arc(cx + sp.dx * s.baseR, cy + sp.dy * s.baseR, sp.r * grow, 0, TAU)
-                ctx.fillStyle = colorJitter('#cf2a16', sp.light)
-                ctx.fill()
-            }
-
+            // the baked stain pops in with an overshoot
+            const grow = sage >= BURST_MS ? 1 : easeOutBack(sage / BURST_MS)
+            ctx.save()
+            ctx.globalAlpha = alpha
+            ctx.translate(cx, cy)
+            ctx.scale(grow, grow)
+            ctx.drawImage(t.stain, -t.stainHalf, -t.stainHalf, t.stainHalf * 2, t.stainHalf * 2)
             ctx.restore()
         }
 
@@ -412,15 +691,24 @@ export default function TomatoSplatterLayer() {
                 p.vx *= 0.99
                 p.x += p.vx * dt
                 p.y += p.vy * dt
+                p.rot += p.rotVel * dt
                 const lifeT = Math.max(0, p.life / p.maxLife)
                 const rr = p.r * (0.4 + 0.6 * lifeT)
                 ctx.save()
                 ctx.globalAlpha = Math.min(1, lifeT * 1.4)
                 ctx.translate(p.x, p.y)
-                if (p.seed) {
+                if (p.kind === 'seed') {
                     ctx.beginPath()
                     ctx.ellipse(0, 0, rr, rr * 0.6, Math.atan2(p.vy, p.vx), 0, TAU)
                     ctx.fillStyle = SEED
+                    ctx.fill()
+                } else if (p.kind === 'pulp' && p.verts) {
+                    ctx.rotate(p.rot)
+                    ctx.beginPath()
+                    ctx.moveTo(p.verts[0].x, p.verts[0].y)
+                    for (let i = 1; i < p.verts.length; i++) ctx.lineTo(p.verts[i].x, p.verts[i].y)
+                    ctx.closePath()
+                    ctx.fillStyle = p.color
                     ctx.fill()
                 } else {
                     // stretch droplet along its velocity for a thrown-juice streak
@@ -455,49 +743,36 @@ export default function TomatoSplatterLayer() {
                     const u = age / t.flightDur
                     const x = qb(t.p0.x, t.p1.x, t.p2.x, u) * W
                     const y = qb(t.p0.y, t.p1.y, t.p2.y, u) * H
-                    const r = (t.rEnd * H) * (0.5 + 0.5 * u) // grows toward impact
+                    const r = (t.rEnd * H) * (0.5 + 0.5 * u) // grows toward the glass
                     const rot = t.spin0 + t.spinTurns * TAU * u
 
-                    // motion-blur trail
+                    // ghosted motion-blur trail — faded copies of the fruit itself
                     t.trail.push({ x, y })
-                    if (t.trail.length > 7) t.trail.shift()
+                    if (t.trail.length > 6) t.trail.shift()
                     for (let i = 0; i < t.trail.length - 1; i++) {
                         const tp = t.trail[i]
-                        const a = (i / t.trail.length) * 0.4
-                        ctx.save()
-                        ctx.globalAlpha = a
-                        ctx.beginPath()
-                        ctx.arc(tp.x, tp.y, r * (0.5 + 0.5 * (i / t.trail.length)), 0, TAU)
-                        ctx.fillStyle = SKIN_MID
-                        ctx.fill()
-                        ctx.restore()
+                        const k = i / t.trail.length
+                        drawBody(t, tp.x, tp.y, r * (0.72 + 0.28 * k), rot - t.spinTurns * 0.4 * (1 - k), 1, 1, 0.1 + 0.12 * k)
                     }
-                    drawTomatoBody(x, y, r, rot)
-                } else {
-                    // ---- IMPACT / BURST / HOLD / FADE ----
-                    if (t.burstAt === 0) {
-                        // resolve impact px + scale the splat to px, spawn particles
+                    drawBody(t, x, y, r, rot, 1, 1, 1)
+                } else if (age < t.flightDur + SQUASH_MS) {
+                    // ---- SQUASH — the fruit flattens against the glass ----
+                    if (t.impactPx.x === 0 && t.impactPx.y === 0) {
                         t.impactPx = { x: t.p2.x * W, y: t.p2.y * H }
-                        t.splat.baseR = t.rEnd * H * rand(1.35, 1.7)
+                    }
+                    const sq = (age - t.flightDur) / SQUASH_MS
+                    const r = t.rEnd * H
+                    const rot = t.spin0 + t.spinTurns * TAU
+                    drawBody(t, t.impactPx.x, t.impactPx.y, r, rot, 1 + 0.55 * sq, 1 - 0.5 * sq, 1 - 0.25 * sq)
+                } else {
+                    // ---- BURST / HOLD / FADE ----
+                    if (t.burstAt === 0) {
+                        t.impactPx = { x: t.p2.x * W, y: t.p2.y * H }
+                        t.baseR = t.rEnd * H * rand(1.35, 1.7)
+                        buildStainSprite(t, dpr)
+                        t.drips = buildDrips(t.baseR)
+                        spawnParticles(t)
                         t.burstAt = now
-                        const count = 24 + Math.floor(Math.random() * 14)
-                        for (let i = 0; i < count; i++) {
-                            const a = rand(0, TAU)
-                            const sp = rand(160, 640)
-                            const seed = Math.random() < 0.16
-                            t.particles.push({
-                                x: t.impactPx.x,
-                                y: t.impactPx.y,
-                                vx: Math.cos(a) * sp,
-                                vy: Math.sin(a) * sp - rand(40, 220), // bias upward off the splat
-                                r: seed ? rand(2, 3.5) : rand(2.5, 7),
-                                maxLife: rand(0.38, 0.85),
-                                life: 0,
-                                color: JUICE[Math.floor(Math.random() * JUICE.length)],
-                                seed,
-                            })
-                        }
-                        for (const p of t.particles) p.life = p.maxLife
                     }
                     const sage = now - t.burstAt
                     drawStain(t, sage)

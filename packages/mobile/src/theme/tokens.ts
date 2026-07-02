@@ -105,13 +105,13 @@ export const SPACE_MOBILE: ThemeTokens = withMobileFonts(
 
 // Steampunk-Mobile — Victorian engraved typography. Cinzel (a Roman-capital
 // inscriptional serif that reads like an engraved brass plaque) for display
-// headings, Special Elite (a typewriter face that evokes the hammered-key
-// industrial era) for body text. IM Fell English is loaded as well for any
-// atom that wants a more antique chapter-heading feel.
+// headings, IM Fell English (a 17th-century book face with genuine antique
+// letterforms) for body text — it reads as Victorian print, where the old
+// Special Elite typewriter face read as scattered ransom-note ink.
 export const STEAMPUNK_MOBILE: ThemeTokens = withMobileFonts(
   STEAMPUNK_TOKENS,
   'Cinzel_700Bold',
-  'SpecialElite_400Regular',
+  'IMFellEnglish_400Regular',
 )
 
 // Retrowave-Mobile — 80s neon-tube + arcade-cabinet typography. Monoton

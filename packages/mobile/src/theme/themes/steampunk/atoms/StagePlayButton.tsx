@@ -1,67 +1,40 @@
-import React, { useEffect, useRef } from 'react'
-import { Pressable, View, Animated, StyleSheet } from 'react-native'
-import Svg, { Defs, RadialGradient, Stop, Circle } from 'react-native-svg'
-import { useLinearLoop, useOscillator } from '../_shared'
-import { Gear, Rivet } from '../Gear'
+import React from 'react'
+import { Pressable, View, Animated } from 'react-native'
+import Svg, { Circle, Defs, RadialGradient, Stop, Line, Path } from 'react-native-svg'
+import { hexToRgba } from '../../../helpers'
+import {
+  Gear,
+  BRASS,
+  BRASS_BRIGHT,
+  useLinearLoop,
+  useOscillator,
+  useDelayedBursts,
+} from './_steam'
 import type { PlayButtonProps } from '../../../types'
 
-// Steampunk StagePlayButton — a Great Clockwork Engine:
-//   1. Three concentric brass gear rings counter-rotating on independent
-//      periods, each at a different scale. The outer gear is the largest
-//      and slowest; the inner gear is the smallest and fastest.
-//   2. A pulsing gas-lamp halo (amber radial gradient) breathing on a 3s sine.
-//   3. Three steam-burst rings expanding outward on staggered loops.
-//   4. The central singer-color disc is mounted in a brass bezel with eight
-//      compass-rivets and a heavy glow.
-//   5. The play glyph is a brass-stamped triangle; pause is two pneumatic
-//      pistons (vertical brass bars with rivet heads top and bottom).
+// Steampunk StagePlayButton — the Great Engine, and the theme's hero moment:
+//   1. A large brass master gear turning slowly behind everything, with a
+//      smaller iron gear counter-rotating inside it.
+//   2. A fixed engraved chapter ring (watch-face ticks) framing the works —
+//      machinery reads as an instrument, not a pinwheel.
+//   3. The center is the singer's enamel lens set in a polished brass bezel
+//      with a glass glint; its halo breathes in the singer's color.
+//   4. A slow steam ring vents outward every few seconds.
 export function SteampunkStagePlayButton({ isPlaying, singerColor, onPress }: PlayButtonProps) {
-  const haloBreath = useOscillator(3000)
-  const haloScale = haloBreath.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1.0, 1.1],
-  })
-  const haloOpacity = haloBreath.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.55, 1],
-  })
+  const halo = useOscillator(3400)
+  const haloScale = halo.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] })
+  const haloOpacity = halo.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0.95] })
 
-  // Three counter-rotating gear rings.
-  const ring1 = useLinearLoop(22000)
-  const ring2 = useLinearLoop(15000)
-  const ring3 = useLinearLoop(10000)
-  const ring1Rot = ring1.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] })
-  const ring2Rot = ring2.interpolate({ inputRange: [0, 1], outputRange: ['360deg', '0deg'] })
-  const ring3Rot = ring3.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] })
+  const master = useLinearLoop(26000)
+  const inner = useLinearLoop(14000)
+  const masterRot = master.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] })
+  const innerRot = inner.interpolate({ inputRange: [0, 1], outputRange: ['360deg', '0deg'] })
 
-  // Three steam-burst rings — staggered.
-  const burst1 = useRef(new Animated.Value(0)).current
-  const burst2 = useRef(new Animated.Value(0)).current
-  const burst3 = useRef(new Animated.Value(0)).current
-  useEffect(() => {
-    const mk = (val: Animated.Value, delay: number) =>
-      Animated.sequence([
-        Animated.delay(delay),
-        Animated.loop(
-          Animated.timing(val, {
-            toValue: 1,
-            duration: 2800,
-            useNativeDriver: true,
-          }),
-        ),
-      ])
-    const a = mk(burst1, 0)
-    const b = mk(burst2, 930)
-    const c = mk(burst3, 1860)
-    a.start()
-    b.start()
-    c.start()
-    return () => {
-      a.stop()
-      b.stop()
-      c.stop()
-    }
-  }, [burst1, burst2, burst3])
+  const vent = useDelayedBursts(3600, 2600, 600)
+  const ventScale = vent.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1.35] })
+  const ventOpacity = vent.interpolate({ inputRange: [0, 0.12, 1], outputRange: [0, 0.4, 0] })
+
+  const haloColor = hexToRgba(singerColor, 0.55) ?? 'rgba(232,169,59,0.55)'
 
   return (
     <Pressable
@@ -71,223 +44,144 @@ export function SteampunkStagePlayButton({ isPlaying, singerColor, onPress }: Pl
         height: 260,
         alignItems: 'center',
         justifyContent: 'center',
-        transform: [{ scale: pressed ? 0.95 : 1 }],
+        transform: [{ scale: pressed ? 0.96 : 1 }],
       })}
     >
-      {/* Steam burst rings — behind everything */}
-      <SteamBurst value={burst1} color="#E8A93B" />
-      <SteamBurst value={burst2} color="#C97D3E" />
-      <SteamBurst value={burst3} color="#F0DDB5" />
-
-      {/* Gas-lamp halo */}
+      {/* venting steam ring */}
       <Animated.View
+        pointerEvents="none"
         style={{
           position: 'absolute',
-          width: 230,
-          height: 230,
-          opacity: haloOpacity,
-          transform: [{ scale: haloScale }],
+          width: 236,
+          height: 236,
+          borderRadius: 118,
+          borderWidth: 1.5,
+          borderColor: '#E8DDC5',
+          opacity: ventOpacity,
+          transform: [{ scale: ventScale }],
         }}
+      />
+
+      {/* singer-color halo */}
+      <Animated.View
+        pointerEvents="none"
+        style={{ position: 'absolute', width: 230, height: 230, opacity: haloOpacity, transform: [{ scale: haloScale }] }}
       >
         <Svg width={230} height={230}>
           <Defs>
-            <RadialGradient id="steamHalo" cx="50%" cy="50%" r="50%">
-              <Stop offset="0%" stopColor="#FFE4A0" stopOpacity={0.7} />
-              <Stop offset="50%" stopColor="#E8A93B" stopOpacity={0.35} />
-              <Stop offset="100%" stopColor="#7A4D1A" stopOpacity={0} />
+            <RadialGradient id="engine-halo" cx="50%" cy="50%" r="50%">
+              <Stop offset="0%" stopColor={haloColor} stopOpacity={0.55} />
+              <Stop offset="60%" stopColor={haloColor} stopOpacity={0.2} />
+              <Stop offset="100%" stopColor={haloColor} stopOpacity={0} />
             </RadialGradient>
           </Defs>
-          <Circle cx={115} cy={115} r={113} fill="url(#steamHalo)" />
+          <Circle cx={115} cy={115} r={113} fill="url(#engine-halo)" />
         </Svg>
       </Animated.View>
 
-      {/* Outer gear ring */}
+      {/* master gear */}
       <Animated.View
         pointerEvents="none"
-        style={{
-          position: 'absolute',
-          width: 240,
-          height: 240,
-          opacity: 0.75,
-          transform: [{ rotate: ring1Rot }],
-        }}
+        style={{ position: 'absolute', width: 238, height: 238, transform: [{ rotate: masterRot }] }}
       >
-        <Gear
-          size={240}
-          teeth={18}
-          bodyColor="#B8762D"
-          edgeColor="#5C3A12"
-          hubColor="#1F1108"
-          highlightColor="#E8C078"
-          opacity={0.6}
-        />
+        <Gear size={238} teeth={16} tone="brass" opacity={0.85} />
       </Animated.View>
 
-      {/* Middle gear ring */}
+      {/* inner counter-gear */}
       <Animated.View
         pointerEvents="none"
-        style={{
-          position: 'absolute',
-          width: 190,
-          height: 190,
-          opacity: 0.85,
-          transform: [{ rotate: ring2Rot }],
-        }}
+        style={{ position: 'absolute', width: 158, height: 158, transform: [{ rotate: innerRot }] }}
       >
-        <Gear
-          size={190}
-          teeth={14}
-          bodyColor="#5C8A7A"
-          edgeColor="#2E4640"
-          hubColor="#1A2820"
-          highlightColor="#8AB5A0"
-          opacity={0.75}
-        />
+        <Gear size={158} teeth={12} tone="iron" opacity={0.95} />
       </Animated.View>
 
-      {/* Inner gear ring */}
-      <Animated.View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          width: 150,
-          height: 150,
-          transform: [{ rotate: ring3Rot }],
-        }}
-      >
-        <Gear
-          size={150}
-          teeth={12}
-          bodyColor="#C97D3E"
-          edgeColor="#6E3A14"
-          hubColor="#3A1E0A"
-          highlightColor="#F0A058"
-        />
-      </Animated.View>
+      {/* fixed chapter ring — engraved instrument ticks */}
+      <View pointerEvents="none" style={{ position: 'absolute', width: 190, height: 190 }}>
+        <Svg width={190} height={190} viewBox="0 0 190 190">
+          <Circle cx={95} cy={95} r={90} fill="none" stroke="rgba(200,151,62,0.4)" strokeWidth={1} />
+          {Array.from({ length: 60 }).map((_, i) => {
+            const a = (i / 60) * Math.PI * 2
+            const major = i % 5 === 0
+            const r1 = major ? 84 : 87
+            return (
+              <Line
+                key={i}
+                x1={95 + Math.cos(a) * r1}
+                y1={95 + Math.sin(a) * r1}
+                x2={95 + Math.cos(a) * 90}
+                y2={95 + Math.sin(a) * 90}
+                stroke={major ? BRASS : 'rgba(200,151,62,0.45)'}
+                strokeWidth={major ? 1.6 : 1}
+              />
+            )
+          })}
+        </Svg>
+      </View>
 
-      {/* Center singer-color disc with compass rivets */}
+      {/* enamel lens in a brass bezel */}
       <View
         style={{
           position: 'absolute',
-          width: 110,
-          height: 110,
-          borderRadius: 55,
+          width: 106,
+          height: 106,
+          borderRadius: 53,
           backgroundColor: singerColor,
           alignItems: 'center',
           justifyContent: 'center',
           borderWidth: 3,
-          borderColor: '#E8C078',
+          borderColor: BRASS_BRIGHT,
           shadowColor: singerColor,
           shadowOffset: { width: 0, height: 0 },
-          shadowOpacity: 0.95,
-          shadowRadius: 18,
+          shadowOpacity: 0.9,
+          shadowRadius: 16,
         }}
       >
-        {/* Inner brass ring */}
+        {/* recessed seat ring */}
         <View
           pointerEvents="none"
           style={{
             position: 'absolute',
-            width: 100,
-            height: 100,
-            borderRadius: 50,
+            width: 96,
+            height: 96,
+            borderRadius: 48,
             borderWidth: 1.5,
-            borderColor: 'rgba(58,30,8,0.6)',
+            borderColor: 'rgba(0,0,0,0.35)',
           }}
         />
-        {/* 8 compass rivets */}
-        {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => {
-          const a = (i / 8) * Math.PI * 2 - Math.PI / 2
-          const r = 48
-          const x = 55 + Math.cos(a) * r - 4
-          const y = 55 + Math.sin(a) * r - 4
-          return (
-            <View key={i} style={{ position: 'absolute', left: x, top: y }}>
-              <Rivet size={8} color="#B8762D" highlight="#F0DDB5" shadow="#3E2810" />
-            </View>
-          )
-        })}
+        {/* glass glint */}
+        <View pointerEvents="none" style={{ position: 'absolute', width: 106, height: 106 }}>
+          <Svg width={106} height={106} viewBox="0 0 106 106">
+            <Defs>
+              <RadialGradient id="lens-glint" cx="34%" cy="26%" rx="55%" ry="55%">
+                <Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.5} />
+                <Stop offset="55%" stopColor="#FFFFFF" stopOpacity={0.08} />
+                <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0} />
+              </RadialGradient>
+            </Defs>
+            <Circle cx={53} cy={53} r={50} fill="url(#lens-glint)" />
+          </Svg>
+        </View>
 
         {isPlaying ? (
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <PistonBar />
-            <PistonBar />
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <View style={pistonStyle} />
+            <View style={pistonStyle} />
           </View>
         ) : (
-          <BrassPlayTri />
+          <Svg width={44} height={44} viewBox="0 0 44 44" style={{ marginLeft: 6 }}>
+            <Path d="M 8 4 L 40 22 L 8 40 Z" fill="rgba(18,12,7,0.92)" />
+          </Svg>
         )}
       </View>
     </Pressable>
   )
 }
 
-function SteamBurst({ value, color }: { value: Animated.Value; color: string }) {
-  const scale = value.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.55, 1.5],
-  })
-  const opacity = value.interpolate({
-    inputRange: [0, 0.1, 1],
-    outputRange: [0, 0.55, 0],
-  })
-  return (
-    <Animated.View
-      pointerEvents="none"
-      style={[
-        StyleSheet.absoluteFill,
-        {
-          alignItems: 'center',
-          justifyContent: 'center',
-          transform: [{ scale }],
-          opacity,
-        },
-      ]}
-    >
-      <View
-        style={{
-          width: 230,
-          height: 230,
-          borderRadius: 115,
-          borderWidth: 2,
-          borderColor: color,
-        }}
-      />
-    </Animated.View>
-  )
-}
-
-function PistonBar() {
-  return (
-    <View style={{ width: 14, height: 50, alignItems: 'center', justifyContent: 'space-between' }}>
-      <Rivet size={8} color="#B8762D" highlight="#F0DDB5" shadow="#3E2810" />
-      <View
-        style={{
-          width: 8,
-          height: 32,
-          backgroundColor: '#1F1108',
-          borderWidth: 1,
-          borderColor: '#5C3A12',
-        }}
-      />
-      <Rivet size={8} color="#B8762D" highlight="#F0DDB5" shadow="#3E2810" />
-    </View>
-  )
-}
-
-function BrassPlayTri() {
-  return (
-    <View
-      style={{
-        width: 0,
-        height: 0,
-        borderTopWidth: 22,
-        borderBottomWidth: 22,
-        borderLeftWidth: 36,
-        borderTopColor: 'transparent',
-        borderBottomColor: 'transparent',
-        borderLeftColor: '#1F1108',
-        marginLeft: 10,
-      }}
-    />
-  )
-}
+const pistonStyle = {
+  width: 11,
+  height: 38,
+  borderRadius: 3,
+  backgroundColor: 'rgba(18,12,7,0.92)',
+  borderWidth: 1,
+  borderColor: 'rgba(255,245,220,0.25)',
+} as const
