@@ -200,3 +200,49 @@ export function TropicalSingerPaper({
     </Pressable>
   )
 }
+
+// The "add a singer to this part" affordance, rendered as a blank scrap of
+// paper stapled to the wood — a dashed keyline + a big "+" so it reads as an
+// empty slot waiting to be filled, distinct from the filled singer scraps.
+export function TropicalAddPaper({
+  index,
+  onPress,
+  fontBody,
+}: {
+  index: number
+  onPress: () => void
+  fontBody: string
+}) {
+  const tilt = (index % 2 === 0 ? 1 : -1) * (1.5 + (index % 2))
+  return (
+    <Pressable onPress={onPress} style={{ marginRight: 10, marginBottom: 10, marginTop: 4 }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 6,
+          backgroundColor: PAPER,
+          borderRadius: 4,
+          paddingVertical: 7,
+          paddingLeft: 10,
+          paddingRight: 14,
+          borderWidth: 1.5,
+          borderColor: 'rgba(60,38,20,0.4)',
+          borderStyle: 'dashed',
+          transform: [{ rotate: `${tilt}deg` }],
+          opacity: 0.9,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.16,
+          shadowRadius: 2,
+          elevation: 2,
+        }}
+      >
+        <View pointerEvents="none" style={{ position: 'absolute', top: -3, left: '24%' }}><Staple rotate={-14} /></View>
+        <View pointerEvents="none" style={{ position: 'absolute', top: -3, right: '24%' }}><Staple rotate={14} /></View>
+        <Text style={{ fontFamily: fontBody, fontSize: 22, lineHeight: 24, color: WOOD_INK }}>+</Text>
+        <Text style={{ fontFamily: fontBody, fontSize: 15, color: WOOD_INK }}>Add</Text>
+      </View>
+    </Pressable>
+  )
+}

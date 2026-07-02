@@ -56,7 +56,7 @@ import {
   RetrowaveAddCrewButton,
 } from './wizard/RetrowaveWizardChrome'
 import { ThemeStageCard } from './wizard/ThemeStageCards'
-import { TropicalRoleCard, TropicalRoleEyebrow, TropicalRoleName, TropicalSingerPaper, TropicalWoodFrame, TropicalPaintSwatch } from './wizard/TropicalWizardChrome'
+import { TropicalRoleCard, TropicalRoleEyebrow, TropicalRoleName, TropicalSingerPaper, TropicalAddPaper, TropicalWoodFrame, TropicalPaintSwatch } from './wizard/TropicalWizardChrome'
 
 // Cream text colors for any wizard card rendered as wood under the tropical
 // theme (deep-palm ink would vanish on the brown timber).
@@ -719,6 +719,7 @@ function WizardBody() {
                     textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
                     fontWeight: '900',
                     fontSize: tokens.name === 'tropical' ? 23 : 18,
+                    lineHeight: tokens.name === 'tropical' ? 32 : undefined,
                     color: tokens.black,
                     marginTop: 2,
                     ...(psyHeadingExtras(tokens) ?? {}),
@@ -784,7 +785,8 @@ function WizardBody() {
                   fontFamily: tokens.fontDisplay,
                   textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
                   fontWeight: '900',
-                  fontSize: 14,
+                  fontSize: tokens.name === 'tropical' ? 20 : 14,
+                  lineHeight: tokens.name === 'tropical' ? 28 : undefined,
                   color: woodTitleColor(tokens),
                 }}
                 numberOfLines={1}
@@ -981,8 +983,9 @@ function SingersStep({
           textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
           fontWeight: '900',
           fontSize: tokens.name === 'tropical' ? 31 : 24,
+          lineHeight: tokens.name === 'tropical' ? 42 : undefined,
           color: tokens.black,
-          letterSpacing: -0.5,
+          letterSpacing: tokens.name === 'tropical' ? 0 : -0.5,
           marginBottom: 16,
           ...(steamHeadingExtras(tokens) ?? {}),
           ...(retroHeadingExtras(tokens) ?? {}),
@@ -1125,7 +1128,8 @@ function SingersStep({
                     fontFamily: tokens.fontDisplay,
                     textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
                     fontWeight: '900',
-                    fontSize: 16,
+                    fontSize: tokens.name === 'tropical' ? 22 : 16,
+                    lineHeight: tokens.name === 'tropical' ? 30 : undefined,
                     color: woodTitleColor(tokens),
                   }}
                   numberOfLines={1}
@@ -1304,7 +1308,8 @@ function SingersStep({
                 fontFamily: tokens.fontDisplay,
                 textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
                 fontWeight: '900',
-                fontSize: 22,
+                fontSize: tokens.name === 'tropical' ? 26 : 22,
+                lineHeight: tokens.name === 'tropical' ? 32 : undefined,
                 color: tokens.black,
                 marginRight: 8,
               }}
@@ -1316,7 +1321,8 @@ function SingersStep({
                 fontFamily: tokens.fontDisplay,
                 textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
                 fontWeight: '800',
-                fontSize: 14,
+                fontSize: tokens.name === 'tropical' ? 19 : 14,
+                lineHeight: tokens.name === 'tropical' ? 26 : undefined,
                 color: tokens.black,
                 letterSpacing: 0.2,
               }}
@@ -1376,8 +1382,9 @@ function RolesStep({
           textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
           fontWeight: '900',
           fontSize: tokens.name === 'tropical' ? 31 : 24,
+          lineHeight: tokens.name === 'tropical' ? 42 : undefined,
           color: tokens.black,
-          letterSpacing: -0.5,
+          letterSpacing: tokens.name === 'tropical' ? 0 : -0.5,
           ...(steamHeadingExtras(tokens) ?? {}),
           ...(retroHeadingExtras(tokens) ?? {}),
         }}
@@ -1414,6 +1421,13 @@ function RolesStep({
                   fontBody={tokens.fontBody}
                 />
               ))}
+              {canAddSinger ? (
+                <TropicalAddPaper
+                  index={singers.length}
+                  onPress={() => onAddToRole(ri)}
+                  fontBody={tokens.fontBody}
+                />
+              ) : null}
             </View>
           </TropicalRoleCard>
         ) : (
@@ -1634,8 +1648,9 @@ function StageStep({
           textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
           fontWeight: '900',
           fontSize: tokens.name === 'tropical' ? 31 : 24,
+          lineHeight: tokens.name === 'tropical' ? 42 : undefined,
           color: tokens.black,
-          letterSpacing: -0.5,
+          letterSpacing: tokens.name === 'tropical' ? 0 : -0.5,
           ...(steamHeadingExtras(tokens) ?? {}),
           ...(retroHeadingExtras(tokens) ?? {}),
         }}
@@ -1729,7 +1744,7 @@ function StageStep({
             >
               Keep the song title hidden until I start
             </Text>
-            <Text style={{ fontFamily: tokens.name === 'tropical' ? tokens.fontDisplay : tokens.fontBody, fontSize: tokens.name === 'tropical' ? 14 : 12, color: woodMutedColor(tokens), marginTop: 4 }}>
+            <Text style={{ fontFamily: tokens.name === 'tropical' ? tokens.fontDisplay : tokens.fontBody, fontSize: tokens.name === 'tropical' ? 16 : 12, lineHeight: tokens.name === 'tropical' ? 23 : undefined, color: woodMutedColor(tokens), marginTop: 4 }}>
               {hideSong
                 ? "Other guests won’t see the song name until it plays"
                 : "Surprise everyone — the song name shows up only when it plays"}
