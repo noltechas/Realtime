@@ -1170,13 +1170,13 @@ export default function AdminPage() {
         const syncedLyrics = pending.lyrics.length > 0 ? resyncLyrics(pending.lyrics) : pending.lyrics
 
         if (pendingAudioFile) {
-            const importRes = await window.electronAPI.importAudio(pendingAudioFile.path, track.id, 'instrumental')
-            if (importRes.error) { console.error('Import error:', importRes.error); setUploading(false); return }
+            const importRes = await window.electronAPI.importAudio(pendingAudioFile.path, track.id, 'instrumental', track.duration_ms || 0)
+            if (importRes.error) { console.error('Import error:', importRes.error); alert(importRes.error); setUploading(false); return }
         }
 
         if (pendingVocalsFile) {
-            const importRes = await window.electronAPI.importAudio(pendingVocalsFile.path, track.id, 'vocals')
-            if (importRes.error) { console.error('Vocals import error:', importRes.error) }
+            const importRes = await window.electronAPI.importAudio(pendingVocalsFile.path, track.id, 'vocals', track.duration_ms || 0)
+            if (importRes.error) { console.error('Vocals import error:', importRes.error); alert(importRes.error); setUploading(false); return }
         }
 
         await window.electronAPI.saveSongMeta({

@@ -296,6 +296,7 @@ Always include every block in every role — don't partial-update. If you want a
 
 ## Common Pitfalls
 
+- **Stem fingerprints (`meta.stems`)**: every song's `meta.json` records the sha256/size/duration of the audio verified to belong to it. `audio:list-catalog` refuses to serve a song whose on-disk stems don't match their fingerprint, and both import paths (`import-song.js`, `audio:import` IPC) refuse audio whose bytes already belong to another song or whose length doesn't match the track. Any script that writes/replaces stem files MUST update `meta.stems` (see `scripts/fingerprint-library.js`) or the song will vanish from the catalog. Stems in `~/Downloads` are matched by FILENAME (export named after the song), never by duration alone.
 - When modifying `QueueItem` interface, also update the companion site's queue insert (they must match the DB schema).
 - The `source` field on `karaoke_queue` (`'local'` vs `'remote'`) prevents echo in Realtime subscriptions. Always set it correctly.
 - The companion site HTML (`docs/index.html`) must NOT use JS template literals — use string concatenation instead for all dynamic HTML rendering.

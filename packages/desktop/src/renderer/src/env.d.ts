@@ -43,7 +43,7 @@ interface ElectronAPI {
     spotifyArtists: (artistIds: string[], token: string) => Promise<any>
     fetchLyrics: (trackIdOrPayload: string | { trackId: string; trackName?: string; artistName?: string; albumName?: string; durationMs?: number }) => Promise<any>
     checkAudioCache: (trackId: string) => Promise<{ vocals?: string; instrumental?: string }>
-    importAudio: (sourcePath: string, trackId: string, type: 'vocals' | 'instrumental') => Promise<{ path?: string; error?: string }>
+    importAudio: (sourcePath: string, trackId: string, type: 'vocals' | 'instrumental', expectedDurationMs?: number) => Promise<{ path?: string; error?: string }>
     saveSongMeta: (meta: any) => Promise<{ success?: boolean; error?: string }>
     listCatalog: () => Promise<any[]>
     removeSong: (trackId: string) => Promise<{ success?: boolean; error?: string }>

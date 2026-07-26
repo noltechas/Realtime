@@ -44,7 +44,7 @@ export type ElectronAPI = {
     fetchLyrics: (trackIdOrPayload: string | { trackId: string; trackName?: string; artistName?: string; albumName?: string; durationMs?: number }) => Promise<any>
     // Audio / Catalog
     checkAudioCache: (trackId: string) => Promise<{ vocals?: string, instrumental?: string }>
-    importAudio: (sourcePath: string, trackId: string, type: 'vocals' | 'instrumental') => Promise<{ path?: string, error?: string }>
+    importAudio: (sourcePath: string, trackId: string, type: 'vocals' | 'instrumental', expectedDurationMs?: number) => Promise<{ path?: string, error?: string }>
     saveSongMeta: (meta: { trackId: string, name: string, artist: string, artUrl: string, albumName: string, durationMs: number, roles?: string[], lyrics?: any[], voiceEffects?: any }) => Promise<{ success?: boolean, error?: string }>
     listCatalog: () => Promise<any[]>
     removeSong: (trackId: string) => Promise<{ success?: boolean, error?: string }>
@@ -162,7 +162,7 @@ const api: ElectronAPI = {
     fetchLyrics: (trackIdOrPayload) => ipcRenderer.invoke('lyrics:fetch', trackIdOrPayload),
     // Audio / Catalog
     checkAudioCache: (trackId) => ipcRenderer.invoke('audio:check-cache', trackId),
-    importAudio: (sourcePath, trackId, type) => ipcRenderer.invoke('audio:import', { sourcePath, trackId, type }),
+    importAudio: (sourcePath, trackId, type, expectedDurationMs) => ipcRenderer.invoke('audio:import', { sourcePath, trackId, type, expectedDurationMs }),
     saveSongMeta: (meta) => ipcRenderer.invoke('audio:save-meta', meta),
     listCatalog: () => ipcRenderer.invoke('audio:list-catalog'),
     removeSong: (trackId) => ipcRenderer.invoke('audio:remove-song', trackId),
