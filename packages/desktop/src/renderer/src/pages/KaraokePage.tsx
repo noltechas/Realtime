@@ -3783,7 +3783,7 @@ export function LobbyNoticeCard({ notice, theme, guests }: {
         // content then counter-skews so text and art stay upright.
         <div className={'lobby-notice' + (notice.leaving ? ' lobby-notice--leaving' : '')}>
             <div style={{
-                position: 'relative', minWidth: 460, maxWidth: '58vw',
+                position: 'relative', minWidth: 420, maxWidth: '44vw',
                 transform: skin.skew ? `skewX(${skin.skew}deg)` : undefined,
                 ...skin.card,
             }}>
@@ -3930,10 +3930,13 @@ function LobbyNotices({ theme }: { theme: Theme }) {
 
     if (notices.length === 0) return null
 
+    // Anchored bottom-RIGHT rather than bottom-centre: every theme's join screen
+    // runs its QR + session code down the middle of the wall, and a centred
+    // stack would sit right on top of the code people are trying to type in.
     return (
         <div style={{
-            position: 'fixed', left: 0, right: 0, bottom: 40, zIndex: 9998,
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
+            position: 'fixed', right: 38, bottom: 34, zIndex: 9998, maxWidth: '46vw',
+            display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 12,
             pointerEvents: 'none',
         }}>
             {notices.map(n => (

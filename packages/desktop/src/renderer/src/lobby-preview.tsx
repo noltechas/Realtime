@@ -81,8 +81,8 @@ function Harness() {
             />
             {withNotice && (
                 <div style={{
-                    position: 'fixed', left: 0, right: 0, bottom: 40, zIndex: 9998,
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
+                    position: 'fixed', right: 38, bottom: 34, zIndex: 9998, maxWidth: '46vw',
+                    display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 12,
                     pointerEvents: 'none',
                 }}>
                     <LobbyNoticeCard notice={NOTICE} theme={THEMES[state.themeName] ? theme : theme} guests={new Map()} />
