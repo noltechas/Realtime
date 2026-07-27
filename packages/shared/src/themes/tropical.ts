@@ -71,17 +71,17 @@ export const TROPICAL_TOKENS: ThemeTokens = {
   cardShape: 'box',
   shadowStyle: 'glow', // soft natural drop (uses accentGlowColor + shadowRadius)
   cardBorderWidth: 3, // bamboo frames are thick
-  displayUppercase: false, // Pacifico is a script face — never uppercase it
-  displayLetterSpacing: 0,
+  displayUppercase: true, // mobile display face is The Last Trunks (unicase block)
+  displayLetterSpacing: 1.2, // …which is condensed, so it always wants tracking
   accentGlowColor: '#0E2E29', // soft warm palm-shadow under cards
-  statusBarStyle: 'light', // sits over the photo's blue sky
+  statusBarStyle: 'dark', // the mobile scene opens on a pale drawn sky
 
-  tabBarBg: 'rgba(255,247,230,0.92)', // sun-bleached bamboo hut panel
+  tabBarBg: 'rgba(231,206,147,0.95)', // bamboo cane
   tabBarBlurTint: 'light',
-  tabBarOverlay: 'rgba(255,244,222,0.55)',
-  tabBarBorder: '#C9A24B', // bamboo tan
-  tabBarPill: '#10B7B0', // lagoon turquoise active pill
-  tabBarPillFg: '#FFFFFF',
+  tabBarOverlay: 'rgba(255,244,222,0.4)',
+  tabBarBorder: '#8F6A32', // bamboo shadow tan
+  tabBarPill: '#10B7B0', // lagoon-painted active sign
+  tabBarPillFg: '#FFF7E6',
   tabBarFg: '#0E2E29', // deep palm for all inactive tabs (one shared color)
 
   dimBorder: 'rgba(14,46,41,0.20)',

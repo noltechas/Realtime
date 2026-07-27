@@ -65,19 +65,25 @@ export interface VoiceEffects {
         threshold: number // -100 to 0 dB
     }
 
-    // Vocoder / Talkbox — replaces the singer's sound source with a synth
-    // chord shaped by the voice's spectral envelope. The chord is built
-    // from this block's `key` and `mode` (shared with pitch correction).
+    // Vocoder / Talkbox — pitch-tracked channel vocoder. A synth carrier
+    // FOLLOWS the sung melody (the worklet runs its own pitch detector and
+    // snaps to this block's `key`/`mode` scale, shared with pitch
+    // correction) and is spectrally shaped by the singer's vowels through a
+    // 16-band filterbank. Unvoiced consonants automatically switch the
+    // carrier to noise so words stay intelligible.
     // Optional for backwards-compat with meta.json files that predate the
     // feature — the engine treats a missing block as disabled.
     vocoder?: {
         enabled: boolean
         mix: number        // 0-100% wet (0 = dry voice, 100 = pure vocoded output)
-        brightness: number // 0-100 (0 = pure sine carrier, 100 = pure saw)
-        sibilance: number  // 0-100 — noise-carrier blend on unvoiced phonemes (s/sh/t/f).
-                           // Off by default; bumping it adds breath/consonant intelligibility
-                           // at the cost of a small amount of noise on every frame.
+        brightness: number // 0-100 (0 = soft sine hum, 100 = bright buzzy saw)
+        sibilance: number  // 0-100 — "hiss bypass": the dry voice highpassed at
+                           // 5 kHz mixed on top during unvoiced phonemes (s/sh/t/f)
+                           // for crisper consonants. 0 = fully vocoded consonants.
         voicing: 'triad' | 'power' | 'octaves'
+                           // triad = tracked note + diatonic 3rd + 5th (stacked
+                           // harmony), power = + 5th + octave, octaves = classic
+                           // single-voice robot. All include a sub-octave.
     }
 
     // Doubler / thickener (ADT-style) — stacks N short-delay, lightly-detuned,

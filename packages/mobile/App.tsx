@@ -8,7 +8,11 @@ import { RootNavigator } from './src/navigation/RootNavigator'
 import { useFonts } from 'expo-font'
 import { Oswald_400Regular, Oswald_700Bold } from '@expo-google-fonts/oswald'
 import { PermanentMarker_400Regular } from '@expo-google-fonts/permanent-marker'
-import { Quicksand_700Bold } from '@expo-google-fonts/quicksand'
+import {
+  Quicksand_500Medium,
+  Quicksand_600SemiBold,
+  Quicksand_700Bold,
+} from '@expo-google-fonts/quicksand'
 import { Nunito_400Regular } from '@expo-google-fonts/nunito'
 import { LuckiestGuy_400Regular } from '@expo-google-fonts/luckiest-guy'
 import { Chicle_400Regular } from '@expo-google-fonts/chicle'
@@ -60,6 +64,10 @@ export default function App() {
     Oswald_400Regular,
     Oswald_700Bold,
     PermanentMarker_400Regular,
+    // Tropical body face — three weights so the theme can build a real type
+    // hierarchy (metadata / labels / titles) instead of faking one with size.
+    Quicksand_500Medium,
+    Quicksand_600SemiBold,
     Quicksand_700Bold,
     Nunito_400Regular,
     LuckiestGuy_400Regular,
@@ -98,8 +106,9 @@ export default function App() {
     // secondary (custom .ttf, shared with the desktop/stage + web companion).
     BadaBoomBB: require('./assets/fonts/BadaBoomBB.ttf'),
     SuperSquad: require('./assets/fonts/SuperSquad.ttf'),
-    // Tropical theme — Florida Vibes (surf-logo display) + The Last Trunks
-    // (hand-painted tiki body). Custom .ttf shared with the desktop/stage + web.
+    // Tropical theme — Florida Vibes (surf script, headline moments only) + The
+    // Last Trunks (condensed beach-block caps for labels). Custom .ttf, shared
+    // with the desktop/stage + web.
     FloridaVibes: require('./assets/fonts/FloridaVibes.ttf'),
     TheLastTrunks: require('./assets/fonts/TheLastTrunks.ttf'),
   })

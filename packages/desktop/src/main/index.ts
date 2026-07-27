@@ -12,7 +12,7 @@ import {
     listGuests, updateGuest, removeGuest,
     listRecentSessions, getSession, deleteSession,
     fetchAndStoreTrendingGifs,
-    bumpBonusPointsForRemaining, lockQueueItem, adjustQueueBonusPoints,
+    bumpBonusPointsForRemaining, lockQueueItem, unlockQueuedItems, adjustQueueBonusPoints,
     ensureDefaultAwards, listAwards, listAwardVotes,
     createCustomAward, updateAward, deleteAward,
     castAwardVote, clearAwardVote, setAwardAdjustments,
@@ -248,6 +248,15 @@ ipcMain.on('playback:seek', (_event, timeMs) => {
 ipcMain.on('reaction:send', (_event, reaction) => {
     if (stageWindow) {
         stageWindow.webContents.send('reaction:receive', reaction)
+    }
+})
+
+// Stage notice relay (main → stage). Ephemeral "something just happened"
+// events the stage announces during Lobby Mode — currently song requests,
+// which have no queue row for the stage to notice on its own.
+ipcMain.on('stage:notice', (_event, notice) => {
+    if (stageWindow) {
+        stageWindow.webContents.send('stage:notice-receive', notice)
     }
 })
 
@@ -716,6 +725,11 @@ ipcMain.handle('karaoke:bump-bonus-points', async () => {
 ipcMain.handle('karaoke:lock-queue-item', async (_event, queueRowId: string) => {
     if (!activeSession || !queueRowId) return
     await lockQueueItem(queueRowId)
+})
+
+ipcMain.handle('karaoke:unlock-queue-items', async () => {
+    if (!activeSession) return
+    await unlockQueuedItems(activeSession.id)
 })
 
 ipcMain.handle('karaoke:adjust-queue-score', async (_event, queueRowId: string, delta: number) => {

@@ -1,59 +1,60 @@
 import React from 'react'
-import { Pressable, Text, ActivityIndicator, View, type ViewStyle, type TextStyle } from 'react-native'
-import { LinearGradient } from 'expo-linear-gradient'
-import { TROPICAL_MOBILE } from '../../../tokens'
+import { ActivityIndicator, Text, type TextStyle } from 'react-native'
 import type { ButtonProps } from '../../../types'
-import { INK, PANEL, LAGOON, LAGOON_DK, SUNSET, HIBISCUS, BAMBOO, softShadow, press } from './_tropical'
+import {
+  CARVED,
+  CORAL,
+  CREAM,
+  LAGOON,
+  PAINTED,
+  Press,
+  Timber,
+  lift,
+  script,
+} from './_tropical'
 
-// Tropical action button — a smooth, sun-lit gradient lozenge with a glossy top
-// highlight and a soft natural shadow (it floats, it doesn't slam). Primary =
-// lagoon turquoise, secondary = sunset→hibiscus, outline = bamboo-framed sand.
-// Pacifico label. Gentle sink on press.
-const t = TROPICAL_MOBILE
+// Tropical button — a sign shop made it: a carved plank with the label PAINTED
+// on in the surf script (brush lettering is exactly what beach signs use).
+// Primary is lagoon enamel over the grain, secondary is sunset coral, and
+// outline is the bare board with the label carved into it. Every plank draws a
+// different grain (seeded by its label), the edges are beveled, the border
+// groove is routed — and the whole thing sinks on the shared press spring.
 
-const baseBtn: ViewStyle = {
-  borderRadius: 16,
-  overflow: 'hidden',
-  ...softShadow(6),
-}
+const RADIUS = 15
 
-const inner: ViewStyle = {
-  paddingVertical: 15,
-  paddingHorizontal: 22,
-  alignItems: 'center',
-  justifyContent: 'center',
-}
-
-const baseLabel: TextStyle = {
-  fontFamily: t.fontDisplay, // Florida Vibes (runs small — sized up)
-  fontSize: 25,
-  letterSpacing: 0.4,
-}
-
-const GRADIENTS: Record<'primary' | 'secondary', [string, string]> = {
-  primary: [LAGOON, LAGOON_DK],
-  secondary: [SUNSET, HIBISCUS],
-}
+const labelBase: TextStyle = { textAlign: 'center' }
 
 export function Button({ label, onPress, variant = 'primary', loading, disabled }: ButtonProps) {
-  const isOutline = variant === 'outline'
+  const dead = disabled || loading
+  const paint = variant === 'primary' ? LAGOON : variant === 'secondary' ? CORAL : undefined
+
   return (
-    <Pressable
+    <Press
       onPress={onPress}
-      disabled={disabled || loading}
-      style={({ pressed }) => [baseBtn, disabled || loading ? { opacity: 0.5 } : null, pressed ? press() : null]}
+      disabled={dead}
+      scaleTo={0.97}
+      style={[{ borderRadius: RADIUS }, lift(2), dead ? { opacity: 0.5 } : null]}
     >
-      {isOutline ? (
-        <View style={[inner, { backgroundColor: PANEL, borderWidth: 2.5, borderColor: BAMBOO, borderRadius: 16 }]}>
-          {loading ? <ActivityIndicator color={INK} /> : <Text style={[baseLabel, { color: INK }]}>{label}</Text>}
-        </View>
-      ) : (
-        <LinearGradient colors={GRADIENTS[variant]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={inner}>
-          {/* glossy top highlight */}
-          <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '52%', backgroundColor: 'rgba(255,255,255,0.22)' }} />
-          {loading ? <ActivityIndicator color={PANEL} /> : <Text style={[baseLabel, { color: PANEL }]}>{label}</Text>}
-        </LinearGradient>
-      )}
-    </Pressable>
+      <Timber
+        radius={RADIUS}
+        paint={paint}
+        seed={`btn-${label}`}
+        groove
+        style={{ minHeight: 54, paddingVertical: 12, paddingHorizontal: 22, alignItems: 'center', justifyContent: 'center' }}
+      >
+        {loading ? (
+          <ActivityIndicator color={paint ? CREAM : '#4A2A10'} />
+        ) : (
+          <Text
+            style={[script(15.5, CREAM, paint ? PAINTED : CARVED), labelBase]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.7}
+          >
+            {label}
+          </Text>
+        )}
+      </Timber>
+    </Press>
   )
 }

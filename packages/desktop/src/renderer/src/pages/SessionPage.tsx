@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
-import { useTheme, THEMES } from '../context/ThemeContext'
-import type { Theme } from '../styles/theme'
+import { THEMES, THEME_LIST } from '../context/ThemeContext'
+import { Button, Card, Field, Icon, Input, IconButton, Spinner } from '../components/ui'
 
 interface RecentSession {
     id: string
@@ -12,9 +12,28 @@ interface RecentSession {
     guestCount: number
 }
 
+/** Small swatch previewing a stage theme's own palette (colors only — the
+ *  console chrome around it never changes). */
+function ThemeSwatch({ themeKey }: { themeKey: string }) {
+    const t = THEMES[themeKey]
+    if (!t) return null
+    const bg = t.appBg === 'transparent' ? (t.creamDark || '#111') : t.appBg
+    return (
+        <span style={{
+            width: 40, height: 26, borderRadius: 6, flexShrink: 0, overflow: 'hidden',
+            background: bg, border: '1px solid var(--adm-line-strong)',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 3,
+            boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
+        }}>
+            <span style={{ width: 9, height: 9, borderRadius: '50%', background: t.accentA }} />
+            <span style={{ width: 5, height: 11, borderRadius: 2, background: t.accentB }} />
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: t.hotRed || t.accentA }} />
+        </span>
+    )
+}
+
 export default function SessionPage() {
     const { dispatch } = useApp()
-    const activeTheme = useTheme()
 
     const [sessionName, setSessionName] = useState('')
     const [selectedTheme, setSelectedTheme] = useState('neo-brutal')
@@ -23,29 +42,6 @@ export default function SessionPage() {
     const [loadingSessions, setLoadingSessions] = useState(true)
     const [resumingId, setResumingId] = useState<string | null>(null)
     const [deletingId, setDeletingId] = useState<string | null>(null)
-    const [hoveredTheme, setHoveredTheme] = useState<string | null>(null)
-    const [hoveredSessionId, setHoveredSessionId] = useState<string | null>(null)
-    const [hoveredBtn, setHoveredBtn] = useState<string | null>(null)
-
-    // Use the selected theme for the whole page
-    const t: Theme = THEMES[selectedTheme] ?? THEMES['neo-brutal']
-
-    // Preload all theme fonts so buttons render in their actual typeface
-    useEffect(() => {
-        const imports: string[] = []
-        for (const theme of Object.values(THEMES)) {
-            if (theme.globalCss) {
-                const matches = theme.globalCss.match(/@import url\([^)]+\);?/g)
-                if (matches) imports.push(...matches)
-            }
-        }
-        if (imports.length === 0) return
-        const style = document.createElement('style')
-        style.id = 'session-page-fonts'
-        style.textContent = imports.join('\n')
-        document.head.appendChild(style)
-        return () => { style.remove() }
-    }, [])
 
     useEffect(() => {
         window.electronAPI?.listRecentSessions().then((sessions) => {
@@ -134,311 +130,118 @@ export default function SessionPage() {
     }
 
     return (
-        <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            minHeight: '100%',
-            padding: '48px 24px 60px',
-            background: t.appBg,
-            transition: 'background 0.3s',
-        }}>
-            <h1 style={{
-                fontFamily: t.fontDisplay,
-                fontSize: 40,
-                fontWeight: 800,
-                color: t.black,
-                marginBottom: 6,
-                letterSpacing: '-0.5px',
-                transition: 'color 0.3s, font-family 0.3s',
-            }}>
-                Realtime Karaoke
-            </h1>
-            <p style={{
-                fontFamily: t.fontBody,
-                fontSize: 14,
-                color: t.muted,
-                marginBottom: 48,
-                transition: 'color 0.3s',
-            }}>
-                Create a new session or pick up where you left off
-            </p>
-
-            {/* Create New Session */}
-            <div style={{
-                ...t.card,
-                padding: '32px 36px',
-                width: '100%',
-                maxWidth: 560,
-                marginBottom: 36,
-                border: t.border,
-                transition: 'all 0.3s',
-            }}>
-                <h2 style={{
-                    fontFamily: t.fontDisplay,
-                    fontSize: 18,
-                    fontWeight: 700,
-                    color: t.black,
-                    marginBottom: 24,
-                    letterSpacing: '0.3px',
-                }}>
-                    New Session
-                </h2>
-
-                <label style={{
-                    fontFamily: t.fontDisplay,
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: t.muted,
-                    letterSpacing: '1px',
-                    textTransform: 'uppercase',
-                    display: 'block',
-                    marginBottom: 8,
-                }}>
-                    Session Name
-                </label>
-                <input
-                    type="text"
-                    value={sessionName}
-                    onChange={(e) => setSessionName(e.target.value)}
-                    placeholder="Friday Night Karaoke"
-                    onKeyDown={(e) => { if (e.key === 'Enter' && !creating) handleCreate() }}
-                    style={{
-                        ...t.input,
-                        width: '100%',
-                        padding: '12px 16px',
-                        marginBottom: 28,
-                        fontFamily: t.fontBody,
-                        fontSize: 15,
-                        boxSizing: 'border-box',
-                        transition: 'all 0.3s',
-                    }}
-                />
-
-                <label style={{
-                    fontFamily: t.fontDisplay,
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: t.muted,
-                    letterSpacing: '1px',
-                    textTransform: 'uppercase',
-                    display: 'block',
-                    marginBottom: 12,
-                }}>
-                    Starting Theme
-                </label>
-
+        <div className="adm-page adm-page--narrow" style={{ paddingTop: 56 }}>
+            {/* Hero */}
+            <div style={{ textAlign: 'center', marginBottom: 36 }}>
                 <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(3, 1fr)',
-                    gap: 10,
-                    marginBottom: 28,
+                    display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: 14,
                 }}>
-                    {activeTheme.themeList.map((item) => {
-                        const preview = THEMES[item.key]
-                        if (!preview) return null
-                        const isSelected = selectedTheme === item.key
-                        const isHovered = hoveredTheme === item.key
-                        // Some themes use transparent appBg (e.g. Urban uses a CSS gradient).
-                        // Fall back to their creamDark or a dark color for the button swatch.
-                        const btnBg = preview.appBg === 'transparent' ? (preview.creamDark || '#111111') : preview.appBg
-                        return (
-                            <button
-                                key={item.key}
-                                onClick={() => setSelectedTheme(item.key)}
-                                onMouseEnter={() => setHoveredTheme(item.key)}
-                                onMouseLeave={() => setHoveredTheme(null)}
-                                style={{
-                                    fontFamily: preview.fontDisplay,
-                                    fontSize: 12,
-                                    fontWeight: 700,
-                                    padding: '12px 8px',
-                                    borderRadius: t.radiusSmall,
-                                    cursor: 'pointer',
-                                    border: isSelected
-                                        ? `2.5px solid ${preview.accentA}`
-                                        : `1.5px solid ${isHovered ? preview.accentA : preview.muted}40`,
-                                    background: btnBg,
-                                    color: preview.black,
-                                    transition: 'all 0.2s',
-                                    letterSpacing: '0.3px',
-                                    position: 'relative',
-                                    overflow: 'hidden',
-                                    transform: isSelected ? 'scale(1.03)' : (isHovered ? 'scale(1.01)' : 'scale(1)'),
-                                    boxShadow: isSelected ? `0 0 12px ${preview.accentA}50` : 'none',
-                                }}
-                            >
-                                <span style={{
-                                    display: 'block',
-                                    marginBottom: 6,
-                                    fontSize: 16,
-                                }}>
-                                    <span style={{
-                                        display: 'inline-block',
-                                        width: 8,
-                                        height: 8,
-                                        borderRadius: '50%',
-                                        background: preview.accentA,
-                                        marginRight: 4,
-                                    }} />
-                                    <span style={{
-                                        display: 'inline-block',
-                                        width: 8,
-                                        height: 8,
-                                        borderRadius: '50%',
-                                        background: preview.accentB,
-                                        marginRight: 4,
-                                    }} />
-                                    <span style={{
-                                        display: 'inline-block',
-                                        width: 8,
-                                        height: 8,
-                                        borderRadius: '50%',
-                                        background: preview.hotRed || preview.accentA,
-                                    }} />
-                                </span>
-                                {item.displayName}
-                            </button>
-                        )
-                    })}
+                    <span className="adm-led adm-led--amber" />
+                    <span className="adm-label" style={{ color: 'var(--adm-amber)' }}>Host Console</span>
+                    <span className="adm-led adm-led--amber" />
                 </div>
-
-                <button
-                    onClick={handleCreate}
-                    disabled={creating}
-                    onMouseEnter={() => setHoveredBtn('create')}
-                    onMouseLeave={() => setHoveredBtn(null)}
-                    style={{
-                        width: '100%',
-                        fontFamily: t.fontDisplay,
-                        fontSize: 15,
-                        fontWeight: 700,
-                        padding: '14px 0',
-                        cursor: creating ? 'wait' : 'pointer',
-                        opacity: creating ? 0.7 : 1,
-                        letterSpacing: '0.5px',
-                        border: 'none',
-                        borderRadius: t.radius,
-                        background: t.accentA,
-                        color: '#1A1A1A',
-                        transition: 'all 0.2s',
-                        transform: hoveredBtn === 'create' && !creating ? 'translateY(-1px)' : 'none',
-                        boxShadow: hoveredBtn === 'create' && !creating ? `0 4px 14px ${t.accentA}40` : 'none',
-                    }}
-                >
-                    {creating ? 'Creating...' : 'Start Session'}
-                </button>
+                <h1 className="adm-h1" style={{ fontSize: 44, letterSpacing: '-1.4px' }}>
+                    Realtime Karaoke
+                </h1>
+                <p className="adm-sub" style={{ marginTop: 8 }}>
+                    Spin up a new session or pick up where you left off
+                </p>
             </div>
 
-            {/* Resume Previous Session */}
+            {/* New Session */}
+            <Card style={{ marginBottom: 28 }}>
+                <div className="adm-label" style={{ marginBottom: 18 }}>New Session</div>
+
+                <Field label="Session name" style={{ marginBottom: 22 }}>
+                    <Input
+                        value={sessionName}
+                        onChange={(e) => setSessionName(e.target.value)}
+                        placeholder="Friday Night Karaoke"
+                        onKeyDown={(e) => { if (e.key === 'Enter' && !creating) handleCreate() }}
+                        style={{ padding: '11px 14px', fontSize: 14.5 }}
+                    />
+                </Field>
+
+                <Field label="Starting stage theme" hint="How the big screen and companion app look — the console you're using now always stays the same." style={{ marginBottom: 24 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 2 }}>
+                        {THEME_LIST.map(item => {
+                            const selected = selectedTheme === item.key
+                            return (
+                                <button
+                                    key={item.key}
+                                    onClick={() => setSelectedTheme(item.key)}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', gap: 10,
+                                        padding: '9px 11px', cursor: 'pointer', textAlign: 'left',
+                                        borderRadius: 'var(--adm-r-sm)',
+                                        border: selected ? '1px solid var(--adm-amber)' : '1px solid var(--adm-line)',
+                                        background: selected ? 'var(--adm-amber-soft)' : 'var(--adm-well)',
+                                        boxShadow: selected ? '0 0 14px -4px var(--adm-amber-glow)' : 'var(--adm-well-shadow)',
+                                        transition: 'all 0.15s ease',
+                                    }}
+                                >
+                                    <ThemeSwatch themeKey={item.key} />
+                                    <span style={{
+                                        flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 600,
+                                        color: selected ? 'var(--adm-amber-bright)' : 'var(--adm-text-2)',
+                                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                    }}>
+                                        {item.displayName}
+                                    </span>
+                                </button>
+                            )
+                        })}
+                    </div>
+                </Field>
+
+                <Button variant="primary" size="lg" style={{ width: '100%' }} onClick={handleCreate} disabled={creating}>
+                    {creating ? 'Creating…' : 'Start Session'}
+                </Button>
+            </Card>
+
+            {/* Previous Sessions */}
             {(loadingSessions || recentSessions.length > 0) && (
-                <div style={{
-                    width: '100%',
-                    maxWidth: 560,
-                }}>
-                    <h2 style={{
-                        fontFamily: t.fontDisplay,
-                        fontSize: 13,
-                        fontWeight: 700,
-                        color: t.muted,
-                        letterSpacing: '1.5px',
-                        textTransform: 'uppercase',
-                        marginBottom: 14,
-                        transition: 'color 0.3s',
-                    }}>
-                        Previous Sessions
-                    </h2>
+                <div>
+                    <div className="adm-label" style={{ marginBottom: 12 }}>Previous Sessions</div>
 
                     {loadingSessions ? (
-                        <p style={{ fontFamily: t.fontBody, fontSize: 13, color: t.muted }}>
-                            Loading...
-                        </p>
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}>
+                            <Spinner />
+                        </div>
                     ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 320, overflowY: 'auto' }}>
+                        <div className="adm-scroll" style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 340 }}>
                             {recentSessions.map((s) => {
-                                const isHovered = hoveredSessionId === s.id
                                 const isResuming = resumingId === s.id
-                                const isDeleting = deletingId === s.id
                                 return (
-                                    <div
-                                        key={s.id}
-                                        onMouseEnter={() => setHoveredSessionId(s.id)}
-                                        onMouseLeave={() => setHoveredSessionId(null)}
-                                        style={{
-                                            ...t.card,
-                                            border: t.borderThin,
-                                            padding: '14px 18px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: 12,
-                                            transition: 'all 0.15s',
-                                            ...(isHovered ? t.cardHover : {}),
-                                        }}
-                                    >
+                                    <div key={s.id} className="adm-card" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px' }}>
+                                        <div style={{
+                                            width: 34, height: 34, borderRadius: 9, flexShrink: 0,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            background: 'var(--adm-card-2)', border: '1px solid var(--adm-line)',
+                                            color: 'var(--adm-text-3)',
+                                        }}>
+                                            <Icon name="clock" size={15} />
+                                        </div>
                                         <div style={{ flex: 1, minWidth: 0 }}>
                                             <div style={{
-                                                fontFamily: t.fontDisplay,
-                                                fontSize: 14,
-                                                fontWeight: 700,
-                                                color: t.black,
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis',
-                                                whiteSpace: 'nowrap',
+                                                fontFamily: 'var(--adm-display)', fontWeight: 650, fontSize: 14,
+                                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                                             }}>
                                                 {s.name || s.code}
                                             </div>
-                                            <div style={{
-                                                fontFamily: t.fontBody,
-                                                fontSize: 11,
-                                                color: t.muted,
-                                                marginTop: 3,
-                                            }}>
-                                                {s.code} &middot; {formatDate(s.createdAt)} &middot; {s.guestCount} guest{s.guestCount !== 1 ? 's' : ''}
+                                            <div style={{ fontSize: 11.5, color: 'var(--adm-text-3)', marginTop: 2 }}>
+                                                <span className="adm-mono" style={{ letterSpacing: 1 }}>{s.code}</span>
+                                                {' · '}{formatDate(s.createdAt)}{' · '}{s.guestCount} guest{s.guestCount !== 1 ? 's' : ''}
                                             </div>
                                         </div>
-                                        <button
-                                            onClick={() => handleResume(s)}
-                                            disabled={!!resumingId}
-                                            style={{
-                                                ...t.btnSecondary,
-                                                fontFamily: t.fontDisplay,
-                                                fontSize: 11,
-                                                fontWeight: 700,
-                                                padding: '7px 18px',
-                                                cursor: resumingId ? 'wait' : 'pointer',
-                                                opacity: isResuming ? 0.7 : 1,
-                                                flexShrink: 0,
-                                                letterSpacing: '0.5px',
-                                            }}
-                                        >
-                                            {isResuming ? 'Resuming...' : 'Resume'}
-                                        </button>
-                                        <button
+                                        <Button size="sm" onClick={() => handleResume(s)} disabled={!!resumingId}>
+                                            {isResuming ? 'Resuming…' : 'Resume'}
+                                        </Button>
+                                        <IconButton
+                                            icon="trash" danger title="Delete session"
                                             onClick={() => handleDelete(s)}
                                             disabled={!!deletingId}
-                                            title="Delete session"
-                                            style={{
-                                                background: 'none',
-                                                border: 'none',
-                                                cursor: deletingId ? 'wait' : 'pointer',
-                                                padding: '6px',
-                                                borderRadius: t.radiusSmall,
-                                                color: isDeleting ? t.muted : (isHovered ? t.hotRed : t.muted),
-                                                opacity: isDeleting ? 0.5 : 0.6,
-                                                transition: 'all 0.15s',
-                                                flexShrink: 0,
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                            }}
-                                            onMouseEnter={(e) => { e.currentTarget.style.opacity = '1' }}
-                                            onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.6' }}
-                                        >
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                <polyline points="3 6 5 6 21 6" />
-                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                                            </svg>
-                                        </button>
+                                        />
                                     </div>
                                 )
                             })}

@@ -66,6 +66,7 @@ export type ElectronAPI = {
     reorderQueue: (ids: string[]) => Promise<void>
     bumpBonusPoints: () => Promise<void>
     lockQueueItem: (id: string) => Promise<void>
+    unlockQueuedItems: () => Promise<void>
     adjustQueueScore: (id: string, delta: number) => Promise<void>
     onRemoteQueueAdd: (callback: (row: any) => void) => any
     offRemoteQueueAdd: (handler: any) => void
@@ -79,6 +80,10 @@ export type ElectronAPI = {
     sendReaction: (reaction: any) => void
     onReaction: (callback: (reaction: any) => void) => any
     offReaction: (handler: any) => void
+    // Stage notice relay (main → stage) — Lobby Mode song-request pop-ups
+    sendStageNotice: (notice: { kind: 'requested'; id: string; title: string; artist: string; artUrl: string | null; byName: string | null; byPicture: string | null }) => void
+    onStageNotice: (callback: (notice: any) => void) => any
+    offStageNotice: (handler: any) => void
     // Awards
     ensureDefaultAwards: () => Promise<void>
     listAwards: () => Promise<any[]>
@@ -184,6 +189,7 @@ const api: ElectronAPI = {
     reorderQueue: (ids) => ipcRenderer.invoke('karaoke:reorder-queue', ids),
     bumpBonusPoints: () => ipcRenderer.invoke('karaoke:bump-bonus-points'),
     lockQueueItem: (id) => ipcRenderer.invoke('karaoke:lock-queue-item', id),
+    unlockQueuedItems: () => ipcRenderer.invoke('karaoke:unlock-queue-items'),
     adjustQueueScore: (id, delta) => ipcRenderer.invoke('karaoke:adjust-queue-score', id, delta),
     onRemoteQueueAdd: (callback) => {
         const handler = (_e: any, row: any) => callback(row)
@@ -209,6 +215,14 @@ const api: ElectronAPI = {
         return handler
     },
     offReaction: (handler) => ipcRenderer.removeListener('reaction:receive', handler),
+    // Stage notice relay (main → stage)
+    sendStageNotice: (notice) => ipcRenderer.send('stage:notice', notice),
+    onStageNotice: (callback) => {
+        const handler = (_e: any, notice: any) => callback(notice)
+        ipcRenderer.on('stage:notice-receive', handler)
+        return handler
+    },
+    offStageNotice: (handler) => ipcRenderer.removeListener('stage:notice-receive', handler),
     // Awards
     ensureDefaultAwards: () => ipcRenderer.invoke('karaoke:ensure-default-awards'),
     listAwards: () => ipcRenderer.invoke('karaoke:list-awards'),

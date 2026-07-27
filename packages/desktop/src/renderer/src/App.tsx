@@ -4,6 +4,7 @@ import { AppProvider, useApp } from './context/AppContext'
 import { ThemeProvider, StageThemeProvider, useTheme } from './context/ThemeContext'
 import { useKaraokeSession } from './hooks/useKaraokeSession'
 import { AudioSyncProvider } from './context/AudioSyncContext'
+import { Icon, IconName } from './components/ui'
 import SearchPage from './pages/SearchPage'
 import KaraokePage from './pages/KaraokePage'
 import QueuePage from './pages/QueuePage'
@@ -11,173 +12,109 @@ import AdminPage from './pages/AdminPage'
 import ControlsPage from './pages/ControlsPage'
 import SessionPage from './pages/SessionPage'
 import './styles/globals.css'
+import './styles/admin.css'
 import './styles/karaoke.css'
 
 function TitleBar() {
     const isStage = window.electronAPI?.isStageWindow ?? false
     const { state } = useApp()
-    const { titlebarBg, titlebarText, fontDisplay } = useTheme()
 
     if (isStage) return null
 
     return (
-        <div className="titlebar" style={{ background: titlebarBg }}>
-            <span className="titlebar__brand" style={{ color: titlebarText, fontFamily: fontDisplay }}>
+        <div className="titlebar adm-titlebar">
+            <span
+                className="titlebar__brand"
+                style={{ color: 'var(--adm-text-3)', fontFamily: 'var(--adm-mono)' }}
+            >
                 {state.karaokeSessionName || 'Realtime Karaoke'}
             </span>
         </div>
     )
 }
 
+const NAV_ITEMS: Array<{ to: string; end?: boolean; label: string; icon: IconName }> = [
+    { to: '/', end: true, label: 'Songs', icon: 'music' },
+    { to: '/queue', label: 'Queue', icon: 'grip' },
+    { to: '/controls', label: 'Controls', icon: 'sliders' },
+    { to: '/admin', label: 'Admin', icon: 'waveform' },
+]
+
 function TopNav() {
     const location = useLocation()
-    const { navBg, navBorderBottom, navLink, navLinkActive, navLinkHoverBg, fontDisplay, name, setThemeName, themeList, border, card, radius, black } = useTheme()
-    const [dropdownOpen, setDropdownOpen] = useState(false)
-    const dropdownRef = useRef<HTMLDivElement>(null)
+    // Theme context is used only as DATA here (which stage theme is active and
+    // how to change it) — the nav's own appearance is fixed.
+    const { name, setThemeName, themeList } = useTheme()
+    const [themeOpen, setThemeOpen] = useState(false)
+    const themeRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-                setDropdownOpen(false)
+            if (themeRef.current && !themeRef.current.contains(e.target as Node)) {
+                setThemeOpen(false)
             }
         }
-        if (dropdownOpen) document.addEventListener('mousedown', handleClickOutside)
+        if (themeOpen) document.addEventListener('mousedown', handleClickOutside)
         return () => document.removeEventListener('mousedown', handleClickOutside)
-    }, [dropdownOpen])
+    }, [themeOpen])
 
     if (location.pathname === '/karaoke') return null
 
-    const handleStageClick = async (e: React.MouseEvent) => {
-        e.preventDefault()
+    const activeThemeName = themeList.find(t => t.key === name)?.displayName ?? name
+
+    const handleStageClick = async () => {
         if (window.electronAPI) {
             await window.electronAPI.openStage()
         }
     }
 
-    const linkBase: React.CSSProperties = {
-        fontFamily: fontDisplay,
-        fontWeight: 600,
-        fontSize: 13,
-        color: navLink,
-        textDecoration: 'none',
-        padding: '6px 14px',
-        borderRadius: radius,
-        cursor: 'pointer',
-        background: 'none',
-        border: 'none',
-        transition: 'background 0.1s, color 0.1s',
-        letterSpacing: '0.3px',
-    }
-
     return (
-        <nav className="topnav" style={{ background: navBg, borderBottom: navBorderBottom }}>
-            <NavLink
-                to="/"
-                end
-                style={({ isActive }) => ({ ...linkBase, color: isActive ? navLinkActive : navLink })}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = navLinkHoverBg }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none' }}
-            >
-                Songs
-            </NavLink>
-            <NavLink
-                to="/queue"
-                style={({ isActive }) => ({ ...linkBase, color: isActive ? navLinkActive : navLink })}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = navLinkHoverBg }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none' }}
-            >
-                Queue
-            </NavLink>
-            <NavLink
-                to="/controls"
-                style={({ isActive }) => ({ ...linkBase, color: isActive ? navLinkActive : navLink })}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = navLinkHoverBg }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none' }}
-            >
-                Controls
-            </NavLink>
-            <button
-                onClick={handleStageClick}
-                style={linkBase}
-                onMouseEnter={e => { e.currentTarget.style.background = navLinkHoverBg }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'none' }}
-            >
-                Stage
-            </button>
-            <NavLink
-                to="/admin"
-                style={({ isActive }) => ({ ...linkBase, color: isActive ? navLinkActive : navLink })}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = navLinkHoverBg }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none' }}
-            >
-                Admin
-            </NavLink>
-
-            {/* Theme dropdown */}
-            <div ref={dropdownRef} style={{ marginLeft: 'auto', position: 'relative' }}>
-                <button
-                    onClick={() => setDropdownOpen(o => !o)}
-                    style={{
-                        fontFamily: fontDisplay,
-                        fontWeight: 700,
-                        fontSize: 10,
-                        letterSpacing: '1.5px',
-                        textTransform: 'uppercase',
-                        padding: '5px 12px',
-                        borderRadius: radius,
-                        cursor: 'pointer',
-                        background: 'none',
-                        color: navLink,
-                        border,
-                        transition: 'all 0.1s',
-                    }}
+        <nav className="adm-topnav">
+            {/* Pages */}
+            {NAV_ITEMS.map(item => (
+                <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.end}
+                    className={({ isActive }) => `adm-navlink${isActive ? ' adm-navlink--active' : ''}`}
                 >
-                    Change Theme
+                    <Icon name={item.icon} size={14} />
+                    {item.label}
+                </NavLink>
+            ))}
+
+            {/* Right cluster */}
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+                {/* Stage theme picker — affects only the stage / companion look */}
+                <div ref={themeRef} style={{ position: 'relative' }}>
+                    <button className="adm-navlink" onClick={() => setThemeOpen(o => !o)} title="Stage theme (does not affect this console)">
+                        <Icon name="palette" size={14} />
+                        <span style={{ color: 'var(--adm-text-3)', fontWeight: 500 }}>Stage theme</span>
+                        <span>{activeThemeName}</span>
+                        <Icon name="chevronDown" size={12} />
+                    </button>
+                    {themeOpen && (
+                        <div className="adm-pop" style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, minWidth: 190, zIndex: 1000, padding: '5px 0' }}>
+                            {themeList.map(t => (
+                                <button
+                                    key={t.key}
+                                    className={`adm-pop__item${t.key === name ? ' adm-pop__item--active' : ''}`}
+                                    onClick={() => { setThemeName(t.key); setThemeOpen(false) }}
+                                >
+                                    <span style={{ width: 14, display: 'inline-flex' }}>
+                                        {t.key === name && <Icon name="check" size={12} />}
+                                    </span>
+                                    {t.displayName}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                <button className="adm-btn adm-btn--primary adm-btn--sm" onClick={handleStageClick}>
+                    <Icon name="monitor" size={13} />
+                    Stage
                 </button>
-                {dropdownOpen && (
-                    <div style={{
-                        position: 'absolute',
-                        top: 'calc(100% + 6px)',
-                        right: 0,
-                        minWidth: 160,
-                        ...card,
-                        padding: '4px 0',
-                        zIndex: 1000,
-                        border,
-                    }}>
-                        {themeList.map(t => (
-                            <button
-                                key={t.key}
-                                onClick={() => { setThemeName(t.key); setDropdownOpen(false) }}
-                                style={{
-                                    display: 'block',
-                                    width: '100%',
-                                    textAlign: 'left',
-                                    fontFamily: fontDisplay,
-                                    fontWeight: 600,
-                                    fontSize: 12,
-                                    letterSpacing: '0.5px',
-                                    padding: '8px 16px',
-                                    border: 'none',
-                                    background: 'transparent',
-                                    color: black,
-                                    cursor: 'pointer',
-                                    transition: 'background 0.1s, color 0.1s',
-                                }}
-                                onMouseEnter={e => {
-                                    e.currentTarget.style.background = navLinkHoverBg
-                                    e.currentTarget.style.color = navLinkActive
-                                }}
-                                onMouseLeave={e => {
-                                    e.currentTarget.style.background = 'transparent'
-                                    e.currentTarget.style.color = black
-                                }}
-                            >
-                                {t.displayName}
-                            </button>
-                        ))}
-                    </div>
-                )}
             </div>
         </nav>
     )
@@ -239,14 +176,13 @@ function AppContent() {
     const location = useLocation()
     const isKaraoke = location.pathname === '/karaoke'
     const { state } = useApp()
-    const { appBg } = useTheme()
 
     useKaraokeSession()
 
     // Show session landing page when no active session (main window only)
     if (!state.karaokeSessionId && !window.electronAPI?.isStageWindow) {
         return (
-            <div className="main" style={{ background: appBg }}>
+            <div className="main adm-root">
                 <SessionPage />
             </div>
         )
@@ -255,10 +191,7 @@ function AppContent() {
     return (
         <AudioSyncProvider>
             {!isKaraoke && <TopNav />}
-            <div
-                className={isKaraoke ? '' : 'main'}
-                style={isKaraoke ? {} : { background: appBg }}
-            >
+            <div className={isKaraoke ? '' : 'main adm-root'}>
                 <Routes>
                     <Route path="/" element={<SearchPage />} />
                     <Route path="/queue" element={<QueuePage />} />

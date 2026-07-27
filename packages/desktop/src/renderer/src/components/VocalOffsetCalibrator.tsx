@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../context/AppContext'
-import { useTheme } from '../context/ThemeContext'
 import { useAudioDevices } from '../hooks/useAudioDevices'
 import { MetronomeScheduler, ScheduledRun } from '../audio/MetronomeScheduler'
+import { Button, IconButton } from './ui'
 
 interface Props {
     onClose: () => void
@@ -23,7 +23,6 @@ interface TapResult {
 
 export function VocalOffsetCalibrator({ onClose }: Props) {
     const { state, dispatch } = useApp()
-    const theme = useTheme()
     const { outputs } = useAudioDevices()
 
     const [bpm, setBpm] = useState<number>(100)
@@ -182,21 +181,21 @@ export function VocalOffsetCalibrator({ onClose }: Props) {
     const measuredMs = Math.round(stats.mean)
     const stdMs = Math.round(stats.std)
     const confidenceColor = stats.count === 0
-        ? theme.faint
-        : stdMs < 30 ? theme.mintGreen
-            : stdMs < 60 ? theme.accentB
-                : theme.hotRed
+        ? 'var(--adm-text-3)'
+        : stdMs < 30 ? 'var(--adm-green)'
+            : stdMs < 60 ? 'var(--adm-amber-bright)'
+                : 'var(--adm-red)'
 
     const beatColor = (idx: number): string => {
         const tap = taps.find(t => t.beatIndex === idx)
         if (!tap) {
             const measuredActive = activeBeat - COUNT_IN_BEATS
-            return idx === measuredActive ? theme.accentA : theme.creamDark
+            return idx === measuredActive ? 'var(--adm-amber)' : 'var(--adm-card-2)'
         }
         const a = Math.abs(tap.offsetMs)
-        if (a < 30) return theme.mintGreen
-        if (a < 80) return theme.accentB
-        return theme.hotRed
+        if (a < 30) return 'var(--adm-green)'
+        if (a < 80) return 'var(--adm-amber-bright)'
+        return 'var(--adm-red)'
     }
 
     const applyValue = (ms: number) => {
@@ -208,57 +207,21 @@ export function VocalOffsetCalibrator({ onClose }: Props) {
     const countInDisplay = activeBeat < 0 ? '' : ` ${COUNT_IN_BEATS - activeBeat}`
 
     return (
-        <div style={{
-            marginTop: 12,
-            padding: 16,
-            background: theme.creamDark,
-            border: theme.borderLight,
-            borderRadius: theme.radiusSmall,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 12,
-        }}>
+        <div className="adm-well" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                <div style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    letterSpacing: '1.5px',
-                    textTransform: 'uppercase',
-                    color: theme.black,
-                    fontFamily: theme.fontDisplay,
-                }}>
-                    Tap-along Calibration
-                </div>
-                <button
-                    onClick={() => { stopRun(); onClose() }}
-                    style={{
-                        background: 'transparent',
-                        border: 'none',
-                        color: theme.muted,
-                        fontSize: 18,
-                        cursor: 'pointer',
-                        lineHeight: 1,
-                        padding: '0 4px',
-                    }}
-                    aria-label="Close calibration"
-                >×</button>
+                <div className="adm-label">Tap-along Calibration</div>
+                <IconButton icon="x" size={26} aria-label="Close calibration" onClick={() => { stopRun(); onClose() }} />
             </div>
 
-            <div style={{ fontSize: 11, color: theme.muted, fontFamily: theme.fontBody }}>
+            <div style={{ fontSize: 12, color: 'var(--adm-text-2)' }}>
                 Output:{' '}
-                <span style={{ color: monitorId ? theme.black : theme.hotRed, fontWeight: 700 }}>
+                <span style={{ color: monitorId ? 'var(--adm-text)' : 'var(--adm-red)', fontWeight: 650 }}>
                     {monitorId ? monitorLabel : 'No Vocal Out device set'}
                 </span>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{
-                    fontSize: 11,
-                    fontFamily: theme.fontDisplay,
-                    fontWeight: 700,
-                    color: theme.muted,
-                    width: 60,
-                }}>Tempo</div>
+                <div className="adm-label" style={{ width: 60 }}>Tempo</div>
                 {TEMPO_OPTIONS.map(t => {
                     const selected = bpm === t
                     return (
@@ -266,17 +229,16 @@ export function VocalOffsetCalibrator({ onClose }: Props) {
                             key={t}
                             onClick={() => setBpm(t)}
                             disabled={running}
+                            className="adm-mono"
                             style={{
-                                padding: '4px 10px',
-                                fontSize: 11,
-                                fontFamily: theme.fontDisplay,
-                                fontWeight: 700,
+                                padding: '4px 12px', fontSize: 11.5, fontWeight: 600,
                                 cursor: running ? 'default' : 'pointer',
-                                borderRadius: theme.radiusSmall,
-                                border: selected ? `2px solid ${theme.black}` : theme.borderThin,
-                                background: selected ? theme.accentA : theme.cream,
-                                color: theme.black,
+                                borderRadius: 'var(--adm-r-sm)',
+                                border: selected ? '1px solid var(--adm-amber)' : '1px solid var(--adm-line)',
+                                background: selected ? 'var(--adm-amber-soft)' : 'var(--adm-card-2)',
+                                color: selected ? 'var(--adm-amber-bright)' : 'var(--adm-text-2)',
                                 opacity: running ? 0.5 : 1,
+                                transition: 'all 0.14s ease',
                             }}
                         >
                             {t} BPM
@@ -285,16 +247,17 @@ export function VocalOffsetCalibrator({ onClose }: Props) {
                 })}
             </div>
 
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                 {Array.from({ length: MEASURED_BEATS }, (_, i) => (
                     <div
                         key={i}
                         style={{
-                            width: 18,
-                            height: 18,
-                            borderRadius: 9,
+                            width: 16,
+                            height: 16,
+                            borderRadius: 8,
                             background: beatColor(i),
-                            border: theme.borderThin,
+                            border: '1px solid rgba(0,0,0,0.4)',
+                            boxShadow: '0 1px 0 rgba(255,255,255,0.07) inset',
                             transition: 'background 0.1s',
                         }}
                     />
@@ -307,20 +270,24 @@ export function VocalOffsetCalibrator({ onClose }: Props) {
                 style={{
                     padding: 18,
                     textAlign: 'center',
-                    background: phase === 'measuring' ? theme.accentA : theme.cream,
-                    border: theme.border,
-                    borderRadius: theme.radiusSmall,
+                    borderRadius: 'var(--adm-r-sm)',
+                    background: phase === 'measuring'
+                        ? 'linear-gradient(180deg, var(--adm-amber-bright), var(--adm-amber))'
+                        : 'var(--adm-card-2)',
+                    border: phase === 'measuring' ? '1px solid var(--adm-amber)' : '1px solid var(--adm-line)',
+                    boxShadow: phase === 'measuring' ? '0 0 24px -6px var(--adm-amber-glow)' : 'none',
                     cursor: phase === 'measuring' ? 'pointer' : 'default',
-                    color: theme.black,
-                    fontFamily: theme.fontDisplay,
+                    color: phase === 'measuring' ? '#191104' : 'var(--adm-text)',
+                    fontFamily: 'var(--adm-display)',
                     fontWeight: 700,
-                    letterSpacing: '1px',
+                    letterSpacing: '0.6px',
                     userSelect: 'none',
                     minHeight: 22,
+                    transition: 'all 0.15s ease',
                 }}
             >
                 {phase === 'idle' && (error ? error : 'Press Start, then tap Spacebar on each beat')}
-                {phase === 'count-in' && `Get ready...${countInDisplay}`}
+                {phase === 'count-in' && `Get ready…${countInDisplay}`}
                 {phase === 'measuring' && `TAP! (${taps.length}/${MEASURED_BEATS})`}
                 {phase === 'done' && (stats.count > 0
                     ? `Measured: +${measuredMs}ms (±${stdMs}ms, ${stats.count} taps)`
@@ -329,54 +296,22 @@ export function VocalOffsetCalibrator({ onClose }: Props) {
 
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                 {(phase === 'idle' || phase === 'done') && (
-                    <button
-                        onClick={startRun}
-                        disabled={!monitorId}
-                        style={{
-                            ...theme.btnPrimary,
-                            fontSize: 12,
-                            padding: '8px 16px',
-                            opacity: monitorId ? 1 : 0.5,
-                            cursor: monitorId ? 'pointer' : 'not-allowed',
-                        }}
-                    >
+                    <Button variant="primary" size="sm" onClick={startRun} disabled={!monitorId}>
                         {phase === 'done' ? 'Try Again' : 'Start'}
-                    </button>
+                    </Button>
                 )}
                 {running && (
-                    <button
-                        onClick={stopRun}
-                        style={{ ...theme.btnOutline, fontSize: 12, padding: '8px 16px' }}
-                    >
-                        Stop
-                    </button>
+                    <Button size="sm" onClick={stopRun}>Stop</Button>
                 )}
                 {phase === 'done' && stats.count > 0 && (
                     <>
-                        <button
-                            onClick={() => applyValue(stats.mean)}
-                            style={{
-                                ...theme.btnPrimary,
-                                fontSize: 12,
-                                padding: '8px 16px',
-                                background: theme.mintGreen,
-                            }}
-                        >
+                        <Button variant="live" size="sm" onClick={() => applyValue(stats.mean)}>
                             Apply ({measuredMs}ms)
-                        </button>
-                        <button
-                            onClick={() => applyValue(state.vocalOffsetMs + stats.mean)}
-                            style={{ ...theme.btnOutline, fontSize: 12, padding: '8px 16px' }}
-                        >
+                        </Button>
+                        <Button size="sm" onClick={() => applyValue(state.vocalOffsetMs + stats.mean)}>
                             Add to current ({Math.max(0, Math.min(2000, Math.round(state.vocalOffsetMs + stats.mean)))}ms)
-                        </button>
-                        <span style={{
-                            fontSize: 10,
-                            color: confidenceColor,
-                            fontFamily: theme.fontDisplay,
-                            fontWeight: 700,
-                            letterSpacing: '1px',
-                        }}>
+                        </Button>
+                        <span className="adm-mono" style={{ fontSize: 10.5, fontWeight: 600, color: confidenceColor, letterSpacing: '0.5px' }}>
                             ±{stdMs}ms
                         </span>
                     </>

@@ -18,6 +18,7 @@ import { HudBrackets } from './SpaceWizardChrome'
 import { BrassFrame } from './SteampunkWizardChrome'
 import { NeonFrame } from './RetrowaveWizardChrome'
 import { Gear } from '../../theme/themes/steampunk/atoms/_steam'
+import { Hibiscus3D, TimberDetail, useSize } from '../../theme/themes/tropical/atoms/_tropical'
 
 // The deep-sea theme's actual bubble PNG (same asset its backdrop + tab bar
 // use) — rendered un-tinted so the 3D highlight reads.
@@ -869,44 +870,22 @@ function RetroSun() {
   )
 }
 
-// 12. Tropical — a real WOOD PANEL: a grained timber plank with a cut-wood edge,
-//     a hammered nail in each corner, a cream Florida Vibes label burned into
-//     it, and a bright hibiscus bloom nailed to the side.
-function TropicalHibiscus() {
+// 12. Tropical — a carved teak board straight from the theme's tiki workshop:
+//     the real Timber treatment (seeded grain, routed groove, beveled edges)
+//     with the label painted in cream script and a dimensionally-lit hibiscus
+//     bloom resting on the corner.
+function TropicalWoodDetail() {
+  const [size, onLayout] = useSize()
   return (
-    <Svg width={30} height={30} viewBox="0 0 30 30">
-      <G transform="translate(15 15)">
-        {[0, 72, 144, 216, 288].map((a) => (
-          <G key={a} transform={`rotate(${a})`}>
-            <Ellipse cx={0} cy={-7.5} rx={5.4} ry={7} fill="#FF3D81" stroke="#E02468" strokeWidth={0.7} />
-          </G>
-        ))}
-        <Circle cx={0} cy={0} r={3.4} fill="#FFC83D" />
-        <Circle cx={0} cy={0} r={1.5} fill="#FF8A3C" />
-      </G>
-    </Svg>
-  )
-}
-
-// Hammered nail head — a dark dome with a glint, for the panel corners.
-function WoodNail() {
-  return (
-    <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: '#2E2014', alignItems: 'center', justifyContent: 'center' }}>
-      <View style={{ width: 2.5, height: 2.5, borderRadius: 1.5, backgroundColor: 'rgba(255,255,255,0.35)' }} />
-    </View>
-  )
-}
-
-// Absolute-fill timber: a vertical wood gradient, faint horizontal grain lines,
-// and a soft top sheen. Sits behind the label/emblem inside the BaseCard.
-function WoodPanel() {
-  return (
-    <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
-      <LinearGradient colors={['#9C6B3D', '#6E4423']} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={{ flex: 1 }} />
-      {[0.24, 0.46, 0.68, 0.88].map((p, i) => (
-        <View key={i} style={{ position: 'absolute', left: 8, right: 8, top: `${p * 100}%`, height: 1, backgroundColor: 'rgba(0,0,0,0.16)' }} />
-      ))}
-      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '40%', backgroundColor: 'rgba(255,255,255,0.07)' }} />
+    <View pointerEvents="none" onLayout={onLayout} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
+      <LinearGradient
+        colors={['#C08A4A', '#9A6432', '#74461C']}
+        locations={[0, 0.55, 1]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={{ flex: 1 }}
+      />
+      {size ? <TimberDetail w={size.w} h={size.h} radius={10} seed={7} groove /> : null}
     </View>
   )
 }
@@ -916,33 +895,28 @@ function TropicalCard({ label, selected, onPress }: CardProps) {
     <BaseCard
       selected={selected}
       onPress={onPress}
-      bg="#6E4423"
+      bg="#9A6432"
       radius={10}
-      border={{ width: 2.5, color: '#5A3A1E' }}
       offset={{ w: 0, h: 4, color: '#0E2E29', radius: 8, opacity: 0.3 }}
       accent="#FFC83D"
       badge={{ bg: '#FFC83D', fg: '#0E2E29', ring: '#5A3A1E' }}
     >
-      <WoodPanel />
-      {/* a hammered nail in each corner */}
-      <View pointerEvents="none" style={{ position: 'absolute', top: 5, left: 5 }}><WoodNail /></View>
-      <View pointerEvents="none" style={{ position: 'absolute', top: 5, right: 5 }}><WoodNail /></View>
-      <View pointerEvents="none" style={{ position: 'absolute', bottom: 5, left: 5 }}><WoodNail /></View>
-      <View pointerEvents="none" style={{ position: 'absolute', bottom: 5, right: 5 }}><WoodNail /></View>
+      <TropicalWoodDetail />
       <Row>
         <CardLabel
           text={label}
-          color="#FFF1C4"
-          font="TheLastTrunks"
+          color="#FFF2D2"
+          font="FloridaVibes"
           style={{
             flex: 1,
-            fontSize: 19,
-            textShadowColor: 'rgba(0,0,0,0.45)',
-            textShadowOffset: { width: 0, height: 1 },
-            textShadowRadius: 2,
+            fontSize: 21,
+            lineHeight: 26,
+            textShadowColor: 'rgba(30,14,2,0.45)',
+            textShadowOffset: { width: 0, height: 1.5 },
+            textShadowRadius: 1.5,
           }}
         />
-        <TropicalHibiscus />
+        <Hibiscus3D size={30} />
       </Row>
     </BaseCard>
   )

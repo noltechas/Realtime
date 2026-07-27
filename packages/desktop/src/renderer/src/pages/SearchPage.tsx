@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { useTheme } from '../context/ThemeContext'
 import { VoiceEffects, normalizeMicLevel } from '../audio/VoiceEffectsTypes'
+import { Button, EmptyState, Icon, PageHeader, SearchInput, Spinner } from '../components/ui'
 
 interface CatalogSong {
     trackId: string
@@ -42,20 +42,13 @@ function getTempoLabel(song: CatalogSong): string | null {
     return null
 }
 
-function getReleaseYear(song: CatalogSong): string | null {
-    if (song.spotifyData?.releaseDate) return song.spotifyData.releaseDate.split('-')[0]
-    return null
-}
-
 export default function SearchPage() {
-    const { state, dispatch } = useApp()
+    const { dispatch } = useApp()
     const navigate = useNavigate()
-    const theme = useTheme()
     const [catalog, setCatalog] = useState<CatalogSong[]>([])
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState('')
     const [hoveredId, setHoveredId] = useState<string | null>(null)
-    const [searchFocused, setSearchFocused] = useState(false)
 
     useEffect(() => {
         loadCatalog()
@@ -156,146 +149,36 @@ export default function SearchPage() {
     })
 
     return (
-        <div className="anim-enter" style={{ ...theme.page }}>
-            {/* Hero */}
-            <div style={{ marginBottom: 40, paddingTop: 16 }}>
-                <h1 style={{
-                    fontFamily: theme.fontDisplay,
-                    fontSize: 52,
-                    fontWeight: 900,
-                    lineHeight: 1.05,
-                    letterSpacing: '-2px',
-                    marginBottom: 4,
-                    color: theme.black,
-                }}>
-                    Pick a Song
-                </h1>
-                <p style={{
-                    fontSize: 15,
-                    color: theme.muted,
-                    maxWidth: 480,
-                    marginBottom: 24,
-                    fontFamily: theme.fontBody,
-                }}>
-                    Choose from the catalog to start your karaoke session
-                </p>
+        <div className="adm-page">
+            <PageHeader
+                label="Library"
+                title="Pick a Song"
+                desc={`${catalog.length} track${catalog.length === 1 ? '' : 's'} ready to sing`}
+            />
 
-                {/* QR Code Session Card */}
-                {state.karaokeQrDataUrl && (
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 20,
-                        padding: '16px 20px',
-                        marginBottom: 24,
-                        maxWidth: 480,
-                        ...theme.card,
-                    }}>
-                        <img
-                            src={state.karaokeQrDataUrl}
-                            alt="QR Code"
-                            style={{
-                                width: 88,
-                                height: 88,
-                                borderRadius: theme.radiusSmall,
-                                flexShrink: 0,
-                                border: theme.border,
-                                boxShadow: theme.shadow,
-                                background: '#FFFFFF',
-                                display: 'block',
-                            }}
-                        />
-                        <div>
-                            <div style={{
-                                fontFamily: theme.fontDisplay,
-                                fontWeight: 900,
-                                fontSize: 28,
-                                letterSpacing: '4px',
-                                color: theme.black,
-                            }}>
-                                {state.karaokeSessionCode}
-                            </div>
-                            <div style={{ fontSize: 12, color: theme.muted, marginTop: 4, fontFamily: theme.fontBody }}>
-                                Scan to add songs from your phone
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Search Bar */}
-                <div style={{ position: 'relative', maxWidth: 480 }}>
-                    <div style={{
-                        position: 'absolute', left: 14, top: 0, bottom: 0,
-                        display: 'flex', alignItems: 'center', pointerEvents: 'none',
-                        color: theme.muted,
-                    }}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-                        </svg>
-                    </div>
-                    <input
-                        type="text"
-                        placeholder="Search songs or artists..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        onFocus={() => setSearchFocused(true)}
-                        onBlur={() => setSearchFocused(false)}
-                        style={{
-                            width: '100%',
-                            padding: '11px 14px 11px 42px',
-                            fontSize: 14,
-                            transition: 'border-color 0.1s, box-shadow 0.1s',
-                            ...theme.input,
-                            border: searchFocused ? `2px solid ${theme.accentA}` : theme.input.border as string,
-                            boxShadow: searchFocused ? `2px 2px 0px ${theme.accentA}` : theme.shadow,
-                        }}
-                    />
-                </div>
+            {/* Session join module + search */}
+            <div style={{ marginBottom: 28 }}>
+                <SearchInput
+                    placeholder="Search songs or artists…"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    style={{ width: '100%', maxWidth: 480 }}
+                />
             </div>
 
             {loading ? (
                 <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
-                    <div
-                        className="spinner"
-                        style={{
-                            border: `3px solid ${theme.spinnerBorder}`,
-                            borderTopColor: theme.spinnerBorderTop,
-                        }}
-                    />
+                    <Spinner size={24} />
                 </div>
             ) : catalog.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '80px 20px' }}>
-                    <div style={{ fontSize: 48, marginBottom: 16 }}>🎵</div>
-                    <h2 style={{
-                        fontFamily: theme.fontDisplay,
-                        fontSize: 22,
-                        fontWeight: 700,
-                        marginBottom: 8,
-                        color: theme.black,
-                    }}>
-                        No songs available
-                    </h2>
-                    <p style={{
-                        fontSize: 14,
-                        color: theme.muted,
-                        marginBottom: 24,
-                        maxWidth: 360,
-                        margin: '0 auto 24px',
-                        fontFamily: theme.fontBody,
-                    }}>
-                        An admin needs to add songs with instrumentals first. Go to the Admin page to set up the catalog.
-                    </p>
-                    <button
-                        onClick={() => navigate('/admin')}
-                        style={{ ...theme.btnPrimary, padding: '12px 24px', fontSize: 14 }}
-                        onMouseEnter={e => { e.currentTarget.style.transform = 'translate(-2px,-2px)'; e.currentTarget.style.boxShadow = theme.shadowLift }}
-                        onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = (theme.btnPrimary.boxShadow as string) ?? theme.shadow }}
-                    >
-                        Go to Admin
-                    </button>
-                </div>
+                <EmptyState
+                    icon="music"
+                    title="No songs in the library"
+                    desc="Import songs with instrumentals on the Admin page to build the catalog."
+                    action={<Button variant="primary" onClick={() => navigate('/admin')}>Go to Admin</Button>}
+                />
             ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
+                <div className="adm-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 14 }}>
                     {filteredCatalog.map(song => {
                         const isHovered = hoveredId === song.trackId
                         const tempo = getTempoLabel(song)
@@ -316,94 +199,91 @@ export default function SearchPage() {
                                 onClick={() => selectSong(song)}
                                 onMouseEnter={() => setHoveredId(song.trackId)}
                                 onMouseLeave={() => setHoveredId(null)}
+                                className="adm-card"
                                 style={{
-                                    padding: 0,
-                                    cursor: 'pointer',
-                                    textAlign: 'left',
-                                    overflow: 'hidden',
-                                    transition: 'transform 0.1s, box-shadow 0.1s',
-                                    ...theme.card,
-                                    ...(isHovered ? theme.cardHover : {}),
+                                    padding: 0, cursor: 'pointer', textAlign: 'left', overflow: 'hidden',
+                                    transform: isHovered ? 'translateY(-3px)' : 'none',
+                                    borderColor: isHovered ? 'rgba(245,165,36,0.45)' : undefined,
+                                    boxShadow: isHovered
+                                        ? '0 1px 0 rgba(255,255,255,0.05) inset, 0 18px 34px -12px rgba(0,0,0,0.7), 0 0 22px -8px var(--adm-amber-glow)'
+                                        : undefined,
+                                    transition: 'transform 0.18s var(--adm-spring), box-shadow 0.2s ease, border-color 0.15s ease',
                                 }}
                             >
-                                {song.artUrl ? (
-                                    <img
-                                        src={song.artUrl}
-                                        alt=""
-                                        style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }}
-                                    />
-                                ) : (
+                                <div style={{ position: 'relative' }}>
+                                    {song.artUrl ? (
+                                        <img
+                                            src={song.artUrl}
+                                            alt=""
+                                            style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }}
+                                        />
+                                    ) : (
+                                        <div style={{
+                                            width: '100%', aspectRatio: '1', background: 'var(--adm-card-2)',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            color: 'var(--adm-text-3)',
+                                        }}>
+                                            <Icon name="music" size={42} />
+                                        </div>
+                                    )}
+                                    {/* Hover play scrim */}
                                     <div style={{
-                                        width: '100%',
-                                        aspectRatio: '1',
-                                        background: theme.creamDark,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        fontSize: 48,
+                                        position: 'absolute', inset: 0,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        background: 'linear-gradient(180deg, rgba(10,12,17,0.1), rgba(10,12,17,0.55))',
+                                        opacity: isHovered ? 1 : 0,
+                                        transition: 'opacity 0.18s ease',
                                     }}>
-                                        🎵
+                                        <span style={{
+                                            width: 46, height: 46, borderRadius: '50%',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            background: 'linear-gradient(180deg, var(--adm-amber-bright), var(--adm-amber))',
+                                            color: '#191104',
+                                            boxShadow: '0 8px 24px -6px var(--adm-amber-glow)',
+                                            transform: isHovered ? 'scale(1)' : 'scale(0.8)',
+                                            transition: 'transform 0.2s var(--adm-spring)',
+                                        }}>
+                                            <Icon name="play" size={18} style={{ marginLeft: 2 }} />
+                                        </span>
                                     </div>
-                                )}
-                                <div style={{ padding: '12px 14px' }}>
+                                    {/* Duration tag */}
+                                    <span className="adm-mono" style={{
+                                        position: 'absolute', right: 8, bottom: 8,
+                                        fontSize: 10.5, padding: '2px 7px', borderRadius: 5,
+                                        background: 'rgba(10,12,17,0.75)', color: 'var(--adm-text-2)',
+                                        border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(4px)',
+                                    }}>
+                                        {formatDuration(song.durationMs)}
+                                    </span>
+                                </div>
+                                <div style={{ padding: '11px 13px 13px' }}>
                                     <div style={{
-                                        fontFamily: theme.fontDisplay,
-                                        fontWeight: 700,
-                                        fontSize: 14,
-                                        color: (isHovered && theme.cardHover.color) ? theme.cardHover.color : theme.black,
-                                        whiteSpace: 'nowrap',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
+                                        fontFamily: 'var(--adm-display)', fontWeight: 650, fontSize: 13.5,
+                                        color: 'var(--adm-text)',
+                                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                                     }}>
                                         {song.name}
                                     </div>
                                     <div style={{
-                                        fontSize: 12,
-                                        color: (isHovered && theme.cardHover.color) ? theme.cardHover.color : theme.muted,
-                                        opacity: isHovered ? ((theme.cardHover.color) ? 0.7 : 1) : 1,
-                                        marginTop: 2,
-                                        whiteSpace: 'nowrap',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        fontFamily: theme.fontBody,
+                                        fontSize: 12, marginTop: 2,
+                                        color: isHovered ? 'var(--adm-amber-bright)' : 'var(--adm-text-2)',
+                                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                                        transition: 'color 0.15s ease',
                                     }}>
-                                        {isHovered && details.length > 0
-                                            ? details.join(' \u00B7 ')
-                                            : song.artist
-                                        }
-                                    </div>
-                                    <div style={{
-                                        fontSize: 11,
-                                        color: (isHovered && theme.cardHover.color) ? theme.cardHover.color : theme.faint,
-                                        opacity: isHovered ? ((theme.cardHover.color) ? 0.5 : 1) : 1,
-                                        marginTop: 4,
-                                        whiteSpace: 'nowrap',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        fontFamily: theme.fontBody,
-                                    }}>
-                                        {isHovered
-                                            ? `${song.artist} \u00B7 ${formatDuration(song.durationMs)}`
-                                            : formatDuration(song.durationMs)
-                                        }
+                                        {isHovered && details.length > 0 ? details.join(' · ') : song.artist}
                                     </div>
                                 </div>
                             </button>
                         )
                     })}
                     {filteredCatalog.length === 0 && searchQuery && (
-                        <div style={{
-                            gridColumn: '1 / -1',
-                            padding: '40px 0',
-                            textAlign: 'center',
-                            color: theme.muted,
-                            fontFamily: theme.fontBody,
-                        }}>
-                            No songs found matching &ldquo;{searchQuery}&rdquo;
+                        <div style={{ gridColumn: '1 / -1' }}>
+                            <EmptyState icon="search" title="No matches" desc={<>Nothing in the library matches &ldquo;{searchQuery}&rdquo;.</>} />
                         </div>
                     )}
                 </div>
             )}
+
         </div>
     )
 }

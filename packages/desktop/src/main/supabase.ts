@@ -378,6 +378,19 @@ export async function adjustQueueBonusPoints(queueRowId: string, delta: number):
     if (error) console.error('Failed to adjust queue bonus_points:', error.message)
 }
 
+// Clear the next-up lock from every still-queued row in a session. Lobby Mode
+// has no next-up song — every queued song stays in open vote competition — so
+// entering it drops any pin the companion / mobile queues are still showing.
+export async function unlockQueuedItems(sessionId: string): Promise<void> {
+    const { error } = await supabase
+        .from('karaoke_queue')
+        .update({ locked: false })
+        .eq('session_id', sessionId)
+        .eq('status', 'queued')
+        .eq('locked', true)
+    if (error) console.error('Failed to unlock queued items:', error.message)
+}
+
 export async function lockQueueItem(queueRowId: string): Promise<void> {
     const { error } = await supabase
         .from('karaoke_queue')

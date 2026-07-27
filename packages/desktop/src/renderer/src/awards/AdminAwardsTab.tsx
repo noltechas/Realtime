@@ -1,13 +1,12 @@
-import { useState, useEffect, useCallback, useRef, type CSSProperties } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useApp, NEON_COLORS, type QueueItem, type Singer } from '../context/AppContext'
-import { useTheme } from '../context/ThemeContext'
 import { FEATURED_SVGS, awardIconCdnUrl } from './icons/manifest'
+import { Button, Card, Icon, IconButton, Input, TextArea } from '../components/ui'
 import {
     Award,
     AwardCandidate,
     AwardVote,
     AwardSubjectType,
-    AwardStanding,
     EncoreSong,
     RevealStep
 } from './types'
@@ -35,7 +34,7 @@ const ENCORE_VOTE_MS = 45000
 const ENCORE_WINNER_MS = 7000
 
 const REFRESH_MS = 4000
-const MEDALS = ['🥇', '🥈', '🥉']
+const RANK_LABELS = ['1st', '2nd', '3rd']
 
 // Ceremony order for the three house awards when the admin hasn't set their own
 // running order: Best Duo/Group, then Singer of the Night, then Best
@@ -48,7 +47,6 @@ const AWARD_DESCRIPTION_MAX = 180
 
 export function AdminAwardsTab() {
     const { state, dispatch } = useApp()
-    const theme = useTheme()
     const sessionId = state.karaokeSessionId
     const sessionCode = state.karaokeSessionCode
     const [votes, setVotes] = useState<AwardVote[]>([])
@@ -97,9 +95,9 @@ export function AdminAwardsTab() {
 
     if (!sessionId) {
         return (
-            <div style={{ ...theme.card, border: theme.border, padding: 24, textAlign: 'center', color: theme.faint }}>
+            <Card style={{ textAlign: 'center', color: 'var(--adm-text-3)', fontSize: 13.5 }}>
                 Start or resume a session to enable awards.
-            </div>
+            </Card>
         )
     }
 
@@ -401,64 +399,39 @@ export function AdminAwardsTab() {
     const totalVotes = votes.length
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {/* Toolbar */}
-            <div style={{ ...theme.card, border: theme.border, padding: '16px 20px', display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between' }}>
+            <Card pad={false} style={{ padding: '16px 20px', display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
-                    <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 14, color: theme.black }}>
+                    <div style={{ fontFamily: 'var(--adm-display)', fontWeight: 650, fontSize: 14.5 }}>
                         Awards Overview
                     </div>
-                    <div style={{ fontSize: 12, color: theme.faint, fontFamily: theme.fontBody }}>
+                    <div style={{ fontSize: 12, color: 'var(--adm-text-2)', marginTop: 2 }}>
                         {state.awards.length} award{state.awards.length === 1 ? '' : 's'} · {totalVotes} ranked vote{totalVotes === 1 ? '' : 's'} cast · {history.length} performance{history.length === 1 ? '' : 's'} played
                     </div>
-                    <div style={{ fontSize: 11, color: theme.faint, fontFamily: theme.fontBody, marginTop: 2 }}>
+                    <div style={{ fontSize: 11, color: 'var(--adm-text-3)', marginTop: 2 }}>
                         Scoring: 1st place = 3 pts · 2nd = 2 · 3rd = 1
                     </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <button
-                        onClick={refresh}
-                        style={{
-                            padding: '8px 14px', fontSize: 12, fontWeight: 700, fontFamily: theme.fontDisplay,
-                            cursor: 'pointer', border: theme.border, borderRadius: theme.radius,
-                            background: theme.cream, color: theme.black
-                        }}
-                    >Refresh</button>
+                    <Button size="sm" icon="restart" onClick={refresh}>Refresh</Button>
                     {revealStatus === 'idle' ? (
-                        <button
+                        <Button
+                            variant="primary"
+                            icon="monitor"
                             onClick={handleStartReveal}
                             disabled={state.awards.length === 0}
-                            style={{
-                                padding: '10px 18px', fontSize: 13, fontWeight: 800, fontFamily: theme.fontDisplay,
-                                cursor: state.awards.length === 0 ? 'not-allowed' : 'pointer',
-                                border: theme.border, borderRadius: theme.radius,
-                                background: theme.accentB, color: '#1A1A1A',
-                                opacity: state.awards.length === 0 ? 0.6 : 1,
-                                letterSpacing: 0.5
-                            }}
-                        >{finalized ? 'Replay Reveal on Stage' : 'Start Reveal on Stage'}</button>
+                        >
+                            {finalized ? 'Replay Reveal on Stage' : 'Start Reveal on Stage'}
+                        </Button>
                     ) : (
-                        <button
-                            onClick={handleEndReveal}
-                            style={{
-                                padding: '10px 18px', fontSize: 13, fontWeight: 800, fontFamily: theme.fontDisplay,
-                                cursor: 'pointer', border: theme.border, borderRadius: theme.radius,
-                                background: '#FF4D6D', color: '#fff', letterSpacing: 0.5
-                            }}
-                        >End Reveal</button>
+                        <Button variant="danger" onClick={handleEndReveal}>End Reveal</Button>
                     )}
                     {finalized && revealStatus === 'idle' && (
-                        <button
-                            onClick={handleUnfinalize}
-                            style={{
-                                padding: '8px 14px', fontSize: 12, fontWeight: 700, fontFamily: theme.fontDisplay,
-                                cursor: 'pointer', border: theme.border, borderRadius: theme.radius,
-                                background: theme.cream, color: theme.black
-                            }}
-                        >Reopen Voting</button>
+                        <Button size="sm" onClick={handleUnfinalize}>Reopen Voting</Button>
                     )}
                 </div>
-            </div>
+            </Card>
 
             {/* Reveal control panel — admin paces the show with Prev/Next so each
                 winner can give a speech before advancing. */}
@@ -466,72 +439,75 @@ export function AdminAwardsTab() {
                 const current = storyboard[slideIdx]
                 const onWinner = current?.phase === 'winner' && (current?.winners?.length ?? 0) > 0
                 return (
-                    <div style={{ ...theme.card, border: `2px solid ${theme.accentB}`, padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <Card style={{
+                        borderColor: 'rgba(245,165,36,0.45)',
+                        boxShadow: 'var(--adm-card-shadow), 0 0 28px -10px var(--adm-amber-glow)',
+                        display: 'flex', flexDirection: 'column', gap: 12,
+                    }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
                             <div>
-                                <div style={{ fontFamily: theme.fontDisplay, fontWeight: 800, fontSize: 15, color: theme.black }}>
-                                    On stage now · {slideIdx + 1} / {storyboard.length}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <span className="adm-led adm-led--on" />
+                                    <span style={{ fontFamily: 'var(--adm-display)', fontWeight: 700, fontSize: 15 }}>
+                                        On stage now · <span className="adm-mono">{slideIdx + 1} / {storyboard.length}</span>
+                                    </span>
                                 </div>
-                                <div style={{ fontSize: 13, color: theme.black, fontFamily: theme.fontBody, marginTop: 2 }}>
+                                <div style={{ fontSize: 13, color: 'var(--adm-text-2)', marginTop: 3 }}>
                                     {current ? describeRevealSlide(current) : ''}
                                 </div>
                             </div>
                             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                                <button
-                                    onClick={() => goToSlide(slideIdx - 1)}
-                                    disabled={slideIdx === 0}
-                                    style={{
-                                        padding: '10px 16px', fontSize: 13, fontWeight: 700, fontFamily: theme.fontDisplay,
-                                        cursor: slideIdx === 0 ? 'not-allowed' : 'pointer', border: theme.border, borderRadius: theme.radius,
-                                        background: theme.cream, color: theme.black, opacity: slideIdx === 0 ? 0.5 : 1
-                                    }}
-                                >◀ Back</button>
-                                <button
+                                <Button onClick={() => goToSlide(slideIdx - 1)} disabled={slideIdx === 0}>Back</Button>
+                                <Button
+                                    variant="primary"
                                     onClick={() => goToSlide(slideIdx + 1)}
                                     disabled={slideIdx >= storyboard.length - 1}
-                                    style={{
-                                        padding: '10px 22px', fontSize: 14, fontWeight: 800, fontFamily: theme.fontDisplay,
-                                        cursor: slideIdx >= storyboard.length - 1 ? 'not-allowed' : 'pointer', border: theme.border, borderRadius: theme.radius,
-                                        background: theme.accentB, color: '#1A1A1A', letterSpacing: 0.5,
-                                        opacity: slideIdx >= storyboard.length - 1 ? 0.5 : 1
-                                    }}
-                                >Next ▶</button>
+                                    icon="chevronRight"
+                                >
+                                    Next
+                                </Button>
                             </div>
                         </div>
                         {onWinner && (
-                            <div style={{ fontSize: 12.5, color: theme.black, fontFamily: theme.fontBody, background: `${theme.accentA}22`, border: `1px solid ${theme.accentA}`, borderRadius: theme.radiusSmall, padding: '8px 12px' }}>
-                                🎤 The main mic is live for the winner's speech. Tap <strong>Next</strong> when they're done.
-                                {!state.micSlots?.[0]?.micDeviceId && ' (No main mic configured in Controls — assign mic slot 1 to enable it.)'}
+                            <div style={{
+                                display: 'flex', alignItems: 'center', gap: 8,
+                                fontSize: 12.5, color: 'var(--adm-text)',
+                                background: 'var(--adm-amber-soft)', border: '1px solid rgba(245,165,36,0.35)',
+                                borderRadius: 'var(--adm-r-sm)', padding: '8px 12px',
+                            }}>
+                                <Icon name="mic" size={14} style={{ color: 'var(--adm-amber-bright)' }} />
+                                <span>
+                                    The main mic is live for the winner's speech. Tap <strong>Next</strong> when they're done.
+                                    {!state.micSlots?.[0]?.micDeviceId && ' (No main mic configured in Controls — assign mic slot 1 to enable it.)'}
+                                </span>
                             </div>
                         )}
-                    </div>
+                    </Card>
                 )
             })()}
 
             {/* Reveal running order — reorder before starting the show. */}
             {revealStatus === 'idle' && orderedTallies.length > 0 && (
-                <div style={{ ...theme.card, border: theme.border, padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 13, color: theme.black }}>
+                <Card pad={false} style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ fontFamily: 'var(--adm-display)', fontWeight: 650, fontSize: 13.5 }}>
                         Reveal running order
                     </div>
-                    <div style={{ fontSize: 11, color: theme.faint, fontFamily: theme.fontBody, marginBottom: 2 }}>
+                    <div style={{ fontSize: 11.5, color: 'var(--adm-text-3)', marginBottom: 2 }}>
                         Awards are revealed top to bottom. By default, custom awards run from least to most voted, then the house awards. Reorder to set your own pacing. Best Performance always closes the show, followed by the live Encore.
                     </div>
                     {orderedTallies.map(({ award }, i) => (
-                        <div key={award.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px', borderRadius: theme.radiusSmall, background: theme.creamDark }}>
-                            <span style={{ width: 20, textAlign: 'center', fontWeight: 800, color: theme.faint, fontFamily: theme.fontDisplay, fontSize: 13 }}>{i + 1}</span>
-                            <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: theme.black, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{award.title}</span>
-                            <button onClick={() => moveReveal(i, -1)} disabled={i === 0} title="Move up"
-                                style={{ ...orderBtnStyle(theme), opacity: i === 0 ? 0.4 : 1, cursor: i === 0 ? 'not-allowed' : 'pointer' }}>▲</button>
-                            <button onClick={() => moveReveal(i, 1)} disabled={i === orderedTallies.length - 1} title="Move down"
-                                style={{ ...orderBtnStyle(theme), opacity: i === orderedTallies.length - 1 ? 0.4 : 1, cursor: i === orderedTallies.length - 1 ? 'not-allowed' : 'pointer' }}>▼</button>
+                        <div key={award.id} className="adm-well" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px' }}>
+                            <span className="adm-mono" style={{ width: 22, textAlign: 'center', fontWeight: 600, color: 'var(--adm-text-3)', fontSize: 12 }}>{i + 1}</span>
+                            <span style={{ flex: 1, minWidth: 0, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{award.title}</span>
+                            <IconButton icon="arrowUp" size={26} title="Move up" onClick={() => moveReveal(i, -1)} disabled={i === 0} />
+                            <IconButton icon="arrowDown" size={26} title="Move down" onClick={() => moveReveal(i, 1)} disabled={i === orderedTallies.length - 1} />
                         </div>
                     ))}
-                </div>
+                </Card>
             )}
 
             {/* Live tallies grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: 14 }}>
                 {tallies.map(({ award, candidates, tally }) => {
                     const subjectLabel = award.subjectType === 'performance'
                         ? 'Performance'
@@ -541,9 +517,14 @@ export function AdminAwardsTab() {
                     const ballotsOpen = !!expandedBallots[award.id]
                     const isEditing = editDraft?.id === award.id
                     return (
-                        <div key={award.id} style={{ ...theme.card, border: theme.border, padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <Card key={award.id} pad={false} style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                <div style={{ width: 40, height: 40, borderRadius: theme.radiusSmall, background: theme.creamDark, padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.black }}>
+                                <div style={{
+                                    width: 40, height: 40, borderRadius: 9, padding: 6, flexShrink: 0,
+                                    background: 'var(--adm-card-2)', border: '1px solid var(--adm-line)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    color: 'var(--adm-amber-bright)',
+                                }}>
                                     {(() => {
                                         if (award.iconDataUrl) {
                                             return <img src={award.iconDataUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }} />
@@ -564,38 +545,38 @@ export function AdminAwardsTab() {
                                                 display: 'block'
                                             }} />
                                         }
-                                        return <span style={{ fontSize: 22 }}>🏆</span>
+                                        return <Icon name="trophy" size={20} />
                                     })()}
                                 </div>
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                     {isEditing ? (
-                                        <input
+                                        <Input
                                             value={editDraft!.title}
                                             onChange={e => setEditDraft(d => d ? { ...d, title: e.target.value } : d)}
                                             maxLength={AWARD_TITLE_MAX}
                                             placeholder="Award name"
-                                            style={editInputStyle(theme)}
+                                            style={{ fontWeight: 650, fontSize: 13.5, padding: '6px 9px' }}
                                         />
                                     ) : (
-                                        <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 15, color: theme.black, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        <div style={{ fontFamily: 'var(--adm-display)', fontWeight: 650, fontSize: 14.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                             {award.title}
                                         </div>
                                     )}
-                                    <div style={{ fontSize: 11, color: theme.faint, fontFamily: theme.fontBody, marginTop: isEditing ? 4 : 0 }}>
+                                    <div style={{ fontSize: 11, color: 'var(--adm-text-3)', marginTop: isEditing ? 4 : 1 }}>
                                         {subjectLabel} · {award.isDefault ? 'Default' : 'Custom'}{award.finalizedAt ? ' · Finalized' : ''} · {tally.totalBallots} voter{tally.totalBallots === 1 ? '' : 's'}
                                     </div>
                                 </div>
                                 <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
                                     {isEditing ? (
                                         <>
-                                            <button onClick={() => saveEditAward(award)} title="Save changes" style={editActionStyle(theme, true)}>Save</button>
-                                            <button onClick={cancelEditAward} title="Discard changes" style={editActionStyle(theme, false)}>Cancel</button>
+                                            <Button variant="primary" size="sm" title="Save changes" onClick={() => saveEditAward(award)}>Save</Button>
+                                            <Button size="sm" title="Discard changes" onClick={cancelEditAward}>Cancel</Button>
                                         </>
                                     ) : (
                                         <>
-                                            <button onClick={() => startEditAward(award)} title="Edit name & description" style={editActionStyle(theme, false)}>Edit</button>
+                                            <IconButton icon="pencil" size={28} title="Edit name & description" onClick={() => startEditAward(award)} />
                                             {!award.isDefault && (
-                                                <button onClick={() => handleDeleteAward(award)} title="Delete custom award" style={{ ...editActionStyle(theme, false), color: '#c33' }}>Delete</button>
+                                                <IconButton icon="trash" size={28} danger title="Delete custom award" onClick={() => handleDeleteAward(award)} />
                                             )}
                                         </>
                                     )}
@@ -604,15 +585,14 @@ export function AdminAwardsTab() {
 
                             {isEditing && (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                    <textarea
+                                    <TextArea
                                         value={editDraft!.description}
                                         onChange={e => setEditDraft(d => d ? { ...d, description: e.target.value.slice(0, AWARD_DESCRIPTION_MAX) } : d)}
                                         maxLength={AWARD_DESCRIPTION_MAX}
                                         rows={3}
                                         placeholder="Description (read aloud during the reveal)"
-                                        style={{ ...editInputStyle(theme), fontFamily: theme.fontBody, fontWeight: 400, fontSize: 13, lineHeight: 1.4, resize: 'vertical', whiteSpace: 'normal' }}
                                     />
-                                    <div style={{ fontSize: 10.5, color: theme.faint, fontFamily: theme.fontBody, textAlign: 'right' }}>
+                                    <div className="adm-mono" style={{ fontSize: 10, color: 'var(--adm-text-3)', textAlign: 'right' }}>
                                         {editDraft!.description.length}/{AWARD_DESCRIPTION_MAX}
                                     </div>
                                 </div>
@@ -620,7 +600,7 @@ export function AdminAwardsTab() {
 
                             {/* Standings */}
                             {ranked.length === 0 ? (
-                                <div style={{ fontSize: 12, color: theme.faint, padding: '8px 0' }}>
+                                <div style={{ fontSize: 12, color: 'var(--adm-text-3)', padding: '8px 0' }}>
                                     {candidates.length === 0 ? 'No eligible candidates yet' : 'No votes cast yet'}
                                 </div>
                             ) : (
@@ -631,23 +611,28 @@ export function AdminAwardsTab() {
                                         return (
                                             <div key={entry.subjectKey} style={{
                                                 display: 'flex', alignItems: 'center', gap: 8,
-                                                padding: '6px 10px', borderRadius: theme.radiusSmall,
-                                                background: isWinner ? `${theme.accentA}24` : theme.creamDark,
-                                                border: isWinner ? `1px solid ${theme.accentA}` : `1px solid transparent`
+                                                padding: '6px 10px', borderRadius: 'var(--adm-r-sm)',
+                                                background: isWinner ? 'var(--adm-amber-soft)' : 'var(--adm-well)',
+                                                border: isWinner ? '1px solid rgba(245,165,36,0.45)' : '1px solid var(--adm-line-faint)',
                                             }}>
-                                                <span style={{ fontSize: 12, fontWeight: 700, color: theme.faint, width: 18, textAlign: 'center', fontFamily: theme.fontDisplay }}>
+                                                <span className="adm-mono" style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--adm-text-3)', width: 18, textAlign: 'center' }}>
                                                     {i + 1}
                                                 </span>
                                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <div style={{ fontSize: 13, fontWeight: isWinner ? 700 : 500, color: theme.black, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                        {isWinner && '🏆 '}{label}
+                                                    <div style={{
+                                                        display: 'flex', alignItems: 'center', gap: 5,
+                                                        fontSize: 13, fontWeight: isWinner ? 650 : 500,
+                                                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                                    }}>
+                                                        {isWinner && <Icon name="trophy" size={12} style={{ color: 'var(--adm-amber-bright)' }} />}
+                                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
                                                     </div>
-                                                    <div style={{ fontSize: 10.5, color: theme.faint, fontFamily: theme.fontBody, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                                        <span>🥇{entry.firstPlaceVotes}</span>
-                                                        <span>🥈{entry.secondPlaceVotes}</span>
-                                                        <span>🥉{entry.thirdPlaceVotes}</span>
+                                                    <div className="adm-mono" style={{ fontSize: 10, color: 'var(--adm-text-3)', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                                        <span>1st×{entry.firstPlaceVotes}</span>
+                                                        <span>2nd×{entry.secondPlaceVotes}</span>
+                                                        <span>3rd×{entry.thirdPlaceVotes}</span>
                                                         {entry.adjustment !== 0 && (
-                                                            <span style={{ color: theme.accentA, fontWeight: 700 }}>
+                                                            <span style={{ color: 'var(--adm-amber-bright)', fontWeight: 600 }}>
                                                                 {entry.adjustment > 0 ? '+' : ''}{entry.adjustment} adj
                                                             </span>
                                                         )}
@@ -655,19 +640,11 @@ export function AdminAwardsTab() {
                                                 </div>
                                                 {/* +/- score adjustment */}
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                                    <button
-                                                        onClick={() => adjustScore(award, entry.subjectKey, -1)}
-                                                        title="Subtract a point"
-                                                        style={adjBtnStyle(theme)}
-                                                    >−</button>
-                                                    <span style={{ fontSize: 16, fontWeight: 800, color: theme.black, fontFamily: theme.fontDisplay, minWidth: 26, textAlign: 'center' }}>
+                                                    <IconButton icon="minus" size={24} title="Subtract a point" onClick={() => adjustScore(award, entry.subjectKey, -1)} />
+                                                    <span className="adm-mono" style={{ fontSize: 14, fontWeight: 600, minWidth: 26, textAlign: 'center' }}>
                                                         {entry.score}
                                                     </span>
-                                                    <button
-                                                        onClick={() => adjustScore(award, entry.subjectKey, +1)}
-                                                        title="Add a point"
-                                                        style={adjBtnStyle(theme)}
-                                                    >+</button>
+                                                    <IconButton icon="plus" size={24} title="Add a point" onClick={() => adjustScore(award, entry.subjectKey, +1)} />
                                                 </div>
                                             </div>
                                         )
@@ -675,7 +652,6 @@ export function AdminAwardsTab() {
                                     {/* Allow nudging candidates that have no score yet (manual award). */}
                                     {candidates.length > ranked.length && (
                                         <AddPointPicker
-                                            theme={theme}
                                             candidates={candidates.filter(c => !ranked.some(r => r.subjectKey === c.subjectKey))}
                                             onAdd={(key) => adjustScore(award, key, +1)}
                                         />
@@ -689,23 +665,31 @@ export function AdminAwardsTab() {
                                     <button
                                         onClick={() => setExpandedBallots(s => ({ ...s, [award.id]: !s[award.id] }))}
                                         style={{
-                                            fontSize: 11, fontWeight: 700, fontFamily: theme.fontDisplay,
-                                            color: theme.black, background: 'transparent', border: 'none', cursor: 'pointer',
-                                            padding: '4px 0', display: 'flex', alignItems: 'center', gap: 6
+                                            fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--adm-body)',
+                                            color: 'var(--adm-text-2)', background: 'transparent', border: 'none', cursor: 'pointer',
+                                            padding: '4px 0', display: 'flex', alignItems: 'center', gap: 5,
                                         }}
                                     >
-                                        {ballotsOpen ? '▾' : '▸'} {ballotsOpen ? 'Hide' : 'Show'} individual ballots ({tally.totalBallots})
+                                        <span style={{ display: 'inline-flex', transform: ballotsOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s ease' }}>
+                                            <Icon name="chevronRight" size={11} />
+                                        </span>
+                                        {ballotsOpen ? 'Hide' : 'Show'} individual ballots ({tally.totalBallots})
                                     </button>
                                     {ballotsOpen && (
-                                        <div style={{ maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+                                        <div className="adm-scroll" style={{ maxHeight: 220, display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
                                             {groupBallots(award, votes.filter(v => v.awardId === award.id), candidates).map(b => (
-                                                <div key={b.voterGuestId} style={{ background: theme.creamDark, borderRadius: theme.radiusSmall, padding: '6px 10px' }}>
-                                                    <div style={{ fontSize: 12, fontWeight: 700, color: theme.black, fontFamily: theme.fontDisplay, marginBottom: 2 }}>
+                                                <div key={b.voterGuestId} className="adm-well" style={{ padding: '6px 10px' }}>
+                                                    <div style={{ fontSize: 12, fontWeight: 650, marginBottom: 2 }}>
                                                         {guestNameById.get(b.voterGuestId) || 'Guest ' + b.voterGuestId.slice(0, 4)}
                                                     </div>
-                                                    <div style={{ fontSize: 11.5, color: theme.faint, fontFamily: theme.fontBody, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                                    <div style={{ fontSize: 11.5, color: 'var(--adm-text-3)', display: 'flex', flexDirection: 'column', gap: 1 }}>
                                                         {b.picks.map(p => (
-                                                            <span key={p.rank}>{MEDALS[p.rank - 1] || p.rank + ')'} {p.label}</span>
+                                                            <span key={p.rank}>
+                                                                <span className="adm-mono" style={{ color: p.rank === 1 ? 'var(--adm-amber-bright)' : 'var(--adm-text-3)' }}>
+                                                                    {RANK_LABELS[p.rank - 1] || p.rank + ')'}
+                                                                </span>
+                                                                {' '}{p.label}
+                                                            </span>
                                                         ))}
                                                     </div>
                                                 </div>
@@ -714,53 +698,19 @@ export function AdminAwardsTab() {
                                     )}
                                 </div>
                             )}
-                        </div>
+                        </Card>
                     )
                 })}
             </div>
 
             {state.awards.length === 0 && (
-                <div style={{ ...theme.card, border: theme.border, padding: 32, textAlign: 'center', color: theme.faint }}>
+                <Card style={{ textAlign: 'center', color: 'var(--adm-text-3)', fontSize: 13, padding: 32 }}>
                     No awards yet. Default awards seed automatically when the session opens.
                     Guests can create custom awards from the companion site.
-                </div>
+                </Card>
             )}
         </div>
     )
-}
-
-function adjBtnStyle(theme: ReturnType<typeof useTheme>): CSSProperties {
-    return {
-        width: 24, height: 24, lineHeight: '20px', fontSize: 16, fontWeight: 800,
-        cursor: 'pointer', border: theme.border, borderRadius: theme.radiusSmall,
-        background: theme.cream, color: theme.black, padding: 0
-    }
-}
-
-function orderBtnStyle(theme: ReturnType<typeof useTheme>): CSSProperties {
-    return {
-        width: 28, height: 26, fontSize: 12, fontWeight: 800, padding: 0,
-        border: theme.border, borderRadius: theme.radiusSmall,
-        background: theme.cream, color: theme.black
-    }
-}
-
-function editInputStyle(theme: ReturnType<typeof useTheme>): CSSProperties {
-    return {
-        width: '100%', boxSizing: 'border-box', padding: '6px 8px',
-        fontSize: 14, fontFamily: theme.fontDisplay, fontWeight: 700,
-        color: theme.black, background: theme.cream,
-        border: theme.border, borderRadius: theme.radiusSmall
-    }
-}
-
-function editActionStyle(theme: ReturnType<typeof useTheme>, primary: boolean): CSSProperties {
-    return {
-        padding: '4px 10px', fontSize: 11, fontWeight: 700, fontFamily: theme.fontDisplay,
-        cursor: 'pointer', border: theme.border, borderRadius: theme.radiusSmall,
-        background: primary ? theme.accentB : theme.cream,
-        color: primary ? '#1A1A1A' : theme.black, whiteSpace: 'nowrap'
-    }
 }
 
 // Group a session's award votes by voter into ranked ballots, resolving each
@@ -790,8 +740,7 @@ function groupBallots(
 
 // A tiny dropdown to grant a starting point to a candidate that has no votes —
 // lets the admin manually seat a finalist that polling missed.
-function AddPointPicker({ theme, candidates, onAdd }: {
-    theme: ReturnType<typeof useTheme>
+function AddPointPicker({ candidates, onAdd }: {
     candidates: AwardCandidate[]
     onAdd: (subjectKey: string) => void
 }) {
@@ -802,20 +751,26 @@ function AddPointPicker({ theme, candidates, onAdd }: {
             <button
                 onClick={() => setOpen(o => !o)}
                 style={{
-                    fontSize: 11, fontWeight: 700, fontFamily: theme.fontDisplay, color: theme.faint,
-                    background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px 0'
+                    fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--adm-body)', color: 'var(--adm-text-3)',
+                    background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px 0',
+                    display: 'flex', alignItems: 'center', gap: 5,
                 }}
-            >{open ? '▾' : '▸'} Add points to another candidate</button>
+            >
+                <span style={{ display: 'inline-flex', transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s ease' }}>
+                    <Icon name="chevronRight" size={11} />
+                </span>
+                Add points to another candidate
+            </button>
             {open && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4, maxHeight: 160, overflowY: 'auto' }}>
+                <div className="adm-scroll" style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4, maxHeight: 160 }}>
                     {candidates.map(c => (
                         <button
                             key={c.subjectKey}
                             onClick={() => { onAdd(c.subjectKey); setOpen(false) }}
+                            className="adm-well"
                             style={{
-                                textAlign: 'left', fontSize: 12, color: theme.black, fontFamily: theme.fontBody,
-                                background: theme.creamDark, border: 'none', borderRadius: theme.radiusSmall,
-                                padding: '5px 10px', cursor: 'pointer'
+                                textAlign: 'left', fontSize: 12, color: 'var(--adm-text)', fontFamily: 'var(--adm-body)',
+                                padding: '5px 10px', cursor: 'pointer',
                             }}
                         >+1 · {c.label}</button>
                     ))}

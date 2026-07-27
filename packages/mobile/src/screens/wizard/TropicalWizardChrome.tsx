@@ -1,86 +1,181 @@
-import React from 'react'
-import { View, Text, Pressable, Image } from 'react-native'
+import React, { useEffect, useRef } from 'react'
+import { Animated, Image, StyleSheet, Text, View, type ViewStyle } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
-import Svg, { Path } from 'react-native-svg'
+import { hashKey } from '../../theme/helpers'
+import {
+  Bead3D,
+  CREAM,
+  Hibiscus3D,
+  PAINTED,
+  PAPER,
+  Press,
+  RAMP_WALNUT,
+  Timber,
+  TimberDetail,
+  alpha,
+  lift,
+  sans,
+  script,
+  shade,
+  tiki,
+  useSize,
+} from '../../theme/themes/tropical/atoms/_tropical'
 
-// Tropical wizard chrome — the "Who sings what?" role cards rendered as carved
-// WOOD PANELS, with each singer option pinned on as a little scrap of PAPER
-// STAPLED to the wood. Kept here (like the space/steampunk/retrowave wizard
-// chrome) so WizardScreen stays a data container with a single tropical branch.
+// Tropical wizard chrome — the "Who sings what?" flow rendered in the theme's
+// tiki-workshop vocabulary: role cards are carved walnut boards (seeded grain,
+// routed groove, beveled edges), each singer option is a paper tag TAPED to the
+// board with washi strips in the singer's own color, and the color swatches are
+// glossy lei beads that bloom into a dimensional hibiscus when picked — the
+// same bead→bloom move the profile ColorPicker makes, so the whole app tells
+// one story. Kept here (like the space/steampunk/retrowave chrome) so
+// WizardScreen stays a data container with a single tropical branch.
 
-const WOOD_COLORS: readonly [string, string] = ['#9C6B3D', '#6E4423']
-const PAPER = '#FBF3DC'
-const WOOD_INK = '#3A2614'
-const CREAM = '#FFF1C4'
-
-// A staple crown — a brushed-metal bar with a top glint.
-function Staple({ rotate = 0 }: { rotate?: number }) {
+// ── The absolute-fill timber overlay for wizard cards ───────────────────────
+// WizardScreen paints the card base walnut (see wizardCardStyle) and layers
+// this inside it: the wood ramp, procedurally-seeded grain, bevels and a routed
+// groove border. Measures itself, so it fits any card.
+export function TropicalWoodFrame() {
+  const [size, onLayout] = useSize()
   return (
-    <View style={{ width: 15, height: 5.5, borderRadius: 2, backgroundColor: '#9AA0A8', borderWidth: 0.5, borderColor: '#6B7178', transform: [{ rotate: `${rotate}deg` }] }}>
-      <View pointerEvents="none" style={{ position: 'absolute', top: 1, left: 2, right: 2, height: 1.4, borderRadius: 1, backgroundColor: 'rgba(255,255,255,0.6)' }} />
-    </View>
-  )
-}
-
-// A hammered nail head — a dark dome with a glint.
-function Nail() {
-  return (
-    <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: '#2E2014', alignItems: 'center', justifyContent: 'center' }}>
-      <View style={{ width: 2.5, height: 2.5, borderRadius: 1.5, backgroundColor: 'rgba(255,255,255,0.35)' }} />
-    </View>
-  )
-}
-
-// A grained timber plank with a cut-wood edge + a hammered nail in each corner.
-export function TropicalRoleCard({ children }: { children: React.ReactNode }) {
-  return (
-    <View style={{ borderRadius: 16, marginBottom: 12, shadowColor: '#0E2E29', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.22, shadowRadius: 12, elevation: 6 }}>
+    <View pointerEvents="none" onLayout={onLayout} style={StyleSheet.absoluteFill}>
       <LinearGradient
-        colors={WOOD_COLORS}
+        colors={[RAMP_WALNUT[0], RAMP_WALNUT[1], RAMP_WALNUT[2]]}
+        locations={[0, 0.55, 1]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
-        style={{ borderRadius: 16, borderWidth: 2.5, borderColor: '#5A3A1E', overflow: 'hidden', padding: 14 }}
-      >
-        {/* grain + a soft top sheen */}
-        <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
-          {[0.18, 0.4, 0.62, 0.84].map((p, i) => (
-            <View key={i} style={{ position: 'absolute', left: 10, right: 10, top: `${p * 100}%`, height: 1, backgroundColor: 'rgba(0,0,0,0.14)' }} />
-          ))}
-          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '24%', backgroundColor: 'rgba(255,255,255,0.06)' }} />
-        </View>
-        {/* a nail hammered into each corner */}
-        <View pointerEvents="none" style={{ position: 'absolute', top: 6, left: 6 }}><Nail /></View>
-        <View pointerEvents="none" style={{ position: 'absolute', top: 6, right: 6 }}><Nail /></View>
-        <View pointerEvents="none" style={{ position: 'absolute', bottom: 6, left: 6 }}><Nail /></View>
-        <View pointerEvents="none" style={{ position: 'absolute', bottom: 6, right: 6 }}><Nail /></View>
-        {children}
-      </LinearGradient>
+        style={StyleSheet.absoluteFill}
+      />
+      {size ? (
+        <TimberDetail w={size.w} h={size.h} radius={16} seed={hashKey(`${size.w}x${size.h}`)} groove />
+      ) : null}
     </View>
   )
 }
 
-// An absolute-fill timber overlay for any wizard card whose base is a solid
-// wood color: a vertical grain gradient, faint horizontal grain lines, a soft
-// top sheen, and a hammered nail in each corner. Sits behind the card content.
-export function TropicalWoodFrame() {
+// ── Role card ────────────────────────────────────────────────────────────────
+export function TropicalRoleCard({ children }: { children: React.ReactNode }) {
   return (
-    <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
-      <LinearGradient colors={WOOD_COLORS} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={{ flex: 1 }} />
-      {[0.16, 0.34, 0.52, 0.7, 0.88].map((p, i) => (
-        <View key={i} style={{ position: 'absolute', left: 10, right: 10, top: `${p * 100}%`, height: 1, backgroundColor: 'rgba(0,0,0,0.13)' }} />
-      ))}
-      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '22%', backgroundColor: 'rgba(255,255,255,0.06)' }} />
-      <View style={{ position: 'absolute', top: 6, left: 6 }}><Nail /></View>
-      <View style={{ position: 'absolute', top: 6, right: 6 }}><Nail /></View>
-      <View style={{ position: 'absolute', bottom: 6, left: 6 }}><Nail /></View>
-      <View style={{ position: 'absolute', bottom: 6, right: 6 }}><Nail /></View>
+    <View style={[{ borderRadius: 16, marginBottom: 12 }, lift(2)]}>
+      <Timber radius={16} ramp={RAMP_WALNUT} seed="role-card" groove style={{ padding: 14 }}>
+        {children}
+      </Timber>
     </View>
   )
 }
 
-// A color swatch painted on the wood as a short, brushy paint-stroke square —
-// a wobbly filled square with bristle streaks. Selected gets a hand-inked
-// outline + a slight pop; a color taken by another singer dims out.
+// The small caption above the role name, stamped in the tiki caps face.
+// (fontBody kept for API compatibility with the other themes' chrome.)
+export function TropicalRoleEyebrow(_props: { fontBody: string }) {
+  return <Text style={tiki(10.5, 'rgba(255,240,214,0.6)')}>Who sings</Text>
+}
+
+// The role / artist name, painted in the surf script.
+export function TropicalRoleName({ name }: { name: string; fontBody: string }) {
+  return (
+    <Text style={[script(16, CREAM, PAINTED), { marginTop: 2, marginBottom: 10 }]} numberOfLines={1}>
+      {name}
+    </Text>
+  )
+}
+
+// ── Singer option: a paper tag taped to the board ───────────────────────────
+export function TropicalSingerPaper({
+  name,
+  color,
+  profilePicture,
+  active,
+  index,
+  onPress,
+}: {
+  name: string
+  color: string
+  profilePicture?: string
+  active: boolean
+  index: number
+  onPress: () => void
+  fontBody: string
+}) {
+  const tilt = (index % 2 === 0 ? 1 : -1) * (1.4 + (index % 2))
+  const v = useRef(new Animated.Value(active ? 1 : 0)).current
+
+  useEffect(() => {
+    const a = Animated.spring(v, { toValue: active ? 1 : 0, useNativeDriver: true, damping: 12, stiffness: 210, mass: 0.7 })
+    a.start()
+    return () => a.stop()
+  }, [active, v])
+
+  return (
+    <Press onPress={onPress} scaleTo={0.93} style={{ marginRight: 10, marginBottom: 12, marginTop: 6 }}>
+      <Animated.View
+        style={[
+          paperStyle,
+          {
+            opacity: active ? 1 : 0.82,
+            transform: [
+              { rotate: `${active ? 0 : tilt}deg` },
+              { scale: v.interpolate({ inputRange: [0, 1], outputRange: [1, 1.05] }) },
+            ],
+          },
+          active ? { shadowOpacity: 0.4, shadowRadius: 5, elevation: 5 } : null,
+        ]}
+      >
+        {/* washi tape — takes the singer's color once they're on the part */}
+        <Animated.View style={{ opacity: v, position: 'absolute', left: -11, top: -5, width: 34, height: 12, borderRadius: 2, backgroundColor: alpha(color, 0.68), borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)', transform: [{ rotate: '-36deg' }] }} />
+        <Animated.View style={{ opacity: v, position: 'absolute', right: -11, top: -5, width: 34, height: 12, borderRadius: 2, backgroundColor: alpha(color, 0.68), borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)', transform: [{ rotate: '36deg' }] }} />
+
+        <View style={{ width: 26, height: 26, alignItems: 'center', justifyContent: 'center' }}>
+          {profilePicture ? (
+            <View style={{ width: 24, height: 24, borderRadius: 999, overflow: 'hidden', borderWidth: 1.5, borderColor: shade(color, 0.2) }}>
+              <Image source={{ uri: profilePicture }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+            </View>
+          ) : (
+            <>
+              <Bead3D size={26} color={color} />
+              <Text style={[sans(10.5, 'bold', '#FFFFFF'), { position: 'absolute' }]}>{(name?.[0] ?? '?').toUpperCase()}</Text>
+            </>
+          )}
+        </View>
+        <Text style={sans(14, 'bold', '#3B2410')} numberOfLines={1}>
+          {name}
+        </Text>
+      </Animated.View>
+    </Press>
+  )
+}
+
+// The "add a singer to this part" affordance — a blank tag waiting for a name.
+export function TropicalAddPaper({
+  index,
+  onPress,
+}: {
+  index: number
+  onPress: () => void
+  fontBody: string
+}) {
+  const tilt = (index % 2 === 0 ? 1 : -1) * 1.6
+  return (
+    <Press onPress={onPress} scaleTo={0.93} style={{ marginRight: 10, marginBottom: 12, marginTop: 6 }}>
+      <View
+        style={[
+          paperStyle,
+          {
+            backgroundColor: 'rgba(255,249,236,0.8)',
+            borderWidth: 1.5,
+            borderColor: 'rgba(59,36,16,0.45)',
+            borderStyle: 'dashed',
+            opacity: 0.92,
+            transform: [{ rotate: `${tilt}deg` }],
+          },
+        ]}
+      >
+        <Text style={[sans(17, 'bold', '#3B2410'), { marginTop: -1 }]}>+</Text>
+        <Text style={sans(14, 'bold', '#3B2410')}>Add</Text>
+      </View>
+    </Press>
+  )
+}
+
+// ── Color swatch: lei bead that blooms when picked ──────────────────────────
 export function TropicalPaintSwatch({
   color,
   selected,
@@ -92,157 +187,61 @@ export function TropicalPaintSwatch({
   takenByOther: boolean
   onPress: () => void
 }) {
-  return (
-    <Pressable
-      onPress={() => { if (!takenByOther) onPress() }}
-      hitSlop={4}
-      style={{ opacity: takenByOther ? 0.32 : 1, transform: [{ scale: selected ? 1.1 : 1 }], marginRight: 4, marginBottom: 4 }}
-    >
-      <Svg width={40} height={36} viewBox="0 0 40 36">
-        <Path
-          d="M5 8 C 11 5 30 4 36 8 C 38 15 37 25 34 31 C 27 34 10 33 5 29 C 3 22 3 13 5 8 Z"
-          fill={color}
-          stroke={selected ? '#2E2014' : 'rgba(0,0,0,0.22)'}
-          strokeWidth={selected ? 3 : 1.2}
-          strokeLinejoin="round"
-        />
-        <Path d="M9 14 C 18 12 28 13 33 15" stroke="rgba(255,255,255,0.32)" strokeWidth={1.5} fill="none" strokeLinecap="round" />
-        <Path d="M8 22 C 17 21 27 22 32 24" stroke="rgba(0,0,0,0.12)" strokeWidth={1.4} fill="none" strokeLinecap="round" />
-      </Svg>
-    </Pressable>
-  )
-}
+  const v = useRef(new Animated.Value(selected ? 1 : 0)).current
 
-// The small caption above the role name ("WHO SINGS"), burned into the wood.
-export function TropicalRoleEyebrow({ fontBody }: { fontBody: string }) {
-  return (
-    <Text style={{ fontFamily: fontBody, fontSize: 12, letterSpacing: 1, color: 'rgba(255,241,196,0.65)', textTransform: 'uppercase' }}>
-      Who sings
-    </Text>
-  )
-}
+  useEffect(() => {
+    const a = Animated.spring(v, { toValue: selected ? 1 : 0, useNativeDriver: true, damping: 10, stiffness: 180, mass: 0.75 })
+    a.start()
+    return () => a.stop()
+  }, [selected, v])
 
-// The role / artist name, in the secondary font, carved into the plank.
-export function TropicalRoleName({ name, fontBody }: { name: string; fontBody: string }) {
   return (
-    <Text
-      style={{
-        fontFamily: fontBody,
-        fontSize: 22,
-        color: CREAM,
-        marginTop: 2,
-        marginBottom: 12,
-        textShadowColor: 'rgba(0,0,0,0.4)',
-        textShadowOffset: { width: 0, height: 1 },
-        textShadowRadius: 2,
+    <Press
+      onPress={() => {
+        if (!takenByOther) onPress()
       }}
+      hitSlop={4}
+      scaleTo={0.86}
+      style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center', marginRight: 2, marginBottom: 4, opacity: takenByOther ? 0.3 : 1 }}
     >
-      {name}
-    </Text>
+      <Animated.View
+        style={{
+          opacity: v.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 0.4, 0] }),
+          transform: [{ scale: v.interpolate({ inputRange: [0, 1], outputRange: [1, 0.5] }) }],
+        }}
+      >
+        <Bead3D size={27} color={color} />
+      </Animated.View>
+      <Animated.View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          opacity: v,
+          transform: [
+            { scale: v.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) },
+            { rotate: v.interpolate({ inputRange: [0, 1], outputRange: ['-80deg', '0deg'] }) },
+          ],
+        }}
+      >
+        <Hibiscus3D size={40} color={color} />
+      </Animated.View>
+    </Press>
   )
 }
 
-// A singer option: a scrap of paper stapled to the wood. Selected pins flat +
-// bright with a colored keyline; unselected sits dimmer and a touch tilted.
-export function TropicalSingerPaper({
-  name,
-  color,
-  profilePicture,
-  active,
-  index,
-  onPress,
-  fontBody,
-}: {
-  name: string
-  color: string
-  profilePicture?: string
-  active: boolean
-  index: number
-  onPress: () => void
-  fontBody: string
-}) {
-  const tilt = (index % 2 === 0 ? 1 : -1) * (1.5 + (index % 2))
-  return (
-    <Pressable onPress={onPress} style={{ marginRight: 10, marginBottom: 10, marginTop: 4 }}>
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 8,
-          backgroundColor: PAPER,
-          borderRadius: 4,
-          paddingVertical: 7,
-          paddingLeft: 7,
-          paddingRight: 14,
-          borderWidth: active ? 2.5 : 1,
-          borderColor: active ? color : 'rgba(60,38,20,0.22)',
-          transform: [{ rotate: `${active ? 0 : tilt}deg` }],
-          opacity: active ? 1 : 0.82,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: active ? 3 : 1 },
-          shadowOpacity: active ? 0.3 : 0.16,
-          shadowRadius: active ? 4 : 2,
-          elevation: active ? 4 : 2,
-        }}
-      >
-        {/* staples pinning the scrap to the wood */}
-        <View pointerEvents="none" style={{ position: 'absolute', top: -3, left: '24%' }}><Staple rotate={-14} /></View>
-        <View pointerEvents="none" style={{ position: 'absolute', top: -3, right: '24%' }}><Staple rotate={14} /></View>
-        <View style={{ width: 24, height: 24, borderRadius: 999, backgroundColor: color, borderWidth: 1.5, borderColor: '#5A3A1E', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-          {profilePicture ? (
-            <Image source={{ uri: profilePicture }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-          ) : (
-            <Text style={{ fontFamily: fontBody, fontSize: 12, color: '#FFFFFF' }}>{(name?.[0] ?? '?').toUpperCase()}</Text>
-          )}
-        </View>
-        <Text style={{ fontFamily: fontBody, fontSize: 15, color: WOOD_INK }}>{name}</Text>
-      </View>
-    </Pressable>
-  )
-}
-
-// The "add a singer to this part" affordance, rendered as a blank scrap of
-// paper stapled to the wood — a dashed keyline + a big "+" so it reads as an
-// empty slot waiting to be filled, distinct from the filled singer scraps.
-export function TropicalAddPaper({
-  index,
-  onPress,
-  fontBody,
-}: {
-  index: number
-  onPress: () => void
-  fontBody: string
-}) {
-  const tilt = (index % 2 === 0 ? 1 : -1) * (1.5 + (index % 2))
-  return (
-    <Pressable onPress={onPress} style={{ marginRight: 10, marginBottom: 10, marginTop: 4 }}>
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 6,
-          backgroundColor: PAPER,
-          borderRadius: 4,
-          paddingVertical: 7,
-          paddingLeft: 10,
-          paddingRight: 14,
-          borderWidth: 1.5,
-          borderColor: 'rgba(60,38,20,0.4)',
-          borderStyle: 'dashed',
-          transform: [{ rotate: `${tilt}deg` }],
-          opacity: 0.9,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 1 },
-          shadowOpacity: 0.16,
-          shadowRadius: 2,
-          elevation: 2,
-        }}
-      >
-        <View pointerEvents="none" style={{ position: 'absolute', top: -3, left: '24%' }}><Staple rotate={-14} /></View>
-        <View pointerEvents="none" style={{ position: 'absolute', top: -3, right: '24%' }}><Staple rotate={14} /></View>
-        <Text style={{ fontFamily: fontBody, fontSize: 22, lineHeight: 24, color: WOOD_INK }}>+</Text>
-        <Text style={{ fontFamily: fontBody, fontSize: 15, color: WOOD_INK }}>Add</Text>
-      </View>
-    </Pressable>
-  )
+// Shared paper-tag styling.
+const paperStyle: ViewStyle = {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 7,
+  backgroundColor: PAPER,
+  borderRadius: 5,
+  paddingVertical: 6,
+  paddingLeft: 6,
+  paddingRight: 13,
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.28,
+  shadowRadius: 3,
+  elevation: 3,
 }

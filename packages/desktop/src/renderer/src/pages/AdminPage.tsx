@@ -1,14 +1,18 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, CSSProperties, ReactNode } from 'react'
 import { createClient, RealtimeChannel } from '@supabase/supabase-js'
 import { useApp, NEON_COLORS } from '../context/AppContext'
 import { AdminAwardsTab } from '../awards/AdminAwardsTab'
-import { useTheme } from '../context/ThemeContext'
 import { VoiceEffects, DEFAULT_VOICE_EFFECTS, normalizeMicLevel } from '../audio/VoiceEffectsTypes'
 import { VoiceEffectsEngine } from '../audio/VoiceEffectsEngine'
 import { BUILT_IN_PRESETS, PRESET_CATEGORIES, VocalPreset } from '../audio/VocalPresets'
 import { useAudioDevices } from '../hooks/useAudioDevices'
 import { resyncLyrics } from '../utils/resyncSyllables'
 import { SyllableEditor } from '../components/SyllableEditor'
+import { LobbyModeCard } from '../components/LobbyModeCard'
+import {
+    ArtTile, Avatar, Button, Card, CardHeader, Chip, EmptyState, FaderRow, Field,
+    Icon, IconButton, Input, Led, Meter, PageHeader, SearchInput, Select, Spinner, Tabs, Toggle,
+} from '../components/ui'
 
 const SUPABASE_URL = 'https://hnnbxwitjkeijvoldfuv.supabase.co'
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhubmJ4d2l0amtlaWp2b2xkZnV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MjcwMTQsImV4cCI6MjA5MDUwMzAxNH0.ENzZ2VLxszHr9StjFds06In7CyGkiyPvu6Jh1LUMMvA'
@@ -92,9 +96,85 @@ function bucketSpotifyGenres(rawTags: string[] | null | undefined): string[] {
     return Array.from(result)
 }
 
+/** Round preset pill with the artist's photo (or initial). Used in the FX
+ *  editor and the Audition Booth. */
+function PresetChip({ preset, active, imgUrl, onImgError, onClick }: {
+    preset: VocalPreset
+    active: boolean
+    imgUrl: string | null
+    onImgError: () => void
+    onClick: () => void
+}) {
+    return (
+        <button
+            onClick={onClick}
+            title={preset.description}
+            style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '3px 11px 3px 4px', borderRadius: 99,
+                fontSize: 11, fontWeight: 600, fontFamily: 'var(--adm-body)',
+                border: active ? '1px solid var(--adm-amber)' : '1px solid var(--adm-line)',
+                background: active ? 'var(--adm-amber-soft)' : 'var(--adm-card-2)',
+                color: active ? 'var(--adm-amber-bright)' : 'var(--adm-text-2)',
+                cursor: 'pointer', whiteSpace: 'nowrap',
+                boxShadow: active ? '0 0 12px -4px var(--adm-amber-glow)' : 'none',
+                transition: 'all 0.13s ease',
+            }}
+        >
+            {imgUrl ? (
+                <img
+                    src={imgUrl}
+                    alt={preset.name}
+                    onError={onImgError}
+                    style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(0,0,0,0.4)' }}
+                />
+            ) : (
+                <span style={{
+                    width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                    background: active ? 'var(--adm-amber)' : 'var(--adm-text-3)',
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 9, color: '#0b0d12', fontWeight: 700,
+                }}>
+                    {preset.name.charAt(0)}
+                </span>
+            )}
+            {preset.name}
+        </button>
+    )
+}
+
+/** One FX-rack module: toggle header + parameter faders, dimmed when off. */
+function FxModule({ label, enabled, onToggle, children }: {
+    label: string; enabled: boolean; onToggle: () => void; children: ReactNode
+}) {
+    return (
+        <div
+            className="adm-well"
+            style={{
+                padding: 14,
+                borderColor: enabled ? 'rgba(245,165,36,0.35)' : undefined,
+                boxShadow: enabled ? 'var(--adm-well-shadow), 0 0 16px -8px var(--adm-amber-glow)' : undefined,
+                transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+            }}
+        >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={onToggle}>
+                <Toggle on={enabled} onToggle={onToggle} />
+                <span style={{
+                    fontFamily: 'var(--adm-display)', fontWeight: 650, fontSize: 13,
+                    color: enabled ? 'var(--adm-text)' : 'var(--adm-text-3)',
+                }}>
+                    {label}
+                </span>
+            </div>
+            <div style={{ marginTop: 12, pointerEvents: enabled ? 'auto' : 'none', opacity: enabled ? 1 : 0.45, transition: 'opacity 0.2s ease' }}>
+                {children}
+            </div>
+        </div>
+    )
+}
+
 export default function AdminPage() {
     const { state, dispatch } = useApp()
-    const theme = useTheme()
     const [query, setQuery] = useState('')
     const [results, setResults] = useState<any[]>([])
     const [catalog, setCatalog] = useState<CatalogSong[]>([])
@@ -341,7 +421,7 @@ export default function AdminPage() {
                 if (ctx2d) {
                     const W = canvas.width
                     const H = canvas.height
-                    ctx2d.fillStyle = '#0a0a14'
+                    ctx2d.fillStyle = '#0a0c11'
                     ctx2d.fillRect(0, 0, W, H)
                     ctx2d.strokeStyle = 'rgba(255,255,255,0.08)'
                     ctx2d.lineWidth = 1
@@ -358,7 +438,7 @@ export default function AdminPage() {
                     const fMin = 80
                     const logMin = Math.log(fMin)
                     const logMax = Math.log(nyquist)
-                    ctx2d.fillStyle = '#4ade80'
+                    ctx2d.fillStyle = '#3ecf8e'
                     for (let i = 0; i < N; i++) {
                         const f = (i / N) * nyquist
                         if (f < fMin) continue
@@ -368,7 +448,7 @@ export default function AdminPage() {
                         ctx2d.fillRect(x, H - h, Math.max(1, W / N), h)
                     }
                     ctx2d.fillStyle = 'rgba(255,255,255,0.5)'
-                    ctx2d.font = '10px monospace'
+                    ctx2d.font = '10px IBM Plex Mono, monospace'
                     const labelFreqs = [100, 250, 500, 1000, 2500, 5000, 10000]
                     for (const f of labelFreqs) {
                         if (f < fMin || f > nyquist) continue
@@ -1210,610 +1290,431 @@ export default function AdminPage() {
 
     const isInCatalog = (id: string) => catalog.some(s => s.trackId === id)
 
-    // ── Inner helper components ─────────────────────────────────────────────
-    const Toggle = ({ on, onClick, label }: { on: boolean; onClick: () => void; label: string }) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={onClick}>
-            <div style={{
-                width: 36, height: 20, borderRadius: 10,
-                background: on ? theme.mintGreen : theme.creamDark,
-                border: theme.borderThin,
-                position: 'relative',
-                transition: 'background 0.2s',
-                flexShrink: 0,
-            }}>
-                <div style={{
-                    position: 'absolute',
-                    top: 2,
-                    left: on ? 18 : 2,
-                    width: 12,
-                    height: 12,
-                    background: on ? theme.black : theme.muted,
-                    borderRadius: '50%',
-                    transition: 'left 0.15s',
-                }} />
-            </div>
-            <span style={{
-                fontFamily: theme.fontDisplay,
-                fontWeight: 700,
-                fontSize: 13,
-                color: on ? theme.black : theme.muted,
-            }}>
-                {label}
-            </span>
-        </div>
-    )
+    const roleDotColor = (idx: number) => `hsl(${(idx * 137.5) % 360}, 70%, 55%)`
 
-    const Slider = ({ label, val, min, max, unit, onChange }: { label: string; val: number; min: number; max: number; unit: string; onChange: (v: number) => void }) => (
-        <div style={{ marginBottom: 12 }}>
-            <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                fontSize: 11,
-                marginBottom: 4,
-                color: theme.muted,
-                fontFamily: theme.fontDisplay,
-                fontWeight: 600,
-            }}>
-                <span>{label}</span>
-                <span style={{ color: theme.black }}>{val}{unit}</span>
-            </div>
-            <input
-                type="range"
-                value={val}
-                min={min}
-                max={max}
-                step={max - min > 10 ? 1 : 0.1}
-                onChange={e => onChange(parseFloat(e.target.value))}
-                style={{ width: '100%', height: 4, accentColor: theme.accentA }}
-            />
-        </div>
-    )
-
-    // Shared style helpers
-    const sectionCard: React.CSSProperties = { ...theme.card, padding: '24px 28px' }
-    const innerPanel: React.CSSProperties = {
-        background: theme.creamDark,
-        border: theme.borderThin,
-        borderRadius: theme.radius,
-        padding: 16,
-    }
-    const fxModule = (enabled: boolean): React.CSSProperties => ({
-        background: theme.creamDark,
-        border: theme.borderThin,
-        borderRadius: theme.radius,
-        padding: 16,
-        opacity: enabled ? 1 : 0.5,
-        boxShadow: enabled ? theme.shadowColor(theme.softViolet) : 'none',
-        transition: 'opacity 0.2s, box-shadow 0.2s',
-    })
+    const activeCfg = pending?.configs[pending.activeRoleTab]
 
     return (
-        <div className="anim-enter" style={{ ...theme.page }}>
-            {/* Page header */}
-            <div style={{ marginBottom: 36, paddingTop: 16 }}>
-                <h1 style={{
-                    fontFamily: theme.fontDisplay,
-                    fontSize: 42,
-                    fontWeight: 900,
-                    letterSpacing: '-1.5px',
-                    marginBottom: 4,
-                    color: theme.black,
-                }}>
-                    Admin
-                </h1>
-                <p style={{ color: theme.muted, fontSize: 14, fontFamily: theme.fontBody }}>
-                    {adminTab === 'songs' && 'Add songs, sculpt effects rack, and manage the catalog'}
-                    {adminTab === 'guests' && 'View and manage guests in the current session'}
-                    {adminTab === 'requests' && 'Songs guests are asking you to add to the library'}
-                    {adminTab === 'awards' && 'Review live vote tallies and reveal winners on the stage'}
-                </p>
-            </div>
+        <div className="adm-page">
+            <PageHeader
+                label="Backstage"
+                title="Admin"
+                desc={
+                    adminTab === 'songs' ? 'Import songs, sculpt the FX rack, and manage the catalog'
+                        : adminTab === 'guests' ? 'View and manage guests in the current session'
+                            : adminTab === 'requests' ? 'Songs guests are asking you to add to the library'
+                                : 'Review live vote tallies and reveal winners on the stage'
+                }
+            />
+
+            {/* Lobby Mode — sits above the tabs so it's reachable from every
+                Admin view, and an active lobby is impossible to miss. */}
+            <LobbyModeCard />
 
             {/* Default Microphones */}
-            <div style={{
-                ...theme.card, border: theme.border, padding: '16px 20px', marginBottom: 24,
-                display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
-            }}>
-                <div style={{
-                    fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 12,
-                    color: theme.muted, letterSpacing: '1px', textTransform: 'uppercase',
-                    flexShrink: 0,
-                }}>
-                    Default Mics
+            <Card pad={false} style={{ padding: '13px 18px', marginBottom: 18 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+                    <span className="adm-label" style={{ flexShrink: 0 }}>Default Mics</span>
+                    {[0, 1, 2, 3].map(i => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, flex: 1, minWidth: 165 }}>
+                            <span style={{
+                                width: 9, height: 9, borderRadius: '50%', flexShrink: 0,
+                                background: NEON_COLORS[i].color,
+                                boxShadow: `0 0 6px ${NEON_COLORS[i].colorGlow}`,
+                            }} />
+                            <Select
+                                value={state.micSlots[i]?.micDeviceId || ''}
+                                onChange={(e) => dispatch({
+                                    type: 'SET_MIC_SLOT',
+                                    payload: { index: i, config: { micDeviceId: e.target.value } }
+                                })}
+                                style={{ flex: 1, minWidth: 0, padding: '5px 26px 5px 9px', fontSize: 11.5 }}
+                            >
+                                <option value="">Singer {i + 1} — None</option>
+                                {mics.map(m => (
+                                    <option key={m.deviceId} value={m.deviceId}>
+                                        {m.label || 'Mic ' + m.deviceId.slice(0, 6)}
+                                    </option>
+                                ))}
+                            </Select>
+                        </div>
+                    ))}
                 </div>
-                {[0, 1, 2, 3].map(i => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 160 }}>
-                        <div style={{
-                            width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
-                            background: NEON_COLORS[i].color,
-                            boxShadow: `0 0 6px ${NEON_COLORS[i].colorGlow}`,
-                        }} />
-                        <select
-                            value={state.micSlots[i]?.micDeviceId || ''}
-                            onChange={(e) => dispatch({
-                                type: 'SET_MIC_SLOT',
-                                payload: { index: i, config: { micDeviceId: e.target.value } }
-                            })}
-                            style={{
-                                ...theme.select, flex: 1, minWidth: 0,
-                                padding: '6px 8px', fontSize: 11,
-                            }}
-                        >
-                            <option value="">Singer {i + 1} — None</option>
-                            {mics.map(m => (
-                                <option key={m.deviceId} value={m.deviceId}>
-                                    {m.label || 'Mic ' + m.deviceId.slice(0, 6)}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                ))}
+            </Card>
+
+            {/* Tabs */}
+            <div style={{ marginBottom: 20 }}>
+                <Tabs
+                    tabs={[
+                        { id: 'songs' as const, label: 'Songs', icon: 'music' },
+                        { id: 'guests' as const, label: 'Guests', icon: 'users', count: guests.length },
+                        { id: 'requests' as const, label: 'Requests', icon: 'inbox', count: pendingRequestCount },
+                        { id: 'awards' as const, label: 'Awards', icon: 'trophy', count: state.awards.length },
+                    ]}
+                    active={adminTab}
+                    onChange={setAdminTab}
+                />
             </div>
 
-            {/* Tab pills */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
-                {(['songs', 'guests', 'requests', 'awards'] as const).map(tab => {
-                    const label = tab === 'songs'
-                        ? 'Songs'
-                        : tab === 'guests'
-                            ? `Guests${guests.length ? ` (${guests.length})` : ''}`
-                            : tab === 'requests'
-                                ? `Requests${pendingRequestCount ? ` (${pendingRequestCount})` : ''}`
-                                : `Awards${state.awards.length ? ` (${state.awards.length})` : ''}`
-                    return (
-                        <button
-                            key={tab}
-                            onClick={() => setAdminTab(tab)}
-                            style={{
-                                padding: '8px 20px',
-                                borderRadius: theme.radius,
-                                fontSize: 14,
-                                fontWeight: 700,
-                                fontFamily: theme.fontDisplay,
-                                cursor: 'pointer',
-                                border: theme.border,
-                                background: adminTab === tab ? theme.softViolet : theme.cream,
-                                color: theme.black,
-                                boxShadow: adminTab === tab ? theme.shadow : 'none',
-                                transition: 'all 0.15s',
-                            }}
-                        >
-                            {label}
-                        </button>
-                    )
-                })}
-            </div>
+            {/* ═══ Songs Tab ═══ */}
+            {adminTab === 'songs' && (
+                <>
+                    {!pending && (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 16 }}>
+                            {/* Add Song / Search */}
+                            <Card>
+                                <CardHeader icon="search" label="Import" title="Add Song" desc="Search Spotify for the track to import" />
 
-            {adminTab === 'songs' && <><div style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
+                                <SearchInput
+                                    placeholder="Search Spotify…"
+                                    value={query}
+                                    onChange={(e) => { setQuery(e.target.value); setLyricsError(null); setPending(null) }}
+                                    style={{ marginBottom: results.length || loading ? 14 : 0 }}
+                                />
 
-                {/* ── Left Column: Search & Catalog ── */}
-                {!pending && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, flex: 1, minWidth: 320 }}>
-
-                        {/* Add Song / Search */}
-                        <section style={sectionCard}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-                                <div style={{
-                                    width: 32, height: 32, borderRadius: theme.radiusSmall,
-                                    background: `${theme.mintGreen}20`,
-                                    border: `2px solid ${theme.mintGreen}`,
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
-                                }}>🎵</div>
-                                <div>
-                                    <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 14, color: theme.black }}>Add Song</div>
-                                    <div style={{ fontSize: 11, color: theme.faint, fontFamily: theme.fontBody }}>Search Spotify</div>
-                                </div>
-                            </div>
-
-                            <input
-                                placeholder="Search..."
-                                value={query}
-                                onChange={(e) => { setQuery(e.target.value); setLyricsError(null); setPending(null) }}
-                                style={{ ...theme.input, width: '100%', padding: '10px 14px', fontSize: 14, marginBottom: results.length ? 16 : 0 }}
-                            />
-
-                            {loading && (
-                                <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 0' }}>
-                                    <div className="spinner" style={{ border: `3px solid ${theme.spinnerBorder}`, borderTopColor: theme.spinnerBorderTop }} />
-                                </div>
-                            )}
-
-                            {!pending && results.length > 0 && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 400, overflowY: 'auto' }}>
-                                    {results.map((track: any) => {
-                                        const art = track.album?.images?.[track.album.images.length - 1]?.url
-                                        const inCat = isInCatalog(track.id)
-                                        return (
-                                            <div
-                                                key={track.id}
-                                                onClick={() => !inCat && selectTrack(track)}
-                                                style={{
-                                                    display: 'flex', alignItems: 'center', gap: 12,
-                                                    padding: '10px 14px',
-                                                    borderRadius: theme.radius,
-                                                    background: theme.creamDark,
-                                                    border: theme.borderThin,
-                                                    cursor: inCat ? 'default' : 'pointer',
-                                                    transition: 'box-shadow 0.1s',
-                                                }}
-                                            >
-                                                {art && <img src={art} alt="" style={{ width: 40, height: 40, borderRadius: theme.radiusSmall, objectFit: 'cover', border: theme.borderThin }} />}
-                                                <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 13, color: theme.black, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.name}</div>
-                                                    <div style={{ fontSize: 11, color: theme.faint, fontFamily: theme.fontBody }}>{track.artists?.map((a: any) => a.name).join(', ')}</div>
-                                                </div>
-                                                {inCat ? (
-                                                    <span style={{
-                                                        fontSize: 10, padding: '3px 8px', borderRadius: 4,
-                                                        background: `${theme.mintGreen}20`,
-                                                        border: `2px solid ${theme.mintGreen}`,
-                                                        color: theme.mintGreen,
-                                                        fontFamily: theme.fontDisplay, fontWeight: 700,
-                                                    }}>✓ In Catalog</span>
-                                                ) : (
-                                                    <span style={{ fontSize: 11, color: theme.muted, fontFamily: theme.fontDisplay }}>Configure →</span>
-                                                )}
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-                            )}
-                        </section>
-
-                        {/* Catalog */}
-                        <section style={sectionCard}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-                                <div style={{
-                                    width: 32, height: 32, borderRadius: theme.radiusSmall,
-                                    background: `${theme.softViolet}20`,
-                                    border: `2px solid ${theme.softViolet}`,
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
-                                }}>📚</div>
-                                <div>
-                                    <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 14, color: theme.black }}>Song Catalog</div>
-                                    <div style={{ fontSize: 11, color: theme.faint, fontFamily: theme.fontBody }}>{catalog.length} songs ready</div>
-                                </div>
-                            </div>
-
-                            <input
-                                placeholder="Filter songs..."
-                                value={catalogFilter}
-                                onChange={(e) => setCatalogFilter(e.target.value)}
-                                style={{ ...theme.input, width: '100%', padding: '10px 14px', fontSize: 14, marginBottom: catalog.length ? 16 : 0 }}
-                            />
-
-                            {catalog.length === 0 ? (
-                                <div style={{ textAlign: 'center', padding: '24px 0', color: theme.faint, fontSize: 13, fontFamily: theme.fontBody }}>
-                                    No songs yet.
-                                </div>
-                            ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 300, overflowY: 'auto' }}>
-                                    {catalog.filter(song => {
-                                        if (!catalogFilter) return true
-                                        const q = catalogFilter.toLowerCase()
-                                        return song.name.toLowerCase().includes(q) || song.artist.toLowerCase().includes(q)
-                                    }).map(song => {
-                                        const hasSyllables = Array.isArray(song.lyrics) && song.lyrics.some((l: any) => Array.isArray(l?.syllables) && l.syllables.length > 0)
-                                        return (
-                                        <div key={song.trackId} style={{
-                                            display: 'flex', alignItems: 'center', gap: 12,
-                                            padding: '10px 14px',
-                                            borderRadius: theme.radius,
-                                            background: theme.creamDark,
-                                            border: theme.borderThin,
-                                        }}>
-                                            {song.artUrl && <img src={song.artUrl} alt="" style={{ width: 40, height: 40, borderRadius: theme.radiusSmall, objectFit: 'cover', border: theme.borderThin }} />}
-                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 13, color: theme.black }}>{song.name}</div>
-                                                <div style={{ fontSize: 11, color: theme.faint, fontFamily: theme.fontBody }}>{song.artist}</div>
-                                            </div>
-                                            {hasSyllables && (
-                                                <span
-                                                    title="Word-level karaoke timing"
-                                                    aria-label="Word-level karaoke timing"
-                                                    style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 18, color: theme.violet, flexShrink: 0, opacity: 0.85 }}
-                                                >
-                                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                                                        <line x1="3"  y1="12" x2="3"  y2="12" />
-                                                        <line x1="7"  y1="9"  x2="7"  y2="15" />
-                                                        <line x1="11" y1="5"  x2="11" y2="19" />
-                                                        <line x1="15" y1="8"  x2="15" y2="16" />
-                                                        <line x1="19" y1="11" x2="19" y2="13" />
-                                                    </svg>
-                                                </span>
-                                            )}
-                                            <button
-                                                style={{ ...theme.iconBtn, width: 28, height: 28, fontSize: 12 }}
-                                                onClick={() => handleEditCatalogSong(song)}
-                                                title="Edit Song"
-                                            >✎</button>
-                                            <button
-                                                style={{ ...theme.iconBtn, width: 28, height: 28, fontSize: 12, background: `${theme.hotRed}15`, color: theme.hotRed }}
-                                                onClick={() => window.electronAPI.removeSong(song.trackId).then(loadCatalog)}
-                                                title="Delete Song"
-                                            >✕</button>
-                                        </div>
-                                    )})}
-                                </div>
-                            )}
-                        </section>
-                    </div>
-                )}
-
-                {/* ── Right Column: Effects Rack ── */}
-                {pending && (
-                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
-                        <section style={{
-                            ...theme.card,
-                            padding: 24,
-                            borderColor: theme.softViolet,
-                            boxShadow: theme.shadowColor(theme.softViolet),
-                            overflow: 'hidden',
-                        }}>
-                            {/* Track Header */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
-                                {pending.track.album?.images?.[0]?.url && (
-                                    <img src={pending.track.album.images[0].url} alt="" style={{ width: 52, height: 52, borderRadius: theme.radius, objectFit: 'cover', border: theme.border }} />
+                                {loading && (
+                                    <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0' }}>
+                                        <Spinner />
+                                    </div>
                                 )}
-                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                    <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 16, color: theme.black }}>
+
+                                {results.length > 0 && (
+                                    <div className="adm-scroll" style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 400 }}>
+                                        {results.map((track: any) => {
+                                            const art = track.album?.images?.[track.album.images.length - 1]?.url
+                                            const inCat = isInCatalog(track.id)
+                                            return (
+                                                <div
+                                                    key={track.id}
+                                                    onClick={() => !inCat && selectTrack(track)}
+                                                    className={`adm-row${inCat ? '' : ' adm-row--hover'}`}
+                                                    style={{ cursor: inCat ? 'default' : 'pointer', background: 'var(--adm-well)' }}
+                                                >
+                                                    <ArtTile src={art} size={40} radius={6} />
+                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                        <div style={{ fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.name}</div>
+                                                        <div style={{ fontSize: 11.5, color: 'var(--adm-text-3)' }}>{track.artists?.map((a: any) => a.name).join(', ')}</div>
+                                                    </div>
+                                                    {inCat ? (
+                                                        <Chip tone="green" style={{ fontSize: 10.5 }}><Icon name="check" size={10} /> In Catalog</Chip>
+                                                    ) : (
+                                                        <span style={{ fontSize: 11.5, color: 'var(--adm-text-3)', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                                                            Configure <Icon name="chevronRight" size={12} />
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                )}
+                            </Card>
+
+                            {/* Catalog */}
+                            <Card>
+                                <CardHeader icon="music" label="Library" title="Song Catalog" desc={`${catalog.length} song${catalog.length === 1 ? '' : 's'} ready`} />
+
+                                <SearchInput
+                                    placeholder="Filter songs…"
+                                    value={catalogFilter}
+                                    onChange={(e) => setCatalogFilter(e.target.value)}
+                                    style={{ marginBottom: catalog.length ? 14 : 0 }}
+                                />
+
+                                {catalog.length === 0 ? (
+                                    <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--adm-text-3)', fontSize: 13 }}>
+                                        No songs yet.
+                                    </div>
+                                ) : (
+                                    <div className="adm-scroll" style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 400 }}>
+                                        {catalog.filter(song => {
+                                            if (!catalogFilter) return true
+                                            const q = catalogFilter.toLowerCase()
+                                            return song.name.toLowerCase().includes(q) || song.artist.toLowerCase().includes(q)
+                                        }).map(song => {
+                                            const hasSyllables = Array.isArray(song.lyrics) && song.lyrics.some((l: any) => Array.isArray(l?.syllables) && l.syllables.length > 0)
+                                            return (
+                                                <div key={song.trackId} className="adm-row" style={{ background: 'var(--adm-well)' }}>
+                                                    <ArtTile src={song.artUrl} size={40} radius={6} />
+                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                        <div style={{ fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{song.name}</div>
+                                                        <div style={{ fontSize: 11.5, color: 'var(--adm-text-3)' }}>{song.artist}</div>
+                                                    </div>
+                                                    {hasSyllables && (
+                                                        <span
+                                                            title="Word-level karaoke timing"
+                                                            aria-label="Word-level karaoke timing"
+                                                            style={{ display: 'inline-flex', color: 'var(--adm-cyan)', flexShrink: 0 }}
+                                                        >
+                                                            <Icon name="waveform" size={14} />
+                                                        </span>
+                                                    )}
+                                                    <IconButton icon="pencil" size={28} title="Edit Song" onClick={() => handleEditCatalogSong(song)} />
+                                                    <IconButton icon="trash" size={28} danger title="Delete Song" onClick={() => window.electronAPI.removeSong(song.trackId).then(loadCatalog)} />
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                )}
+                            </Card>
+                        </div>
+                    )}
+
+                    {/* ── Pending song editor ── */}
+                    {pending && activeCfg && (
+                        <Card style={{ borderColor: 'rgba(245,165,36,0.3)' }}>
+                            {/* Track Header */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
+                                <ArtTile src={pending.track.album?.images?.[0]?.url} size={54} radius={10} />
+                                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    <div style={{ fontFamily: 'var(--adm-display)', fontWeight: 700, fontSize: 17 }}>
                                         {pending.track.name}
                                     </div>
-                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                                         {/* BPM */}
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, ...innerPanel, padding: '4px 10px' }}>
+                                        <div className="adm-well" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px' }}>
                                             <input
                                                 type="number"
-                                                value={pending.configs[pending.activeRoleTab]?.tempo || 120}
+                                                className="adm-mono"
+                                                value={activeCfg.tempo || 120}
                                                 onChange={e => updateActiveConfig(c => { c.tempo = parseInt(e.target.value) || 120 })}
-                                                style={{ width: 50, fontSize: 13, background: 'transparent', border: 'none', color: theme.black, outline: 'none', fontFamily: theme.fontDisplay }}
+                                                style={{ width: 52, fontSize: 13, background: 'transparent', border: 'none', color: 'var(--adm-text)', outline: 'none' }}
                                             />
-                                            <span style={{ fontSize: 11, color: theme.muted, fontWeight: 700, fontFamily: theme.fontDisplay }}>BPM</span>
+                                            <span className="adm-label" style={{ fontSize: 9 }}>BPM</span>
                                         </div>
                                         {/* Key */}
-                                        <select
-                                            value={pending.configs[pending.activeRoleTab]?.key ?? -1}
+                                        <Select
+                                            value={activeCfg.key ?? -1}
                                             onChange={e => updateActiveConfig(c => { c.key = parseInt(e.target.value) })}
-                                            style={{ padding: '6px 10px', fontSize: 13, ...theme.select }}
+                                            style={{ width: 'auto' }}
                                         >
                                             <option value={-1}>Unknown Key</option>
                                             {KEY_NAMES.map((k, i) => <option key={i} value={i}>{k}</option>)}
-                                        </select>
+                                        </Select>
                                         {/* Mode */}
-                                        <select
-                                            value={pending.configs[pending.activeRoleTab]?.mode ?? 1}
+                                        <Select
+                                            value={activeCfg.mode ?? 1}
                                             onChange={e => updateActiveConfig(c => { c.mode = parseInt(e.target.value) })}
-                                            style={{ padding: '6px 10px', fontSize: 13, ...theme.select }}
+                                            style={{ width: 'auto' }}
                                         >
                                             <option value={1}>Major</option>
                                             <option value={0}>Minor</option>
-                                        </select>
+                                        </Select>
                                     </div>
                                 </div>
-                                <button
+                                <Button
+                                    icon="x" size="sm"
                                     onClick={() => { if (isPlayingSnippet) stopSnippetPlayback(); if (isTesting) toggleTesting(); setRecordedBlob(null); setLyricsError(null); setPending(null); setEditingSyllableLineIdx(null); setPendingInstrumentalPath(null) }}
-                                    style={{ ...theme.btnSecondary, fontSize: 12, padding: '8px 16px' }}
                                 >
-                                    ✕ Close
-                                </button>
+                                    Close
+                                </Button>
                             </div>
 
                             {/* Genres */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-                                <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 11, color: theme.muted, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Genres</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
+                                <span className="adm-label">Genres</span>
                                 {GENRE_BUCKETS.map(g => {
                                     const selected = (pending.genres || []).includes(g)
                                     return (
-                                        <button
+                                        <Chip
                                             key={g}
+                                            tone={selected ? 'amber' : undefined}
                                             onClick={() => setPending(p => {
                                                 if (!p) return p
                                                 const cur = p.genres || []
                                                 const next = cur.includes(g) ? cur.filter(x => x !== g) : [...cur, g]
                                                 return { ...p, genres: next }
                                             })}
-                                            style={{
-                                                padding: '4px 10px',
-                                                borderRadius: 999,
-                                                fontSize: 11,
-                                                fontFamily: theme.fontDisplay,
-                                                fontWeight: 700,
-                                                cursor: 'pointer',
-                                                background: selected ? theme.softViolet : 'transparent',
-                                                color: selected ? theme.white : theme.muted,
-                                                border: selected ? `1.5px solid ${theme.softViolet}` : theme.borderThin,
-                                                transition: 'all 0.12s'
-                                            }}
-                                        >{g}</button>
+                                        >
+                                            {g}
+                                        </Chip>
                                     )
                                 })}
                             </div>
 
                             {/* Roles & Lyrics */}
-                            <div style={{ display: 'flex', gap: 24, marginBottom: 24, ...innerPanel }}>
+                            <div className="adm-well" style={{ display: 'flex', gap: 22, marginBottom: 18, padding: 16, flexWrap: 'wrap' }}>
                                 {/* Roles */}
-                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                                <div style={{ flex: 1, minWidth: 240, display: 'flex', flexDirection: 'column', gap: 12 }}>
                                     <div>
-                                        <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 15, color: theme.black, marginBottom: 2 }}>Singer Roles</div>
-                                        <div style={{ fontSize: 12, color: theme.muted, fontFamily: theme.fontBody }}>Define distinct vocal setups.</div>
+                                        <div style={{ fontFamily: 'var(--adm-display)', fontWeight: 650, fontSize: 14 }}>Singer Roles</div>
+                                        <div style={{ fontSize: 12, color: 'var(--adm-text-2)' }}>Define distinct vocal setups.</div>
                                     </div>
-                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                        {pending.roles.map((role, idx) => (
-                                            <div
-                                                key={idx}
-                                                onClick={() => setPending(p => p ? { ...p, activeRoleTab: idx } : p)}
-                                                style={{
-                                                    display: 'flex', alignItems: 'center', gap: 8,
-                                                    padding: '7px 12px', borderRadius: theme.radius,
-                                                    fontSize: 13, cursor: 'pointer',
-                                                    background: pending.activeRoleTab === idx ? theme.softViolet : theme.cream,
-                                                    color: pending.activeRoleTab === idx ? theme.white : theme.black,
-                                                    border: pending.activeRoleTab === idx ? `3px solid ${theme.black}` : theme.borderThin,
-                                                    boxShadow: pending.activeRoleTab === idx ? theme.shadow : 'none',
-                                                    fontFamily: theme.fontDisplay,
-                                                    fontWeight: 700,
-                                                    transition: 'all 0.1s',
-                                                }}
-                                            >
-                                                <div style={{ width: 8, height: 8, borderRadius: '50%', background: `hsl(${(idx * 137.5) % 360}, 70%, 45%)`, border: '1px solid rgba(0,0,0,0.3)' }} />
-                                                {role}
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); handleRemoveRole(idx) }}
-                                                    style={{ background: 'none', border: 'none', color: 'inherit', opacity: 0.6, cursor: 'pointer', padding: 0, marginLeft: 2 }}
-                                                    onMouseEnter={e => e.currentTarget.style.opacity = '1'}
-                                                    onMouseLeave={e => e.currentTarget.style.opacity = '0.6'}
-                                                >✕</button>
-                                            </div>
-                                        ))}
+                                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                        {pending.roles.map((role, idx) => {
+                                            const active = pending.activeRoleTab === idx
+                                            return (
+                                                <div
+                                                    key={idx}
+                                                    onClick={() => setPending(p => p ? { ...p, activeRoleTab: idx } : p)}
+                                                    style={{
+                                                        display: 'flex', alignItems: 'center', gap: 8,
+                                                        padding: '6px 12px', borderRadius: 'var(--adm-r-sm)',
+                                                        fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                                                        border: active ? '1px solid var(--adm-amber)' : '1px solid var(--adm-line)',
+                                                        background: active ? 'var(--adm-amber-soft)' : 'var(--adm-card-2)',
+                                                        color: active ? 'var(--adm-amber-bright)' : 'var(--adm-text-2)',
+                                                        boxShadow: active ? '0 0 12px -4px var(--adm-amber-glow)' : 'none',
+                                                        transition: 'all 0.13s ease',
+                                                    }}
+                                                >
+                                                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: roleDotColor(idx), boxShadow: `0 0 5px ${roleDotColor(idx)}` }} />
+                                                    {role}
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleRemoveRole(idx) }}
+                                                        title="Remove role"
+                                                        style={{ background: 'none', border: 'none', color: 'inherit', opacity: 0.6, cursor: 'pointer', padding: 0, marginLeft: 2, display: 'inline-flex' }}
+                                                        onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                                                        onMouseLeave={e => e.currentTarget.style.opacity = '0.6'}
+                                                    >
+                                                        <Icon name="x" size={11} />
+                                                    </button>
+                                                </div>
+                                            )
+                                        })}
                                         {pending.roles.length === 0 && (
-                                            <div style={{ padding: '7px 14px', borderRadius: theme.radius, fontSize: 13, background: theme.cream, color: theme.faint, border: theme.borderThin, fontFamily: theme.fontDisplay }}>
+                                            <div style={{
+                                                padding: '6px 12px', borderRadius: 'var(--adm-r-sm)', fontSize: 12.5,
+                                                background: 'var(--adm-card-2)', color: 'var(--adm-text-3)', border: '1px dashed var(--adm-line-strong)',
+                                            }}>
                                                 Default Voice (No Roles)
                                             </div>
                                         )}
                                     </div>
                                     <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
-                                        <input
-                                            type="text"
+                                        <Input
                                             value={newRoleName}
                                             onChange={e => setNewRoleName(e.target.value)}
                                             onKeyDown={e => e.key === 'Enter' && handleAddRole()}
-                                            placeholder="Add singer role..."
-                                            style={{ flex: 1, ...theme.input, padding: '8px 12px', fontSize: 13 }}
+                                            placeholder="Add singer role…"
+                                            style={{ flex: 1 }}
                                         />
-                                        <button
-                                            onClick={handleAddRole}
-                                            style={{ ...theme.btnOutline, padding: '8px 16px', fontSize: 13 }}
-                                        >Add</button>
+                                        <Button onClick={handleAddRole}>Add</Button>
                                     </div>
                                 </div>
 
                                 {/* Lyrics */}
-                                <div style={{ flex: 1.5, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                <div style={{ flex: 1.6, minWidth: 320, display: 'flex', flexDirection: 'column', gap: 10 }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <div>
-                                            <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 15, color: theme.black }}>Lyrics Assignment</div>
-                                            <div style={{ fontSize: 12, color: theme.muted, marginTop: 2, fontFamily: theme.fontBody }}>Click the color dot to assign a role.</div>
+                                            <div style={{ fontFamily: 'var(--adm-display)', fontWeight: 650, fontSize: 14 }}>Lyrics Assignment</div>
+                                            <div style={{ fontSize: 12, color: 'var(--adm-text-2)' }}>Click the color dot to assign a role.</div>
                                         </div>
-                                        <button
-                                            onClick={handleFetchLyrics}
-                                            disabled={fetchingLyrics}
-                                            style={{ ...theme.btnSecondary, fontSize: 12, padding: '6px 14px' }}
-                                        >
-                                            {fetchingLyrics ? 'Fetching...' : 'Fetch Lyrics'}
-                                        </button>
+                                        <Button size="sm" onClick={handleFetchLyrics} disabled={fetchingLyrics}>
+                                            {fetchingLyrics ? 'Fetching…' : 'Fetch Lyrics'}
+                                        </Button>
                                     </div>
 
-                                    <div style={{
-                                        background: theme.cream,
-                                        borderRadius: theme.radius,
+                                    <div className="adm-scroll" style={{
+                                        background: 'var(--adm-card)',
+                                        borderRadius: 'var(--adm-r)',
                                         height: 400,
-                                        overflowY: 'auto',
-                                        border: theme.border,
-                                        boxShadow: theme.shadow,
+                                        border: '1px solid var(--adm-line)',
                                         position: 'relative',
                                     }}>
                                         {pending.lyrics.length > 0 ? (
-                                            <div style={{ padding: '8px 0' }}>
+                                            <div style={{ padding: '6px 0' }}>
                                                 {pending.lyrics.map((line, idx) => (
                                                     <div key={idx}>
-                                                    <div
-                                                        style={{
-                                                            display: 'flex', alignItems: 'center', gap: 12, padding: '7px 14px',
-                                                            background: idx % 2 === 0 ? `rgba(26,26,26,0.03)` : 'transparent',
-                                                        }}
-                                                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = `rgba(26,26,26,0.06)`}
-                                                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = idx % 2 === 0 ? `rgba(26,26,26,0.03)` : 'transparent'}
-                                                    >
-                                                        <span style={{ fontSize: 10, color: theme.faint, width: 40, fontFamily: 'monospace', flexShrink: 0 }}>
-                                                            {Math.floor(line.startTimeMs / 60000)}:{(Math.floor(line.startTimeMs / 1000) % 60).toString().padStart(2, '0')}
-                                                        </span>
                                                         <div
-                                                            onClick={(e) => { e.stopPropagation(); cycleLyricRole(idx) }}
-                                                            title={pending.roles.length > 0 ? 'Click to reassign role' : 'Add roles first'}
                                                             style={{
-                                                                width: 14, height: 14, borderRadius: '50%', flexShrink: 0,
-                                                                cursor: pending.roles.length > 0 ? 'pointer' : 'default',
-                                                                background: pending.roles.length > 0
-                                                                    ? (line.roleIndex === -1 ? 'linear-gradient(135deg, #FF3366, #33FFCC, #FFD700)' : `hsl(${((line.roleIndex || 0) * 137.5) % 360}, 70%, 45%)`)
-                                                                    : theme.creamDark,
-                                                                border: `2px solid ${theme.black}`,
+                                                                display: 'flex', alignItems: 'center', gap: 10, padding: '5px 12px',
+                                                                background: idx % 2 === 0 ? 'rgba(159,172,202,0.03)' : 'transparent',
                                                             }}
-                                                        />
-                                                        <input
-                                                            type="text"
-                                                            value={line.words}
-                                                            onChange={e => {
-                                                                const newVal = e.target.value
-                                                                setPending(p => p ? { ...p, lyrics: p.lyrics.map((l, i) => i === idx ? { ...l, words: newVal } : l) } : p)
-                                                            }}
-                                                            style={{
-                                                                flex: 1, fontSize: 13, color: theme.black, background: 'transparent',
-                                                                border: '1px solid transparent', padding: '3px 6px',
-                                                                borderRadius: theme.radiusSmall, outline: 'none', fontFamily: theme.fontBody,
-                                                                transition: 'border-color 0.15s',
-                                                            }}
-                                                            onFocus={e => e.target.style.borderColor = theme.accentA}
-                                                            onBlur={e => e.target.style.borderColor = 'transparent'}
-                                                        />
-                                                        {Array.isArray(line.syllables) && line.syllables.length > 0 && (
-                                                            <button
-                                                                onClick={(e) => { e.stopPropagation(); setEditingSyllableLineIdx(cur => cur === idx ? null : idx) }}
-                                                                title="Edit per-syllable text & timing"
+                                                            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'rgba(159,172,202,0.07)'}
+                                                            onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = idx % 2 === 0 ? 'rgba(159,172,202,0.03)' : 'transparent'}
+                                                        >
+                                                            <span className="adm-mono" style={{ fontSize: 10, color: 'var(--adm-text-3)', width: 38, flexShrink: 0 }}>
+                                                                {Math.floor(line.startTimeMs / 60000)}:{(Math.floor(line.startTimeMs / 1000) % 60).toString().padStart(2, '0')}
+                                                            </span>
+                                                            <div
+                                                                onClick={(e) => { e.stopPropagation(); cycleLyricRole(idx) }}
+                                                                title={pending.roles.length > 0 ? 'Click to reassign role' : 'Add roles first'}
                                                                 style={{
-                                                                    flexShrink: 0, display: 'inline-flex', alignItems: 'flex-end', gap: 1.5,
-                                                                    height: 16, padding: '2px 4px', cursor: 'pointer',
-                                                                    background: editingSyllableLineIdx === idx ? `${theme.accentA}22` : 'transparent',
-                                                                    border: `2px solid ${editingSyllableLineIdx === idx ? theme.accentA : 'transparent'}`,
-                                                                    borderRadius: theme.radiusSmall,
+                                                                    width: 13, height: 13, borderRadius: '50%', flexShrink: 0,
+                                                                    cursor: pending.roles.length > 0 ? 'pointer' : 'default',
+                                                                    background: pending.roles.length > 0
+                                                                        ? (line.roleIndex === -1 ? 'linear-gradient(135deg, #FF3366, #33FFCC, #FFD700)' : roleDotColor(line.roleIndex || 0))
+                                                                        : 'var(--adm-card-2)',
+                                                                    border: '1px solid rgba(0,0,0,0.5)',
+                                                                    boxShadow: '0 1px 0 rgba(255,255,255,0.08) inset',
                                                                 }}
+                                                            />
+                                                            <input
+                                                                type="text"
+                                                                value={line.words}
+                                                                onChange={e => {
+                                                                    const newVal = e.target.value
+                                                                    setPending(p => p ? { ...p, lyrics: p.lyrics.map((l, i) => i === idx ? { ...l, words: newVal } : l) } : p)
+                                                                }}
+                                                                style={{
+                                                                    flex: 1, fontSize: 13, color: 'var(--adm-text)', background: 'transparent',
+                                                                    border: '1px solid transparent', padding: '2px 6px',
+                                                                    borderRadius: 5, outline: 'none', fontFamily: 'var(--adm-body)',
+                                                                    transition: 'border-color 0.15s, background 0.15s',
+                                                                }}
+                                                                onFocus={e => { e.target.style.borderColor = 'rgba(245,165,36,0.5)'; e.target.style.background = 'var(--adm-well)' }}
+                                                                onBlur={e => { e.target.style.borderColor = 'transparent'; e.target.style.background = 'transparent' }}
+                                                            />
+                                                            {Array.isArray(line.syllables) && line.syllables.length > 0 && (
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); setEditingSyllableLineIdx(cur => cur === idx ? null : idx) }}
+                                                                    title="Edit per-syllable text & timing"
+                                                                    style={{
+                                                                        flexShrink: 0, display: 'inline-flex', alignItems: 'flex-end', gap: 1.5,
+                                                                        height: 18, padding: '2px 5px', cursor: 'pointer',
+                                                                        background: editingSyllableLineIdx === idx ? 'var(--adm-amber-soft)' : 'transparent',
+                                                                        border: editingSyllableLineIdx === idx ? '1px solid var(--adm-amber)' : '1px solid transparent',
+                                                                        borderRadius: 5,
+                                                                    }}
+                                                                >
+                                                                    {[5, 10, 7, 4].map((h, i) => (
+                                                                        <span key={i} style={{ width: 2, height: h, borderRadius: 1, background: 'var(--adm-amber)' }} />
+                                                                    ))}
+                                                                </button>
+                                                            )}
+                                                            {line.words.split(/(\([^)]+\))/).filter((s: string) => s.trim()).length > 1 && (
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); handleSplitLyric(idx) }}
+                                                                    title="Split Parentheses"
+                                                                    style={{
+                                                                        fontSize: 10, fontWeight: 700, padding: '1px 8px', borderRadius: 99,
+                                                                        background: 'var(--adm-green-soft)', color: 'var(--adm-green)',
+                                                                        border: '1px solid rgba(62,207,142,0.4)',
+                                                                        cursor: 'pointer', flexShrink: 0,
+                                                                    }}
+                                                                >Split</button>
+                                                            )}
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); setPending(p => p ? { ...p, lyrics: p.lyrics.filter((_, i) => i !== idx) } : p) }}
+                                                                title="Delete Line"
+                                                                style={{
+                                                                    background: 'none', border: 'none', color: 'var(--adm-text-3)',
+                                                                    cursor: 'pointer', padding: 3, flexShrink: 0, opacity: 0.55,
+                                                                    transition: 'opacity 0.15s', display: 'inline-flex',
+                                                                }}
+                                                                onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                                                                onMouseLeave={e => e.currentTarget.style.opacity = '0.55'}
                                                             >
-                                                                {[6, 11, 8, 4].map((h, i) => (
-                                                                    <span key={i} style={{ width: 2, height: h, borderRadius: 1, background: theme.accentA }} />
-                                                                ))}
+                                                                <Icon name="x" size={11} />
                                                             </button>
+                                                        </div>
+                                                        {editingSyllableLineIdx === idx && Array.isArray(line.syllables) && line.syllables.length > 0 && (
+                                                            <SyllableEditor
+                                                                line={line}
+                                                                nextLineStartMs={pending.lyrics[idx + 1]?.startTimeMs}
+                                                                instrumentalPath={pendingInstrumentalPath}
+                                                                onChange={({ syllables, words }) => setPending(p => p ? { ...p, lyrics: p.lyrics.map((l, i) => i === idx ? { ...l, syllables, words } : l) } : p)}
+                                                                onClose={() => setEditingSyllableLineIdx(null)}
+                                                            />
                                                         )}
-                                                        {line.words.split(/(\([^)]+\))/).filter((s: string) => s.trim()).length > 1 && (
-                                                            <button
-                                                                onClick={(e) => { e.stopPropagation(); handleSplitLyric(idx) }}
-                                                                style={{
-                                                                    fontSize: 10, padding: '2px 7px', borderRadius: theme.radiusSmall,
-                                                                    background: `${theme.mintGreen}20`, color: theme.mintGreen,
-                                                                    border: `2px solid ${theme.mintGreen}`,
-                                                                    cursor: 'pointer', flexShrink: 0, fontFamily: theme.fontDisplay, fontWeight: 700,
-                                                                }}
-                                                                title="Split Parentheses"
-                                                            >Split</button>
-                                                        )}
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); setPending(p => p ? { ...p, lyrics: p.lyrics.filter((_, i) => i !== idx) } : p) }}
-                                                            style={{ background: 'none', border: 'none', color: theme.faint, cursor: 'pointer', padding: 3, flexShrink: 0, opacity: 0.5, transition: 'opacity 0.15s' }}
-                                                            onMouseEnter={e => e.currentTarget.style.opacity = '1'}
-                                                            onMouseLeave={e => e.currentTarget.style.opacity = '0.5'}
-                                                            title="Delete Line"
-                                                        >✕</button>
-                                                    </div>
-                                                    {editingSyllableLineIdx === idx && Array.isArray(line.syllables) && line.syllables.length > 0 && (
-                                                        <SyllableEditor
-                                                            line={line}
-                                                            nextLineStartMs={pending.lyrics[idx + 1]?.startTimeMs}
-                                                            instrumentalPath={pendingInstrumentalPath}
-                                                            theme={theme}
-                                                            onChange={({ syllables, words }) => setPending(p => p ? { ...p, lyrics: p.lyrics.map((l, i) => i === idx ? { ...l, syllables, words } : l) } : p)}
-                                                            onClose={() => setEditingSyllableLineIdx(null)}
-                                                        />
-                                                    )}
                                                     </div>
                                                 ))}
                                             </div>
                                         ) : (
-                                            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: theme.faint }}>
-                                                {fetchingLyrics ? (
-                                                    <div className="spinner" style={{ width: 24, height: 24, marginBottom: 16, border: `3px solid ${theme.spinnerBorder}`, borderTopColor: theme.spinnerBorderTop }} />
-                                                ) : (
-                                                    <div style={{ fontSize: 32, marginBottom: 12 }}>📝</div>
-                                                )}
-                                                <div style={{ fontSize: 14, fontFamily: theme.fontBody }}>
-                                                    {fetchingLyrics ? 'Loading lyrics...' : (lyricsError || 'No lyrics generated for this track.')}
+                                            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--adm-text-3)', gap: 12 }}>
+                                                {fetchingLyrics ? <Spinner size={22} /> : <Icon name="waveform" size={28} />}
+                                                <div style={{ fontSize: 13 }}>
+                                                    {fetchingLyrics ? 'Loading lyrics…' : (lyricsError || 'No lyrics generated for this track.')}
                                                 </div>
                                             </div>
                                         )}
@@ -1822,125 +1723,76 @@ export default function AdminPage() {
                             </div>
 
                             {/* Voice Testing */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24, ...innerPanel }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                    <div style={{ flex: 1, display: 'flex', gap: 8 }}>
-                                        <select
-                                            value={selectedMic}
-                                            onChange={e => setSelectedMic(e.target.value)}
-                                            style={{ flex: 1, minWidth: 0, padding: '8px 10px', fontSize: 12, ...theme.select }}
-                                        >
-                                            {mics.map(m => <option key={m.deviceId} value={m.deviceId}>🎤 {m.label || 'Mic'}</option>)}
-                                        </select>
-                                        <select
-                                            value={selectedSpeaker}
-                                            onChange={e => setSelectedSpeaker(e.target.value)}
-                                            style={{ flex: 1, minWidth: 0, padding: '8px 10px', fontSize: 12, ...theme.select }}
-                                        >
-                                            {speakers.map(s => <option key={s.deviceId} value={s.deviceId}>🔊 {s.label || 'Speaker'}</option>)}
-                                        </select>
-                                    </div>
-                                    <button
-                                        onClick={toggleTesting}
-                                        style={{
-                                            fontSize: 12, padding: '8px 16px', whiteSpace: 'nowrap',
-                                            ...(isTesting ? { ...theme.btnSecondary, color: theme.mintGreen } : theme.btnOutline),
-                                        }}
+                            <div className="adm-well" style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18, padding: 14 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                    <Select
+                                        value={selectedMic}
+                                        onChange={e => setSelectedMic(e.target.value)}
+                                        style={{ flex: 1, minWidth: 140 }}
                                     >
-                                        {isTesting ? '● Live' : 'Test Live'}
-                                    </button>
+                                        {mics.map(m => <option key={m.deviceId} value={m.deviceId}>{m.label || 'Mic'}</option>)}
+                                    </Select>
+                                    <Select
+                                        value={selectedSpeaker}
+                                        onChange={e => setSelectedSpeaker(e.target.value)}
+                                        style={{ flex: 1, minWidth: 140 }}
+                                    >
+                                        {speakers.map(s => <option key={s.deviceId} value={s.deviceId}>{s.label || 'Speaker'}</option>)}
+                                    </Select>
+                                    <Button
+                                        variant={isTesting ? 'live' : 'secondary'}
+                                        size="sm"
+                                        onClick={toggleTesting}
+                                    >
+                                        {isTesting ? <><Led state="on" /> Live</> : 'Test Live'}
+                                    </Button>
                                     {isTesting && (
-                                        <button
+                                        <Button
+                                            variant={isRecording ? 'danger' : 'secondary'}
+                                            size="sm"
                                             onClick={toggleRecording}
-                                            style={{
-                                                fontSize: 12, padding: '8px 16px', whiteSpace: 'nowrap',
-                                                ...(isRecording
-                                                    ? { ...theme.btnPrimary, background: theme.hotRed }
-                                                    : theme.btnOutline),
-                                            }}
                                         >
-                                            {isRecording ? `■ Stop (${(recordingDuration / 1000).toFixed(1)}s)` : '● Record'}
-                                        </button>
+                                            {isRecording ? <><Led state="rec" /> Stop ({(recordingDuration / 1000).toFixed(1)}s)</> : 'Record'}
+                                        </Button>
                                     )}
                                 </div>
 
                                 {/* Mic Level Bar */}
-                                <div style={{ height: 8, borderRadius: 4, background: theme.creamDark, border: theme.borderThin, overflow: 'hidden' }}>
-                                    <div style={{
-                                        height: '100%',
-                                        width: `${Math.min(100, (isTesting ? testLevel * 250 : 0))}%`,
-                                        background: isRecording ? theme.hotRed : theme.mintGreen,
-                                        transition: 'width 0.05s ease',
-                                    }} />
-                                </div>
+                                <Meter value={isTesting ? testLevel * 2.5 : 0} />
 
                                 {/* Recorded Snippet */}
                                 {recordedBlob && (
-                                    <div style={{
-                                        display: 'flex', alignItems: 'center', gap: 10,
-                                        padding: '10px 14px',
-                                        borderRadius: theme.radius,
-                                        background: theme.cream,
-                                        border: theme.border,
-                                        boxShadow: theme.shadow,
-                                    }}>
-                                        <div style={{
-                                            width: 28, height: 28, borderRadius: theme.radiusSmall,
-                                            background: `${theme.softViolet}20`,
-                                            border: `2px solid ${theme.softViolet}`,
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            fontSize: 13, flexShrink: 0,
-                                        }}>🎙️</div>
-                                        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                    <div className="adm-card" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px' }}>
+                                        <span style={{ color: 'var(--adm-amber-bright)' }}><Icon name="mic" size={16} /></span>
+                                        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 5 }}>
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 12, color: theme.black }}>
+                                                <span style={{ fontWeight: 650, fontSize: 12 }}>
                                                     Snippet ({(snippetDuration / 1000).toFixed(1)}s)
                                                 </span>
-                                                <span style={{ fontSize: 10, color: snippetError ? theme.hotRed : theme.faint, fontFamily: theme.fontBody }}>
-                                                    {snippetError || (isPlayingSnippet ? 'Playing with effects...' : 'Ready to preview')}
+                                                <span style={{ fontSize: 10.5, color: snippetError ? 'var(--adm-red)' : 'var(--adm-text-3)' }}>
+                                                    {snippetError || (isPlayingSnippet ? 'Playing with effects…' : 'Ready to preview')}
                                                 </span>
                                             </div>
-                                            <div style={{ height: 6, borderRadius: 3, background: theme.creamDark, border: theme.borderThin, overflow: 'hidden' }}>
-                                                <div style={{
-                                                    height: '100%',
-                                                    width: `${playbackProgress * 100}%`,
-                                                    background: theme.softViolet,
-                                                    transition: isPlayingSnippet ? 'width 0.05s linear' : 'none',
-                                                }} />
-                                            </div>
+                                            <Meter value={playbackProgress} progress style={{ height: 6 }} />
                                         </div>
                                         {isPlayingSnippet ? (
-                                            <button onClick={stopSnippetPlayback} style={{ ...theme.btnOutline, fontSize: 11, padding: '6px 12px', whiteSpace: 'nowrap' }}>■ Stop</button>
+                                            <Button size="sm" onClick={stopSnippetPlayback}>Stop</Button>
                                         ) : (
-                                            <button onClick={playSnippet} style={{ ...theme.btnSecondary, fontSize: 11, padding: '6px 12px', whiteSpace: 'nowrap' }}>▶ Play</button>
+                                            <Button size="sm" icon="play" onClick={playSnippet}>Play</Button>
                                         )}
-                                        <button
-                                            onClick={discardSnippet}
-                                            style={{ background: 'none', border: 'none', color: theme.faint, cursor: 'pointer', padding: 4, opacity: 0.5, transition: 'opacity 0.15s' }}
-                                            onMouseEnter={e => e.currentTarget.style.opacity = '1'}
-                                            onMouseLeave={e => e.currentTarget.style.opacity = '0.5'}
-                                            title="Discard"
-                                        >✕</button>
+                                        <IconButton icon="x" size={26} title="Discard" onClick={discardSnippet} />
                                     </div>
                                 )}
                             </div>
 
                             {/* Vocal Presets */}
-                            <div style={{ marginBottom: 20 }}>
+                            <div style={{ marginBottom: 18 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                                    <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 13, color: theme.black }}>
-                                        Vocal Presets
-                                    </div>
+                                    <span className="adm-label">Vocal Presets</span>
                                     {activePresetIds[pending.activeRoleTab] && (
-                                        <span style={{
-                                            fontSize: 10, padding: '3px 10px', borderRadius: theme.radiusSmall,
-                                            background: `${theme.softViolet}20`,
-                                            border: `2px solid ${theme.softViolet}`,
-                                            color: theme.softViolet,
-                                            fontFamily: theme.fontDisplay, fontWeight: 700,
-                                        }}>
+                                        <Chip tone="amber" style={{ fontSize: 10.5 }}>
                                             {BUILT_IN_PRESETS.find(p => p.id === activePresetIds[pending.activeRoleTab])?.name}
-                                        </span>
+                                        </Chip>
                                     )}
                                 </div>
 
@@ -1949,56 +1801,18 @@ export default function AdminPage() {
                                     if (presets.length === 0) return null
                                     return (
                                         <div key={cat.key} style={{ marginBottom: 8 }}>
-                                            <div style={{
-                                                fontSize: 9, color: theme.faint, textTransform: 'uppercase',
-                                                letterSpacing: '1.5px', fontFamily: theme.fontDisplay, fontWeight: 700, marginBottom: 4,
-                                            }}>
-                                                {cat.label}
-                                            </div>
+                                            <div className="adm-label" style={{ fontSize: 9, marginBottom: 5 }}>{cat.label}</div>
                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                                                {presets.map(preset => {
-                                                    const isActive = activePresetIds[pending.activeRoleTab] === preset.id
-                                                    const imgUrl = preset.artistId && !presetImageErrors.has(preset.artistId) ? presetImages[preset.artistId] : null
-                                                    return (
-                                                        <button
-                                                            key={preset.id}
-                                                            onClick={() => applyPreset(preset)}
-                                                            title={preset.description}
-                                                            style={{
-                                                                display: 'flex', alignItems: 'center', gap: 5,
-                                                                padding: '3px 10px 3px 4px',
-                                                                borderRadius: 99,
-                                                                fontSize: 10,
-                                                                fontFamily: theme.fontDisplay, fontWeight: 700,
-                                                                border: isActive ? `2px solid ${theme.softViolet}` : theme.borderThin,
-                                                                background: isActive ? `${theme.softViolet}18` : theme.creamDark,
-                                                                color: isActive ? theme.softViolet : theme.muted,
-                                                                cursor: 'pointer', whiteSpace: 'nowrap',
-                                                                boxShadow: isActive ? theme.shadowColor(theme.softViolet) : 'none',
-                                                                transition: 'all 0.1s',
-                                                            }}
-                                                        >
-                                                            {imgUrl ? (
-                                                                <img
-                                                                    src={imgUrl}
-                                                                    alt={preset.name}
-                                                                    onError={() => preset.artistId && setPresetImageErrors(prev => new Set(prev).add(preset.artistId!))}
-                                                                    style={{ width: 18, height: 18, borderRadius: '50%', objectFit: 'cover', border: isActive ? `2px solid ${theme.softViolet}` : theme.borderThin }}
-                                                                />
-                                                            ) : (
-                                                                <div style={{
-                                                                    width: 18, height: 18, borderRadius: '50%',
-                                                                    background: isActive ? theme.softViolet : theme.faint,
-                                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                                    fontSize: 8, color: theme.white, fontWeight: 700,
-                                                                }}>
-                                                                    {preset.name.charAt(0)}
-                                                                </div>
-                                                            )}
-                                                            {preset.name}
-                                                        </button>
-                                                    )
-                                                })}
+                                                {presets.map(preset => (
+                                                    <PresetChip
+                                                        key={preset.id}
+                                                        preset={preset}
+                                                        active={activePresetIds[pending.activeRoleTab] === preset.id}
+                                                        imgUrl={preset.artistId && !presetImageErrors.has(preset.artistId) ? presetImages[preset.artistId] || null : null}
+                                                        onImgError={() => preset.artistId && setPresetImageErrors(prev => new Set(prev).add(preset.artistId!))}
+                                                        onClick={() => applyPreset(preset)}
+                                                    />
+                                                ))}
                                             </div>
                                         </div>
                                     )
@@ -2006,176 +1820,142 @@ export default function AdminPage() {
                             </div>
 
                             {/* FX Rack Grid */}
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
                                 {/* Compressor */}
-                                <div style={fxModule(pending.configs[pending.activeRoleTab].compressor.enabled)}>
-                                    <Toggle on={pending.configs[pending.activeRoleTab].compressor.enabled} label="Compressor" onClick={() => updateActiveConfig(c => { c.compressor.enabled = !c.compressor.enabled })} />
-                                    <div style={{ marginTop: 14, pointerEvents: pending.configs[pending.activeRoleTab].compressor.enabled ? 'auto' : 'none' }}>
-                                        <Slider label="Threshold" val={pending.configs[pending.activeRoleTab].compressor.threshold} min={-60} max={0} unit="dB" onChange={v => updateActiveConfig(c => { c.compressor.threshold = v })} />
-                                        <Slider label="Ratio" val={pending.configs[pending.activeRoleTab].compressor.ratio} min={1} max={20} unit=":1" onChange={v => updateActiveConfig(c => { c.compressor.ratio = v })} />
-                                    </div>
-                                </div>
+                                <FxModule label="Compressor" enabled={activeCfg.compressor.enabled} onToggle={() => updateActiveConfig(c => { c.compressor.enabled = !c.compressor.enabled })}>
+                                    <FaderRow label="Threshold" value={activeCfg.compressor.threshold} min={-60} max={0} unit="dB" onChange={v => updateActiveConfig(c => { c.compressor.threshold = v })} />
+                                    <FaderRow label="Ratio" value={activeCfg.compressor.ratio} min={1} max={20} unit=":1" onChange={v => updateActiveConfig(c => { c.compressor.ratio = v })} />
+                                </FxModule>
 
                                 {/* EQ */}
-                                <div style={fxModule(pending.configs[pending.activeRoleTab].eq.enabled)}>
-                                    <Toggle on={pending.configs[pending.activeRoleTab].eq.enabled} label="Equalizer (3-Band)" onClick={() => updateActiveConfig(c => { c.eq.enabled = !c.eq.enabled })} />
-                                    <div style={{ marginTop: 14, pointerEvents: pending.configs[pending.activeRoleTab].eq.enabled ? 'auto' : 'none' }}>
-                                        <Slider label="Low Shelf" val={pending.configs[pending.activeRoleTab].eq.lowGain} min={-24} max={24} unit="dB" onChange={v => updateActiveConfig(c => { c.eq.lowGain = v })} />
-                                        <Slider label="Mid Peaking" val={pending.configs[pending.activeRoleTab].eq.midGain} min={-24} max={24} unit="dB" onChange={v => updateActiveConfig(c => { c.eq.midGain = v })} />
-                                        <Slider label="High Shelf" val={pending.configs[pending.activeRoleTab].eq.highGain} min={-24} max={24} unit="dB" onChange={v => updateActiveConfig(c => { c.eq.highGain = v })} />
-                                    </div>
-                                </div>
+                                <FxModule label="Equalizer (3-Band)" enabled={activeCfg.eq.enabled} onToggle={() => updateActiveConfig(c => { c.eq.enabled = !c.eq.enabled })}>
+                                    <FaderRow label="Low Shelf" value={activeCfg.eq.lowGain} min={-24} max={24} unit="dB" onChange={v => updateActiveConfig(c => { c.eq.lowGain = v })} />
+                                    <FaderRow label="Mid Peaking" value={activeCfg.eq.midGain} min={-24} max={24} unit="dB" onChange={v => updateActiveConfig(c => { c.eq.midGain = v })} />
+                                    <FaderRow label="High Shelf" value={activeCfg.eq.highGain} min={-24} max={24} unit="dB" onChange={v => updateActiveConfig(c => { c.eq.highGain = v })} />
+                                </FxModule>
 
                                 {/* Chorus */}
-                                <div style={fxModule(pending.configs[pending.activeRoleTab].chorus.enabled)}>
-                                    <Toggle on={pending.configs[pending.activeRoleTab].chorus.enabled} label="Chorus" onClick={() => updateActiveConfig(c => { c.chorus.enabled = !c.chorus.enabled })} />
-                                    <div style={{ marginTop: 14, pointerEvents: pending.configs[pending.activeRoleTab].chorus.enabled ? 'auto' : 'none' }}>
-                                        <Slider label="Rate" val={pending.configs[pending.activeRoleTab].chorus.rate} min={0.1} max={10} unit="Hz" onChange={v => updateActiveConfig(c => { c.chorus.rate = v })} />
-                                        <Slider label="Depth" val={pending.configs[pending.activeRoleTab].chorus.depth} min={0.1} max={1} unit="" onChange={v => updateActiveConfig(c => { c.chorus.depth = v })} />
-                                        <Slider label="Mix" val={pending.configs[pending.activeRoleTab].chorus.mix} min={0} max={100} unit="%" onChange={v => updateActiveConfig(c => { c.chorus.mix = v })} />
-                                    </div>
-                                </div>
+                                <FxModule label="Chorus" enabled={activeCfg.chorus.enabled} onToggle={() => updateActiveConfig(c => { c.chorus.enabled = !c.chorus.enabled })}>
+                                    <FaderRow label="Rate" value={activeCfg.chorus.rate} min={0.1} max={10} unit="Hz" onChange={v => updateActiveConfig(c => { c.chorus.rate = v })} />
+                                    <FaderRow label="Depth" value={activeCfg.chorus.depth} min={0.1} max={1} unit="" onChange={v => updateActiveConfig(c => { c.chorus.depth = v })} />
+                                    <FaderRow label="Mix" value={activeCfg.chorus.mix} min={0} max={100} unit="%" onChange={v => updateActiveConfig(c => { c.chorus.mix = v })} />
+                                </FxModule>
 
                                 {/* Pitch Correction */}
-                                <div style={fxModule(pending.configs[pending.activeRoleTab]?.pitchCorrection.enabled ?? false)}>
-                                    <Toggle on={pending.configs[pending.activeRoleTab]?.pitchCorrection.enabled ?? false} label="Pitch Correction" onClick={() => updateActiveConfig(c => { c.pitchCorrection.enabled = !c.pitchCorrection.enabled })} />
-                                    <div style={{ marginTop: 14, pointerEvents: pending.configs[pending.activeRoleTab]?.pitchCorrection.enabled ? 'auto' : 'none' }}>
-                                        <Slider label="Strength (Snap)" val={pending.configs[pending.activeRoleTab]?.pitchCorrection.strength ?? 0} min={0} max={100} unit="%" onChange={v => updateActiveConfig(c => { c.pitchCorrection.strength = v })} />
-                                        <div style={{ fontSize: 10, color: theme.mintGreen, marginTop: 6, fontFamily: theme.fontDisplay, fontWeight: 700 }}>
-                                            Target Key: {(pending.configs[pending.activeRoleTab]?.key ?? -1) >= 0 ? `${KEY_NAMES[pending.configs[pending.activeRoleTab].key]} ${pending.configs[pending.activeRoleTab].mode ? 'Major' : 'Minor'}` : 'Unknown Key'}
-                                        </div>
+                                <FxModule label="Pitch Correction" enabled={activeCfg.pitchCorrection.enabled ?? false} onToggle={() => updateActiveConfig(c => { c.pitchCorrection.enabled = !c.pitchCorrection.enabled })}>
+                                    <FaderRow label="Strength (Snap)" value={activeCfg.pitchCorrection.strength ?? 0} min={0} max={100} unit="%" onChange={v => updateActiveConfig(c => { c.pitchCorrection.strength = v })} />
+                                    <div style={{ fontSize: 10.5, color: 'var(--adm-green)', marginTop: 4, fontWeight: 650 }}>
+                                        Target Key: {(activeCfg.key ?? -1) >= 0 ? `${KEY_NAMES[activeCfg.key]} ${activeCfg.mode ? 'Major' : 'Minor'}` : 'Unknown Key'}
                                     </div>
-                                </div>
+                                </FxModule>
 
                                 {/* Delay */}
-                                <div style={fxModule(pending.configs[pending.activeRoleTab].delay.enabled)}>
-                                    <Toggle on={pending.configs[pending.activeRoleTab].delay.enabled} label="Delay" onClick={() => updateActiveConfig(c => { c.delay.enabled = !c.delay.enabled })} />
-                                    <div style={{ marginTop: 14, pointerEvents: pending.configs[pending.activeRoleTab].delay.enabled ? 'auto' : 'none' }}>
-                                        <Slider label="Time" val={pending.configs[pending.activeRoleTab].delay.time} min={10} max={1000} unit="ms" onChange={v => updateActiveConfig(c => { c.delay.time = v })} />
-                                        <Slider label="Feedback" val={pending.configs[pending.activeRoleTab].delay.feedback} min={0} max={90} unit="%" onChange={v => updateActiveConfig(c => { c.delay.feedback = v })} />
-                                        <Slider label="Mix" val={pending.configs[pending.activeRoleTab].delay.mix} min={0} max={100} unit="%" onChange={v => updateActiveConfig(c => { c.delay.mix = v })} />
-                                    </div>
-                                </div>
+                                <FxModule label="Delay" enabled={activeCfg.delay.enabled} onToggle={() => updateActiveConfig(c => { c.delay.enabled = !c.delay.enabled })}>
+                                    <FaderRow label="Time" value={activeCfg.delay.time} min={10} max={1000} unit="ms" onChange={v => updateActiveConfig(c => { c.delay.time = v })} />
+                                    <FaderRow label="Feedback" value={activeCfg.delay.feedback} min={0} max={90} unit="%" onChange={v => updateActiveConfig(c => { c.delay.feedback = v })} />
+                                    <FaderRow label="Mix" value={activeCfg.delay.mix} min={0} max={100} unit="%" onChange={v => updateActiveConfig(c => { c.delay.mix = v })} />
+                                </FxModule>
 
                                 {/* Reverb */}
-                                <div style={fxModule(pending.configs[pending.activeRoleTab].reverb.enabled)}>
-                                    <Toggle on={pending.configs[pending.activeRoleTab].reverb.enabled} label="Reverb" onClick={() => updateActiveConfig(c => { c.reverb.enabled = !c.reverb.enabled })} />
-                                    <div style={{ marginTop: 14, pointerEvents: pending.configs[pending.activeRoleTab].reverb.enabled ? 'auto' : 'none' }}>
-                                        <Slider label="Decay" val={pending.configs[pending.activeRoleTab].reverb.decay} min={0.5} max={8.0} unit="s" onChange={v => updateActiveConfig(c => { c.reverb.decay = v })} />
-                                        <Slider label="Mix" val={pending.configs[pending.activeRoleTab].reverb.mix} min={0} max={100} unit="%" onChange={v => updateActiveConfig(c => { c.reverb.mix = v })} />
-                                    </div>
-                                </div>
+                                <FxModule label="Reverb" enabled={activeCfg.reverb.enabled} onToggle={() => updateActiveConfig(c => { c.reverb.enabled = !c.reverb.enabled })}>
+                                    <FaderRow label="Decay" value={activeCfg.reverb.decay} min={0.5} max={8.0} unit="s" onChange={v => updateActiveConfig(c => { c.reverb.decay = v })} />
+                                    <FaderRow label="Mix" value={activeCfg.reverb.mix} min={0} max={100} unit="%" onChange={v => updateActiveConfig(c => { c.reverb.mix = v })} />
+                                </FxModule>
 
                                 {/* Distortion */}
-                                <div style={fxModule(pending.configs[pending.activeRoleTab].distortion?.enabled ?? false)}>
-                                    <Toggle on={pending.configs[pending.activeRoleTab].distortion?.enabled ?? false} label="Distortion" onClick={() => updateActiveConfig(c => { if (!c.distortion) c.distortion = { enabled: false, drive: 0, mix: 0 }; c.distortion.enabled = !c.distortion.enabled })} />
-                                    <div style={{ marginTop: 14, pointerEvents: pending.configs[pending.activeRoleTab].distortion?.enabled ? 'auto' : 'none' }}>
-                                        <Slider label="Drive" val={pending.configs[pending.activeRoleTab].distortion?.drive ?? 0} min={0} max={100} unit="" onChange={v => updateActiveConfig(c => { if (!c.distortion) c.distortion = { enabled: true, drive: 0, mix: 0 }; c.distortion.drive = v })} />
-                                        <Slider label="Mix" val={pending.configs[pending.activeRoleTab].distortion?.mix ?? 0} min={0} max={100} unit="%" onChange={v => updateActiveConfig(c => { if (!c.distortion) c.distortion = { enabled: true, drive: 0, mix: 0 }; c.distortion.mix = v })} />
-                                    </div>
-                                </div>
+                                <FxModule label="Distortion" enabled={activeCfg.distortion?.enabled ?? false} onToggle={() => updateActiveConfig(c => { if (!c.distortion) c.distortion = { enabled: false, drive: 0, mix: 0 }; c.distortion.enabled = !c.distortion.enabled })}>
+                                    <FaderRow label="Drive" value={activeCfg.distortion?.drive ?? 0} min={0} max={100} unit="" onChange={v => updateActiveConfig(c => { if (!c.distortion) c.distortion = { enabled: true, drive: 0, mix: 0 }; c.distortion.drive = v })} />
+                                    <FaderRow label="Mix" value={activeCfg.distortion?.mix ?? 0} min={0} max={100} unit="%" onChange={v => updateActiveConfig(c => { if (!c.distortion) c.distortion = { enabled: true, drive: 0, mix: 0 }; c.distortion.mix = v })} />
+                                </FxModule>
 
                                 {/* Noise Gate */}
-                                <div style={fxModule(pending.configs[pending.activeRoleTab].noiseGate?.enabled ?? false)}>
-                                    <Toggle on={pending.configs[pending.activeRoleTab].noiseGate?.enabled ?? false} label="Noise Gate" onClick={() => updateActiveConfig(c => { if (!c.noiseGate) c.noiseGate = { enabled: false, threshold: -50 }; c.noiseGate.enabled = !c.noiseGate.enabled })} />
-                                    <div style={{ marginTop: 14, pointerEvents: pending.configs[pending.activeRoleTab].noiseGate?.enabled ? 'auto' : 'none' }}>
-                                        <Slider label="Threshold" val={pending.configs[pending.activeRoleTab].noiseGate?.threshold ?? -50} min={-100} max={0} unit="dB" onChange={v => updateActiveConfig(c => { if (!c.noiseGate) c.noiseGate = { enabled: true, threshold: -50 }; c.noiseGate.threshold = v })} />
-                                    </div>
-                                </div>
+                                <FxModule label="Noise Gate" enabled={activeCfg.noiseGate?.enabled ?? false} onToggle={() => updateActiveConfig(c => { if (!c.noiseGate) c.noiseGate = { enabled: false, threshold: -50 }; c.noiseGate.enabled = !c.noiseGate.enabled })}>
+                                    <FaderRow label="Threshold" value={activeCfg.noiseGate?.threshold ?? -50} min={-100} max={0} unit="dB" onChange={v => updateActiveConfig(c => { if (!c.noiseGate) c.noiseGate = { enabled: true, threshold: -50 }; c.noiseGate.threshold = v })} />
+                                </FxModule>
 
-                                {/* Vocoder / Talkbox — channel vocoder that replaces the singer's
-                                    sound source with a synth chord shaped by their vowels. Built
-                                    from the role's key/mode (shared with pitch correction). */}
-                                <div style={fxModule(pending.configs[pending.activeRoleTab].vocoder?.enabled ?? false)}>
-                                    <Toggle on={pending.configs[pending.activeRoleTab].vocoder?.enabled ?? false} label="Vocoder / Talkbox" onClick={() => updateActiveConfig(c => { if (!c.vocoder) c.vocoder = { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' }; c.vocoder.enabled = !c.vocoder.enabled })} />
-                                    <div style={{ marginTop: 14, pointerEvents: pending.configs[pending.activeRoleTab].vocoder?.enabled ? 'auto' : 'none' }}>
-                                        <Slider label="Mix" val={pending.configs[pending.activeRoleTab].vocoder?.mix ?? 100} min={0} max={100} unit="%" onChange={v => updateActiveConfig(c => { if (!c.vocoder) c.vocoder = { enabled: true, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' }; c.vocoder.mix = v })} />
-                                        <Slider label="Brightness" val={pending.configs[pending.activeRoleTab].vocoder?.brightness ?? 70} min={0} max={100} unit="" onChange={v => updateActiveConfig(c => { if (!c.vocoder) c.vocoder = { enabled: true, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' }; c.vocoder.brightness = v })} />
-                                        <Slider label="Sibilance" val={pending.configs[pending.activeRoleTab].vocoder?.sibilance ?? 0} min={0} max={100} unit="" onChange={v => updateActiveConfig(c => { if (!c.vocoder) c.vocoder = { enabled: true, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' }; c.vocoder.sibilance = v })} />
+                                {/* Vocoder / Talkbox — pitch-tracked channel vocoder: a synth
+                                    carrier FOLLOWS the sung melody (snapped to the role's
+                                    key/mode scale, shared with pitch correction) and is shaped
+                                    by the singer's vowels. Voicing stacks diatonic harmonies
+                                    on the tracked note. */}
+                                <FxModule label="Vocoder / Talkbox" enabled={activeCfg.vocoder?.enabled ?? false} onToggle={() => updateActiveConfig(c => { if (!c.vocoder) c.vocoder = { enabled: false, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' }; c.vocoder.enabled = !c.vocoder.enabled })}>
+                                    <FaderRow label="Mix" value={activeCfg.vocoder?.mix ?? 100} min={0} max={100} unit="%" onChange={v => updateActiveConfig(c => { if (!c.vocoder) c.vocoder = { enabled: true, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' }; c.vocoder.mix = v })} />
+                                    <FaderRow label="Brightness" value={activeCfg.vocoder?.brightness ?? 70} min={0} max={100} unit="" onChange={v => updateActiveConfig(c => { if (!c.vocoder) c.vocoder = { enabled: true, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' }; c.vocoder.brightness = v })} />
+                                    <FaderRow label="Sibilance" value={activeCfg.vocoder?.sibilance ?? 0} min={0} max={100} unit="" onChange={v => updateActiveConfig(c => { if (!c.vocoder) c.vocoder = { enabled: true, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' }; c.vocoder.sibilance = v })} />
 
-                                        {/* Voicing — chord shape the synth carrier plays */}
-                                        <div style={{ marginTop: 4 }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 6, color: theme.muted, fontFamily: theme.fontDisplay, fontWeight: 600 }}>
-                                                <span>Voicing</span>
-                                                <span style={{ color: theme.black, textTransform: 'capitalize' }}>{pending.configs[pending.activeRoleTab].vocoder?.voicing ?? 'triad'}</span>
-                                            </div>
-                                            <div style={{ display: 'flex', gap: 6 }}>
-                                                {(['triad', 'power', 'octaves'] as const).map(v => {
-                                                    const active = (pending.configs[pending.activeRoleTab].vocoder?.voicing ?? 'triad') === v
-                                                    return (
-                                                        <button
-                                                            key={v}
-                                                            onClick={() => updateActiveConfig(c => { if (!c.vocoder) c.vocoder = { enabled: true, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' }; c.vocoder.voicing = v })}
-                                                            style={{
-                                                                flex: 1,
-                                                                padding: '8px 0',
-                                                                fontFamily: theme.fontDisplay,
-                                                                fontSize: 10,
-                                                                fontWeight: 700,
-                                                                border: theme.borderThin,
-                                                                borderRadius: theme.radius,
-                                                                background: active ? theme.softViolet : 'transparent',
-                                                                color: active ? theme.black : theme.muted,
-                                                                cursor: 'pointer',
-                                                                textTransform: 'uppercase',
-                                                                letterSpacing: '0.5px',
-                                                                transition: 'background 0.15s, color 0.15s',
-                                                            }}
-                                                        >
-                                                            {v}
-                                                        </button>
-                                                    )
-                                                })}
-                                            </div>
+                                    {/* Voicing — chord shape the synth carrier plays */}
+                                    <div style={{ marginTop: 4 }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, marginBottom: 6, color: 'var(--adm-text-2)', fontWeight: 600 }}>
+                                            <span>Voicing</span>
+                                            <span style={{ color: 'var(--adm-text)', textTransform: 'capitalize' }}>{activeCfg.vocoder?.voicing ?? 'triad'}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: 6 }}>
+                                            {(['triad', 'power', 'octaves'] as const).map(v => {
+                                                const active = (activeCfg.vocoder?.voicing ?? 'triad') === v
+                                                return (
+                                                    <button
+                                                        key={v}
+                                                        onClick={() => updateActiveConfig(c => { if (!c.vocoder) c.vocoder = { enabled: true, mix: 100, brightness: 70, sibilance: 0, voicing: 'triad' }; c.vocoder.voicing = v })}
+                                                        className="adm-label"
+                                                        style={{
+                                                            flex: 1, padding: '7px 0', cursor: 'pointer',
+                                                            border: active ? '1px solid var(--adm-amber)' : '1px solid var(--adm-line)',
+                                                            borderRadius: 'var(--adm-r-sm)',
+                                                            background: active ? 'var(--adm-amber-soft)' : 'transparent',
+                                                            color: active ? 'var(--adm-amber-bright)' : 'var(--adm-text-3)',
+                                                            transition: 'all 0.14s ease',
+                                                        }}
+                                                    >
+                                                        {v}
+                                                    </button>
+                                                )
+                                            })}
                                         </div>
                                     </div>
-                                </div>
+                                </FxModule>
 
                                 {/* Doubler / Thickener — stacks detuned, panned copies of the
                                     tuned voice on top of the lead for the wide "vocal stack"
                                     behind hard-autotune artists (Travis, T-Pain, Carti). */}
-                                <div style={fxModule(pending.configs[pending.activeRoleTab].doubler?.enabled ?? false)}>
-                                    <Toggle on={pending.configs[pending.activeRoleTab].doubler?.enabled ?? false} label="Doubler / Thickener" onClick={() => updateActiveConfig(c => { if (!c.doubler) c.doubler = { enabled: false, voices: 2, detune: 12, delay: 22, width: 70, mix: 35 }; c.doubler.enabled = !c.doubler.enabled })} />
-                                    <div style={{ marginTop: 14, pointerEvents: pending.configs[pending.activeRoleTab].doubler?.enabled ? 'auto' : 'none' }}>
-                                        <Slider label="Voices" val={pending.configs[pending.activeRoleTab].doubler?.voices ?? 2} min={2} max={4} unit="" onChange={v => updateActiveConfig(c => { if (!c.doubler) c.doubler = { enabled: true, voices: 2, detune: 12, delay: 22, width: 70, mix: 35 }; c.doubler.voices = Math.round(v) })} />
-                                        <Slider label="Detune" val={pending.configs[pending.activeRoleTab].doubler?.detune ?? 12} min={0} max={30} unit="¢" onChange={v => updateActiveConfig(c => { if (!c.doubler) c.doubler = { enabled: true, voices: 2, detune: 12, delay: 22, width: 70, mix: 35 }; c.doubler.detune = v })} />
-                                        <Slider label="Delay" val={pending.configs[pending.activeRoleTab].doubler?.delay ?? 22} min={8} max={40} unit="ms" onChange={v => updateActiveConfig(c => { if (!c.doubler) c.doubler = { enabled: true, voices: 2, detune: 12, delay: 22, width: 70, mix: 35 }; c.doubler.delay = v })} />
-                                        <Slider label="Width" val={pending.configs[pending.activeRoleTab].doubler?.width ?? 70} min={0} max={100} unit="%" onChange={v => updateActiveConfig(c => { if (!c.doubler) c.doubler = { enabled: true, voices: 2, detune: 12, delay: 22, width: 70, mix: 35 }; c.doubler.width = v })} />
-                                        <Slider label="Mix" val={pending.configs[pending.activeRoleTab].doubler?.mix ?? 35} min={0} max={100} unit="%" onChange={v => updateActiveConfig(c => { if (!c.doubler) c.doubler = { enabled: true, voices: 2, detune: 12, delay: 22, width: 70, mix: 35 }; c.doubler.mix = v })} />
-                                    </div>
-                                </div>
+                                <FxModule label="Doubler / Thickener" enabled={activeCfg.doubler?.enabled ?? false} onToggle={() => updateActiveConfig(c => { if (!c.doubler) c.doubler = { enabled: false, voices: 2, detune: 12, delay: 22, width: 70, mix: 35 }; c.doubler.enabled = !c.doubler.enabled })}>
+                                    <FaderRow label="Voices" value={activeCfg.doubler?.voices ?? 2} min={2} max={4} unit="" onChange={v => updateActiveConfig(c => { if (!c.doubler) c.doubler = { enabled: true, voices: 2, detune: 12, delay: 22, width: 70, mix: 35 }; c.doubler.voices = Math.round(v) })} />
+                                    <FaderRow label="Detune" value={activeCfg.doubler?.detune ?? 12} min={0} max={30} unit="¢" onChange={v => updateActiveConfig(c => { if (!c.doubler) c.doubler = { enabled: true, voices: 2, detune: 12, delay: 22, width: 70, mix: 35 }; c.doubler.detune = v })} />
+                                    <FaderRow label="Delay" value={activeCfg.doubler?.delay ?? 22} min={8} max={40} unit="ms" onChange={v => updateActiveConfig(c => { if (!c.doubler) c.doubler = { enabled: true, voices: 2, detune: 12, delay: 22, width: 70, mix: 35 }; c.doubler.delay = v })} />
+                                    <FaderRow label="Width" value={activeCfg.doubler?.width ?? 70} min={0} max={100} unit="%" onChange={v => updateActiveConfig(c => { if (!c.doubler) c.doubler = { enabled: true, voices: 2, detune: 12, delay: 22, width: 70, mix: 35 }; c.doubler.width = v })} />
+                                    <FaderRow label="Mix" value={activeCfg.doubler?.mix ?? 35} min={0} max={100} unit="%" onChange={v => updateActiveConfig(c => { if (!c.doubler) c.doubler = { enabled: true, voices: 2, detune: 12, delay: 22, width: 70, mix: 35 }; c.doubler.mix = v })} />
+                                </FxModule>
                             </div>
 
                             {/* File Upload Areas */}
-                            <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                                     {/* Instrumental Upload */}
                                     <div
                                         onClick={() => pickAudioFile('instrumental')}
-                                        style={{
-                                            padding: 20, borderRadius: theme.radius, cursor: 'pointer', textAlign: 'center',
-                                            border: `3px dashed ${existingInstrumental || pendingAudioFile ? theme.mintGreen : theme.muted}`,
-                                            background: existingInstrumental || pendingAudioFile ? `${theme.mintGreen}10` : theme.creamDark,
-                                            transition: 'all 0.15s',
-                                        }}
+                                        className={`adm-drop${existingInstrumental || pendingAudioFile ? ' adm-drop--filled' : ''}`}
                                     >
-                                        <div style={{ fontSize: 24, marginBottom: 6 }}>🎵</div>
+                                        <div style={{
+                                            display: 'inline-flex', marginBottom: 8,
+                                            color: existingInstrumental || pendingAudioFile ? 'var(--adm-green)' : 'var(--adm-text-3)',
+                                        }}>
+                                            <Icon name="upload" size={20} />
+                                        </div>
                                         {pendingAudioFile ? (
                                             <>
-                                                <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 13, color: theme.mintGreen }}>{pendingAudioFile.name}</div>
-                                                <div style={{ fontSize: 11, color: theme.faint, marginTop: 4, fontFamily: theme.fontBody }}>Click to change</div>
+                                                <div style={{ fontWeight: 650, fontSize: 13, color: 'var(--adm-green)' }}>{pendingAudioFile.name}</div>
+                                                <div style={{ fontSize: 11.5, color: 'var(--adm-text-3)', marginTop: 4 }}>Click to change</div>
                                             </>
                                         ) : existingInstrumental ? (
                                             <>
-                                                <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 13, color: theme.mintGreen }}>Instrumental uploaded</div>
-                                                <div style={{ fontSize: 11, color: theme.faint, marginTop: 4, fontFamily: theme.fontBody }}>Click to replace</div>
+                                                <div style={{ fontWeight: 650, fontSize: 13, color: 'var(--adm-green)' }}>Instrumental uploaded</div>
+                                                <div style={{ fontSize: 11.5, color: 'var(--adm-text-3)', marginTop: 4 }}>Click to replace</div>
                                             </>
                                         ) : (
                                             <>
-                                                <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 13, color: theme.black }}>
-                                                    Upload Instrumental <span style={{ color: theme.hotRed, fontSize: 11 }}>(required)</span>
+                                                <div style={{ fontWeight: 650, fontSize: 13 }}>
+                                                    Upload Instrumental <span style={{ color: 'var(--adm-red)', fontSize: 11 }}>(required)</span>
                                                 </div>
-                                                <div style={{ fontSize: 11, color: theme.faint, marginTop: 4, fontFamily: theme.fontBody }}>Click to select an audio file</div>
+                                                <div style={{ fontSize: 11.5, color: 'var(--adm-text-3)', marginTop: 4 }}>Click to select an audio file</div>
                                             </>
                                         )}
                                     </div>
@@ -2183,194 +1963,150 @@ export default function AdminPage() {
                                     {/* Vocals Upload */}
                                     <div
                                         onClick={() => pickAudioFile('vocals')}
-                                        style={{
-                                            padding: 20, borderRadius: theme.radius, cursor: 'pointer', textAlign: 'center',
-                                            border: `3px dashed ${existingVocals || pendingVocalsFile ? theme.mintGreen : theme.muted}`,
-                                            background: existingVocals || pendingVocalsFile ? `${theme.mintGreen}10` : theme.creamDark,
-                                            transition: 'all 0.15s',
-                                        }}
+                                        className={`adm-drop${existingVocals || pendingVocalsFile ? ' adm-drop--filled' : ''}`}
                                     >
-                                        <div style={{ fontSize: 24, marginBottom: 6 }}>🎤</div>
+                                        <div style={{
+                                            display: 'inline-flex', marginBottom: 8,
+                                            color: existingVocals || pendingVocalsFile ? 'var(--adm-green)' : 'var(--adm-text-3)',
+                                        }}>
+                                            <Icon name="mic" size={20} />
+                                        </div>
                                         {pendingVocalsFile ? (
                                             <>
-                                                <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 13, color: theme.mintGreen }}>{pendingVocalsFile.name}</div>
-                                                <div style={{ fontSize: 11, color: theme.faint, marginTop: 4, fontFamily: theme.fontBody }}>Click to change</div>
+                                                <div style={{ fontWeight: 650, fontSize: 13, color: 'var(--adm-green)' }}>{pendingVocalsFile.name}</div>
+                                                <div style={{ fontSize: 11.5, color: 'var(--adm-text-3)', marginTop: 4 }}>Click to change</div>
                                             </>
                                         ) : existingVocals ? (
                                             <>
-                                                <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 13, color: theme.mintGreen }}>Vocals uploaded</div>
-                                                <div style={{ fontSize: 11, color: theme.faint, marginTop: 4, fontFamily: theme.fontBody }}>Click to replace</div>
+                                                <div style={{ fontWeight: 650, fontSize: 13, color: 'var(--adm-green)' }}>Vocals uploaded</div>
+                                                <div style={{ fontSize: 11.5, color: 'var(--adm-text-3)', marginTop: 4 }}>Click to replace</div>
                                             </>
                                         ) : (
                                             <>
-                                                <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 13, color: theme.black }}>
-                                                    Upload Vocals <span style={{ color: theme.faint, fontSize: 11 }}>(optional)</span>
+                                                <div style={{ fontWeight: 650, fontSize: 13 }}>
+                                                    Upload Vocals <span style={{ color: 'var(--adm-text-3)', fontSize: 11 }}>(optional)</span>
                                                 </div>
-                                                <div style={{ fontSize: 11, color: theme.faint, marginTop: 4, fontFamily: theme.fontBody }}>Click to select an audio file</div>
+                                                <div style={{ fontSize: 11.5, color: 'var(--adm-text-3)', marginTop: 4 }}>Click to select an audio file</div>
                                             </>
                                         )}
                                     </div>
                                 </div>
 
                                 {/* YouTube URL */}
-                                <div style={{
-                                    padding: 16, borderRadius: theme.radius,
-                                    border: youtubeUrl.trim() ? `3px solid ${theme.softViolet}` : theme.border,
-                                    background: youtubeUrl.trim() ? `${theme.softViolet}10` : theme.creamDark,
-                                    boxShadow: youtubeUrl.trim() ? theme.shadowColor(theme.softViolet) : 'none',
-                                    transition: 'all 0.15s',
+                                <div className="adm-well" style={{
+                                    padding: 14,
+                                    borderColor: youtubeUrl.trim() ? 'rgba(76,195,232,0.5)' : undefined,
+                                    boxShadow: youtubeUrl.trim() ? 'var(--adm-well-shadow), 0 0 14px -6px rgba(76,195,232,0.4)' : undefined,
                                 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                                        <span style={{ fontSize: 18 }}>🎬</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                                        <span style={{ color: youtubeUrl.trim() ? 'var(--adm-cyan)' : 'var(--adm-text-3)' }}>
+                                            <Icon name="video" size={17} />
+                                        </span>
                                         <div>
-                                            <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 13, color: theme.black }}>
-                                                Background Video <span style={{ color: theme.faint, fontSize: 11 }}>(optional)</span>
+                                            <div style={{ fontWeight: 650, fontSize: 13 }}>
+                                                Background Video <span style={{ color: 'var(--adm-text-3)', fontSize: 11 }}>(optional)</span>
                                             </div>
-                                            <div style={{ fontSize: 11, color: theme.muted, fontFamily: theme.fontBody }}>Streams from YouTube behind lyrics on stage</div>
+                                            <div style={{ fontSize: 11.5, color: 'var(--adm-text-2)' }}>Streams from YouTube behind lyrics on stage</div>
                                         </div>
                                     </div>
-                                    <input
+                                    <Input
                                         type="text"
                                         value={youtubeUrl}
                                         onChange={e => setYoutubeUrl(e.target.value)}
-                                        placeholder="https://www.youtube.com/watch?v=..."
-                                        style={{ width: '100%', padding: '10px 12px', fontSize: 13, boxSizing: 'border-box', ...theme.input }}
+                                        placeholder="https://www.youtube.com/watch?v=…"
                                     />
                                 </div>
                             </div>
 
                             {/* Save */}
-                            <button
+                            <Button
+                                variant="primary" size="lg"
                                 disabled={uploading || (!existingInstrumental && !pendingAudioFile)}
                                 onClick={handleSave}
-                                style={{
-                                    width: '100%', marginTop: 20, fontSize: 15, padding: '16px 0',
-                                    opacity: uploading || (!existingInstrumental && !pendingAudioFile) ? 0.5 : 1,
-                                    ...theme.btnPrimary,
-                                }}
-                                onMouseEnter={e => { if (!uploading && (existingInstrumental || pendingAudioFile)) { e.currentTarget.style.transform = 'translate(-2px,-2px)'; e.currentTarget.style.boxShadow = theme.shadowLift } }}
-                                onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = theme.shadow }}
+                                style={{ width: '100%', marginTop: 18 }}
                             >
-                                {uploading ? 'Saving...' : 'Save Song'}
-                            </button>
-                        </section>
-                    </div>
-                )}
-            </div>
+                                {uploading ? 'Saving…' : 'Save Song'}
+                            </Button>
+                        </Card>
+                    )}
 
-            {/* Spotify API Keys */}
-            <section style={{ ...sectionCard, marginTop: 20, maxWidth: 400 }}>
-                <div style={{ fontSize: 11, fontFamily: theme.fontDisplay, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: theme.muted, marginBottom: 10 }}>
-                    Spotify Keys
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                    <input
-                        type="password"
-                        placeholder="Client ID"
-                        value={state.spotifyClientId || ''}
-                        onChange={(e) => dispatch({ type: 'SET_SPOTIFY_AUTH', payload: { clientId: e.target.value, clientSecret: state.spotifyClientSecret || '' } })}
-                        style={{ ...theme.input, fontSize: 11, padding: '6px 10px' }}
-                    />
-                    <input
-                        type="password"
-                        placeholder="Client Secret"
-                        value={state.spotifyClientSecret || ''}
-                        onChange={(e) => dispatch({ type: 'SET_SPOTIFY_AUTH', payload: { clientId: state.spotifyClientId || '', clientSecret: e.target.value } })}
-                        style={{ ...theme.input, fontSize: 11, padding: '6px 10px' }}
-                    />
-                </div>
-            </section>
-
-            </>}
+                    {/* Spotify API Keys */}
+                    <Card style={{ marginTop: 16, maxWidth: 430 }}>
+                        <div className="adm-label" style={{ marginBottom: 10 }}>Spotify Keys</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                            <Input
+                                type="password"
+                                placeholder="Client ID"
+                                value={state.spotifyClientId || ''}
+                                onChange={(e) => dispatch({ type: 'SET_SPOTIFY_AUTH', payload: { clientId: e.target.value, clientSecret: state.spotifyClientSecret || '' } })}
+                                style={{ fontSize: 11.5, padding: '6px 10px' }}
+                            />
+                            <Input
+                                type="password"
+                                placeholder="Client Secret"
+                                value={state.spotifyClientSecret || ''}
+                                onChange={(e) => dispatch({ type: 'SET_SPOTIFY_AUTH', payload: { clientId: state.spotifyClientId || '', clientSecret: e.target.value } })}
+                                style={{ fontSize: 11.5, padding: '6px 10px' }}
+                            />
+                        </div>
+                    </Card>
+                </>
+            )}
 
             {/* ═══ Guests Tab ═══ */}
             {adminTab === 'guests' && (
                 <div>
                     {!state.karaokeSessionId ? (
-                        <section style={sectionCard}>
-                            <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-                                <div style={{ fontSize: 36, marginBottom: 12 }}>📡</div>
-                                <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 16, color: theme.black, marginBottom: 6 }}>
-                                    No Active Session
-                                </div>
-                                <div style={{ color: theme.muted, fontSize: 13, fontFamily: theme.fontBody }}>
-                                    Start a karaoke session from the Search page to manage guests
-                                </div>
-                            </div>
-                        </section>
+                        <Card>
+                            <EmptyState
+                                icon="radio"
+                                title="No Active Session"
+                                desc="Start a karaoke session to manage guests"
+                            />
+                        </Card>
                     ) : guests.length === 0 ? (
-                        <section style={sectionCard}>
-                            <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-                                <div style={{ fontSize: 36, marginBottom: 12 }}>👥</div>
-                                <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 16, color: theme.black, marginBottom: 6 }}>
-                                    No Guests Yet
-                                </div>
-                                <div style={{ color: theme.muted, fontSize: 13, fontFamily: theme.fontBody }}>
-                                    Guests will appear here when they join via the companion site
-                                </div>
-                            </div>
-                        </section>
+                        <Card>
+                            <EmptyState
+                                icon="users"
+                                title="No Guests Yet"
+                                desc="Guests will appear here when they join via the companion site"
+                            />
+                        </Card>
                     ) : (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+                        <div className="adm-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
                             {guests.map(guest => {
                                 const isEditing = editingGuestId === guest.id
                                 const isConfirmingRemove = confirmRemoveId === guest.id
-                                const initial = guest.name.charAt(0).toUpperCase()
-                                const hue = guest.name.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 360
 
                                 return (
-                                    <section key={guest.id} style={{ ...sectionCard, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                                    <Card key={guest.id} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                                            {/* Avatar */}
-                                            {guest.profilePicture ? (
-                                                <img
-                                                    src={guest.profilePicture}
-                                                    alt={guest.name}
-                                                    style={{
-                                                        width: 48, height: 48, borderRadius: '50%',
-                                                        objectFit: 'cover', border: theme.border,
-                                                        flexShrink: 0,
-                                                    }}
-                                                />
-                                            ) : (
-                                                <div style={{
-                                                    width: 48, height: 48, borderRadius: '50%',
-                                                    background: `hsl(${hue}, 65%, 55%)`,
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    fontFamily: theme.fontDisplay, fontWeight: 800,
-                                                    fontSize: 20, color: '#fff',
-                                                    border: theme.border, flexShrink: 0,
-                                                }}>
-                                                    {initial}
-                                                </div>
-                                            )}
+                                            <Avatar name={guest.name} src={guest.profilePicture} size={46} />
 
                                             {/* Name / Edit fields */}
                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                 {isEditing ? (
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                                        <input
+                                                        <Input
                                                             type="text"
                                                             value={editName}
                                                             onChange={e => setEditName(e.target.value)}
                                                             placeholder="Guest name"
-                                                            style={{ ...theme.input, fontSize: 13, padding: '6px 10px' }}
                                                             autoFocus
                                                             onKeyDown={e => { if (e.key === 'Enter') saveEditGuest(); if (e.key === 'Escape') setEditingGuestId(null) }}
                                                         />
-                                                        <input
+                                                        <Input
                                                             type="text"
                                                             value={editPicture}
                                                             onChange={e => setEditPicture(e.target.value)}
                                                             placeholder="Profile picture URL (optional)"
-                                                            style={{ ...theme.input, fontSize: 11, padding: '5px 10px' }}
+                                                            style={{ fontSize: 11.5, padding: '5px 10px' }}
                                                             onKeyDown={e => { if (e.key === 'Enter') saveEditGuest(); if (e.key === 'Escape') setEditingGuestId(null) }}
                                                         />
                                                     </div>
                                                 ) : (
                                                     <div style={{
-                                                        fontFamily: theme.fontDisplay, fontWeight: 700,
-                                                        fontSize: 16, color: theme.black,
+                                                        fontFamily: 'var(--adm-display)', fontWeight: 650, fontSize: 15.5,
                                                         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                                                     }}>
                                                         {guest.name}
@@ -2380,131 +2116,41 @@ export default function AdminPage() {
                                         </div>
 
                                         {/* White-singer (lyric sanitization) toggle */}
-                                        <button
-                                            type="button"
-                                            role="switch"
-                                            aria-checked={guest.whitePersonCheck}
-                                            onClick={() => toggleGuestWhiteCheck(guest.id, !guest.whitePersonCheck)}
-                                            style={{
-                                                display: 'flex', alignItems: 'center', gap: 10,
-                                                padding: '8px 10px', textAlign: 'left', cursor: 'pointer',
-                                                border: theme.border, borderRadius: theme.radius,
-                                                background: guest.whitePersonCheck ? theme.softViolet : theme.cream,
-                                            }}
-                                        >
-                                            <span
-                                                aria-hidden="true"
-                                                style={{
-                                                    flexShrink: 0, width: 36, height: 20, borderRadius: 999,
-                                                    border: theme.border,
-                                                    background: guest.whitePersonCheck ? theme.accentA : 'transparent',
-                                                    position: 'relative', transition: 'background 0.15s ease',
-                                                }}
-                                            >
-                                                <span style={{
-                                                    position: 'absolute', top: 1, left: guest.whitePersonCheck ? 17 : 1,
-                                                    width: 16, height: 16, borderRadius: '50%', background: '#fff',
-                                                    transition: 'left 0.15s ease', boxShadow: '0 1px 2px rgba(0,0,0,0.3)',
-                                                }} />
-                                            </span>
-                                            <span style={{ flex: 1, minWidth: 0 }}>
-                                                <span style={{ display: 'block', fontSize: 13, fontWeight: 700, fontFamily: theme.fontDisplay, color: theme.black }}>
-                                                    White singer
-                                                </span>
-                                                <span style={{ display: 'block', fontSize: 11, color: theme.black, opacity: 0.55, fontFamily: theme.fontBody }}>
+                                        <div className="adm-well" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 12px' }}>
+                                            <Toggle
+                                                on={guest.whitePersonCheck}
+                                                onToggle={() => toggleGuestWhiteCheck(guest.id, !guest.whitePersonCheck)}
+                                            />
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontSize: 12.5, fontWeight: 650 }}>White singer</div>
+                                                <div style={{ fontSize: 11, color: 'var(--adm-text-3)' }}>
                                                     {guest.whitePersonCheck
                                                         ? 'On — the n-word is sanitized to “fella(s)” in their lyrics'
                                                         : 'Off — their lyrics are shown uncensored'}
-                                                </span>
-                                            </span>
-                                        </button>
+                                                </div>
+                                            </div>
+                                        </div>
 
                                         {/* Actions */}
                                         <div style={{ display: 'flex', gap: 8 }}>
                                             {isEditing ? (
                                                 <>
-                                                    <button
-                                                        onClick={saveEditGuest}
-                                                        style={{
-                                                            flex: 1, padding: '7px 0', fontSize: 12, fontWeight: 700,
-                                                            fontFamily: theme.fontDisplay, cursor: 'pointer',
-                                                            border: theme.border, borderRadius: theme.radius,
-                                                            background: theme.softViolet, color: theme.black,
-                                                            boxShadow: theme.shadow,
-                                                        }}
-                                                    >
-                                                        Save
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setEditingGuestId(null)}
-                                                        style={{
-                                                            flex: 1, padding: '7px 0', fontSize: 12, fontWeight: 700,
-                                                            fontFamily: theme.fontDisplay, cursor: 'pointer',
-                                                            border: theme.border, borderRadius: theme.radius,
-                                                            background: theme.cream, color: theme.black,
-                                                        }}
-                                                    >
-                                                        Cancel
-                                                    </button>
+                                                    <Button variant="primary" size="sm" style={{ flex: 1 }} onClick={saveEditGuest}>Save</Button>
+                                                    <Button size="sm" style={{ flex: 1 }} onClick={() => setEditingGuestId(null)}>Cancel</Button>
                                                 </>
                                             ) : isConfirmingRemove ? (
                                                 <>
-                                                    <button
-                                                        onClick={() => handleRemoveGuest(guest.id)}
-                                                        style={{
-                                                            flex: 1, padding: '7px 0', fontSize: 12, fontWeight: 700,
-                                                            fontFamily: theme.fontDisplay, cursor: 'pointer',
-                                                            border: `2px solid #e55`,
-                                                            borderRadius: theme.radius,
-                                                            background: '#fee', color: '#c33',
-                                                        }}
-                                                    >
-                                                        Confirm Remove
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setConfirmRemoveId(null)}
-                                                        style={{
-                                                            flex: 1, padding: '7px 0', fontSize: 12, fontWeight: 700,
-                                                            fontFamily: theme.fontDisplay, cursor: 'pointer',
-                                                            border: theme.border, borderRadius: theme.radius,
-                                                            background: theme.cream, color: theme.black,
-                                                        }}
-                                                    >
-                                                        Cancel
-                                                    </button>
+                                                    <Button variant="danger" size="sm" style={{ flex: 1 }} onClick={() => handleRemoveGuest(guest.id)}>Confirm Remove</Button>
+                                                    <Button size="sm" style={{ flex: 1 }} onClick={() => setConfirmRemoveId(null)}>Cancel</Button>
                                                 </>
                                             ) : (
                                                 <>
-                                                    <button
-                                                        onClick={() => startEditGuest(guest)}
-                                                        style={{
-                                                            flex: 1, padding: '7px 0', fontSize: 12, fontWeight: 700,
-                                                            fontFamily: theme.fontDisplay, cursor: 'pointer',
-                                                            border: theme.border, borderRadius: theme.radius,
-                                                            background: theme.cream, color: theme.black,
-                                                        }}
-                                                        onMouseEnter={e => { e.currentTarget.style.background = theme.softViolet }}
-                                                        onMouseLeave={e => { e.currentTarget.style.background = theme.cream }}
-                                                    >
-                                                        Edit
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setConfirmRemoveId(guest.id)}
-                                                        style={{
-                                                            flex: 1, padding: '7px 0', fontSize: 12, fontWeight: 700,
-                                                            fontFamily: theme.fontDisplay, cursor: 'pointer',
-                                                            border: theme.border, borderRadius: theme.radius,
-                                                            background: theme.cream, color: theme.black,
-                                                        }}
-                                                        onMouseEnter={e => { e.currentTarget.style.background = '#fee'; e.currentTarget.style.color = '#c33' }}
-                                                        onMouseLeave={e => { e.currentTarget.style.background = theme.cream; e.currentTarget.style.color = theme.black }}
-                                                    >
-                                                        Remove
-                                                    </button>
+                                                    <Button size="sm" icon="pencil" style={{ flex: 1 }} onClick={() => startEditGuest(guest)}>Edit</Button>
+                                                    <Button variant="danger" size="sm" icon="trash" style={{ flex: 1 }} onClick={() => setConfirmRemoveId(guest.id)}>Remove</Button>
                                                 </>
                                             )}
                                         </div>
-                                    </section>
+                                    </Card>
                                 )
                             })}
                         </div>
@@ -2516,78 +2162,54 @@ export default function AdminPage() {
             {adminTab === 'requests' && (
                 <div>
                     {!state.karaokeSessionId ? (
-                        <section style={sectionCard}>
-                            <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-                                <div style={{ fontSize: 36, marginBottom: 12 }}>📡</div>
-                                <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 16, color: theme.black, marginBottom: 6 }}>
-                                    No Active Session
-                                </div>
-                                <div style={{ color: theme.muted, fontSize: 13, fontFamily: theme.fontBody }}>
-                                    Start a karaoke session from the Search page to receive song requests
-                                </div>
-                            </div>
-                        </section>
+                        <Card>
+                            <EmptyState
+                                icon="radio"
+                                title="No Active Session"
+                                desc="Start a karaoke session to receive song requests"
+                            />
+                        </Card>
                     ) : songRequests.length === 0 ? (
-                        <section style={sectionCard}>
-                            <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-                                <div style={{ fontSize: 36, marginBottom: 12 }}>📝</div>
-                                <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 16, color: theme.black, marginBottom: 6 }}>
-                                    No Requests Yet
-                                </div>
-                                <div style={{ color: theme.muted, fontSize: 13, fontFamily: theme.fontBody }}>
-                                    When a guest can&apos;t find a song, they can ask you to add it here
-                                </div>
-                            </div>
-                        </section>
+                        <Card>
+                            <EmptyState
+                                icon="inbox"
+                                title="No Requests Yet"
+                                desc="When a guest can't find a song, they can ask you to add it here"
+                            />
+                        </Card>
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                             {songRequests.map(req => {
-                                const isPending = req.status === 'pending'
-                                const initial = req.requestedByName.charAt(0).toUpperCase()
-                                const hue = req.requestedByName.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 360
+                                const isPendingReq = req.status === 'pending'
                                 const inCatalog = catalog.some(c => c.trackId === req.trackId)
                                 const statusBadge = req.status === 'added'
-                                    ? { label: 'Added', bg: '#dcfce7', fg: '#166534' }
+                                    ? { label: 'Added', tone: 'green' as const }
                                     : req.status === 'dismissed'
-                                        ? { label: 'Dismissed', bg: '#fee2e2', fg: '#991b1b' }
+                                        ? { label: 'Dismissed', tone: 'red' as const }
                                         : null
                                 return (
-                                    <section key={req.id} style={{
-                                        ...sectionCard,
-                                        opacity: isPending ? 1 : 0.65,
+                                    <Card key={req.id} style={{
+                                        opacity: isPendingReq ? 1 : 0.6,
                                         display: 'flex', flexDirection: 'column', gap: 12,
                                     }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                                            {req.trackArtUrl ? (
-                                                <img src={req.trackArtUrl} alt="" style={{
-                                                    width: 64, height: 64, borderRadius: theme.radiusSmall,
-                                                    objectFit: 'cover', border: theme.border, flexShrink: 0,
-                                                }} />
-                                            ) : (
-                                                <div style={{
-                                                    width: 64, height: 64, borderRadius: theme.radiusSmall,
-                                                    background: theme.cream, border: theme.border,
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    fontSize: 28, flexShrink: 0,
-                                                }}>🎵</div>
-                                            )}
+                                            <ArtTile src={req.trackArtUrl} size={60} radius={9} />
                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                 <div style={{
-                                                    fontFamily: theme.fontDisplay, fontWeight: 800,
-                                                    fontSize: 16, color: theme.black, lineHeight: 1.2,
+                                                    fontFamily: 'var(--adm-display)', fontWeight: 700, fontSize: 15.5, lineHeight: 1.2,
                                                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                                                 }}>
                                                     {req.trackName}
                                                 </div>
                                                 <div style={{
-                                                    fontSize: 13, color: theme.muted, marginTop: 2,
+                                                    fontSize: 13, color: 'var(--adm-text-2)', marginTop: 2,
                                                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                                                 }}>
                                                     {req.trackArtist}
                                                 </div>
                                                 {req.trackAlbum && (
                                                     <div style={{
-                                                        fontSize: 11, color: theme.faint, marginTop: 2,
+                                                        fontSize: 11.5, color: 'var(--adm-text-3)', marginTop: 2,
                                                         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                                                     }}>
                                                         {req.trackAlbum}
@@ -2595,74 +2217,36 @@ export default function AdminPage() {
                                                 )}
                                             </div>
                                             {statusBadge && (
-                                                <div style={{
-                                                    padding: '4px 10px', borderRadius: 999, fontSize: 11,
-                                                    fontFamily: theme.fontDisplay, fontWeight: 700,
-                                                    background: statusBadge.bg, color: statusBadge.fg,
-                                                    letterSpacing: '0.5px', textTransform: 'uppercase',
-                                                    flexShrink: 0,
-                                                }}>{statusBadge.label}</div>
+                                                <Chip tone={statusBadge.tone}>{statusBadge.label}</Chip>
                                             )}
                                         </div>
 
                                         <div style={{
                                             display: 'flex', alignItems: 'center', gap: 10,
-                                            paddingTop: 10, borderTop: `1px solid ${theme.softViolet}`,
+                                            paddingTop: 10, borderTop: '1px solid var(--adm-line-faint)',
                                         }}>
-                                            {req.requestedByProfilePicture ? (
-                                                <img src={req.requestedByProfilePicture} alt="" style={{
-                                                    width: 28, height: 28, borderRadius: '50%',
-                                                    objectFit: 'cover', flexShrink: 0,
-                                                }} />
-                                            ) : (
-                                                <div style={{
-                                                    width: 28, height: 28, borderRadius: '50%',
-                                                    background: `hsl(${hue}, 65%, 55%)`, color: '#fff',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    fontFamily: theme.fontDisplay, fontWeight: 800, fontSize: 13,
-                                                    flexShrink: 0,
-                                                }}>{initial}</div>
-                                            )}
-                                            <div style={{ flex: 1, minWidth: 0, fontSize: 12, color: theme.muted, fontFamily: theme.fontBody }}>
-                                                Requested by <span style={{ color: theme.black, fontWeight: 600 }}>{req.requestedByName}</span>
-                                                <span style={{ color: theme.faint }}> · {new Date(req.createdAt).toLocaleString()}</span>
+                                            <Avatar name={req.requestedByName} src={req.requestedByProfilePicture} size={26} />
+                                            <div style={{ flex: 1, minWidth: 0, fontSize: 12, color: 'var(--adm-text-2)' }}>
+                                                Requested by <span style={{ color: 'var(--adm-text)', fontWeight: 600 }}>{req.requestedByName}</span>
+                                                <span style={{ color: 'var(--adm-text-3)' }}> · {new Date(req.createdAt).toLocaleString()}</span>
                                             </div>
                                         </div>
 
-                                        {isPending && (
+                                        {isPendingReq && (
                                             <div style={{ display: 'flex', gap: 8 }}>
-                                                <button
+                                                <Button
+                                                    variant="primary"
+                                                    style={{ flex: 1 }}
                                                     onClick={() => openSongRequest(req)}
                                                     disabled={inCatalog}
                                                     title={inCatalog ? 'Already in catalog' : 'Open in Add Song flow'}
-                                                    style={{
-                                                        flex: 1, padding: '10px 14px', fontSize: 13, fontWeight: 700,
-                                                        fontFamily: theme.fontDisplay,
-                                                        cursor: inCatalog ? 'not-allowed' : 'pointer',
-                                                        border: theme.border, borderRadius: theme.radius,
-                                                        background: inCatalog ? theme.cream : theme.softViolet,
-                                                        color: theme.black,
-                                                        opacity: inCatalog ? 0.6 : 1,
-                                                    }}
                                                 >
                                                     {inCatalog ? 'Already in catalog' : 'Add to library'}
-                                                </button>
-                                                <button
-                                                    onClick={() => dismissSongRequest(req.id)}
-                                                    style={{
-                                                        padding: '10px 14px', fontSize: 13, fontWeight: 700,
-                                                        fontFamily: theme.fontDisplay, cursor: 'pointer',
-                                                        border: theme.border, borderRadius: theme.radius,
-                                                        background: theme.cream, color: theme.black,
-                                                    }}
-                                                    onMouseEnter={e => { e.currentTarget.style.background = '#fee'; e.currentTarget.style.color = '#c33' }}
-                                                    onMouseLeave={e => { e.currentTarget.style.background = theme.cream; e.currentTarget.style.color = theme.black }}
-                                                >
-                                                    Dismiss
-                                                </button>
+                                                </Button>
+                                                <Button variant="danger" onClick={() => dismissSongRequest(req.id)}>Dismiss</Button>
                                             </div>
                                         )}
-                                    </section>
+                                    </Card>
                                 )
                             })}
                         </div>
@@ -2673,80 +2257,71 @@ export default function AdminPage() {
             {adminTab === 'awards' && <AdminAwardsTab />}
 
             {/* ── Voice Audition Booth ── */}
-            <div style={{ marginTop: 32, ...theme.card, border: theme.border, padding: '16px 20px' }}>
+            <Card style={{ marginTop: 28 }}>
                 <button
                     onClick={() => setAuditionOpen(o => !o)}
                     style={{
-                        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        width: '100%', display: 'flex', alignItems: 'center', gap: 10,
                         background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
-                        fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 13,
-                        color: theme.black, letterSpacing: '0.5px', textTransform: 'uppercase',
+                        color: 'var(--adm-text)',
                     }}
                 >
-                    <span>🎙️ Voice Audition Booth</span>
-                    <span style={{ fontSize: 18, opacity: 0.6 }}>{auditionOpen ? '▾' : '▸'}</span>
+                    <span style={{
+                        width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        background: 'var(--adm-amber-soft)', color: 'var(--adm-amber-bright)',
+                        border: '1px solid rgba(245,165,36,0.28)',
+                    }}>
+                        <Icon name="mic" size={15} />
+                    </span>
+                    <span style={{ fontFamily: 'var(--adm-display)', fontWeight: 650, fontSize: 14.5, flex: 1, textAlign: 'left' }}>
+                        Voice Audition Booth
+                    </span>
+                    {auditionLive && <Chip tone="green" style={{ marginRight: 8 }}><Led state="on" /> Live</Chip>}
+                    <span style={{ color: 'var(--adm-text-3)', transform: auditionOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }}>
+                        <Icon name="chevronDown" size={16} />
+                    </span>
                 </button>
 
                 {auditionOpen && (
                     <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
-                        <div style={{ fontSize: 11, color: theme.muted, lineHeight: 1.5, fontFamily: theme.fontBody }}>
+                        <div style={{ fontSize: 12, color: 'var(--adm-text-2)', lineHeight: 1.5 }}>
                             Hear your voice through any artist preset or the exact effects you've set on a song
                             in your library. Record a snippet, then A/B different presets by clicking them while
                             it replays.
                         </div>
 
                         {/* Input / Output devices */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            <div style={{ fontSize: 9, fontFamily: theme.fontDisplay, fontWeight: 700, color: theme.muted, textTransform: 'uppercase', letterSpacing: '1.5px' }}>
-                                Devices
-                            </div>
+                        <Field label="Devices" hint={auditionLive ? 'Changing a device will swap the live stream automatically.' : undefined}>
                             <div style={{ display: 'flex', gap: 8 }}>
-                                <select
+                                <Select
                                     value={selectedMic}
                                     onChange={e => setSelectedMic(e.target.value)}
-                                    style={{ flex: 1, minWidth: 0, padding: '8px 10px', fontSize: 12, ...theme.select }}
+                                    style={{ flex: 1, minWidth: 0 }}
                                 >
                                     {mics.length === 0 && <option value="">No microphones detected</option>}
-                                    {mics.map(m => <option key={m.deviceId} value={m.deviceId}>🎤 {m.label || 'Mic'}</option>)}
-                                </select>
-                                <select
+                                    {mics.map(m => <option key={m.deviceId} value={m.deviceId}>{m.label || 'Mic'}</option>)}
+                                </Select>
+                                <Select
                                     value={selectedSpeaker}
                                     onChange={e => setSelectedSpeaker(e.target.value)}
-                                    style={{ flex: 1, minWidth: 0, padding: '8px 10px', fontSize: 12, ...theme.select }}
+                                    style={{ flex: 1, minWidth: 0 }}
                                 >
                                     {speakers.length === 0 && <option value="">No output devices detected</option>}
-                                    {speakers.map(s => <option key={s.deviceId} value={s.deviceId}>🔊 {s.label || 'Speaker'}</option>)}
-                                </select>
+                                    {speakers.map(s => <option key={s.deviceId} value={s.deviceId}>{s.label || 'Speaker'}</option>)}
+                                </Select>
                             </div>
-                            {auditionLive && (
-                                <div style={{ fontSize: 10, color: theme.faint, fontFamily: theme.fontBody }}>
-                                    Changing a device will swap the live stream automatically.
-                                </div>
-                            )}
-                        </div>
+                        </Field>
 
                         {/* Source tabs */}
-                        <div style={{ display: 'flex', gap: 6 }}>
-                            {([
-                                { id: 'preset' as const, label: 'Artist Preset' },
-                                { id: 'song' as const, label: 'Song Role' },
-                            ]).map(opt => (
-                                <button
-                                    key={opt.id}
-                                    onClick={() => setAuditionSource(opt.id)}
-                                    style={{
-                                        flex: 1, padding: '10px 14px', fontSize: 12, fontWeight: 700,
-                                        fontFamily: theme.fontDisplay, cursor: 'pointer',
-                                        border: auditionSource === opt.id ? `2px solid ${theme.softViolet}` : theme.borderThin,
-                                        borderRadius: theme.radiusSmall,
-                                        background: auditionSource === opt.id ? `${theme.softViolet}18` : theme.cream,
-                                        color: auditionSource === opt.id ? theme.softViolet : theme.muted,
-                                    }}
-                                >
-                                    {opt.label}
-                                </button>
-                            ))}
-                        </div>
+                        <Tabs
+                            tabs={[
+                                { id: 'preset' as const, label: 'Artist Preset', icon: 'spark' },
+                                { id: 'song' as const, label: 'Song Role', icon: 'music' },
+                            ]}
+                            active={auditionSource}
+                            onChange={setAuditionSource}
+                        />
 
                         {/* Preset grid */}
                         {auditionSource === 'preset' && (
@@ -2756,54 +2331,18 @@ export default function AdminPage() {
                                     if (!presets.length) return null
                                     return (
                                         <div key={cat.key}>
-                                            <div style={{
-                                                fontSize: 9, color: theme.faint, textTransform: 'uppercase',
-                                                letterSpacing: '1.5px', fontFamily: theme.fontDisplay, fontWeight: 700, marginBottom: 4,
-                                            }}>
-                                                {cat.label}
-                                            </div>
+                                            <div className="adm-label" style={{ fontSize: 9, marginBottom: 5 }}>{cat.label}</div>
                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                                                {presets.map(preset => {
-                                                    const isActive = auditionPresetId === preset.id
-                                                    const imgUrl = preset.artistId && !presetImageErrors.has(preset.artistId) ? presetImages[preset.artistId] : null
-                                                    return (
-                                                        <button
-                                                            key={preset.id}
-                                                            onClick={() => selectAuditionPreset(preset.id)}
-                                                            title={preset.description}
-                                                            style={{
-                                                                display: 'flex', alignItems: 'center', gap: 5,
-                                                                padding: '3px 10px 3px 4px',
-                                                                borderRadius: 99,
-                                                                fontSize: 10,
-                                                                fontFamily: theme.fontDisplay, fontWeight: 700,
-                                                                border: isActive ? `2px solid ${theme.softViolet}` : theme.borderThin,
-                                                                background: isActive ? `${theme.softViolet}18` : theme.creamDark,
-                                                                color: isActive ? theme.softViolet : theme.muted,
-                                                                cursor: 'pointer', whiteSpace: 'nowrap',
-                                                            }}
-                                                        >
-                                                            {imgUrl ? (
-                                                                <img
-                                                                    src={imgUrl}
-                                                                    alt={preset.name}
-                                                                    onError={() => preset.artistId && setPresetImageErrors(prev => new Set(prev).add(preset.artistId!))}
-                                                                    style={{ width: 18, height: 18, borderRadius: '50%', objectFit: 'cover', border: isActive ? `2px solid ${theme.softViolet}` : theme.borderThin }}
-                                                                />
-                                                            ) : (
-                                                                <div style={{
-                                                                    width: 18, height: 18, borderRadius: '50%',
-                                                                    background: isActive ? theme.softViolet : theme.faint,
-                                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                                    fontSize: 8, color: theme.white, fontWeight: 700,
-                                                                }}>
-                                                                    {preset.name.charAt(0)}
-                                                                </div>
-                                                            )}
-                                                            {preset.name}
-                                                        </button>
-                                                    )
-                                                })}
+                                                {presets.map(preset => (
+                                                    <PresetChip
+                                                        key={preset.id}
+                                                        preset={preset}
+                                                        active={auditionPresetId === preset.id && auditionSource === 'preset'}
+                                                        imgUrl={preset.artistId && !presetImageErrors.has(preset.artistId) ? presetImages[preset.artistId] || null : null}
+                                                        onImgError={() => preset.artistId && setPresetImageErrors(prev => new Set(prev).add(preset.artistId!))}
+                                                        onClick={() => selectAuditionPreset(preset.id)}
+                                                    />
+                                                ))}
                                             </div>
                                         </div>
                                     )
@@ -2814,18 +2353,12 @@ export default function AdminPage() {
                         {/* Song-role picker */}
                         {auditionSource === 'song' && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                <input
-                                    type="text"
+                                <SearchInput
                                     value={auditionSongQuery}
                                     onChange={e => setAuditionSongQuery(e.target.value)}
                                     placeholder="Search by song, artist, or album…"
-                                    style={{ ...theme.select, padding: '8px 12px', fontSize: 12 }}
                                 />
-                                <div style={{
-                                    maxHeight: 280, overflowY: 'auto',
-                                    border: theme.borderThin, borderRadius: theme.radiusSmall,
-                                    background: theme.cream,
-                                }}>
+                                <div className="adm-scroll adm-well" style={{ maxHeight: 280 }}>
                                     {(() => {
                                         const q = auditionSongQuery.trim().toLowerCase()
                                         const matches = catalog.filter(s => {
@@ -2837,7 +2370,7 @@ export default function AdminPage() {
                                         }).slice(0, 80)
                                         if (!matches.length) {
                                             return (
-                                                <div style={{ padding: 16, fontSize: 11, color: theme.muted, fontFamily: theme.fontBody, textAlign: 'center' }}>
+                                                <div style={{ padding: 16, fontSize: 12, color: 'var(--adm-text-2)', textAlign: 'center' }}>
                                                     {q ? 'No matching songs.' : 'No songs with voice effects.'}
                                                 </div>
                                             )
@@ -2849,13 +2382,13 @@ export default function AdminPage() {
                                             return (
                                                 <div key={song.trackId} style={{
                                                     padding: '10px 12px',
-                                                    borderBottom: theme.borderThin,
-                                                    background: isSelectedSong ? `${theme.softViolet}10` : 'transparent',
+                                                    borderBottom: '1px solid var(--adm-line-faint)',
+                                                    background: isSelectedSong ? 'var(--adm-amber-soft)' : 'transparent',
                                                 }}>
-                                                    <div style={{ fontSize: 12, fontFamily: theme.fontDisplay, fontWeight: 700, color: theme.black, marginBottom: 2 }}>
+                                                    <div style={{ fontSize: 12.5, fontWeight: 650, marginBottom: 2 }}>
                                                         {song.name}
                                                     </div>
-                                                    <div style={{ fontSize: 10, color: theme.muted, fontFamily: theme.fontBody, marginBottom: 6 }}>
+                                                    <div style={{ fontSize: 10.5, color: 'var(--adm-text-3)', marginBottom: 6 }}>
                                                         {song.artist}{song.albumName ? ` · ${song.albumName}` : ''}
                                                     </div>
                                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
@@ -2863,20 +2396,14 @@ export default function AdminPage() {
                                                             if (!fxArr[idx]) return null
                                                             const isActiveChip = isSelectedSong && auditionSongRoleIdx === idx
                                                             return (
-                                                                <button
+                                                                <Chip
                                                                     key={idx}
+                                                                    tone={isActiveChip ? 'amber' : undefined}
                                                                     onClick={() => selectAuditionSongRole(song.trackId, idx)}
-                                                                    style={{
-                                                                        padding: '4px 10px', fontSize: 10, fontWeight: 700,
-                                                                        fontFamily: theme.fontDisplay, cursor: 'pointer',
-                                                                        borderRadius: 99,
-                                                                        border: isActiveChip ? `2px solid ${theme.softViolet}` : theme.borderThin,
-                                                                        background: isActiveChip ? `${theme.softViolet}18` : theme.creamDark,
-                                                                        color: isActiveChip ? theme.softViolet : theme.muted,
-                                                                    }}
+                                                                    style={{ fontSize: 10.5 }}
                                                                 >
                                                                     {roleName}
-                                                                </button>
+                                                                </Chip>
                                                             )
                                                         })}
                                                     </div>
@@ -2889,57 +2416,38 @@ export default function AdminPage() {
                         )}
 
                         {/* Autotune key / mode */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            <div style={{ fontSize: 9, fontFamily: theme.fontDisplay, fontWeight: 700, color: theme.muted, textTransform: 'uppercase', letterSpacing: '1.5px' }}>
-                                Autotune target scale
-                            </div>
+                        <Field
+                            label="Autotune target scale"
+                            hint={<><strong>Chromatic</strong> snaps every note to the nearest semitone — classic T-Pain, works regardless of what you're singing. Picking a <strong>Key + Mode</strong> restricts snap targets to that scale's notes only (more musical, more natural-sounding for melodies). Selecting a Song Role above will auto-load that song's stored key.</>}
+                        >
                             <div style={{ display: 'flex', gap: 8 }}>
-                                <select
+                                <Select
                                     value={auditionKey}
                                     onChange={e => setAuditionKey(parseInt(e.target.value))}
-                                    style={{ flex: 2, minWidth: 0, padding: '8px 10px', fontSize: 12, ...theme.select }}
+                                    style={{ flex: 2, minWidth: 0 }}
                                 >
                                     <option value={-1}>Chromatic (snap to any semitone)</option>
                                     {KEY_NAMES.map((k, i) => <option key={i} value={i}>Key of {k}</option>)}
-                                </select>
-                                <select
+                                </Select>
+                                <Select
                                     value={auditionMode}
                                     onChange={e => setAuditionMode(parseInt(e.target.value))}
                                     disabled={auditionKey < 0}
-                                    style={{
-                                        flex: 1, minWidth: 0, padding: '8px 10px', fontSize: 12, ...theme.select,
-                                        opacity: auditionKey < 0 ? 0.4 : 1,
-                                        cursor: auditionKey < 0 ? 'not-allowed' : 'pointer',
-                                    }}
+                                    style={{ flex: 1, minWidth: 0 }}
                                 >
                                     <option value={1}>Major</option>
                                     <option value={0}>Minor</option>
-                                </select>
+                                </Select>
                             </div>
-                            <div style={{ fontSize: 10, color: theme.faint, fontFamily: theme.fontBody }}>
-                                <strong>Chromatic</strong> snaps every note to the nearest semitone — classic T-Pain, works regardless of what you're singing.
-                                Picking a <strong>Key + Mode</strong> restricts snap targets to that scale's notes only (more musical, more natural-sounding for melodies).
-                                Selecting a Song Role above will auto-load that song's stored key.
-                            </div>
-                        </div>
+                        </Field>
 
                         {/* Fingerprint strip */}
-                        <div style={{
-                            padding: '10px 14px',
-                            background: theme.creamDark,
-                            border: theme.borderThin,
-                            borderRadius: theme.radiusSmall,
-                            fontSize: 11, fontFamily: 'monospace',
-                            color: theme.black,
-                            lineHeight: 1.5,
-                        }}>
-                            <div style={{ fontSize: 9, fontFamily: theme.fontDisplay, fontWeight: 700, color: theme.muted, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: 4 }}>
-                                Currently loaded
-                            </div>
+                        <div className="adm-well adm-mono" style={{ padding: '10px 14px', fontSize: 11, lineHeight: 1.5 }}>
+                            <div className="adm-label" style={{ fontSize: 9, marginBottom: 4 }}>Currently loaded</div>
                             {(() => {
                                 const fx = getAuditionEffects()
                                 if (!fx) {
-                                    return <span style={{ color: theme.faint }}>Pick a preset or song role above.</span>
+                                    return <span style={{ color: 'var(--adm-text-3)' }}>Pick a preset or song role above.</span>
                                 }
                                 let label = ''
                                 if (auditionSource === 'preset') {
@@ -2953,8 +2461,8 @@ export default function AdminPage() {
                                 }
                                 return (
                                     <span>
-                                        <span style={{ color: theme.softViolet, fontWeight: 700 }}>{label}</span>
-                                        <span style={{ color: theme.muted }}> · {auditionFingerprint()}</span>
+                                        <span style={{ color: 'var(--adm-amber-bright)', fontWeight: 600 }}>{label}</span>
+                                        <span style={{ color: 'var(--adm-text-2)' }}> · {auditionFingerprint()}</span>
                                     </span>
                                 )
                             })()}
@@ -2962,137 +2470,72 @@ export default function AdminPage() {
 
                         {/* Transport row */}
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-                            <button
+                            <Button
+                                variant={auditionLive ? 'danger' : 'live'}
                                 onClick={toggleAuditionLive}
                                 disabled={!selectedMic}
-                                style={{
-                                    padding: '10px 18px', fontSize: 13, fontWeight: 800,
-                                    fontFamily: theme.fontDisplay,
-                                    cursor: selectedMic ? 'pointer' : 'not-allowed',
-                                    opacity: selectedMic ? 1 : 0.4,
-                                    border: `2px solid ${auditionLive ? '#e55' : theme.mintGreen}`,
-                                    borderRadius: theme.radius,
-                                    background: auditionLive ? '#fee' : `${theme.mintGreen}22`,
-                                    color: auditionLive ? '#c33' : theme.black,
-                                }}
                             >
-                                {auditionLive ? '■ Stop live' : '● Go live'}
-                            </button>
+                                {auditionLive ? 'Stop live' : <><Led state="on" /> Go live</>}
+                            </Button>
 
-                            <button
+                            <Button
+                                variant={auditionRecording ? 'danger' : 'secondary'}
                                 onClick={toggleAuditionRec}
                                 disabled={!auditionLive}
-                                style={{
-                                    padding: '10px 18px', fontSize: 13, fontWeight: 800,
-                                    fontFamily: theme.fontDisplay,
-                                    cursor: auditionLive ? 'pointer' : 'not-allowed',
-                                    opacity: auditionLive ? 1 : 0.4,
-                                    border: `2px solid ${auditionRecording ? '#e55' : theme.softViolet}`,
-                                    borderRadius: theme.radius,
-                                    background: auditionRecording ? '#fee' : `${theme.softViolet}22`,
-                                    color: auditionRecording ? '#c33' : theme.black,
-                                }}
                             >
-                                {auditionRecording ? `■ Stop rec (${(auditionRecDuration / 1000).toFixed(1)}s)` : '● Record'}
-                            </button>
+                                {auditionRecording ? <><Led state="rec" /> Stop rec ({(auditionRecDuration / 1000).toFixed(1)}s)</> : 'Record'}
+                            </Button>
 
                             {auditionBlob && !auditionPlaying && (
-                                <button
-                                    onClick={playAuditionSnip}
-                                    style={{
-                                        padding: '10px 18px', fontSize: 13, fontWeight: 800,
-                                        fontFamily: theme.fontDisplay, cursor: 'pointer',
-                                        border: `2px solid ${theme.softViolet}`,
-                                        borderRadius: theme.radius,
-                                        background: `${theme.softViolet}18`,
-                                        color: theme.softViolet,
-                                    }}
-                                >
-                                    ▶ Play snippet ({(auditionSnipDuration / 1000).toFixed(1)}s)
-                                </button>
+                                <Button variant="primary" icon="play" onClick={playAuditionSnip}>
+                                    Play snippet ({(auditionSnipDuration / 1000).toFixed(1)}s)
+                                </Button>
                             )}
 
                             {auditionPlaying && (
-                                <button
-                                    onClick={stopAuditionSnip}
-                                    style={{
-                                        padding: '10px 18px', fontSize: 13, fontWeight: 800,
-                                        fontFamily: theme.fontDisplay, cursor: 'pointer',
-                                        border: `2px solid #e55`,
-                                        borderRadius: theme.radius,
-                                        background: '#fee',
-                                        color: '#c33',
-                                    }}
-                                >
-                                    ■ Stop ({Math.floor(auditionPlayProgress * 100)}%)
-                                </button>
+                                <Button variant="danger" onClick={stopAuditionSnip}>
+                                    Stop ({Math.floor(auditionPlayProgress * 100)}%)
+                                </Button>
                             )}
 
                             {auditionBlob && (
-                                <button
-                                    onClick={clearAuditionSnip}
-                                    style={{
-                                        padding: '10px 14px', fontSize: 11, fontWeight: 700,
-                                        fontFamily: theme.fontDisplay, cursor: 'pointer',
-                                        border: theme.borderThin,
-                                        borderRadius: theme.radius,
-                                        background: theme.cream,
-                                        color: theme.muted,
-                                    }}
-                                >
-                                    ✕ Clear
-                                </button>
+                                <Button variant="ghost" size="sm" icon="x" onClick={clearAuditionSnip}>
+                                    Clear
+                                </Button>
                             )}
 
                             {auditionError && (
-                                <div style={{ fontSize: 11, color: '#c33', fontFamily: theme.fontBody }}>
-                                    {auditionError}
-                                </div>
+                                <span style={{ fontSize: 12, color: 'var(--adm-red)' }}>{auditionError}</span>
                             )}
                         </div>
 
                         {/* VU meter */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <div style={{ fontSize: 9, fontFamily: theme.fontDisplay, fontWeight: 700, color: theme.muted, textTransform: 'uppercase', letterSpacing: '1.5px', minWidth: 30 }}>
-                                VU
-                            </div>
-                            <div style={{
-                                flex: 1, height: 12, borderRadius: 6,
-                                background: theme.creamDark,
-                                border: theme.borderThin,
-                                overflow: 'hidden',
-                            }}>
-                                <div style={{
-                                    width: `${Math.min(100, auditionLevel * 250)}%`,
-                                    height: '100%',
-                                    background: auditionRecording ? '#e55' : theme.mintGreen,
-                                    transition: 'width 50ms linear',
-                                }} />
-                            </div>
-                            <div style={{ fontSize: 10, fontFamily: 'monospace', color: theme.muted, minWidth: 48, textAlign: 'right' }}>
+                            <span className="adm-label" style={{ minWidth: 26 }}>VU</span>
+                            <Meter value={auditionLevel * 2.5} style={{ height: 12 }} />
+                            <span className="adm-mono" style={{ fontSize: 10.5, color: 'var(--adm-text-2)', minWidth: 48, textAlign: 'right' }}>
                                 {auditionLevel.toFixed(3)}
-                            </div>
+                            </span>
                         </div>
 
                         {/* Spectrum canvas */}
                         <div>
-                            <div style={{ fontSize: 9, fontFamily: theme.fontDisplay, fontWeight: 700, color: theme.muted, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: 6 }}>
-                                Output spectrum
-                            </div>
+                            <div className="adm-label" style={{ marginBottom: 6 }}>Output spectrum</div>
                             <canvas
                                 ref={auditionCanvasRef}
                                 width={760}
                                 height={140}
                                 style={{
                                     width: '100%', maxWidth: 760, height: 140,
-                                    borderRadius: theme.radiusSmall, border: theme.border,
-                                    background: '#0a0a14', display: 'block',
-                                }}
+                                    borderRadius: 'var(--adm-r-sm)', border: '1px solid var(--adm-line)',
+                                    background: '#0a0c11', display: 'block',
+                                    boxShadow: 'var(--adm-well-shadow)',
+                                } as CSSProperties}
                             />
                         </div>
                     </div>
                 )}
-            </div>
+            </Card>
         </div>
     )
 }

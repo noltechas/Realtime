@@ -169,13 +169,13 @@ function wizardCardStyle(tokens: ThemeTokens, color?: string, overrides?: any, i
     }
   }
   if (tokens.name === 'tropical') {
-    // Tropical — a solid wood-plank base. The grain gradient, sheen and corner
-    // nails are layered on by <TropicalWoodFrame/> rendered inside the card;
-    // overflow:hidden clips that timber overlay to the rounded panel.
+    // Tropical — a carved walnut board. The wood ramp, seeded grain, bevels and
+    // routed groove are layered on by <TropicalWoodFrame/> rendered inside the
+    // card; overflow:hidden clips that timber overlay to the rounded panel.
     return {
-      backgroundColor: '#6E4423',
-      borderWidth: 2.5,
-      borderColor: '#5A3A1E',
+      backgroundColor: '#6B4020',
+      borderWidth: 1.5,
+      borderColor: 'rgba(43,22,6,0.6)',
       borderRadius: 16,
       overflow: 'hidden',
       shadowColor: '#0E2E29',
@@ -642,10 +642,10 @@ function WizardBody() {
   return (
     <SafeAreaView style={ui.styles.screen} edges={['top', 'left', 'right']}>
       <ui.Backdrop />
-      {/* Tropical: a warm sand parchment wash over the photo so the wizard's
-          headings + body copy stay legible (the palms still peek through). */}
+      {/* Tropical: a light sand wash so the wizard's ink headings stay crisp —
+          the drawn scene is calm enough that the fronds/waves still show. */}
       {tokens.name === 'tropical' && (
-        <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255,247,232,0.7)' }} />
+        <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255,246,227,0.38)' }} />
       )}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -715,9 +715,11 @@ function WizardBody() {
                 </Text>
                 <Text
                   style={{
-                    fontFamily: tokens.fontDisplay,
-                    textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
-                    fontWeight: '900',
+                    // Tropical pins the surf script (mobile fontDisplay is the
+                    // unicase Trunks face, which has no apostrophe glyphs).
+                    fontFamily: tokens.name === 'tropical' ? 'FloridaVibes' : tokens.fontDisplay,
+                    textTransform: tokens.name === 'tropical' ? 'none' : tokens.displayUppercase ? 'uppercase' : 'none',
+                    fontWeight: tokens.name === 'tropical' ? 'normal' : '900',
                     fontSize: tokens.name === 'tropical' ? 23 : 18,
                     lineHeight: tokens.name === 'tropical' ? 32 : undefined,
                     color: tokens.black,
@@ -782,9 +784,10 @@ function WizardBody() {
             <View style={{ flex: 1, marginLeft: 12 }}>
               <Text
                 style={{
-                  fontFamily: tokens.fontDisplay,
-                  textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
-                  fontWeight: '900',
+                  // User data — tropical must use the script face (full glyphs).
+                  fontFamily: tokens.name === 'tropical' ? 'FloridaVibes' : tokens.fontDisplay,
+                  textTransform: tokens.name === 'tropical' ? 'none' : tokens.displayUppercase ? 'uppercase' : 'none',
+                  fontWeight: tokens.name === 'tropical' ? 'normal' : '900',
                   fontSize: tokens.name === 'tropical' ? 20 : 14,
                   lineHeight: tokens.name === 'tropical' ? 28 : undefined,
                   color: woodTitleColor(tokens),
@@ -979,9 +982,9 @@ function SingersStep({
     <View style={{ paddingHorizontal: 16 }}>
       <Text
         style={{
-          fontFamily: tokens.fontDisplay,
-          textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
-          fontWeight: '900',
+          fontFamily: tokens.name === 'tropical' ? 'FloridaVibes' : tokens.fontDisplay,
+          textTransform: tokens.name === 'tropical' ? 'none' : tokens.displayUppercase ? 'uppercase' : 'none',
+          fontWeight: tokens.name === 'tropical' ? 'normal' : '900',
           fontSize: tokens.name === 'tropical' ? 31 : 24,
           lineHeight: tokens.name === 'tropical' ? 42 : undefined,
           color: tokens.black,
@@ -1125,9 +1128,10 @@ function SingersStep({
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Text
                   style={{
-                    fontFamily: tokens.fontDisplay,
-                    textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
-                    fontWeight: '900',
+                    // User data — tropical must use the script face (full glyphs).
+                    fontFamily: tokens.name === 'tropical' ? 'FloridaVibes' : tokens.fontDisplay,
+                    textTransform: tokens.name === 'tropical' ? 'none' : tokens.displayUppercase ? 'uppercase' : 'none',
+                    fontWeight: tokens.name === 'tropical' ? 'normal' : '900',
                     fontSize: tokens.name === 'tropical' ? 22 : 16,
                     lineHeight: tokens.name === 'tropical' ? 30 : undefined,
                     color: woodTitleColor(tokens),
@@ -1305,9 +1309,9 @@ function SingersStep({
           >
             <Text
               style={{
-                fontFamily: tokens.fontDisplay,
-                textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
-                fontWeight: '900',
+                fontFamily: tokens.name === 'tropical' ? 'FloridaVibes' : tokens.fontDisplay,
+                textTransform: tokens.name === 'tropical' ? 'none' : tokens.displayUppercase ? 'uppercase' : 'none',
+                fontWeight: tokens.name === 'tropical' ? 'normal' : '900',
                 fontSize: tokens.name === 'tropical' ? 26 : 22,
                 lineHeight: tokens.name === 'tropical' ? 32 : undefined,
                 color: tokens.black,
@@ -1318,9 +1322,9 @@ function SingersStep({
             </Text>
             <Text
               style={{
-                fontFamily: tokens.fontDisplay,
-                textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
-                fontWeight: '800',
+                fontFamily: tokens.name === 'tropical' ? 'FloridaVibes' : tokens.fontDisplay,
+                textTransform: tokens.name === 'tropical' ? 'none' : tokens.displayUppercase ? 'uppercase' : 'none',
+                fontWeight: tokens.name === 'tropical' ? 'normal' : '800',
                 fontSize: tokens.name === 'tropical' ? 19 : 14,
                 lineHeight: tokens.name === 'tropical' ? 26 : undefined,
                 color: tokens.black,
@@ -1378,9 +1382,9 @@ function RolesStep({
     <View style={{ paddingHorizontal: 16 }}>
       <Text
         style={{
-          fontFamily: tokens.fontDisplay,
-          textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
-          fontWeight: '900',
+          fontFamily: tokens.name === 'tropical' ? 'FloridaVibes' : tokens.fontDisplay,
+          textTransform: tokens.name === 'tropical' ? 'none' : tokens.displayUppercase ? 'uppercase' : 'none',
+          fontWeight: tokens.name === 'tropical' ? 'normal' : '900',
           fontSize: tokens.name === 'tropical' ? 31 : 24,
           lineHeight: tokens.name === 'tropical' ? 42 : undefined,
           color: tokens.black,
@@ -1644,9 +1648,9 @@ function StageStep({
     <View style={{ paddingHorizontal: 16 }}>
       <Text
         style={{
-          fontFamily: tokens.fontDisplay,
-          textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
-          fontWeight: '900',
+          fontFamily: tokens.name === 'tropical' ? 'FloridaVibes' : tokens.fontDisplay,
+          textTransform: tokens.name === 'tropical' ? 'none' : tokens.displayUppercase ? 'uppercase' : 'none',
+          fontWeight: tokens.name === 'tropical' ? 'normal' : '900',
           fontSize: tokens.name === 'tropical' ? 31 : 24,
           lineHeight: tokens.name === 'tropical' ? 42 : undefined,
           color: tokens.black,
@@ -1744,7 +1748,7 @@ function StageStep({
             >
               Keep the song title hidden until I start
             </Text>
-            <Text style={{ fontFamily: tokens.name === 'tropical' ? tokens.fontDisplay : tokens.fontBody, fontSize: tokens.name === 'tropical' ? 16 : 12, lineHeight: tokens.name === 'tropical' ? 23 : undefined, color: woodMutedColor(tokens), marginTop: 4 }}>
+            <Text style={{ fontFamily: tokens.name === 'tropical' ? 'FloridaVibes' : tokens.fontBody, fontSize: tokens.name === 'tropical' ? 16 : 12, lineHeight: tokens.name === 'tropical' ? 23 : undefined, color: woodMutedColor(tokens), marginTop: 4 }}>
               {hideSong
                 ? "Other guests won’t see the song name until it plays"
                 : "Surprise everyone — the song name shows up only when it plays"}

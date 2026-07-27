@@ -136,14 +136,19 @@ export const COMIC_BOOK_MOBILE: ThemeTokens = withMobileFonts(
   'SuperSquad',
 )
 
-// Tropical-Mobile — sun-drenched tiki beach. Display = Pacifico (the surf/beach
-// brush-script logo face) for big headings & titles; body = Quicksand (rounded,
-// friendly, highly legible) for everything else. Both loaded via expo-font in
-// App.tsx and match the desktop/web/stage tropical theme exactly.
+// Tropical-Mobile — the "Lagoon" beach. Display = "The Last Trunks", a condensed
+// unicase beach-block face used ONLY for short uppercase labels (its cmap has no
+// ’ · … – —, so it must never carry song titles or anything a guest typed); body =
+// Quicksand 700, which carries every piece of content type in the theme.
+//
+// The theme's third face — the surf script "Florida Vibes" — is deliberately NOT
+// wired to a token: at its real 0.57em cap height it only works when a caller
+// sizes it deliberately, so the tropical UI module reaches for it directly (see
+// `script()` in themes/tropical/atoms/_tropical.tsx) for headline moments.
 export const TROPICAL_MOBILE: ThemeTokens = withMobileFonts(
   TROPICAL_TOKENS,
-  'FloridaVibes',
   'TheLastTrunks',
+  'Quicksand_700Bold',
 )
 
 const MOBILE_BY_NAME: Record<string, ThemeTokens> = {

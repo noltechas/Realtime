@@ -2,96 +2,32 @@ import { useState, useEffect, useRef, useLayoutEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp, useGuestsMap, QueueItem, NEON_COLORS } from '../context/AppContext'
 import { DEFAULT_VOICE_EFFECTS, normalizeMicLevel } from '../audio/VoiceEffectsTypes'
-import { useTheme, THEMES, THEME_LIST } from '../context/ThemeContext'
+import { THEMES, THEME_LIST } from '../context/ThemeContext'
 import type { KaraokeGuestRow } from '@karaoke/shared'
-import { HiddenSongQueueCard } from '../components/HiddenSongCard'
 import { useAudioDevices } from '../hooks/useAudioDevices'
+import { Avatar, ArtTile, Button, Card, CardHeader, Chip, EmptyState, Field, Icon, IconButton, Input, PageHeader, Select } from '../components/ui'
+import { LobbyModeBanner } from '../components/LobbyModeCard'
 
 function formatTime(ms: number): string {
     const s = Math.floor(ms / 1000)
     return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`
 }
 
-// ---- SVG Icons (thick-stroked, monochrome, no emojis) ----
-const IconMic = ({ size = 14, color = '#1A1A1A' }: { size?: number; color?: string }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-        <line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" />
-    </svg>
-)
-
-const IconHeadphones = ({ size = 14, color = '#1A1A1A' }: { size?: number; color?: string }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
-        <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
-    </svg>
-)
-
-const IconMusic = ({ size = 14, color = '#1A1A1A' }: { size?: number; color?: string }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
-    </svg>
-)
-
-const IconCheck = ({ size = 12, color = '#1A1A1A' }: { size?: number; color?: string }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="20 6 9 17 4 12" />
-    </svg>
-)
-
-const IconTrash = ({ size = 14, color = 'currentColor' }: { size?: number; color?: string }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
-    </svg>
-)
-
-const IconGrip = () => (
-    <svg width="12" height="18" viewBox="0 0 12 18" fill="currentColor" opacity="0.3">
-        <circle cx="3" cy="3" r="1.5" /><circle cx="9" cy="3" r="1.5" />
-        <circle cx="3" cy="9" r="1.5" /><circle cx="9" cy="9" r="1.5" />
-        <circle cx="3" cy="15" r="1.5" /><circle cx="9" cy="15" r="1.5" />
-    </svg>
-)
-
-const IconLock = ({ size = 16, color = 'currentColor' }: { size?: number; color?: string }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="4" y="11" width="16" height="10" rx="2" />
-        <path d="M8 11V7a4 4 0 0 1 8 0v4" />
-    </svg>
-)
-
-// ---- Singer Avatar (colored initial circle) ----
+// ---- Singer Avatar (live guest resolution) ----
 // Resolves the live name + picture from the guest roster when a guestId is
 // given; name-only singers fall back to their inline name's initial.
 function SingerAvatar({ name, color, size = 26, guestId }: { name: string; color: string; size?: number; guestId?: string }) {
-    const theme = useTheme()
     const guests = useGuestsMap()
     const guest = guestId ? guests.get(guestId) : undefined
     const pic = guest?.profile_picture ?? null
     const displayName = guest?.name ?? name ?? ''
-    return (
-        <div style={{
-            width: size, height: size, borderRadius: '50%',
-            background: color, border: theme.borderThin,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: theme.fontDisplay, fontWeight: 700,
-            fontSize: size * 0.42, color: theme.black,
-            flexShrink: 0, overflow: 'hidden',
-        }}>
-            {pic
-                ? <img src={pic} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                : displayName.charAt(0).toUpperCase()
-            }
-        </div>
-    )
+    return <Avatar name={displayName} src={pic} color={color} size={size} />
 }
 
 // ---- Setup Panel (song config when adding/editing) ----
 function SetupPanel() {
     const { state, dispatch } = useApp()
     const navigate = useNavigate()
-    const theme = useTheme()
     const guestsMap = useGuestsMap()
     const { inputs: audioDevices, outputs: audioOutputs } = useAudioDevices()
 
@@ -223,312 +159,229 @@ function SetupPanel() {
     }
 
     return (
-        <div style={{ marginBottom: 36 }}>
-            {/* Song Info */}
-            <div style={{ marginBottom: 36, paddingTop: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-                    {art && (
-                        <img src={art} alt=""
-                            style={{
-                                width: 80, height: 80, borderRadius: 6, objectFit: 'cover',
-                                border: theme.border, boxShadow: theme.shadow,
-                            }}
-                        />
-                    )}
-                    <div style={{ flex: 1 }}>
-                        <h1 style={{
-                            fontFamily: theme.fontDisplay, fontSize: 28, fontWeight: 700,
-                            lineHeight: 1.2, letterSpacing: '-0.5px', color: theme.black,
-                        }}>
-                            {track.name}
-                        </h1>
-                        <p style={{ fontSize: 15, color: theme.black, opacity: 0.5, marginTop: 2 }}>
-                            {track.artists.map((a: { name: string }) => a.name).join(', ')}
-                        </p>
-                        <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-                            {state.lyrics.length > 0 && (
-                                <span style={{
-                                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                                    padding: '3px 10px', fontSize: 11, fontWeight: 700,
-                                    fontFamily: theme.fontDisplay, color: theme.black,
-                                    background: theme.mintGreen, border: theme.borderThin, borderRadius: theme.radiusSmall,
-                                }}>
-                                    <IconCheck size={10} /> {state.lyrics.length} lines synced
-                                </span>
-                            )}
-                            <span style={{
-                                padding: '3px 10px', fontSize: 11, fontWeight: 700,
-                                fontFamily: theme.fontDisplay, color: theme.black,
-                                background: theme.softViolet, border: theme.borderThin, borderRadius: theme.radiusSmall,
-                            }}>
-                                {track.album.name}
-                            </span>
-                        </div>
+        <div style={{ marginBottom: 40 }}>
+            {/* Song header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 24 }}>
+                <ArtTile src={art} size={82} radius={12} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="adm-label" style={{ color: 'var(--adm-amber)', marginBottom: 4 }}>
+                        {isEditing ? 'Editing queued song' : 'Setting up'}
                     </div>
-                    <button
-                        onClick={() => navigate('/')}
-                        style={{
-                            ...theme.btnOutline, fontSize: 12, padding: '8px 16px',
-                            color: theme.black, borderColor: theme.black,
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.background = theme.creamDark }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
-                    >
-                        Change Song
-                    </button>
+                    <h1 className="adm-h1" style={{ fontSize: 26 }}>{track.name}</h1>
+                    <div className="adm-sub" style={{ marginTop: 2 }}>
+                        {track.artists.map((a: { name: string }) => a.name).join(', ')}
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                        {state.lyrics.length > 0 && (
+                            <Chip tone="green"><Icon name="check" size={10} /> {state.lyrics.length} lines synced</Chip>
+                        )}
+                        <Chip>{track.album.name}</Chip>
+                    </div>
                 </div>
+                <Button size="sm" onClick={() => navigate('/')}>Change Song</Button>
             </div>
 
-            {/* Singers header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, marginTop: 4 }}>
-                <div style={{
-                    width: 28, height: 28, borderRadius: 6,
-                    background: `${theme.softViolet}33`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                    <IconMic size={14} />
-                </div>
-                <div>
-                    <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 14, color: theme.black }}>Who's singing?</div>
-                    <div style={{ fontSize: 11, color: theme.black, opacity: 0.4 }}>Add joined guests or a custom name, then set up each mic</div>
-                </div>
-            </div>
+            {/* Singers */}
+            <Card style={{ marginBottom: 14 }}>
+                <CardHeader
+                    icon="mic"
+                    label="Line-up"
+                    title="Who's singing?"
+                    desc="Add joined guests or a custom name, then set up each mic"
+                />
 
-            {/* Per-singer config */}
-            {state.singers.map((singer, i) => (
-                <section
-                    key={singer.id}
-                    style={{
-                        ...theme.card,
-                        border: `3px solid ${singer.color}`,
-                        boxShadow: theme.shadowColor(singer.color),
-                        padding: '24px 28px', marginBottom: 12,
-                        position: 'relative', overflow: 'hidden',
-                    }}
-                >
-                    <div style={{ position: 'absolute', top: 0, left: 0, width: 6, bottom: 0, background: singer.color }} />
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
-                        <SingerAvatar name={singer.name || `${i + 1}`} color={singer.color} size={24} guestId={singer.guestId} />
-                        <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 15, color: theme.black }}>
-                            {singer.guestId ? (guestsMap.get(singer.guestId)?.name ?? singer.name) : (singer.name || `Singer ${i + 1}`)}
-                        </span>
-                        <span style={{
-                            fontSize: 9, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase',
-                            padding: '3px 8px', borderRadius: theme.radiusSmall, border: theme.borderThin, color: theme.black,
-                            opacity: 0.7, background: singer.guestId ? `${theme.mintGreen}55` : theme.creamDark,
-                        }}>
-                            {singer.guestId ? 'Guest' : 'Custom'}
-                        </span>
-                        <button
-                            onClick={() => dispatch({ type: 'REMOVE_SINGER', payload: singer.id })}
-                            title="Remove singer"
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {state.singers.map((singer, i) => (
+                        <div
+                            key={singer.id}
+                            className="adm-well"
                             style={{
-                                marginLeft: 'auto', width: 30, height: 30, borderRadius: 6,
-                                background: theme.creamDark, border: theme.borderThin, cursor: 'pointer',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.black,
+                                padding: '16px 18px', position: 'relative', overflow: 'hidden',
+                                borderLeft: `3px solid ${singer.color}`,
                             }}
                         >
-                            <IconTrash size={14} />
-                        </button>
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: state.roles.length > 0 ? '1fr 1fr 1fr' : '1fr 1fr', gap: 20 }}>
-                        <div>
-                            <label style={{
-                                display: 'block', fontSize: 10, fontWeight: 700, letterSpacing: '0.05em',
-                                color: theme.black, opacity: 0.5, marginBottom: 8, textTransform: 'uppercase',
-                            }}>Name</label>
-                            {singer.guestId ? (
-                                <div style={{ marginBottom: 12 }}>
-                                    <div style={{
-                                        ...theme.input,
-                                        width: '100%', padding: '12px 16px', fontSize: 14,
-                                        display: 'flex', alignItems: 'center', opacity: 0.85, cursor: 'default',
-                                    }}>
-                                        {guestsMap.get(singer.guestId)?.name ?? singer.name}
-                                    </div>
-                                    <div style={{ fontSize: 10, color: theme.black, opacity: 0.4, marginTop: 4 }}>Synced from their profile</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                                <SingerAvatar name={singer.name || `${i + 1}`} color={singer.color} size={26} guestId={singer.guestId} />
+                                <span style={{ fontFamily: 'var(--adm-display)', fontWeight: 650, fontSize: 14 }}>
+                                    {singer.guestId ? (guestsMap.get(singer.guestId)?.name ?? singer.name) : (singer.name || `Singer ${i + 1}`)}
+                                </span>
+                                <Chip tone={singer.guestId ? 'green' : undefined} style={{ fontSize: 10 }}>
+                                    {singer.guestId ? 'Guest' : 'Custom'}
+                                </Chip>
+                                <div style={{ marginLeft: 'auto' }}>
+                                    <IconButton icon="trash" danger title="Remove singer" onClick={() => dispatch({ type: 'REMOVE_SINGER', payload: singer.id })} />
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: state.roles.length > 0 ? '1fr 1fr 1fr' : '1fr 1fr', gap: 18 }}>
+                                <div>
+                                    <Field label="Name" style={{ marginBottom: 14 }}>
+                                        {singer.guestId ? (
+                                            <div>
+                                                <div className="adm-input" style={{ opacity: 0.75, cursor: 'default' }}>
+                                                    {guestsMap.get(singer.guestId)?.name ?? singer.name}
+                                                </div>
+                                                <div style={{ fontSize: 10.5, color: 'var(--adm-text-3)', marginTop: 4 }}>Synced from their profile</div>
+                                            </div>
+                                        ) : (
+                                            <Input
+                                                value={singer.name}
+                                                onChange={(e) => dispatch({ type: 'UPDATE_SINGER', payload: { index: i, singer: { name: e.target.value } } })}
+                                            />
+                                        )}
+                                    </Field>
+                                    <Field label="Stage color">
+                                        <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', paddingTop: 3 }}>
+                                            {NEON_COLORS.map((neon, cIdx) => {
+                                                const selected = singer.color === neon.color
+                                                return (
+                                                    <button
+                                                        key={cIdx}
+                                                        onClick={() => dispatch({ type: 'UPDATE_SINGER', payload: { index: i, singer: { color: neon.color, colorGlow: neon.colorGlow } } })}
+                                                        title="Select stage color"
+                                                        style={{
+                                                            width: 22, height: 22, borderRadius: '50%', cursor: 'pointer', flexShrink: 0,
+                                                            background: neon.color, padding: 0,
+                                                            border: selected ? '2px solid #fff' : '2px solid rgba(0,0,0,0.4)',
+                                                            boxShadow: selected ? `0 0 10px ${neon.colorGlow}` : '0 1px 3px rgba(0,0,0,0.4)',
+                                                            transform: selected ? 'scale(1.18)' : 'scale(1)',
+                                                            transition: 'all 0.15s var(--adm-spring)',
+                                                        }}
+                                                    />
+                                                )
+                                            })}
+                                        </div>
+                                    </Field>
+                                </div>
+
+                                {state.roles.length > 0 && (
+                                    <Field label="Roles">
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                            {state.roles.map((r, idx) => {
+                                                const currentIndices = singer.roleIndices || []
+                                                const isSelected = currentIndices.includes(idx)
+                                                return (
+                                                    <button
+                                                        key={idx}
+                                                        onClick={() => {
+                                                            const newIndices = isSelected
+                                                                ? currentIndices.filter(ri => ri !== idx)
+                                                                : [...currentIndices, idx]
+                                                            dispatch({ type: 'UPDATE_SINGER', payload: { index: i, singer: { roleIndices: newIndices } } })
+                                                        }}
+                                                        style={{
+                                                            display: 'flex', alignItems: 'center', gap: 8,
+                                                            padding: '8px 12px', fontSize: 13, cursor: 'pointer', textAlign: 'left',
+                                                            borderRadius: 'var(--adm-r-sm)',
+                                                            fontWeight: isSelected ? 650 : 450,
+                                                            border: isSelected ? `1px solid ${singer.color}` : '1px solid var(--adm-line)',
+                                                            background: isSelected ? `${singer.color}1c` : 'var(--adm-card-2)',
+                                                            color: isSelected ? 'var(--adm-text)' : 'var(--adm-text-2)',
+                                                            transition: 'all 0.13s ease',
+                                                            whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden',
+                                                        }}
+                                                    >
+                                                        <span style={{
+                                                            width: 12, height: 12, borderRadius: 3, flexShrink: 0,
+                                                            border: '1px solid rgba(255,255,255,0.25)',
+                                                            background: isSelected ? singer.color : 'transparent',
+                                                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                                        }}>
+                                                            {isSelected && <Icon name="check" size={9} style={{ color: '#0b0d12' }} />}
+                                                        </span>
+                                                        {r}
+                                                    </button>
+                                                )
+                                            })}
+                                        </div>
+                                    </Field>
+                                )}
+
+                                <Field label="Microphone">
+                                    <Select
+                                        value={singer.micDeviceId}
+                                        onChange={(e) => dispatch({ type: 'UPDATE_SINGER', payload: { index: i, singer: { micDeviceId: e.target.value } } })}
+                                    >
+                                        <option value="" disabled>Select mic…</option>
+                                        {audioDevices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || `Mic ${d.deviceId.slice(0, 6)}`}</option>)}
+                                    </Select>
+                                </Field>
+                            </div>
+                        </div>
+                    ))}
+
+                    {/* Add singer */}
+                    {!pickerOpen ? (
+                        <Button icon="plus" onClick={() => setPickerOpen(true)} style={{ alignSelf: 'flex-start' }}>
+                            Add Singer
+                        </Button>
+                    ) : (
+                        <div className="adm-well" style={{ padding: '16px 18px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                                <span style={{ fontFamily: 'var(--adm-display)', fontWeight: 650, fontSize: 13.5 }}>Add a singer</span>
+                                <IconButton icon="x" title="Close" onClick={() => { setPickerOpen(false); setCustomName('') }} size={26} />
+                            </div>
+
+                            <div className="adm-label" style={{ marginBottom: 8 }}>Joined guests</div>
+                            {availableGuests.length > 0 ? (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+                                    {availableGuests.map(g => (
+                                        <button
+                                            key={g.id}
+                                            onClick={() => addGuestSinger(g)}
+                                            style={{
+                                                display: 'flex', alignItems: 'center', gap: 8, padding: '5px 14px 5px 5px',
+                                                background: 'var(--adm-card-2)', border: '1px solid var(--adm-line)',
+                                                borderRadius: 99, cursor: 'pointer', color: 'var(--adm-text)',
+                                                fontWeight: 600, fontSize: 13, fontFamily: 'var(--adm-body)',
+                                                transition: 'all 0.14s ease',
+                                            }}
+                                            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(245,165,36,0.55)' }}
+                                            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--adm-line)' }}
+                                        >
+                                            <SingerAvatar name={g.name} color={g.default_color || 'var(--adm-amber)'} size={24} guestId={g.id} />
+                                            {g.name}
+                                        </button>
+                                    ))}
                                 </div>
                             ) : (
-                                <input
-                                    value={singer.name}
-                                    onChange={(e) => dispatch({ type: 'UPDATE_SINGER', payload: { index: i, singer: { name: e.target.value } } })}
-                                    style={{
-                                        ...theme.input,
-                                        width: '100%', padding: '12px 16px', fontSize: 14, marginBottom: 12,
-                                    }}
-                                    onFocus={e => (e.target.style.borderColor = singer.color)}
-                                    onBlur={e => (e.target.style.borderColor = '#1A1A1A')}
-                                />
-                            )}
-                            <label style={{
-                                display: 'block', fontSize: 10, fontWeight: 700, letterSpacing: '0.05em',
-                                color: theme.black, opacity: 0.5, marginBottom: 8, textTransform: 'uppercase',
-                            }}>Theme Color</label>
-                            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', padding: '8px 4px' }}>
-                                {NEON_COLORS.map((neon, cIdx) => (
-                                    <div
-                                        key={cIdx}
-                                        onClick={() => dispatch({ type: 'UPDATE_SINGER', payload: { index: i, singer: { color: neon.color, colorGlow: neon.colorGlow } } })}
-                                        style={{
-                                            width: 24, height: 24, borderRadius: '50%', cursor: 'pointer', flexShrink: 0,
-                                            background: neon.color, border: theme.borderThin,
-                                            boxShadow: singer.color === neon.color ? `0 0 0 3px ${neon.color}` : 'none',
-                                            transform: singer.color === neon.color ? 'scale(1.15)' : 'scale(1)',
-                                            transition: 'all 0.15s',
-                                        }}
-                                        title="Select theme color"
-                                    />
-                                ))}
-                            </div>
-                        </div>
-                        {state.roles.length > 0 && (
-                            <div>
-                                <label style={{
-                                    display: 'block', fontSize: 10, fontWeight: 700, letterSpacing: '0.05em',
-                                    color: theme.black, opacity: 0.5, marginBottom: 8, textTransform: 'uppercase',
-                                }}>Roles</label>
-                                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
-                                    {state.roles.map((r, idx) => {
-                                        const currentIndices = singer.roleIndices || []
-                                        const isSelected = currentIndices.includes(idx)
-                                        return (
-                                            <button
-                                                key={idx}
-                                                onClick={() => {
-                                                    const newIndices = isSelected
-                                                        ? currentIndices.filter(ri => ri !== idx)
-                                                        : [...currentIndices, idx]
-                                                    dispatch({ type: 'UPDATE_SINGER', payload: { index: i, singer: { roleIndices: newIndices } } })
-                                                }}
-                                                style={{
-                                                    flex: 1, minWidth: 100, padding: '12px 16px', fontSize: 14, borderRadius: 6,
-                                                    background: isSelected ? theme.softViolet : theme.creamDark,
-                                                    color: theme.black,
-                                                    border: isSelected ? theme.border : theme.borderThin,
-                                                    cursor: 'pointer', transition: 'all 0.15s',
-                                                    fontWeight: isSelected ? 700 : 400,
-                                                    whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden',
-                                                }}
-                                            >
-                                                {r}
-                                            </button>
-                                        )
-                                    })}
+                                <div style={{ fontSize: 12.5, color: 'var(--adm-text-3)', marginBottom: 16 }}>
+                                    {state.guests.length === 0 ? 'No one has joined yet — add a custom name below.' : 'Everyone who has joined is already added.'}
                                 </div>
-                            </div>
-                        )}
-                        <div>
-                            <label style={{
-                                display: 'block', fontSize: 10, fontWeight: 700, letterSpacing: '0.05em',
-                                color: theme.black, opacity: 0.5, marginBottom: 8, textTransform: 'uppercase',
-                            }}>Microphone</label>
-                            <select
-                                value={singer.micDeviceId}
-                                onChange={(e) => dispatch({ type: 'UPDATE_SINGER', payload: { index: i, singer: { micDeviceId: e.target.value } } })}
-                                style={{
-                                    ...theme.select,
-                                    width: '100%', padding: '12px 16px', fontSize: 14,
-                                }}
-                            >
-                                <option value="" disabled>Select mic...</option>
-                                {audioDevices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || `Mic ${d.deviceId.slice(0, 6)}`}</option>)}
-                            </select>
-                        </div>
-                    </div>
-                </section>
-            ))}
+                            )}
 
-            {/* Add Singer */}
-            <section style={{ ...theme.card, padding: '18px 22px', marginBottom: 20 }}>
-                {!pickerOpen ? (
-                    <button
-                        onClick={() => setPickerOpen(true)}
-                        style={{
-                            ...theme.btnOutline, width: '100%', padding: '12px 16px', fontSize: 14,
-                            fontFamily: theme.fontDisplay, fontWeight: 700, color: theme.black, borderColor: theme.black,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer',
-                        }}
-                    >
-                        + Add Singer
-                    </button>
-                ) : (
-                    <div>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                            <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 13, color: theme.black }}>Add a singer</div>
-                            <button onClick={() => { setPickerOpen(false); setCustomName('') }}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: theme.black, opacity: 0.6, fontSize: 20, lineHeight: 1 }}>×</button>
-                        </div>
-
-                        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: theme.black, opacity: 0.5, marginBottom: 8 }}>Joined guests</div>
-                        {availableGuests.length > 0 ? (
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-                                {availableGuests.map(g => (
-                                    <button
-                                        key={g.id}
-                                        onClick={() => addGuestSinger(g)}
-                                        style={{
-                                            display: 'flex', alignItems: 'center', gap: 8, padding: '6px 14px 6px 6px',
-                                            background: theme.creamDark, border: theme.borderThin, borderRadius: 99,
-                                            cursor: 'pointer', color: theme.black, fontWeight: 600, fontSize: 13,
-                                        }}
-                                    >
-                                        <SingerAvatar name={g.name} color={g.default_color || theme.accentA} size={24} guestId={g.id} />
-                                        {g.name}
-                                    </button>
-                                ))}
+                            <div className="adm-label" style={{ marginBottom: 8 }}>Or a custom name</div>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <Input
+                                    value={customName}
+                                    onChange={e => setCustomName(e.target.value)}
+                                    onKeyDown={e => { if (e.key === 'Enter') addCustomSinger() }}
+                                    placeholder="e.g. Surprise guest"
+                                    style={{ flex: 1 }}
+                                />
+                                <Button variant="primary" onClick={addCustomSinger} disabled={!customName.trim()}>Add</Button>
                             </div>
-                        ) : (
-                            <div style={{ fontSize: 12, color: theme.black, opacity: 0.45, marginBottom: 16 }}>
-                                {state.guests.length === 0 ? 'No one has joined yet — add a custom name below.' : 'Everyone who has joined is already added.'}
-                            </div>
-                        )}
-
-                        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: theme.black, opacity: 0.5, marginBottom: 8 }}>Or a custom name</div>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                            <input
-                                value={customName}
-                                onChange={e => setCustomName(e.target.value)}
-                                onKeyDown={e => { if (e.key === 'Enter') addCustomSinger() }}
-                                placeholder="e.g. Surprise guest"
-                                style={{ ...theme.input, flex: 1, padding: '10px 14px', fontSize: 14 }}
-                            />
-                            <button
-                                onClick={addCustomSinger}
-                                disabled={!customName.trim()}
-                                style={{
-                                    ...theme.btnPrimary, padding: '10px 18px', fontSize: 14, fontFamily: theme.fontDisplay, fontWeight: 700,
-                                    cursor: customName.trim() ? 'pointer' : 'not-allowed', opacity: customName.trim() ? 1 : 0.5,
-                                }}
-                            >
-                                Add
-                            </button>
                         </div>
-                    </div>
-                )}
-            </section>
+                    )}
+                </div>
+            </Card>
 
             {/* Monitor Outputs */}
             {state.stemsPath?.vocals && (
-                <section style={{ ...theme.card, padding: '22px 26px', marginBottom: 20 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                        <div style={{
-                            width: 28, height: 28, borderRadius: 6,
-                            background: `${theme.mintGreen}33`,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                            <IconHeadphones size={14} />
-                        </div>
-                        <div>
-                            <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 14, color: theme.black }}>Vocal Monitors</div>
-                            <div style={{ fontSize: 11, color: theme.black, opacity: 0.4 }}>Send vocal guide track to specific headsets</div>
-                        </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                <Card style={{ marginBottom: 14 }}>
+                    <CardHeader
+                        icon="headphones"
+                        label="Monitors"
+                        title="Vocal Monitors"
+                        desc="Send the vocal guide track to specific headsets"
+                    />
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                         {audioOutputs.map(d => {
                             const selected = state.monitorDeviceIds.includes(d.deviceId)
                             return (
-                                <button
+                                <Chip
                                     key={d.deviceId}
+                                    tone={selected ? 'green' : undefined}
                                     onClick={() => {
                                         dispatch({
                                             type: 'SET_MONITOR_DEVICES',
@@ -537,40 +390,26 @@ function SetupPanel() {
                                                 : [...state.monitorDeviceIds, d.deviceId]
                                         })
                                     }}
-                                    style={{
-                                        fontSize: 12, padding: '8px 16px', borderRadius: 6,
-                                        fontFamily: theme.fontDisplay, fontWeight: 600,
-                                        background: selected ? theme.mintGreen : theme.creamDark,
-                                        border: selected ? theme.border : theme.borderThin,
-                                        color: theme.black, cursor: 'pointer',
-                                        boxShadow: selected ? theme.shadowPressed : 'none',
-                                        transition: 'all 0.1s',
-                                    }}
+                                    style={{ padding: '7px 14px', fontSize: 12.5 }}
                                 >
+                                    {selected && <Icon name="check" size={11} />}
                                     {d.label || `Device ${d.deviceId.slice(0, 6)}`}
-                                </button>
+                                </Chip>
                             )
                         })}
                     </div>
-                </section>
+                </Card>
             )}
 
             {/* Stage Theme */}
-            <section style={{ ...theme.card, padding: '22px 26px', marginBottom: 20 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                    <div style={{
-                        width: 28, height: 28, borderRadius: 6,
-                        background: `${theme.accentB}33`,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                        <IconMusic size={14} />
-                    </div>
-                    <div>
-                        <div style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 14, color: theme.black }}>Stage Theme</div>
-                        <div style={{ fontSize: 11, color: theme.black, opacity: 0.4 }}>How this song looks on the big screen</div>
-                    </div>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
+            <Card style={{ marginBottom: 14 }}>
+                <CardHeader
+                    icon="palette"
+                    label="Stage"
+                    title="Stage Theme"
+                    desc="How this song looks on the big screen"
+                />
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8 }}>
                     {THEME_LIST.map(({ key, displayName }) => {
                         const t = THEMES[key]
                         const isDefault = key === 'neo-brutal'
@@ -582,92 +421,90 @@ function SetupPanel() {
                                 title={isDefault ? 'Default' : displayName}
                                 style={{
                                     display: 'flex', alignItems: 'center', gap: 10,
-                                    position: 'relative', textAlign: 'left', cursor: 'pointer',
-                                    padding: '10px 12px', borderRadius: 8,
-                                    background: theme.creamDark,
-                                    border: selected ? `3px solid ${theme.accentA}` : theme.borderThin,
-                                    boxShadow: selected ? theme.shadowPressed : 'none',
-                                    transition: 'all 0.12s',
+                                    textAlign: 'left', cursor: 'pointer',
+                                    padding: '8px 10px', borderRadius: 'var(--adm-r-sm)',
+                                    border: selected ? '1px solid var(--adm-amber)' : '1px solid var(--adm-line)',
+                                    background: selected ? 'var(--adm-amber-soft)' : 'var(--adm-well)',
+                                    boxShadow: selected ? '0 0 12px -4px var(--adm-amber-glow)' : 'var(--adm-well-shadow)',
+                                    transition: 'all 0.14s ease',
                                 }}
                             >
-                                {/* Mini "stage" preview of the theme's OWN colours — no text on it, so
-                                    legibility never depends on a theme's foreground/background contrast.
-                                    The label itself uses the active panel theme's colours so it's always readable. */}
-                                <div style={{
-                                    width: 38, height: 30, borderRadius: 6, flexShrink: 0, overflow: 'hidden',
-                                    background: t.appBg, border: theme.borderThin,
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3,
-                                }}>
-                                    <span style={{ width: 12, height: 12, borderRadius: '50%', background: t.accentA }} />
-                                    <span style={{ width: 6, height: 12, borderRadius: 2, background: t.accentB }} />
-                                </div>
+                                {/* Mini "stage" preview of the theme's OWN colours — no text on
+                                    it, so legibility never depends on a theme's contrast. */}
                                 <span style={{
-                                    fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 13, color: theme.black,
-                                    flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                    width: 36, height: 26, borderRadius: 5, flexShrink: 0, overflow: 'hidden',
+                                    background: t.appBg === 'transparent' ? (t.creamDark || '#111') : t.appBg,
+                                    border: '1px solid var(--adm-line-strong)',
+                                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 3,
+                                }}>
+                                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: t.accentA }} />
+                                    <span style={{ width: 5, height: 10, borderRadius: 2, background: t.accentB }} />
+                                </span>
+                                <span style={{
+                                    flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 600,
+                                    color: selected ? 'var(--adm-amber-bright)' : 'var(--adm-text-2)',
+                                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                                 }}>
                                     {isDefault ? 'Default' : displayName}
                                 </span>
-                                {selected && (
-                                    <span style={{
-                                        position: 'absolute', top: -8, right: -8, width: 20, height: 20, borderRadius: '50%',
-                                        background: theme.accentA, border: theme.borderThin,
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    }}>
-                                        <IconCheck size={11} color="#1A1A1A" />
-                                    </span>
-                                )}
+                                {selected && <Icon name="check" size={13} style={{ color: 'var(--adm-amber-bright)' }} />}
                             </button>
                         )
                     })}
                 </div>
-            </section>
+            </Card>
 
             {/* Add / Update */}
-            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 32, paddingBottom: 24 }}>
-                <button
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 26 }}>
+                <Button
+                    variant="primary" size="lg"
+                    icon={isEditing ? 'check' : 'plus'}
                     disabled={!hasInstrumental}
-                    style={{
-                        ...theme.btnPrimary,
-                        fontSize: 18, padding: '18px 60px',
-                        opacity: hasInstrumental ? 1 : 0.5,
-                        letterSpacing: '0.5px',
-                        textTransform: 'uppercase',
-                    }}
                     onClick={handleAddOrUpdate}
-                    onMouseEnter={e => {
-                        if (hasInstrumental) {
-                            e.currentTarget.style.transform = 'translate(-2px, -2px)'
-                            e.currentTarget.style.boxShadow = theme.shadowLift
-                        }
-                    }}
-                    onMouseLeave={e => {
-                        e.currentTarget.style.transform = 'translate(0, 0)'
-                        e.currentTarget.style.boxShadow = theme.shadow
-                    }}
-                    onMouseDown={e => {
-                        if (hasInstrumental) {
-                            e.currentTarget.style.transform = 'translate(2px, 2px)'
-                            e.currentTarget.style.boxShadow = theme.shadowPressed
-                        }
-                    }}
-                    onMouseUp={e => {
-                        if (hasInstrumental) {
-                            e.currentTarget.style.transform = 'translate(-2px, -2px)'
-                            e.currentTarget.style.boxShadow = theme.shadowLift
-                        }
-                    }}
+                    style={{ minWidth: 300 }}
                 >
-                    {isEditing ? 'UPDATE IN QUEUE' : 'ADD TO QUEUE'}
-                </button>
+                    {isEditing ? 'Update in Queue' : 'Add to Queue'}
+                </Button>
             </div>
         </div>
+    )
+}
+
+// ---- Hidden song placeholder (fixed design; song info stays secret) ----
+function HiddenQueueItem({ addedBy }: { addedBy?: string | null }) {
+    return (
+        <>
+            <div style={{
+                width: 48, height: 48, borderRadius: 8, flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'repeating-linear-gradient(135deg, var(--adm-card-2), var(--adm-card-2) 6px, var(--adm-well) 6px, var(--adm-well) 12px)',
+                border: '1px solid var(--adm-line)', color: 'var(--adm-text-3)',
+            }}>
+                <Icon name="eyeOff" size={20} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                    fontFamily: 'var(--adm-display)', fontWeight: 650, fontSize: 14.5,
+                    letterSpacing: '0.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                }}>
+                    Hidden Song
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--adm-text-3)', marginTop: 2 }}>
+                    Surprise pick — revealed on stage
+                </div>
+                {addedBy && (
+                    <div style={{ fontSize: 11.5, color: 'var(--adm-amber-bright)', fontWeight: 600, marginTop: 2 }}>
+                        Added by {addedBy}
+                    </div>
+                )}
+            </div>
+        </>
     )
 }
 
 // ---- Now Playing Banner (info only, no playback controls) ----
 function NowPlayingBanner({ npOverride }: { npOverride?: QueueItem } = {}) {
     const { state } = useApp()
-    const theme = useTheme()
     const np = npOverride ?? state.nowPlaying
     if (!np) return null
 
@@ -676,79 +513,50 @@ function NowPlayingBanner({ npOverride }: { npOverride?: QueueItem } = {}) {
     const singers = np.singers || []
 
     return (
-        <div style={{
+        <div className="adm-card" style={{
             position: 'relative',
-            background: theme.accentB,
-            border: theme.border,
-            boxShadow: theme.shadow,
-            borderRadius: theme.radius,
-            padding: '20px 24px',
-            marginBottom: 32,
-            transform: 'rotate(-0.5deg)',
+            padding: '18px 20px',
+            marginBottom: 28,
+            borderColor: 'rgba(245,165,36,0.4)',
+            boxShadow: 'var(--adm-card-shadow), 0 0 34px -12px var(--adm-amber-glow)',
+            overflow: 'hidden',
         }}>
-            {/* Sticker label */}
+            {/* warm sweep */}
             <div style={{
-                ...theme.stickerLabel,
-                top: -12, left: 20,
-                background: theme.hotRed,
-                color: '#FFFFFF',
-                transform: 'rotate(-2deg)',
-            }}>
-                NOW PLAYING
+                position: 'absolute', inset: 0, pointerEvents: 'none',
+                background: 'radial-gradient(420px 130px at 8% 0%, rgba(245,165,36,0.12), transparent 70%)',
+            }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, position: 'relative' }}>
+                <span className="adm-led adm-led--on" />
+                <span className="adm-label" style={{ color: 'var(--adm-green)' }}>Now Playing</span>
+                {np.addedBy && (
+                    <span style={{ fontSize: 11.5, color: 'var(--adm-text-3)', marginLeft: 4 }}>· added by {np.addedBy}</span>
+                )}
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 18, paddingTop: 8 }}>
-                {art ? (
-                    <img src={art} alt="" style={{
-                        width: 80, height: 80, borderRadius: 6, objectFit: 'cover',
-                        border: theme.border,
-                    }} />
-                ) : (
-                    <div style={{
-                        width: 80, height: 80, borderRadius: 6, border: theme.border,
-                        background: theme.cream,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                        <IconMusic size={32} />
-                    </div>
-                )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, position: 'relative' }}>
+                <ArtTile src={art} size={72} radius={10} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{
-                        fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 22,
-                        color: '#1A1A1A', lineHeight: 1.2,
+                        fontFamily: 'var(--adm-display)', fontWeight: 700, fontSize: 20, lineHeight: 1.2,
                         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                     }}>
                         {track.name}
                     </div>
-                    <div style={{
-                        fontFamily: theme.fontBody, fontSize: 14,
-                        color: '#1A1A1A', opacity: 0.75, marginTop: 2,
-                    }}>
+                    <div style={{ fontSize: 13.5, color: 'var(--adm-text-2)', marginTop: 3 }}>
                         {track.artists.map(a => a.name).join(', ')}
                     </div>
-                    {np.addedBy && (
-                        <div style={{
-                            fontSize: 11, fontFamily: theme.fontDisplay, fontWeight: 600,
-                            color: '#1A1A1A', opacity: 0.6, marginTop: 4,
-                        }}>
-                            Added by {np.addedBy}
-                        </div>
-                    )}
                 </div>
                 {singers.length > 0 && (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
                         <div style={{ display: 'flex' }}>
                             {singers.map((s, idx) => (
                                 <div key={s.id} style={{ marginLeft: idx > 0 ? -8 : 0, zIndex: singers.length - idx }}>
-                                    <SingerAvatar name={s.name} color={s.color} size={36} guestId={s.guestId} />
+                                    <SingerAvatar name={s.name} color={s.color} size={34} guestId={s.guestId} />
                                 </div>
                             ))}
                         </div>
-                        <div style={{
-                            fontSize: 10, fontFamily: theme.fontDisplay, fontWeight: 700,
-                            color: '#1A1A1A', opacity: 0.7, textTransform: 'uppercase',
-                            letterSpacing: '0.5px',
-                        }}>
+                        <div style={{ fontSize: 10.5, color: 'var(--adm-text-3)', textAlign: 'right', maxWidth: 280 }}>
                             {singers.map(s => {
                                 const roleNames = (s.roleIndices || []).map(ri => np.roles[ri]).filter(Boolean)
                                 return s.name + (roleNames.length > 0 ? ' (' + roleNames.join(', ') + ')' : '')
@@ -765,7 +573,6 @@ function NowPlayingBanner({ npOverride }: { npOverride?: QueueItem } = {}) {
 export default function QueuePage() {
     const { state, dispatch } = useApp()
     const navigate = useNavigate()
-    const theme = useTheme()
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
 
@@ -942,7 +749,10 @@ export default function QueuePage() {
     const totalDuration = state.queue.reduce((sum, item) => sum + item.track.duration_ms, 0)
 
     return (
-        <div style={theme.page}>
+        <div className="adm-page">
+            {/* Why nothing is on deck, when that's on purpose */}
+            <LobbyModeBanner />
+
             {/* Setup panel when configuring a song */}
             {state.currentTrack && <SetupPanel />}
 
@@ -987,91 +797,34 @@ export default function QueuePage() {
             )}
 
             {/* Queue Header */}
-            <div style={{ marginBottom: 24, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-                <div>
-                    <h2 style={{
-                        fontFamily: theme.fontDisplay, fontSize: 32, fontWeight: 700,
-                        lineHeight: 1.1, letterSpacing: '-1px', color: theme.black, marginBottom: 4,
-                    }}>
-                        UP NEXT
-                    </h2>
-                    <p style={{ fontSize: 13, color: theme.black, opacity: 0.5, fontFamily: theme.fontBody }}>
-                        {state.queue.length} song{state.queue.length !== 1 ? 's' : ''} &mdash; {formatTime(totalDuration)} total
-                    </p>
-                </div>
-                <div style={{ display: 'flex', gap: 12 }}>
-                    <button
-                        onClick={() => navigate('/')}
-                        style={{ ...theme.btnSecondary, fontSize: 13, padding: '10px 20px' }}
-                        onMouseEnter={e => {
-                            e.currentTarget.style.transform = 'translate(-2px, -2px)'
-                            e.currentTarget.style.boxShadow = theme.shadowLift
-                        }}
-                        onMouseLeave={e => {
-                            e.currentTarget.style.transform = 'translate(0, 0)'
-                            e.currentTarget.style.boxShadow = theme.shadow
-                        }}
-                    >
-                        Add Songs
-                    </button>
-                    {state.queue.length > 0 && (
-                        <button
-                            onClick={clearQueue}
-                            style={{ ...theme.btnOutline, fontSize: 13, padding: '10px 20px' }}
-                            onMouseEnter={e => { e.currentTarget.style.background = theme.hotRed; e.currentTarget.style.color = theme.white }}
-                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = theme.hotRed }}
-                        >
-                            Clear All
-                        </button>
-                    )}
-                </div>
-            </div>
+            <PageHeader
+                label="Running order"
+                title="Up Next"
+                desc={`${state.queue.length} song${state.queue.length !== 1 ? 's' : ''} · ${formatTime(totalDuration)} total`}
+                actions={
+                    <>
+                        <Button icon="plus" onClick={() => navigate('/')}>Add Songs</Button>
+                        {state.queue.length > 0 && (
+                            <Button variant="danger" icon="trash" onClick={clearQueue}>Clear All</Button>
+                        )}
+                    </>
+                }
+            />
 
             {/* Queue List */}
             {state.queue.length === 0 && !state.nowPlaying ? (
-                /* Empty state */
-                <div style={{ textAlign: 'center', padding: '80px 20px' }}>
-                    <div style={{ marginBottom: 20 }}>
-                        <IconMusic size={48} />
-                    </div>
-                    <h2 style={{
-                        fontFamily: theme.fontDisplay, fontSize: 24, fontWeight: 700,
-                        color: theme.black, marginBottom: 8,
-                    }}>
-                        QUEUE IS EMPTY
-                    </h2>
-                    <p style={{
-                        fontSize: 14, color: theme.black, opacity: 0.5,
-                        marginBottom: 28, maxWidth: 360, margin: '0 auto 28px',
-                        fontFamily: theme.fontBody,
-                    }}>
-                        Add songs from the catalog to get the party started
-                    </p>
-                    <button
-                        onClick={() => navigate('/')}
-                        style={{ ...theme.btnPrimary, fontSize: 16, padding: '16px 48px' }}
-                        onMouseEnter={e => {
-                            e.currentTarget.style.transform = 'translate(-2px, -2px)'
-                            e.currentTarget.style.boxShadow = theme.shadowLift
-                        }}
-                        onMouseLeave={e => {
-                            e.currentTarget.style.transform = 'translate(0, 0)'
-                            e.currentTarget.style.boxShadow = theme.shadow
-                        }}
-                    >
-                        BROWSE SONGS
-                    </button>
-                </div>
+                <EmptyState
+                    icon="music"
+                    title="Queue is empty"
+                    desc="Add songs from the library to get the party started."
+                    action={<Button variant="primary" size="lg" onClick={() => navigate('/')}>Browse Songs</Button>}
+                />
             ) : state.queue.length === 0 ? (
-                <div style={{
-                    textAlign: 'center', padding: '40px 20px',
-                    color: theme.black, opacity: 0.4, fontSize: 14,
-                    fontFamily: theme.fontBody,
-                }}>
+                <div style={{ textAlign: 'center', padding: '36px 20px', color: 'var(--adm-text-3)', fontSize: 13.5 }}>
                     No more songs in queue
                 </div>
             ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {state.queue.map((item, index) => {
                         const art = item.track.album.images[0]?.url
                         const isDragging = draggedIndex === index
@@ -1092,107 +845,72 @@ export default function QueuePage() {
                                 onDragOver={(e) => handleDragOver(e, index)}
                                 onDrop={(e) => handleDrop(e, index)}
                                 onDragEnd={handleDragEnd}
+                                className="adm-card"
                                 style={{
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: 14,
-                                    padding: 16,
-                                    background: isDropTarget ? theme.creamDark : theme.white,
-                                    border: isLocked
-                                        ? `3px solid ${theme.accentB}`
-                                        : (isDropTarget ? `3px solid ${theme.softViolet}` : theme.border),
-                                    borderRadius: theme.radius,
+                                    gap: 13,
+                                    padding: '13px 16px',
+                                    borderColor: isLocked
+                                        ? 'rgba(245,165,36,0.5)'
+                                        : isDropTarget ? 'rgba(76,195,232,0.6)' : undefined,
                                     boxShadow: isDragging
-                                        ? '8px 8px 0px ' + theme.black
-                                        : (isLocked ? '4px 4px 0px ' + theme.accentB : theme.shadow),
-                                    opacity: isDragging ? 0.4 : 1,
-                                    transform: isDragging ? 'rotate(2deg) scale(0.98)' : 'none',
+                                        ? '0 22px 44px -10px rgba(0,0,0,0.8)'
+                                        : isLocked
+                                            ? 'var(--adm-card-shadow), 0 0 22px -10px var(--adm-amber-glow)'
+                                            : undefined,
+                                    opacity: isDragging ? 0.45 : 1,
+                                    transform: isDragging ? 'scale(0.985)' : 'none',
                                     cursor: isLocked ? 'default' : 'grab',
-                                    transition: 'transform 0.15s, box-shadow 0.15s, opacity 0.15s',
-                                }}
-                                onMouseEnter={e => {
-                                    if (!isDragging && !isLocked) {
-                                        e.currentTarget.style.transform = 'translate(-1px, -1px)'
-                                        e.currentTarget.style.boxShadow = '5px 5px 0px ' + theme.black
-                                    }
-                                }}
-                                onMouseLeave={e => {
-                                    if (!isDragging && !isLocked) {
-                                        e.currentTarget.style.transform = 'none'
-                                        e.currentTarget.style.boxShadow = theme.shadow
-                                    }
+                                    transition: 'transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, border-color 0.15s ease',
                                 }}
                             >
                                 {/* Drag handle — hidden when locked */}
-                                <div style={{ padding: '0 4px', cursor: isLocked ? 'default' : 'grab', visibility: isLocked ? 'hidden' : 'visible' }}>
-                                    <IconGrip />
-                                </div>
+                                <span style={{ color: 'var(--adm-text-3)', visibility: isLocked ? 'hidden' : 'visible', cursor: isLocked ? 'default' : 'grab' }}>
+                                    <Icon name="grip" size={16} />
+                                </span>
 
                                 {/* Position — replaced by lock badge when this is the Next-Up locked card */}
                                 {isLocked ? (
                                     <div style={{
-                                        display: 'flex', flexDirection: 'column', alignItems: 'center',
-                                        gap: 2, minWidth: 56,
+                                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                                        minWidth: 52, color: 'var(--adm-amber-bright)',
                                     }}>
-                                        <IconLock size={18} color={theme.black} />
-                                        <span style={{
-                                            fontFamily: theme.fontDisplay, fontWeight: 800,
-                                            fontSize: 9, letterSpacing: 0.5, color: theme.black,
-                                            textTransform: 'uppercase',
-                                        }}>
+                                        <Icon name="lock" size={16} />
+                                        <span className="adm-label" style={{ color: 'var(--adm-amber-bright)', letterSpacing: '1px', fontSize: 8.5 }}>
                                             Next Up
                                         </span>
                                     </div>
                                 ) : (
-                                    <div style={{
-                                        fontFamily: theme.fontDisplay, fontSize: 18, fontWeight: 700,
-                                        color: theme.black, opacity: 0.2, minWidth: 28, textAlign: 'center',
+                                    <span className="adm-mono" style={{
+                                        fontSize: 15, fontWeight: 600, color: 'var(--adm-text-3)',
+                                        minWidth: 28, textAlign: 'center',
                                     }}>
-                                        {index + 1}
-                                    </div>
+                                        {String(index + 1).padStart(2, '0')}
+                                    </span>
                                 )}
 
-                                {/* Art + track info — or themed Hidden placeholder when isHidden */}
+                                {/* Art + track info — or Hidden placeholder when isHidden */}
                                 {item.isHidden ? (
-                                    <HiddenSongQueueCard theme={theme} addedBy={item.addedBy ?? undefined} />
+                                    <HiddenQueueItem addedBy={item.addedBy} />
                                 ) : (
                                     <>
-                                        {art ? (
-                                            <img src={art} alt="" style={{
-                                                width: 48, height: 48, borderRadius: theme.radiusSmall,
-                                                objectFit: 'cover', border: theme.borderThin,
-                                            }} />
-                                        ) : (
-                                            <div style={{
-                                                width: 48, height: 48, borderRadius: theme.radiusSmall,
-                                                border: theme.borderThin, background: theme.creamDark,
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            }}>
-                                                <IconMusic size={20} />
-                                            </div>
-                                        )}
-
+                                        <ArtTile src={art} size={48} />
                                         <div style={{ flex: 1, minWidth: 0 }}>
                                             <div style={{
-                                                fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 15,
-                                                color: theme.black,
+                                                fontFamily: 'var(--adm-display)', fontWeight: 650, fontSize: 14.5,
                                                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                                                marginBottom: 2,
                                             }}>
                                                 {item.track.name}
                                             </div>
                                             <div style={{
-                                                fontSize: 12, color: theme.black, opacity: 0.5,
-                                                fontFamily: theme.fontBody,
+                                                fontSize: 12, color: 'var(--adm-text-2)', marginTop: 2,
                                                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                                             }}>
                                                 {item.track.artists.map(a => a.name).join(', ')}
                                             </div>
                                             {item.addedBy && (
-                                                <div style={{
-                                                    fontSize: 11, fontFamily: theme.fontDisplay,
-                                                    fontWeight: 600, color: theme.hotRed, marginTop: 2,
-                                                }}>
+                                                <div style={{ fontSize: 11, color: 'var(--adm-amber-bright)', fontWeight: 600, marginTop: 2 }}>
                                                     Added by {item.addedBy}
                                                 </div>
                                             )}
@@ -1202,39 +920,36 @@ export default function QueuePage() {
 
                                 {/* Singer avatars with names & roles (roles hidden when song is hidden) */}
                                 {singers.length > 0 && (
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center', justifyContent: 'flex-end' }}>
                                         {singers.map((s) => {
                                             const roleNames = item.isHidden
                                                 ? []
                                                 : (s.roleIndices || []).map(ri => item.roles[ri]).filter(Boolean)
                                             return (
-                                                <div key={s.id} style={{
-                                                    display: 'flex', alignItems: 'center', gap: 4,
-                                                    padding: '2px 8px 2px 2px', borderRadius: 99,
-                                                    background: `${s.color}15`, border: `1px solid ${s.color}30`,
-                                                    fontSize: 11, fontFamily: theme.fontDisplay, fontWeight: 600,
-                                                    color: theme.black,
+                                                <span key={s.id} style={{
+                                                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                                                    padding: '2px 9px 2px 2px', borderRadius: 99,
+                                                    background: `${s.color}14`, border: `1px solid ${s.color}3a`,
+                                                    fontSize: 11.5, fontWeight: 600, color: 'var(--adm-text)',
+                                                    whiteSpace: 'nowrap',
                                                 }}>
                                                     <SingerAvatar name={s.name} color={s.color} size={20} guestId={s.guestId} />
-                                                    <span>{s.name || 'Singer'}</span>
+                                                    {s.name || 'Singer'}
                                                     {roleNames.length > 0 && (
-                                                        <span style={{ fontSize: 9, opacity: 0.5, fontWeight: 400 }}>
+                                                        <span style={{ fontSize: 10, color: 'var(--adm-text-3)', fontWeight: 450 }}>
                                                             {roleNames.join(', ')}
                                                         </span>
                                                     )}
-                                                </div>
+                                                </span>
                                             )
                                         })}
                                     </div>
                                 )}
 
                                 {/* Duration */}
-                                <div style={{
-                                    fontSize: 12, fontFamily: theme.fontDisplay, fontWeight: 500,
-                                    color: theme.black, opacity: 0.4,
-                                }}>
+                                <span className="adm-mono" style={{ fontSize: 11.5, color: 'var(--adm-text-3)' }}>
                                     {formatTime(item.track.duration_ms)}
-                                </div>
+                                </span>
 
                                 {/* Score control: live total of (score + bonusPoints) flanked by
                                     − / + buttons so the host can hand-tune standing. The buttons
@@ -1244,84 +959,28 @@ export default function QueuePage() {
                                     title={`Score: ${item.score ?? 0}  |  Bonus: ${item.bonusPoints ?? 0}`}
                                     style={{ display: 'flex', alignItems: 'center', gap: 4 }}
                                 >
-                                    <button
-                                        onClick={() => adjustScore(item, -1)}
-                                        aria-label="Decrease score"
-                                        style={{
-                                            width: 24, height: 30, padding: 0,
-                                            borderRadius: theme.radiusSmall, border: theme.borderThin,
-                                            background: theme.creamDark, color: theme.black,
-                                            fontFamily: theme.fontDisplay, fontWeight: 900, fontSize: 16,
-                                            cursor: 'pointer', lineHeight: 1,
-                                        }}
-                                        onMouseEnter={e => { e.currentTarget.style.background = theme.hotRed; e.currentTarget.style.color = theme.white }}
-                                        onMouseLeave={e => { e.currentTarget.style.background = theme.creamDark; e.currentTarget.style.color = theme.black }}
-                                    >
-                                        −
-                                    </button>
-                                    <div
-                                        style={{
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            minWidth: 34, height: 30, padding: '0 8px',
-                                            borderRadius: theme.radiusSmall,
-                                            border: theme.borderThin,
-                                            background: total > 0 ? theme.accentC : total < 0 ? theme.hotRed : theme.creamDark,
-                                            color: total === 0 ? theme.black : theme.white,
-                                            fontFamily: theme.fontDisplay, fontWeight: 800, fontSize: 13,
-                                            boxShadow: '2px 2px 0px ' + theme.black,
-                                        }}
-                                    >
+                                    <IconButton icon="minus" size={26} aria-label="Decrease score" onClick={() => adjustScore(item, -1)} />
+                                    <span className="adm-mono" style={{
+                                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                        minWidth: 38, height: 26, padding: '0 8px',
+                                        borderRadius: 'var(--adm-r-sm)',
+                                        border: '1px solid var(--adm-line)',
+                                        background: 'var(--adm-well)',
+                                        boxShadow: 'var(--adm-well-shadow)',
+                                        fontSize: 12.5, fontWeight: 600,
+                                        color: total > 0 ? 'var(--adm-green)' : total < 0 ? 'var(--adm-red)' : 'var(--adm-text-2)',
+                                    }}>
                                         {total}
-                                    </div>
-                                    <button
-                                        onClick={() => adjustScore(item, 1)}
-                                        aria-label="Increase score"
-                                        style={{
-                                            width: 24, height: 30, padding: 0,
-                                            borderRadius: theme.radiusSmall, border: theme.borderThin,
-                                            background: theme.creamDark, color: theme.black,
-                                            fontFamily: theme.fontDisplay, fontWeight: 900, fontSize: 16,
-                                            cursor: 'pointer', lineHeight: 1,
-                                        }}
-                                        onMouseEnter={e => { e.currentTarget.style.background = theme.accentC; e.currentTarget.style.color = theme.white }}
-                                        onMouseLeave={e => { e.currentTarget.style.background = theme.creamDark; e.currentTarget.style.color = theme.black }}
-                                    >
-                                        +
-                                    </button>
+                                    </span>
+                                    <IconButton icon="plus" size={26} aria-label="Increase score" onClick={() => adjustScore(item, 1)} />
                                 </div>
 
                                 {/* Actions — Edit is suppressed for hidden songs so the host can't reveal them */}
                                 <div style={{ display: 'flex', gap: 6 }}>
                                     {!item.isHidden && (
-                                        <button
-                                            onClick={() => editSong(item, index)}
-                                            style={{
-                                                padding: '6px 14px', borderRadius: 6,
-                                                background: theme.creamDark, border: theme.borderThin,
-                                                color: theme.black, fontSize: 11,
-                                                fontFamily: theme.fontDisplay, fontWeight: 700,
-                                                cursor: 'pointer', transition: 'all 0.1s',
-                                            }}
-                                            onMouseEnter={e => { e.currentTarget.style.background = theme.vividYellow }}
-                                            onMouseLeave={e => { e.currentTarget.style.background = theme.creamDark }}
-                                        >
-                                            Edit
-                                        </button>
+                                        <IconButton icon="pencil" title="Edit song setup" onClick={() => editSong(item, index)} />
                                     )}
-                                    <button
-                                        onClick={() => removeSong(index)}
-                                        style={{
-                                            padding: 6, borderRadius: 6,
-                                            background: 'transparent',
-                                            border: `2px solid ${theme.hotRed}`,
-                                            cursor: 'pointer', transition: 'all 0.1s',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        }}
-                                        onMouseEnter={e => { e.currentTarget.style.background = theme.hotRed; (e.currentTarget.firstChild as SVGElement).style.stroke = theme.white }}
-                                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; (e.currentTarget.firstChild as SVGElement).style.stroke = theme.hotRed }}
-                                    >
-                                        <IconTrash />
-                                    </button>
+                                    <IconButton icon="trash" danger title="Remove from queue" onClick={() => removeSong(index)} />
                                 </div>
                             </div>
                         )

@@ -199,6 +199,16 @@ export interface AppState {
     // the app skips both the playing song and the up-next song.
     hydratingNowPlaying: boolean
     themeName: string
+    // ── Lobby Mode ──────────────────────────────────────────────────────────
+    // The "collect songs before the show" mode. While it's on the stage holds
+    // its themed join screen (QR + session code) no matter what's queued, and
+    // NOTHING is pulled out of the queue into the on-deck slot: the host flips
+    // it on at the start of the night, guests pile songs in, then flipping it
+    // off hands the first song to the stage and everything runs as normal.
+    lobbyMode: boolean
+    // Randomly cycle the join screen through every theme's design (20s dwell,
+    // crossfaded) while Lobby Mode is on. Ignored when lobbyMode is false.
+    lobbyCycleThemes: boolean
     remotePlayCommand: 'play' | 'pause' | null
     remoteSkipCommand: boolean
     // Awards
@@ -272,6 +282,32 @@ function loadAudioDevicePrefs(): AudioDevicePrefs {
 }
 const savedDevicePrefs = loadAudioDevicePrefs()
 
+// Lobby Mode survives an app restart: a host who flipped it on to collect songs
+// should still be collecting after a crash/reopen mid-night, not silently
+// pushing the first song on deck. Both windows read the same store at startup;
+// only the main window writes (see the persist effect in AppProvider).
+interface LobbyPrefs {
+    lobbyMode: boolean
+    lobbyCycleThemes: boolean
+}
+function loadLobbyPrefs(): LobbyPrefs {
+    const defaults: LobbyPrefs = { lobbyMode: false, lobbyCycleThemes: true }
+    try {
+        if (typeof localStorage === 'undefined') return defaults
+        const stored = localStorage.getItem('lobbyPrefs')
+        if (!stored) return defaults
+        const parsed = JSON.parse(stored)
+        if (!parsed || typeof parsed !== 'object') return defaults
+        return {
+            lobbyMode: parsed.lobbyMode === true,
+            lobbyCycleThemes: parsed.lobbyCycleThemes !== false,
+        }
+    } catch {
+        return defaults
+    }
+}
+const savedLobbyPrefs = loadLobbyPrefs()
+
 const initialState: AppState = {
     spotifyToken: null,
     currentTrack: null,
@@ -310,6 +346,8 @@ const initialState: AppState = {
     karaokeQrDataUrl: null,
     hydratingNowPlaying: false,
     themeName: 'neo-brutal',
+    lobbyMode: savedLobbyPrefs.lobbyMode,
+    lobbyCycleThemes: savedLobbyPrefs.lobbyCycleThemes,
     remotePlayCommand: null,
     remoteSkipCommand: false,
     awards: [],
@@ -378,6 +416,8 @@ type Action =
     | { type: 'SET_KARAOKE_SESSION'; payload: { sessionId: string; sessionCode: string; qrDataUrl: string; sessionName: string | null } }
     | { type: 'CLEAR_KARAOKE_SESSION' }
     | { type: 'SET_THEME_NAME'; payload: string }
+    | { type: 'SET_LOBBY_MODE'; payload: boolean }
+    | { type: 'SET_LOBBY_CYCLE_THEMES'; payload: boolean }
     | { type: 'SET_REMOTE_PLAY_COMMAND'; payload: 'play' | 'pause' | null }
     | { type: 'SET_REMOTE_SKIP_COMMAND'; payload: boolean }
     | { type: 'SET_AWARDS'; payload: Award[] }
@@ -460,7 +500,10 @@ function resolveNextSong(state: AppState): Partial<AppState> {
     const newHistory = state.nowPlaying
         ? [...state.history, state.nowPlaying]
         : state.history
-    if (state.queue.length === 0) {
+    // Lobby Mode never puts a song on deck — finishing (or skipping) the
+    // current song returns the stage to the join screen and leaves the queue
+    // untouched, so guests keep piling songs in until the host ends the lobby.
+    if (state.lobbyMode || state.queue.length === 0) {
         return { isPlaying: false, nowPlaying: null, stageMode: 'idle', history: newHistory, micSlots: savedSlots }
     }
     const sorted = sortQueueByScore(state.queue)
@@ -842,6 +885,36 @@ function reducer(state: AppState, action: Action): AppState {
             return { ...state, karaokeSessionId: null, karaokeSessionCode: null, karaokeSessionName: null, karaokeQrDataUrl: null }
         case 'SET_THEME_NAME':
             return { ...state, themeName: action.payload }
+        case 'SET_LOBBY_MODE': {
+            if (!action.payload) return { ...state, lobbyMode: false }
+            // Turning Lobby Mode ON must leave nothing on deck. A song that's
+            // merely waiting (loaded but not started) goes back into the queue
+            // to compete for votes with everything else; a song that's actually
+            // playing is left alone to finish — resolveNextSong then drops the
+            // stage back to the lobby instead of pulling the next song up.
+            // Locks come off across the board: with no next-up slot, nothing is
+            // pinned (see the lock effect in useKaraokeSession, which also
+            // clears the flag in Supabase for remote clients).
+            const unlocked = state.queue.some(q => q.locked)
+                ? state.queue.map(q => (q.locked ? { ...q, locked: false } : q))
+                : state.queue
+            const returned = state.nowPlaying && !state.isPlaying
+                ? { ...state.nowPlaying, locked: false }
+                : null
+            if (returned) {
+                return {
+                    ...state,
+                    lobbyMode: true,
+                    queue: sortQueueByScore([...unlocked, returned]),
+                    nowPlaying: null,
+                    stageMode: 'idle',
+                    currentTime: 0,
+                }
+            }
+            return { ...state, lobbyMode: true, queue: sortQueueByScore(unlocked) }
+        }
+        case 'SET_LOBBY_CYCLE_THEMES':
+            return { ...state, lobbyCycleThemes: action.payload }
         case 'SET_REMOTE_PLAY_COMMAND':
             return { ...state, remotePlayCommand: action.payload }
         case 'SET_REMOTE_SKIP_COMMAND':
@@ -927,10 +1000,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         if (window.electronAPI?.isStageWindow) return
         if (state.hydratingNowPlaying) return
+        // Lobby Mode holds the queue closed — nothing goes on deck until the
+        // host ends the lobby, at which point this fires and the top song
+        // (highest voted) takes the stage.
+        if (state.lobbyMode) return
         if (!state.nowPlaying && state.queue.length > 0) {
             dispatch({ type: 'NEXT_SONG' })
         }
-    }, [state.nowPlaying, state.queue.length, state.hydratingNowPlaying, dispatch])
+    }, [state.nowPlaying, state.queue.length, state.hydratingNowPlaying, state.lobbyMode, dispatch])
+
+    // Persist the Lobby Mode flags (main window only — the stage mirrors relayed
+    // state and must never write its own, possibly pre-INIT, values back).
+    useEffect(() => {
+        if (window.electronAPI?.isStageWindow) return
+        try {
+            localStorage.setItem('lobbyPrefs', JSON.stringify({
+                lobbyMode: state.lobbyMode,
+                lobbyCycleThemes: state.lobbyCycleThemes,
+            }))
+        } catch { /* localStorage may be unavailable; ignore */ }
+    }, [state.lobbyMode, state.lobbyCycleThemes])
 
     // Persist the per-device vocal offset map across app restarts.
     useEffect(() => {

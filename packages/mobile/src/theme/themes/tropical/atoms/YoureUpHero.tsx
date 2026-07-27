@@ -1,51 +1,82 @@
 import React from 'react'
-import { View, Text } from 'react-native'
-import { LinearGradient } from 'expo-linear-gradient'
-import { TROPICAL_MOBILE } from '../../../tokens'
-import { PANEL, SUNSET, HIBISCUS, softShadow, TikiTorch } from './_tropical'
+import { Animated, Text, View } from 'react-native'
+import Svg from 'react-native-svg'
+import {
+  CREAM,
+  GUAVA,
+  PAINTED,
+  RopeKnot,
+  RopeSeg,
+  TikiTorch,
+  Timber,
+  WaveRule,
+  glow,
+  script,
+  tiki,
+  useEnter,
+  useSwing,
+} from './_tropical'
 
-// Tropical "You're Up!" hero — the headline moment: a sunset→hibiscus wave
-// banner with "YOU'RE UP!" in big Pacifico, flanked by two flickering tiki
-// torches. Replaces the generic styled Text on the Stage idle banner.
-const t = TROPICAL_MOBILE
+// Tropical "You're Up!" — the headline moment, built like the entrance to a
+// luau: two tiki torches burning (flickering flames, breathing glow) flank a
+// guava-painted plank sign that hangs from twisted V-ropes and actually sways.
+// "You're Up!" is brush-painted in the surf script with the theme's wave rule
+// carved beneath it, and the torchlight warms the sign's shadow. The group
+// arrives on the shared entrance spring.
+
+const SIGN_W = 196
+const CORD_H = 26
 
 export function YoureUpHero() {
+  const enter = useEnter(0, 18)
+  const { transform } = useSwing(CORD_H + 34, 1.5)
+
   return (
-    <View style={{ alignItems: 'center', alignSelf: 'center', marginBottom: 6 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 6 }}>
-        <View style={{ transform: [{ scaleX: -1 }] }}>
-          <TikiTorch height={110} flame={44} />
+    <Animated.View
+      style={{
+        alignSelf: 'center',
+        alignItems: 'center',
+        marginBottom: 4,
+        opacity: enter.opacity,
+        transform: [{ translateY: enter.translateY }, { scale: enter.scale }],
+      }}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2 }}>
+        <View style={{ transform: [{ scaleX: -1 }], marginBottom: -4 }}>
+          <TikiTorch height={132} flame={48} />
         </View>
 
-        <LinearGradient
-          colors={[SUNSET, HIBISCUS]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: 26, paddingVertical: 16, borderRadius: 22, borderWidth: 2.5, borderColor: 'rgba(255,255,255,0.7)', ...softShadow(8) }}
-        >
-          <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '48%', borderTopLeftRadius: 20, borderTopRightRadius: 20, backgroundColor: 'rgba(255,255,255,0.20)' }} />
-          <Text
-            adjustsFontSizeToFit
-            numberOfLines={1}
-            minimumFontScale={0.5}
-            style={{
-              fontFamily: t.fontDisplay, // Florida Vibes (runs small — sized up)
-              fontSize: 56,
-              lineHeight: 64,
-              color: PANEL,
-              letterSpacing: 0.5,
-              textAlign: 'center',
-              textShadowColor: 'rgba(0,0,0,0.25)',
-              textShadowOffset: { width: 0, height: 2 },
-              textShadowRadius: 3,
-            }}
-          >
-            You're Up!
-          </Text>
-        </LinearGradient>
+        {/* the hanging sign — swings from its rope knot */}
+        <Animated.View style={{ alignItems: 'center', transform }}>
+          <Svg width={SIGN_W} height={CORD_H} style={{ marginBottom: -2 }}>
+            <RopeSeg x1={SIGN_W / 2} y1={2} x2={26} y2={CORD_H} width={3} />
+            <RopeSeg x1={SIGN_W / 2} y1={2} x2={SIGN_W - 26} y2={CORD_H} width={3} />
+            <RopeKnot cx={SIGN_W / 2} cy={4} r={4} />
+          </Svg>
 
-        <TikiTorch height={110} flame={44} />
+          <View style={[{ borderRadius: 16 }, glow('#FFB84D', 3)]}>
+            <Timber
+              radius={16}
+              paint={GUAVA}
+              seed="youre-up"
+              groove
+              style={{ width: SIGN_W, alignItems: 'center', paddingVertical: 13, paddingHorizontal: 12 }}
+            >
+              <Text style={script(23, CREAM, { ...PAINTED, textAlign: 'center' })} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                You’re Up!
+              </Text>
+              <View style={{ marginTop: 2, opacity: 0.9 }}>
+                <WaveRule width={92} color="rgba(255,240,214,0.85)" thickness={2.6} />
+              </View>
+              <Text style={[tiki(10.5, 'rgba(255,240,214,0.85)'), { marginTop: 4 }]}>Take the mic</Text>
+            </Timber>
+          </View>
+        </Animated.View>
+
+        <View style={{ marginBottom: -4 }}>
+          <TikiTorch height={132} flame={48} />
+        </View>
       </View>
-    </View>
+    </Animated.View>
   )
 }

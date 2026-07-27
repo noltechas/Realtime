@@ -1,20 +1,112 @@
-import React from 'react'
-import { Text, Pressable, ScrollView, View } from 'react-native'
-import { LinearGradient } from 'expo-linear-gradient'
-import { TROPICAL_MOBILE } from '../../../tokens'
+import React, { useEffect, useRef } from 'react'
+import { Animated, ScrollView, Text, View } from 'react-native'
 import type { GenreTabsProps } from '../../../types'
-import { softShadow, Hibiscus } from './_tropical'
+import {
+  CREAM,
+  Hibiscus3D,
+  LAGOON,
+  PAINTED,
+  Press,
+  Timber,
+  glow,
+  lift,
+  sans,
+} from './_tropical'
 
-// Tropical genre tabs — each is a little WOOD PLANK with a nail hammered into
-// each end. The active plank lights up (sun-bleached timber + a sunshine
-// keyline + a hibiscus pinned on); inactive planks sit as plain, dimmer wood.
-const t = TROPICAL_MOBILE
+// Tropical genre tabs — a rack of little carved trail markers. Every tag is a
+// real plank (seeded grain, beveled edge); the active one is dipped in lagoon
+// enamel, springs up a touch, takes a warm glow, and a hibiscus bloom pops onto
+// its corner (scaling in on its own spring — flair you can only earn by being
+// selected). Counts sit in a small carved notch on each tag.
 
-function Nail() {
+function Tag({
+  label,
+  count,
+  active,
+  onPress,
+}: {
+  label: string
+  count: number
+  active: boolean
+  onPress: () => void
+}) {
+  const v = useRef(new Animated.Value(active ? 1 : 0)).current
+
+  useEffect(() => {
+    const a = Animated.spring(v, {
+      toValue: active ? 1 : 0,
+      useNativeDriver: true,
+      damping: 11,
+      stiffness: 200,
+      mass: 0.7,
+    })
+    a.start()
+    return () => a.stop()
+  }, [active, v])
+
   return (
-    <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#2E2014', alignItems: 'center', justifyContent: 'center' }}>
-      <View style={{ width: 2, height: 2, borderRadius: 1, backgroundColor: 'rgba(255,255,255,0.35)' }} />
-    </View>
+    <Press onPress={onPress} hitSlop={4} scaleTo={0.94} style={{ borderRadius: 11 }}>
+      <Animated.View
+        style={[
+          { borderRadius: 11 },
+          active ? glow('#FFB84D', 2) : lift(1),
+          { transform: [{ scale: v.interpolate({ inputRange: [0, 1], outputRange: [1, 1.05] }) }] },
+        ]}
+      >
+        <Timber
+          radius={11}
+          paint={active ? LAGOON : undefined}
+          seed={`genre-${label}`}
+          knot={false}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 7,
+            minHeight: 42,
+            paddingHorizontal: 14,
+            paddingVertical: 8,
+          }}
+        >
+          <Text style={[sans(13.5, 'bold', active ? '#FFFFFF' : CREAM), PAINTED]} numberOfLines={1}>
+            {label}
+          </Text>
+          {/* carved count notch */}
+          <View
+            style={{
+              minWidth: 23,
+              paddingHorizontal: 6,
+              paddingVertical: 1,
+              borderRadius: 999,
+              backgroundColor: 'rgba(28,13,2,0.34)',
+              borderWidth: 1,
+              borderColor: 'rgba(255,232,185,0.24)',
+              alignItems: 'center',
+            }}
+          >
+            <Text style={sans(11, 'bold', active ? '#EFFFFC' : 'rgba(255,240,214,0.9)')} numberOfLines={1}>
+              {count}
+            </Text>
+          </View>
+        </Timber>
+
+        {/* the bloom pinned to the active tag's corner */}
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            top: -9,
+            left: -8,
+            opacity: v,
+            transform: [
+              { scale: v.interpolate({ inputRange: [0, 1], outputRange: [0.2, 1] }) },
+              { rotate: '-14deg' },
+            ],
+          }}
+        >
+          <Hibiscus3D size={26} />
+        </Animated.View>
+      </Animated.View>
+    </Press>
   )
 }
 
@@ -26,69 +118,11 @@ export function GenreTabs({ list, counts, value, onChange }: GenreTabsProps) {
       horizontal
       showsHorizontalScrollIndicator={false}
       style={{ flexGrow: 0 }}
-      contentContainerStyle={{ paddingHorizontal: 24, paddingVertical: 16, gap: 12 }}
+      contentContainerStyle={{ paddingHorizontal: 22, paddingVertical: 14, paddingTop: 16, gap: 10 }}
     >
-      {list.map((g) => {
-        const active = g === value
-        const count = counts[g] ?? 0
-        const woodColors: readonly [string, string] = active ? ['#C08A4E', '#9A6A36'] : ['#8A5E32', '#6E4423']
-        const ink = active ? '#FFF7E6' : 'rgba(255,241,196,0.82)'
-        return (
-          <Pressable key={g} onPress={() => onChange(g)} hitSlop={6} style={{ borderRadius: 10, ...softShadow(active ? 5 : 3) }}>
-            <LinearGradient
-              colors={woodColors}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0, y: 1 }}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 8,
-                paddingHorizontal: 18,
-                paddingVertical: 9,
-                minHeight: 44,
-                borderRadius: 10,
-                overflow: 'hidden',
-                borderWidth: 2,
-                borderColor: active ? '#FFC83D' : '#5A3A1E',
-              }}
-            >
-              {/* wood grain + a soft top sheen */}
-              <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
-                <View style={{ position: 'absolute', left: 8, right: 8, top: '34%', height: 1, backgroundColor: 'rgba(0,0,0,0.16)' }} />
-                <View style={{ position: 'absolute', left: 8, right: 8, top: '66%', height: 1, backgroundColor: 'rgba(0,0,0,0.16)' }} />
-                <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '40%', backgroundColor: 'rgba(255,255,255,0.06)' }} />
-              </View>
-              {/* a nail hammered into each end */}
-              <View pointerEvents="none" style={{ position: 'absolute', left: 5, top: '50%', marginTop: -3 }}><Nail /></View>
-              <View pointerEvents="none" style={{ position: 'absolute', right: 5, top: '50%', marginTop: -3 }}><Nail /></View>
-
-              {active ? <Hibiscus size={20} stroke={false} /> : null}
-              <Text
-                style={{ fontFamily: t.fontBody, fontWeight: '700', fontSize: 14, lineHeight: 20, color: ink, letterSpacing: 0.3, includeFontPadding: false }}
-                numberOfLines={1}
-              >
-                {g}
-              </Text>
-              <View
-                style={{
-                  marginLeft: 2,
-                  paddingHorizontal: 8,
-                  paddingVertical: 1,
-                  borderRadius: 999,
-                  backgroundColor: 'rgba(0,0,0,0.22)',
-                  minWidth: 24,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Text style={{ fontFamily: t.fontBody, fontWeight: '700', fontSize: 12, lineHeight: 17, color: '#FFF1C4', includeFontPadding: false }} numberOfLines={1}>
-                  {count}
-                </Text>
-              </View>
-            </LinearGradient>
-          </Pressable>
-        )
-      })}
+      {list.map((g) => (
+        <Tag key={g} label={g} count={counts[g] ?? 0} active={g === value} onPress={() => onChange(g)} />
+      ))}
     </ScrollView>
   )
 }

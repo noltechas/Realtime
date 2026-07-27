@@ -2110,3 +2110,45 @@
 .hs-retro-tracking {
     animation: hs-retro-tracking 4s linear infinite;
 }
+/* ── Lobby Mode ─────────────────────────────────────────────────────────────
+   The stage holds its join screen while songs pile into the queue. When theme
+   cycling is on, two full join screens are mounted at once and crossfaded: the
+   outgoing screen dissolves ON TOP of the incoming one, which is already fading
+   up underneath, so the wall never dips to a bare background between designs. */
+.lobby-layer {
+    position: absolute;
+    inset: 0;
+}
+.lobby-layer--in {
+    animation: lobby-layer-in 1s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.lobby-layer--out {
+    z-index: 2;
+    pointer-events: none;
+    animation: lobby-layer-out 1.4s cubic-bezier(0.4, 0, 0.9, 1) both;
+}
+@keyframes lobby-layer-in {
+    from { opacity: 0; transform: scale(1.035); filter: blur(9px); }
+    to   { opacity: 1; transform: scale(1);     filter: blur(0);   }
+}
+@keyframes lobby-layer-out {
+    from { opacity: 1; transform: scale(1);     filter: blur(0);    }
+    to   { opacity: 0; transform: scale(0.978); filter: blur(13px); }
+}
+
+/* Queued / requested song notices along the bottom of the join screen. */
+@keyframes lobby-notice-in {
+    from { opacity: 0; transform: translateY(46px) scale(0.93); }
+    60%  { opacity: 1; }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes lobby-notice-out {
+    from { opacity: 1; transform: translateY(0) scale(1); }
+    to   { opacity: 0; transform: translateY(26px) scale(0.97); }
+}
+.lobby-notice {
+    animation: lobby-notice-in 0.62s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.lobby-notice--leaving {
+    animation: lobby-notice-out 0.52s ease forwards;
+}

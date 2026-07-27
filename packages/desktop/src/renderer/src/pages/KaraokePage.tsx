@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useApp, useGuestsMap, singerFxKey, NEON_COLORS } from '../context/AppContext'
-import { useTheme } from '../context/ThemeContext'
+import { useTheme, THEMES } from '../context/ThemeContext'
+import type { Theme } from '../styles/theme'
 import { AwardsRevealAnimation } from '../awards/AwardsRevealAnimation'
 import { HiddenSongStagePanel, HiddenSongStageHeading } from '../components/HiddenSongCard'
 import TomatoSplatterLayer, { TOMATO_EMOJI } from '../components/TomatoSplatterLayer'
@@ -2067,6 +2068,1981 @@ function ReactionsOverlay() {
     )
 }
 
+// ── Idle "join the party" stage screen ─────────────────────────────────────
+// The themed waiting screen the stage shows whenever no song is up: every
+// theme gets its own scene (ending in the Urban fallback for unthemed names).
+// Lives at module scope, driven ONLY by its props, so Lobby Mode can mount a
+// screen for any theme — not just the active one — and crossfade between them.
+export function IdleStageScreen({ theme, qrUrl, sessionCode }: {
+    theme: Theme
+    qrUrl: string | null
+    sessionCode: string | null
+}) {
+
+    // ---- Neo-Brutal idle ----
+    // A printed gig poster at rest: print grid + halftone fields, floating
+    // color blocks, scrolling ink tickers top and bottom, a two-layer
+    // display headline, and a QR plate that periodically "presses" itself
+    // to pull eyes to the code.
+    if (theme.name === 'neo-brutal') {
+        const heading = 'ADD A SONG'
+        const idleBlocks: Array<React.CSSProperties & { rot: number; dur: number }> = [
+            { top: '13%', left: '6%', width: 120, height: 120, background: '#FFD60A', rot: -8, dur: 7 },
+            { bottom: '15%', right: '7%', width: 92, height: 92, background: '#B388FF', rot: 12, dur: 8.5 },
+            { top: '22%', right: '13%', width: 62, height: 62, background: '#00E676', rot: -3, dur: 9.5 },
+            { bottom: '22%', left: '12%', width: 74, height: 74, background: '#FF3B30', rot: 6, dur: 8 },
+        ]
+        return (
+            <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
+                background: NB_CREAM, position: 'relative', overflow: 'hidden',
+            }}>
+                <div className="nb-print-grid" style={{ position: 'absolute', inset: 0 }} />
+                <div className="nb-dots" style={{ position: 'absolute', top: -120, right: -90, width: 480, height: 480, transform: 'rotate(9deg)' }} />
+                <div className="nb-dots" style={{ position: 'absolute', bottom: -140, left: -100, width: 540, height: 540, transform: 'rotate(-6deg)' }} />
+                {idleBlocks.map(({ rot, dur, ...pos }, i) => (
+                    <div
+                        key={i}
+                        style={{
+                            position: 'absolute', border: `3px solid ${NB_INK}`, boxShadow: `6px 6px 0 ${NB_INK}`,
+                            ['--nb-rot' as string]: `${rot}deg`,
+                            animation: `nb-float ${dur}s ease-in-out ${i * 0.6}s infinite`,
+                            ...pos,
+                        }}
+                    />
+                ))}
+                <NbCropMark style={{ top: 26, left: 26 }} />
+                <NbCropMark style={{ top: 26, right: 26 }} rotate={90} />
+                <NbCropMark style={{ bottom: 26, right: 26 }} rotate={180} />
+                <NbCropMark style={{ bottom: 26, left: 26 }} rotate={270} />
+
+                <div style={{ textAlign: 'center', zIndex: 1, position: 'relative' }}>
+                    {/* Ink chip above the headline */}
+                    <div className="nb-rise" style={{ display: 'inline-flex', alignItems: 'center', gap: 12, background: NB_INK, padding: '7px 20px', marginBottom: 22, transform: 'rotate(-1.4deg)' }}>
+                        <NbEq color="#FFD60A" fontSize={stageFont(15)} />
+                        <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(14), letterSpacing: '0.3em', color: NB_CREAM }}>
+                            MIC IS OPEN
+                        </span>
+                    </div>
+                    {/* Two-layer display headline: yellow offset print behind ink */}
+                    <h1 className="nb-rise" style={{ position: 'relative', fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(88), lineHeight: 1.02, margin: '0 0 14px', animationDelay: '0.06s' }}>
+                        <span aria-hidden style={{ position: 'absolute', left: '0.055em', top: '0.055em', color: '#FFD60A', WebkitTextStroke: `0.028em ${NB_INK}`, whiteSpace: 'nowrap' }}>
+                            {heading}
+                        </span>
+                        <span style={{ position: 'relative', color: NB_INK, whiteSpace: 'nowrap' }}>{heading}</span>
+                    </h1>
+                    <p className="nb-rise" style={{ fontFamily: theme.fontBody, fontWeight: 700, fontSize: stageFont(17), color: NB_INK, opacity: 0.65, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 40, animationDelay: '0.12s' }}>
+                        Scan the code to load the queue
+                    </p>
+                    {qrUrl && (
+                        <div className="nb-rise" style={{ display: 'inline-block', animationDelay: '0.18s' }}>
+                            <div style={{
+                                padding: 18, background: '#FFFFFF', border: `4px solid ${NB_INK}`,
+                                boxShadow: `10px 10px 0 ${NB_INK}`, animation: 'nb-qr-press 5.5s ease-in-out 2s infinite',
+                            }}>
+                                <img src={qrUrl} alt="QR" style={{ width: 216, height: 216, display: 'block' }} />
+                            </div>
+                        </div>
+                    )}
+                    {sessionCode && (
+                        <div className="nb-rise" style={{ display: 'flex', justifyContent: 'center', marginTop: 30, animationDelay: '0.24s' }}>
+                            <div style={{
+                                padding: '8px 28px', background: '#FFD60A', border: `3px solid ${NB_INK}`,
+                                boxShadow: `5px 5px 0 ${NB_INK}`, transform: 'rotate(-1.5deg)',
+                            }}>
+                                <p style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(26), color: NB_INK, letterSpacing: '0.3em', margin: 0 }}>
+                                    {sessionCode}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        )
+    }
+
+    // ---- Cyberpunk idle ----
+    if (theme.name === 'cyberpunk') {
+        return (
+            <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
+                background: '#060610', position: 'relative', overflow: 'hidden',
+            }}>
+                {/* Dot grid background */}
+                <div style={{
+                    position: 'absolute', inset: 0, opacity: 0.15,
+                    backgroundImage: 'radial-gradient(circle, #00ff88 1px, transparent 1px)',
+                    backgroundSize: '28px 28px',
+                }} />
+                {/* Scanline overlay */}
+                <div style={{
+                    position: 'absolute', inset: 0, opacity: 0.04, pointerEvents: 'none',
+                    background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,136,0.3) 2px, rgba(0,255,136,0.3) 4px)',
+                }} />
+
+                <div style={{ textAlign: 'center', zIndex: 1 }}>
+                    <p style={{
+                        fontFamily: 'Share Tech Mono, monospace', fontSize: stageFont(16), color: '#00ff88', opacity: 0.5,
+                        letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: 12,
+                    }}>
+                        {'>'} system.queue.status
+                    </p>
+                    <h1 style={{
+                        fontFamily: 'Share Tech Mono, monospace', fontSize: stageFont(56), fontWeight: 400, color: '#00ff88',
+                        lineHeight: 1.2, marginBottom: 8,
+                        textShadow: '0 0 20px rgba(0,255,136,0.6), 0 0 60px rgba(0,255,136,0.3)',
+                    }}>
+                        // AWAITING INPUT
+                    </h1>
+                    <p style={{
+                        fontFamily: 'Share Tech Mono, monospace', fontSize: stageFont(14), color: '#00e5ff', opacity: 0.4,
+                        marginBottom: 48,
+                    }}>
+                        scan_qr_code() to enqueue track
+                    </p>
+                    {qrUrl && (
+                        <div style={{
+                            display: 'inline-block', padding: 12,
+                            border: '1px solid #00ff88',
+                            boxShadow: '0 0 15px rgba(0,255,136,0.3), inset 0 0 15px rgba(0,255,136,0.1)',
+                        }}>
+                            <img src={qrUrl} alt="QR" style={{ width: 200, height: 200, display: 'block' }} />
+                        </div>
+                    )}
+                    {sessionCode && (
+                        <p style={{
+                            fontFamily: 'Share Tech Mono, monospace', fontSize: stageFont(22), color: '#00ff88',
+                            letterSpacing: '0.3em', textTransform: 'uppercase', marginTop: 20,
+                            textShadow: '0 0 10px rgba(0,255,136,0.5)',
+                        }}>
+                            [{sessionCode}]
+                        </p>
+                    )}
+                </div>
+            </div>
+        )
+    }
+
+    // ---- Sketch (Hand-Drawn) idle ----
+    if (theme.name === 'sketch') {
+        return (
+            <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
+                background: '#fdfbf7', position: 'relative', overflow: 'hidden',
+            }}>
+                {/* Dot paper background */}
+                <div style={{
+                    position: 'absolute', inset: 0, opacity: 0.3,
+                    backgroundImage: 'radial-gradient(circle, #2d2d2d 1px, transparent 1px)',
+                    backgroundSize: '24px 24px',
+                }} />
+
+                {/* Hand-drawn doodle decorations */}
+                <svg style={{ position: 'absolute', top: 80, left: 100, width: 60, height: 60, opacity: 0.2 }} viewBox="0 0 60 60">
+                    <path d="M30 5 L35 20 L50 20 L38 30 L42 45 L30 36 L18 45 L22 30 L10 20 L25 20 Z" fill="none" stroke="#2d2d2d" strokeWidth="2" strokeLinejoin="round" />
+                </svg>
+                <svg style={{ position: 'absolute', bottom: 100, right: 120, width: 50, height: 50, opacity: 0.15 }} viewBox="0 0 50 50">
+                    <circle cx="25" cy="25" r="20" fill="none" stroke="#ff4d4d" strokeWidth="2.5" strokeDasharray="4 3" />
+                </svg>
+                <svg style={{ position: 'absolute', top: 160, right: 180, width: 40, height: 40, opacity: 0.2 }} viewBox="0 0 40 40">
+                    <path d="M5 35 Q10 5 20 20 Q30 35 35 8" fill="none" stroke="#2d5da1" strokeWidth="2.5" strokeLinecap="round" />
+                </svg>
+                <svg style={{ position: 'absolute', bottom: 140, left: 200, width: 45, height: 30, opacity: 0.2 }} viewBox="0 0 45 30">
+                    <path d="M5 15 Q12 2 22 15 Q32 28 40 12" fill="none" stroke="#ff4d4d" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+
+                <div style={{ textAlign: 'center', zIndex: 1 }}>
+                    <h1 style={{
+                        fontFamily: 'Kalam, cursive', fontSize: stageFont(68), fontWeight: 700, color: '#2d2d2d',
+                        lineHeight: 1.2, marginBottom: 8,
+                        transform: 'rotate(-1.5deg)',
+                    }}>
+                        Add a song!
+                    </h1>
+                    <p style={{
+                        fontFamily: 'Patrick Hand, cursive', fontSize: stageFont(22), color: '#2d2d2d', opacity: theme.name === 'sketch' ? 0.9 : 0.5,
+                        marginBottom: 44, transform: 'rotate(0.5deg)',
+                    }}>
+                        Scan this to pick your tune
+                    </p>
+                    {qrUrl && (
+                        <div style={{
+                            display: 'inline-block', padding: 16,
+                            background: 'white', border: '3px solid #2d2d2d',
+                            borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px',
+                            boxShadow: '4px 4px 0 rgba(0,0,0,0.12)',
+                            transform: 'rotate(1deg)',
+                        }}>
+                            <img src={qrUrl} alt="QR" style={{ width: 200, height: 200, display: 'block', borderRadius: 4 }} />
+                        </div>
+                    )}
+                    {sessionCode && (
+                        <p style={{
+                            fontFamily: 'Kalam, cursive', fontSize: stageFont(26), fontWeight: 700, color: '#2d5da1',
+                            letterSpacing: '0.2em', textTransform: 'uppercase', marginTop: 20,
+                            transform: 'rotate(-0.8deg)',
+                        }}>
+                            {sessionCode}
+                        </p>
+                    )}
+                </div>
+            </div>
+        )
+    }
+
+    // ---- Deep Sea idle ----
+    if (theme.name === 'deep-sea') {
+        return (
+            <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
+                background: 'linear-gradient(180deg, #020612 0%, #040918 30%, #071840 70%, #0a1a3a 100%)',
+                position: 'relative', overflow: 'hidden',
+            }}>
+                {/* Caustic light refraction */}
+                <div style={{
+                    position: 'absolute', inset: 0, opacity: 0.05,
+                    background: 'repeating-conic-gradient(from 0deg at 50% 50%, rgba(0,255,200,0.4) 0deg, transparent 30deg, rgba(180,77,255,0.3) 60deg, transparent 90deg)',
+                    backgroundSize: '180px 180px',
+                    filter: 'blur(30px)',
+                    animation: 'dsCausticDrift 25s linear infinite',
+                }} />
+
+                {/* Jellyfish SVG — top left, drifting */}
+                <svg style={{ position: 'absolute', top: 80, left: 100, width: 90, height: 120, opacity: 0.2, animation: 'dsBubbleRise 22s ease-in-out infinite alternate' }} viewBox="0 0 60 80">
+                    <ellipse cx="30" cy="22" rx="22" ry="18" fill="none" stroke="rgba(180,77,255,0.7)" strokeWidth="1.5" />
+                    <ellipse cx="30" cy="22" rx="22" ry="18" fill="rgba(180,77,255,0.08)" />
+                    <path d="M12 34 Q14 50 10 70" fill="none" stroke="rgba(180,77,255,0.4)" strokeWidth="1.2" strokeLinecap="round" />
+                    <path d="M22 36 Q24 55 20 75" fill="none" stroke="rgba(180,77,255,0.35)" strokeWidth="1" strokeLinecap="round" />
+                    <path d="M30 38 Q30 58 28 78" fill="none" stroke="rgba(180,77,255,0.4)" strokeWidth="1.2" strokeLinecap="round" />
+                    <path d="M38 36 Q36 55 40 75" fill="none" stroke="rgba(180,77,255,0.35)" strokeWidth="1" strokeLinecap="round" />
+                    <path d="M48 34 Q46 50 50 70" fill="none" stroke="rgba(180,77,255,0.4)" strokeWidth="1.2" strokeLinecap="round" />
+                </svg>
+
+                {/* Jellyfish SVG — bottom right, different color */}
+                <svg style={{ position: 'absolute', bottom: 100, right: 120, width: 70, height: 95, opacity: 0.15, animation: 'dsBubbleRise 28s ease-in-out infinite alternate-reverse' }} viewBox="0 0 60 80">
+                    <ellipse cx="30" cy="22" rx="20" ry="16" fill="none" stroke="rgba(0,255,200,0.6)" strokeWidth="1.5" />
+                    <ellipse cx="30" cy="22" rx="20" ry="16" fill="rgba(0,255,200,0.06)" />
+                    <path d="M14 32 Q16 48 12 68" fill="none" stroke="rgba(0,255,200,0.35)" strokeWidth="1" strokeLinecap="round" />
+                    <path d="M24 34 Q26 52 22 72" fill="none" stroke="rgba(0,255,200,0.3)" strokeWidth="1" strokeLinecap="round" />
+                    <path d="M36 34 Q34 52 38 72" fill="none" stroke="rgba(0,255,200,0.3)" strokeWidth="1" strokeLinecap="round" />
+                    <path d="M46 32 Q44 48 48 68" fill="none" stroke="rgba(0,255,200,0.35)" strokeWidth="1" strokeLinecap="round" />
+                </svg>
+
+                {/* Small jellyfish — top right */}
+                <svg style={{ position: 'absolute', top: 200, right: 220, width: 45, height: 60, opacity: 0.12, animation: 'dsBubbleRise 18s ease-in-out infinite alternate' }} viewBox="0 0 60 80">
+                    <ellipse cx="30" cy="22" rx="18" ry="14" fill="none" stroke="rgba(255,107,138,0.5)" strokeWidth="1.5" />
+                    <ellipse cx="30" cy="22" rx="18" ry="14" fill="rgba(255,107,138,0.06)" />
+                    <path d="M16 30 Q18 45 14 62" fill="none" stroke="rgba(255,107,138,0.3)" strokeWidth="1" strokeLinecap="round" />
+                    <path d="M30 32 Q30 48 28 65" fill="none" stroke="rgba(255,107,138,0.3)" strokeWidth="1" strokeLinecap="round" />
+                    <path d="M44 30 Q42 45 46 62" fill="none" stroke="rgba(255,107,138,0.3)" strokeWidth="1" strokeLinecap="round" />
+                </svg>
+
+                {/* Bubble clusters */}
+                <svg style={{ position: 'absolute', bottom: 60, left: 200, width: 40, height: 80, opacity: 0.15, animation: 'dsBubbleRise 15s linear infinite' }} viewBox="0 0 40 80">
+                    <circle cx="20" cy="60" r="8" fill="none" stroke="rgba(0,255,200,0.4)" strokeWidth="1" />
+                    <circle cx="12" cy="40" r="5" fill="none" stroke="rgba(0,255,200,0.3)" strokeWidth="0.8" />
+                    <circle cx="28" cy="25" r="3.5" fill="none" stroke="rgba(0,255,200,0.25)" strokeWidth="0.8" />
+                    <circle cx="18" cy="10" r="2" fill="none" stroke="rgba(0,255,200,0.2)" strokeWidth="0.6" />
+                </svg>
+                <svg style={{ position: 'absolute', bottom: 40, right: 300, width: 35, height: 70, opacity: 0.12, animation: 'dsBubbleRise 20s linear infinite' }} viewBox="0 0 40 80">
+                    <circle cx="22" cy="65" r="7" fill="none" stroke="rgba(180,77,255,0.35)" strokeWidth="1" />
+                    <circle cx="15" cy="45" r="4.5" fill="none" stroke="rgba(180,77,255,0.3)" strokeWidth="0.8" />
+                    <circle cx="25" cy="28" r="3" fill="none" stroke="rgba(180,77,255,0.25)" strokeWidth="0.8" />
+                </svg>
+
+                {/* Ambient light rays from above */}
+                <div style={{
+                    position: 'absolute', top: 0, left: '20%', width: '15%', height: '60%',
+                    background: 'linear-gradient(180deg, rgba(0,255,200,0.04) 0%, transparent 100%)',
+                    transform: 'skewX(-8deg)', transformOrigin: 'top',
+                }} />
+                <div style={{
+                    position: 'absolute', top: 0, right: '25%', width: '10%', height: '50%',
+                    background: 'linear-gradient(180deg, rgba(180,77,255,0.03) 0%, transparent 100%)',
+                    transform: 'skewX(5deg)', transformOrigin: 'top',
+                }} />
+
+                <div style={{ textAlign: 'center', zIndex: 1 }}>
+                    <p style={{
+                        fontFamily: 'Nunito, sans-serif', fontSize: stageFont(14), color: '#00ffc8', opacity: 0.4,
+                        letterSpacing: '0.4em', textTransform: 'uppercase', marginBottom: 10,
+                    }}>
+                        ~ now surfacing ~
+                    </p>
+                    <h1 style={{
+                        fontFamily: 'Quicksand, sans-serif', fontSize: stageFont(68), fontWeight: 700, color: '#e0fff8',
+                        lineHeight: 1.1, marginBottom: 8,
+                        textShadow: '0 0 30px rgba(0,255,200,0.5), 0 0 60px rgba(0,255,200,0.25), 0 0 100px rgba(180,77,255,0.15)',
+                    }}>
+                        Add a Song
+                    </h1>
+                    <p style={{
+                        fontFamily: 'Nunito, sans-serif', fontSize: stageFont(20), color: '#8ecfc2',
+                        marginBottom: 44,
+                    }}>
+                        Scan to dive into the queue
+                    </p>
+                    {qrUrl && (
+                        <div style={{
+                            display: 'inline-block', padding: 16, position: 'relative',
+                            border: '1px solid rgba(0,255,200,0.25)',
+                            borderRadius: 16,
+                            boxShadow: '0 0 25px rgba(0,255,200,0.15), 0 0 50px rgba(180,77,255,0.08), inset 0 0 30px rgba(0,255,200,0.03)',
+                            background: 'rgba(4,9,24,0.7)',
+                            backdropFilter: 'blur(12px)',
+                        }}>
+                            <img src={qrUrl} alt="QR" style={{ width: 210, height: 210, display: 'block', borderRadius: 8 }} />
+                        </div>
+                    )}
+                    {sessionCode && (
+                        <p style={{
+                            fontFamily: 'Quicksand, sans-serif', fontSize: stageFont(26), fontWeight: 700, color: '#00ffc8',
+                            letterSpacing: '0.3em', textTransform: 'uppercase', marginTop: 24,
+                            textShadow: '0 0 15px rgba(0,255,200,0.5), 0 0 30px rgba(0,255,200,0.2)',
+                        }}>
+                            {sessionCode}
+                        </p>
+                    )}
+                </div>
+            </div>
+        )
+    }
+
+    // ---- Psychedelic idle ----
+    if (theme.name === 'psychedelic') {
+        return (
+            <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
+                background: 'radial-gradient(ellipse at 50% 50%, #2a1248 0%, #1a0a2e 50%, #0f0620 100%)',
+                position: 'relative', overflow: 'hidden',
+            }}>
+                {/* Lava lamp blobs */}
+                <div style={{
+                    position: 'absolute', inset: '-20%', opacity: 0.5,
+                    background: 'radial-gradient(ellipse 300px 300px at 25% 35%, rgba(255,45,149,0.2) 0%, transparent 70%), radial-gradient(ellipse 250px 350px at 70% 55%, rgba(182,255,45,0.15) 0%, transparent 70%), radial-gradient(ellipse 350px 250px at 50% 75%, rgba(255,140,45,0.15) 0%, transparent 70%)',
+                    filter: 'blur(60px)',
+                    animation: 'psyBlobMorph 20s ease-in-out infinite alternate',
+                }} />
+                {/* Second blob layer */}
+                <div style={{
+                    position: 'absolute', inset: '-10%', opacity: 0.4,
+                    background: 'radial-gradient(ellipse 280px 280px at 60% 25%, rgba(45,217,255,0.15) 0%, transparent 70%), radial-gradient(ellipse 320px 200px at 35% 70%, rgba(255,45,255,0.12) 0%, transparent 70%)',
+                    filter: 'blur(50px)',
+                    animation: 'psyBlobMorph2 28s ease-in-out infinite alternate',
+                }} />
+
+                {/* Spinning mandala ring — top left */}
+                <svg style={{ position: 'absolute', top: 60, left: 80, width: 140, height: 140, opacity: 0.12, animation: 'psyHueShift 12s linear infinite' }} viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,45,149,0.6)" strokeWidth="1" strokeDasharray="8 6" style={{ transformOrigin: '50px 50px', animation: 'dsCausticDrift 30s linear infinite' }} />
+                    <circle cx="50" cy="50" r="32" fill="none" stroke="rgba(182,255,45,0.5)" strokeWidth="1" strokeDasharray="5 8" style={{ transformOrigin: '50px 50px', animation: 'dsCausticDrift 22s linear infinite reverse' }} />
+                    <circle cx="50" cy="50" r="22" fill="none" stroke="rgba(255,140,45,0.5)" strokeWidth="1" strokeDasharray="4 5" style={{ transformOrigin: '50px 50px', animation: 'dsCausticDrift 18s linear infinite' }} />
+                    <circle cx="50" cy="50" r="12" fill="none" stroke="rgba(45,217,255,0.5)" strokeWidth="1.5" />
+                </svg>
+
+                {/* Peace sign — bottom right */}
+                <svg style={{ position: 'absolute', bottom: 80, right: 100, width: 100, height: 100, opacity: 0.12, animation: 'psyWobble 8s ease-in-out infinite' }} viewBox="0 0 60 60">
+                    <circle cx="30" cy="30" r="26" fill="none" stroke="rgba(182,255,45,0.6)" strokeWidth="2" />
+                    <line x1="30" y1="4" x2="30" y2="56" stroke="rgba(182,255,45,0.6)" strokeWidth="2" />
+                    <line x1="30" y1="30" x2="12" y2="50" stroke="rgba(182,255,45,0.6)" strokeWidth="2" strokeLinecap="round" />
+                    <line x1="30" y1="30" x2="48" y2="50" stroke="rgba(182,255,45,0.6)" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+
+                {/* Smaller peace sign — top right */}
+                <svg style={{ position: 'absolute', top: 180, right: 200, width: 55, height: 55, opacity: 0.08, animation: 'psyWobble 6s ease-in-out infinite reverse' }} viewBox="0 0 60 60">
+                    <circle cx="30" cy="30" r="26" fill="none" stroke="rgba(255,45,149,0.6)" strokeWidth="2" />
+                    <line x1="30" y1="4" x2="30" y2="56" stroke="rgba(255,45,149,0.6)" strokeWidth="2" />
+                    <line x1="30" y1="30" x2="12" y2="50" stroke="rgba(255,45,149,0.6)" strokeWidth="2" strokeLinecap="round" />
+                    <line x1="30" y1="30" x2="48" y2="50" stroke="rgba(255,45,149,0.6)" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+
+                {/* Spinning mandala ring — bottom left */}
+                <svg style={{ position: 'absolute', bottom: 120, left: 160, width: 90, height: 90, opacity: 0.1, animation: 'psyHueShift 16s linear infinite' }} viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(255,140,45,0.5)" strokeWidth="1" strokeDasharray="6 4" style={{ transformOrigin: '50px 50px', animation: 'dsCausticDrift 20s linear infinite reverse' }} />
+                    <circle cx="50" cy="50" r="28" fill="none" stroke="rgba(255,45,255,0.4)" strokeWidth="1" strokeDasharray="3 6" style={{ transformOrigin: '50px 50px', animation: 'dsCausticDrift 15s linear infinite' }} />
+                    <circle cx="50" cy="50" r="16" fill="none" stroke="rgba(182,255,45,0.4)" strokeWidth="1.5" />
+                </svg>
+
+                {/* Decorative flower — center right */}
+                <svg style={{ position: 'absolute', top: '40%', right: 60, width: 70, height: 70, opacity: 0.1, animation: 'dsCausticDrift 24s linear infinite' }} viewBox="0 0 60 60">
+                    {[0, 60, 120, 180, 240, 300].map(angle => (
+                        <ellipse key={angle} cx="30" cy="14" rx="8" ry="14" fill="none" stroke="rgba(255,45,149,0.5)" strokeWidth="1" transform={`rotate(${angle} 30 30)`} />
+                    ))}
+                    <circle cx="30" cy="30" r="6" fill="rgba(255,140,45,0.15)" stroke="rgba(255,140,45,0.4)" strokeWidth="1" />
+                </svg>
+
+                <div style={{ textAlign: 'center', zIndex: 1 }}>
+                    <p style={{
+                        fontFamily: 'Spicy Rice, cursive', fontSize: stageFont(16), color: '#ff2d95', opacity: 0.5,
+                        letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: 8,
+                    }}>
+                        ~ far out ~
+                    </p>
+                    <h1 style={{
+                        fontFamily: 'Chicle, cursive', fontSize: stageFont(72), color: '#f5ecff',
+                        lineHeight: 1.1, marginBottom: 8,
+                        textShadow: '0 0 30px rgba(255,45,149,0.5), 0 0 60px rgba(182,255,45,0.25), 0 0 100px rgba(255,140,45,0.15)',
+                        animation: 'psyWobble 6s ease-in-out infinite',
+                    }}>
+                        Add a Song
+                    </h1>
+                    <p style={{
+                        fontFamily: 'Spicy Rice, cursive', fontSize: stageFont(22), color: '#c8a8e8',
+                        marginBottom: 44,
+                    }}>
+                        Scan to join the groove
+                    </p>
+                    {qrUrl && (
+                        <div style={{
+                            display: 'inline-block', padding: 16, position: 'relative',
+                            border: '2px solid rgba(255,45,149,0.3)',
+                            borderRadius: 20,
+                            boxShadow: '0 0 25px rgba(255,45,149,0.18), 0 0 50px rgba(182,255,45,0.1), inset 0 0 30px rgba(255,45,149,0.04)',
+                            background: 'rgba(26,10,46,0.65)',
+                            backdropFilter: 'blur(12px)',
+                        }}>
+                            <img src={qrUrl} alt="QR" style={{ width: 210, height: 210, display: 'block', borderRadius: 10 }} />
+                        </div>
+                    )}
+                    {sessionCode && (
+                        <p style={{
+                            fontFamily: 'Chicle, cursive', fontSize: stageFont(28), color: '#ff2d95',
+                            letterSpacing: '0.2em', textTransform: 'uppercase', marginTop: 24,
+                            textShadow: '0 0 15px rgba(255,45,149,0.5), 0 0 30px rgba(182,255,45,0.2)',
+                        }}>
+                            {sessionCode}
+                        </p>
+                    )}
+                </div>
+            </div>
+        )
+    }
+
+    // ---- Zen (Japanese Garden) idle ----
+    if (theme.name === 'zen') {
+        return (
+            <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
+                background: 'linear-gradient(180deg, #0e0c09 0%, #1a1814 30%, #1f1b15 60%, #15120e 100%)',
+                position: 'relative', overflow: 'hidden',
+            }}>
+                {/* Ink wash background overlay */}
+                <div style={{
+                    position: 'absolute', inset: '-20%', opacity: 0.05,
+                    background: 'radial-gradient(ellipse 60% 50% at 25% 30%, rgba(201,168,76,0.5) 0%, transparent 70%), radial-gradient(ellipse 50% 60% at 70% 60%, rgba(139,107,74,0.4) 0%, transparent 70%)',
+                    filter: 'blur(40px)', animation: 'zenInkDrift 30s ease-in-out infinite',
+                }} />
+
+                {/* Mountain silhouettes — back layer */}
+                <svg style={{ position: 'absolute', bottom: '18%', left: 0, width: '100%', height: '45%', opacity: 0.08 }} viewBox="0 0 1200 400" preserveAspectRatio="none">
+                    <path d="M0 400 L0 280 Q150 120 300 220 Q450 100 600 180 Q750 60 900 200 Q1050 130 1200 250 L1200 400 Z" fill="#B8A898" />
+                </svg>
+                {/* Mountain silhouettes — mid layer */}
+                <svg style={{ position: 'absolute', bottom: '15%', left: 0, width: '100%', height: '40%', opacity: 0.05 }} viewBox="0 0 1200 400" preserveAspectRatio="none">
+                    <path d="M0 400 L0 320 Q200 180 400 280 Q550 150 700 240 Q850 170 1000 260 Q1100 200 1200 300 L1200 400 Z" fill="#8B7B6B" />
+                </svg>
+
+                {/* Drifting mist — layer 1 (slow) */}
+                <div style={{
+                    position: 'absolute', top: '35%', left: '-100%', width: '300%', height: 80,
+                    background: 'linear-gradient(90deg, transparent 0%, rgba(240,230,211,0.03) 20%, rgba(240,230,211,0.05) 50%, rgba(240,230,211,0.03) 80%, transparent 100%)',
+                    animation: 'zenMistDrift 35s linear infinite', filter: 'blur(8px)',
+                }} />
+                {/* Drifting mist — layer 2 (faster) */}
+                <div style={{
+                    position: 'absolute', top: '50%', left: '-100%', width: '300%', height: 60,
+                    background: 'linear-gradient(90deg, transparent 0%, rgba(240,230,211,0.02) 30%, rgba(240,230,211,0.04) 50%, rgba(240,230,211,0.02) 70%, transparent 100%)',
+                    animation: 'zenMistDrift 25s linear infinite reverse', filter: 'blur(12px)',
+                }} />
+                {/* Drifting mist — layer 3 (subtle) */}
+                <div style={{
+                    position: 'absolute', top: '65%', left: '-100%', width: '300%', height: 50,
+                    background: 'linear-gradient(90deg, transparent 0%, rgba(201,168,76,0.02) 25%, rgba(201,168,76,0.03) 50%, rgba(201,168,76,0.02) 75%, transparent 100%)',
+                    animation: 'zenMistDrift 45s linear infinite', filter: 'blur(15px)',
+                }} />
+
+                {/* Bamboo stalks — left */}
+                <svg style={{ position: 'absolute', left: 40, top: 0, height: '100%', width: 60, opacity: 0.12 }} viewBox="0 0 60 800">
+                    {/* Main stalk */}
+                    <line x1="20" y1="0" x2="20" y2="800" stroke="#7BA05B" strokeWidth="3" />
+                    <line x1="20" y1="150" x2="20" y2="155" stroke="#5A7A3E" strokeWidth="5" />
+                    <line x1="20" y1="350" x2="20" y2="355" stroke="#5A7A3E" strokeWidth="5" />
+                    <line x1="20" y1="550" x2="20" y2="555" stroke="#5A7A3E" strokeWidth="5" />
+                    {/* Leaves */}
+                    <ellipse cx="35" cy="140" rx="18" ry="4" fill="#7BA05B" opacity="0.7" style={{ transformOrigin: '20px 140px', animation: 'zenBambooSway 6s ease-in-out infinite' }} />
+                    <ellipse cx="5" cy="340" rx="16" ry="3.5" fill="#7BA05B" opacity="0.6" style={{ transformOrigin: '20px 340px', animation: 'zenBambooSway 7s ease-in-out infinite reverse' }} />
+                    <ellipse cx="38" cy="540" rx="15" ry="3" fill="#7BA05B" opacity="0.5" style={{ transformOrigin: '20px 540px', animation: 'zenBambooSway 8s ease-in-out infinite' }} />
+                    {/* Second stalk */}
+                    <line x1="45" y1="100" x2="45" y2="800" stroke="#7BA05B" strokeWidth="2" opacity="0.6" />
+                    <ellipse cx="55" cy="280" rx="12" ry="3" fill="#7BA05B" opacity="0.4" style={{ transformOrigin: '45px 280px', animation: 'zenBambooSway 9s ease-in-out infinite' }} />
+                </svg>
+
+                {/* Bamboo stalks — right */}
+                <svg style={{ position: 'absolute', right: 40, top: 0, height: '100%', width: 60, opacity: 0.12 }} viewBox="0 0 60 800">
+                    <line x1="40" y1="50" x2="40" y2="800" stroke="#7BA05B" strokeWidth="3" />
+                    <line x1="40" y1="200" x2="40" y2="205" stroke="#5A7A3E" strokeWidth="5" />
+                    <line x1="40" y1="450" x2="40" y2="455" stroke="#5A7A3E" strokeWidth="5" />
+                    <line x1="40" y1="650" x2="40" y2="655" stroke="#5A7A3E" strokeWidth="5" />
+                    <ellipse cx="25" cy="190" rx="17" ry="3.5" fill="#7BA05B" opacity="0.7" style={{ transformOrigin: '40px 190px', animation: 'zenBambooSway 7s ease-in-out infinite' }} />
+                    <ellipse cx="52" cy="440" rx="14" ry="3" fill="#7BA05B" opacity="0.5" style={{ transformOrigin: '40px 440px', animation: 'zenBambooSway 8s ease-in-out infinite reverse' }} />
+                    <line x1="15" y1="0" x2="15" y2="800" stroke="#7BA05B" strokeWidth="2" opacity="0.5" />
+                    <ellipse cx="5" cy="350" rx="12" ry="2.5" fill="#7BA05B" opacity="0.35" style={{ transformOrigin: '15px 350px', animation: 'zenBambooSway 10s ease-in-out infinite' }} />
+                </svg>
+
+                {/* Torii Gate — SVG */}
+                <svg style={{ position: 'absolute', bottom: '22%', left: '50%', transform: 'translateX(-50%)', width: 320, height: 260, opacity: 0.25 }} viewBox="0 0 320 260">
+                    {/* Top beam (kasagi) — curved */}
+                    <path d="M20 30 Q160 5 300 30" stroke="#D4442A" strokeWidth="10" fill="none" strokeLinecap="round" />
+                    {/* Second beam (nuki) */}
+                    <line x1="45" y1="55" x2="275" y2="55" stroke="#D4442A" strokeWidth="6" />
+                    {/* Left pillar */}
+                    <line x1="60" y1="30" x2="60" y2="260" stroke="#D4442A" strokeWidth="8" />
+                    {/* Right pillar */}
+                    <line x1="260" y1="30" x2="260" y2="260" stroke="#D4442A" strokeWidth="8" />
+                    {/* Pillar caps */}
+                    <circle cx="60" cy="25" r="6" fill="#D4442A" />
+                    <circle cx="260" cy="25" r="6" fill="#D4442A" />
+                </svg>
+
+                {/* Reflection pool — mirrored torii below */}
+                <div style={{
+                    position: 'absolute', bottom: 0, left: 0, width: '100%', height: '18%',
+                    background: 'linear-gradient(180deg, transparent 0%, rgba(201,168,76,0.02) 100%)',
+                    overflow: 'hidden',
+                }}>
+                    <svg style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%) scaleY(-1)', width: 320, height: 260, opacity: 0.06, filter: 'blur(4px)' }} viewBox="0 0 320 260">
+                        <path d="M20 30 Q160 5 300 30" stroke="#D4442A" strokeWidth="10" fill="none" strokeLinecap="round" />
+                        <line x1="45" y1="55" x2="275" y2="55" stroke="#D4442A" strokeWidth="6" />
+                        <line x1="60" y1="30" x2="60" y2="260" stroke="#D4442A" strokeWidth="8" />
+                        <line x1="260" y1="30" x2="260" y2="260" stroke="#D4442A" strokeWidth="8" />
+                    </svg>
+                </div>
+
+                {/* Enso circle — brush stroke drawing itself */}
+                <svg style={{ position: 'absolute', top: '8%', right: '12%', width: 120, height: 120, opacity: 0.1 }} viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="38" fill="none" stroke="#C9A84C" strokeWidth="4" strokeLinecap="round"
+                        strokeDasharray="240" strokeDashoffset="240"
+                        style={{ animation: 'zenEnsoDraw 6s ease-in-out infinite alternate' }}
+                    />
+                    {/* Brush drip at end of stroke */}
+                    <circle cx="88" cy="50" r="2" fill="#C9A84C" opacity="0.5" />
+                </svg>
+
+                {/* Cherry blossom petals — scattered SVGs */}
+                {[
+                    { x: '15%', y: '12%', size: 14, delay: 0, dur: 18, opacity: 0.15 },
+                    { x: '75%', y: '20%', size: 10, delay: 4, dur: 22, opacity: 0.12 },
+                    { x: '30%', y: '8%', size: 12, delay: 8, dur: 20, opacity: 0.1 },
+                    { x: '60%', y: '15%', size: 8, delay: 12, dur: 24, opacity: 0.13 },
+                    { x: '85%', y: '5%', size: 11, delay: 2, dur: 19, opacity: 0.11 },
+                    { x: '45%', y: '25%', size: 9, delay: 6, dur: 21, opacity: 0.14 },
+                ].map((p, i) => (
+                    <svg key={`petal-${i}`} style={{
+                        position: 'absolute', left: p.x, top: p.y, width: p.size, height: p.size, opacity: p.opacity,
+                        animation: `zenPetalFall ${p.dur}s linear ${p.delay}s infinite`,
+                    }} viewBox="0 0 10 10">
+                        <ellipse cx="5" cy="5" rx="4" ry="2.5" fill="#E8A0BF" transform="rotate(30 5 5)" />
+                    </svg>
+                ))}
+
+                {/* Incense smoke wisps */}
+                <div style={{
+                    position: 'absolute', bottom: '25%', left: '48%', width: 2, height: 200,
+                    background: 'linear-gradient(180deg, transparent 0%, rgba(240,230,211,0.06) 30%, rgba(240,230,211,0.03) 70%, transparent 100%)',
+                    animation: 'zenSmoke 12s ease-in-out infinite', filter: 'blur(3px)',
+                }} />
+                <div style={{
+                    position: 'absolute', bottom: '25%', left: '52%', width: 1.5, height: 150,
+                    background: 'linear-gradient(180deg, transparent 0%, rgba(201,168,76,0.04) 40%, rgba(201,168,76,0.02) 70%, transparent 100%)',
+                    animation: 'zenSmoke 15s ease-in-out 3s infinite', filter: 'blur(4px)',
+                }} />
+
+                {/* Content */}
+                <div style={{ textAlign: 'center', zIndex: 2 }}>
+                    <h1 style={{
+                        fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: stageFont(72), color: '#F0E6D3',
+                        fontWeight: 500, fontStyle: 'italic', lineHeight: 1.1, marginBottom: 8,
+                        textShadow: '0 0 30px rgba(201,168,76,0.25), 0 0 60px rgba(201,168,76,0.1)',
+                        letterSpacing: '0.05em',
+                    }}>
+                        Find Your Song
+                    </h1>
+                    <p style={{
+                        fontFamily: "'Zen Kaku Gothic New', sans-serif", fontSize: stageFont(16), color: '#B8A898',
+                        letterSpacing: '0.35em', textTransform: 'uppercase', marginBottom: 48,
+                    }}>
+                        Scan to begin
+                    </p>
+                    {qrUrl && (
+                        <div style={{
+                            display: 'inline-block', padding: 14,
+                            border: '1px solid rgba(201,168,76,0.3)',
+                            borderImage: 'linear-gradient(135deg, transparent 0%, rgba(201,168,76,0.5) 15%, transparent 25%, transparent 50%, rgba(201,168,76,0.4) 60%, transparent 70%, transparent 85%, rgba(201,168,76,0.5) 95%, transparent 100%) 1',
+                            background: 'rgba(26,24,20,0.7)',
+                            backdropFilter: 'blur(12px)',
+                            borderRadius: 8,
+                        }}>
+                            <img src={qrUrl} alt="QR" style={{ width: 210, height: 210, display: 'block', borderRadius: 4 }} />
+                        </div>
+                    )}
+                    {sessionCode && (
+                        <p style={{
+                            fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: stageFont(28), fontWeight: 600,
+                            color: '#C9A84C', letterSpacing: '0.3em', textTransform: 'uppercase', marginTop: 20,
+                            textShadow: '0 0 15px rgba(201,168,76,0.3)',
+                        }}>
+                            {sessionCode}
+                        </p>
+                    )}
+                </div>
+            </div>
+        )
+    }
+
+    // ---- Space (Cosmic) idle ----
+    if (theme.name === 'space') {
+        return (
+            <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
+                background: 'linear-gradient(180deg, #04040A 0%, #08080F 40%, #0A0A18 100%)',
+                position: 'relative', overflow: 'hidden',
+            }}>
+                {/* Nebula cloud overlay */}
+                <div style={{
+                    position: 'absolute', inset: '-20%', opacity: 0.05,
+                    background: 'radial-gradient(ellipse 55% 45% at 20% 35%, rgba(224,64,251,0.6) 0%, transparent 70%), radial-gradient(ellipse 45% 55% at 75% 55%, rgba(64,224,208,0.5) 0%, transparent 70%)',
+                    filter: 'blur(50px)', animation: 'spaceNebulaDrift 35s ease-in-out infinite',
+                }} />
+
+                {/* Starfield — scattered dots */}
+                {[
+                    { x: '5%', y: '8%', s: 2, o: 0.7 }, { x: '12%', y: '22%', s: 1.5, o: 0.4 },
+                    { x: '20%', y: '5%', s: 1, o: 0.6 }, { x: '28%', y: '35%', s: 2, o: 0.3 },
+                    { x: '35%', y: '12%', s: 1.5, o: 0.5 }, { x: '42%', y: '28%', s: 1, o: 0.7 },
+                    { x: '55%', y: '8%', s: 2, o: 0.4 }, { x: '62%', y: '18%', s: 1.5, o: 0.6 },
+                    { x: '70%', y: '32%', s: 1, o: 0.5 }, { x: '78%', y: '6%', s: 2, o: 0.3 },
+                    { x: '85%', y: '25%', s: 1.5, o: 0.7 }, { x: '92%', y: '15%', s: 1, o: 0.4 },
+                    { x: '8%', y: '70%', s: 1.5, o: 0.5 }, { x: '18%', y: '85%', s: 2, o: 0.3 },
+                    { x: '75%', y: '75%', s: 1, o: 0.6 }, { x: '88%', y: '65%', s: 1.5, o: 0.4 },
+                    { x: '50%', y: '90%', s: 2, o: 0.35 }, { x: '30%', y: '60%', s: 1, o: 0.5 },
+                ].map((star, i) => (
+                    <div key={`star-${i}`} style={{
+                        position: 'absolute', left: star.x, top: star.y,
+                        width: star.s, height: star.s, borderRadius: '50%',
+                        background: i % 5 === 0 ? 'rgba(224,64,251,0.8)' : i % 7 === 0 ? 'rgba(64,224,208,0.7)' : 'rgba(232,230,240,0.8)',
+                        opacity: star.o,
+                        animation: `spaceTwinkle${i % 2 === 0 ? '' : '2'} ${3 + (i % 4)}s ease-in-out ${(i * 0.7) % 4}s infinite`,
+                    }} />
+                ))}
+
+                {/* Warp star trails — radial lines from center */}
+                <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.06 }} viewBox="0 0 1200 800">
+                    {Array.from({ length: 16 }).map((_, i) => {
+                        const angle = (i / 16) * Math.PI * 2
+                        const cx = 600, cy = 400
+                        const innerR = 80, outerR = 600
+                        const x1 = cx + Math.cos(angle) * innerR
+                        const y1 = cy + Math.sin(angle) * innerR
+                        const x2 = cx + Math.cos(angle) * outerR
+                        const y2 = cy + Math.sin(angle) * outerR
+                        return <line key={`warp-${i}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(232,230,240,0.5)" strokeWidth={0.8 + (i % 3) * 0.4} />
+                    })}
+                </svg>
+
+                {/* Planet (Saturn-like) silhouette — lower right */}
+                <svg style={{ position: 'absolute', bottom: '10%', right: '15%', width: 220, height: 180, opacity: 0.15 }} viewBox="0 0 220 180">
+                    {/* Planet body */}
+                    <circle cx="110" cy="95" r="55" fill="#0A0A18" stroke="rgba(224,64,251,0.3)" strokeWidth="1.5" />
+                    {/* Edge glow */}
+                    <circle cx="110" cy="95" r="55" fill="none" stroke="rgba(64,224,208,0.15)" strokeWidth="3" />
+                    {/* Ring — elliptical arc */}
+                    <ellipse cx="110" cy="95" rx="95" ry="20" fill="none" stroke="rgba(255,183,64,0.25)" strokeWidth="2" strokeDasharray="4 3" />
+                    <ellipse cx="110" cy="95" rx="85" ry="16" fill="none" stroke="rgba(224,64,251,0.15)" strokeWidth="1" />
+                </svg>
+
+                {/* Orbiting particles around planet */}
+                {[0, 1, 2].map(i => (
+                    <div key={`orbit-${i}`} style={{
+                        position: 'absolute', bottom: `calc(10% + 85px)`, right: `calc(15% + 100px)`,
+                        width: 4, height: 4, borderRadius: '50%',
+                        background: i === 0 ? '#E040FB' : i === 1 ? '#40E0D0' : '#FFB740',
+                        opacity: 0.6,
+                        animation: `spaceOrbit ${4 + i * 1.5}s linear ${i * 1.2}s infinite`,
+                    }} />
+                ))}
+
+                {/* Distant galaxy — top left */}
+                <svg style={{ position: 'absolute', top: '12%', left: '10%', width: 60, height: 60, opacity: 0.06 }} viewBox="0 0 60 60">
+                    <ellipse cx="30" cy="30" rx="25" ry="8" fill="none" stroke="rgba(224,64,251,0.5)" strokeWidth="0.8" transform="rotate(-30 30 30)" />
+                    <ellipse cx="30" cy="30" rx="18" ry="6" fill="none" stroke="rgba(64,224,208,0.4)" strokeWidth="0.6" transform="rotate(-30 30 30)" />
+                    <circle cx="30" cy="30" r="3" fill="rgba(232,230,240,0.3)" />
+                </svg>
+
+                {/* Distant galaxy — bottom left */}
+                <svg style={{ position: 'absolute', bottom: '20%', left: '20%', width: 45, height: 45, opacity: 0.04 }} viewBox="0 0 60 60">
+                    <ellipse cx="30" cy="30" rx="22" ry="7" fill="none" stroke="rgba(255,183,64,0.5)" strokeWidth="0.7" transform="rotate(20 30 30)" />
+                    <ellipse cx="30" cy="30" rx="15" ry="5" fill="none" stroke="rgba(224,64,251,0.3)" strokeWidth="0.5" transform="rotate(20 30 30)" />
+                    <circle cx="30" cy="30" r="2.5" fill="rgba(232,230,240,0.25)" />
+                </svg>
+
+                {/* Shooting star */}
+                <div style={{
+                    position: 'absolute', top: '15%', left: '25%', width: 80, height: 1,
+                    background: 'linear-gradient(90deg, transparent 0%, rgba(232,230,240,0.6) 40%, rgba(64,224,208,0.4) 100%)',
+                    transform: 'rotate(-25deg)',
+                    animation: 'spaceShootingStar 12s linear infinite',
+                    borderRadius: 1,
+                }} />
+                <div style={{
+                    position: 'absolute', top: '40%', right: '20%', width: 60, height: 1,
+                    background: 'linear-gradient(90deg, transparent 0%, rgba(232,230,240,0.5) 40%, rgba(224,64,251,0.3) 100%)',
+                    transform: 'rotate(-30deg)',
+                    animation: 'spaceShootingStar 18s linear 6s infinite',
+                    borderRadius: 1,
+                }} />
+
+                {/* Content */}
+                <div style={{ textAlign: 'center', zIndex: 2 }}>
+                    <h1 style={{
+                        fontFamily: "'Orbitron', sans-serif", fontSize: stageFont(64), color: '#E8E6F0',
+                        fontWeight: 700, lineHeight: 1.1, marginBottom: 8,
+                        textShadow: '0 0 30px rgba(224,64,251,0.35), 0 0 60px rgba(64,224,208,0.15), 0 0 100px rgba(224,64,251,0.1)',
+                        letterSpacing: '0.08em', textTransform: 'uppercase',
+                    }}>
+                        Launch a Song
+                    </h1>
+                    <p style={{
+                        fontFamily: "'Exo 2', sans-serif", fontSize: stageFont(16), color: '#9896A8',
+                        letterSpacing: '0.4em', textTransform: 'uppercase', marginBottom: 48,
+                    }}>
+                        Scan to queue from orbit
+                    </p>
+                    {qrUrl && (
+                        <div style={{
+                            display: 'inline-block', padding: 14,
+                            border: '1px solid rgba(64,224,208,0.3)',
+                            boxShadow: '0 0 20px rgba(64,224,208,0.1), 0 0 40px rgba(224,64,251,0.05), inset 0 0 20px rgba(64,224,208,0.03)',
+                            background: 'rgba(8,8,15,0.75)',
+                            backdropFilter: 'blur(12px)',
+                            borderRadius: 6,
+                        }}>
+                            <img src={qrUrl} alt="QR" style={{ width: 210, height: 210, display: 'block', borderRadius: 3 }} />
+                        </div>
+                    )}
+                    {sessionCode && (
+                        <p style={{
+                            fontFamily: "'Orbitron', sans-serif", fontSize: stageFont(24), fontWeight: 600,
+                            color: '#E040FB', letterSpacing: '0.35em', textTransform: 'uppercase', marginTop: 20,
+                            textShadow: '0 0 15px rgba(224,64,251,0.4), 0 0 30px rgba(224,64,251,0.15)',
+                        }}>
+                            {sessionCode}
+                        </p>
+                    )}
+                </div>
+            </div>
+        )
+    }
+
+    // ---- Steampunk (Victorian Industrial) idle ----
+    if (theme.name === 'steampunk') {
+        return (
+            <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
+                background: 'linear-gradient(180deg, #0e0b09 0%, #14110F 35%, #1a1510 65%, #100d0a 100%)',
+                position: 'relative', overflow: 'hidden',
+            }}>
+                {/* Warm vignette */}
+                <div style={{
+                    position: 'absolute', inset: 0,
+                    background: 'radial-gradient(ellipse at center, rgba(200,151,62,0.03) 0%, transparent 50%, rgba(0,0,0,0.4) 100%)',
+                }} />
+
+                {/* Large gear — top right, spinning clockwise */}
+                <svg style={{ position: 'absolute', top: -60, right: -40, width: 280, height: 280, opacity: 0.08, animation: 'steamGearSpin 30s linear infinite' }} viewBox="0 0 200 200">
+                    <circle cx="100" cy="100" r="60" fill="none" stroke="#C8973E" strokeWidth="3" />
+                    <circle cx="100" cy="100" r="25" fill="none" stroke="#C8973E" strokeWidth="2" />
+                    <circle cx="100" cy="100" r="8" fill="rgba(200,151,62,0.3)" />
+                    {Array.from({ length: 12 }).map((_, i) => {
+                        const angle = (i / 12) * Math.PI * 2
+                        const x1 = 100 + Math.cos(angle) * 60
+                        const y1 = 100 + Math.sin(angle) * 60
+                        const x2 = 100 + Math.cos(angle) * 78
+                        const y2 = 100 + Math.sin(angle) * 78
+                        return <line key={`gt-${i}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#C8973E" strokeWidth="10" strokeLinecap="round" />
+                    })}
+                </svg>
+
+                {/* Medium gear — bottom left, counter-clockwise (interlocking ratio) */}
+                <svg style={{ position: 'absolute', bottom: -30, left: -20, width: 200, height: 200, opacity: 0.06, animation: 'steamGearSpinReverse 20s linear infinite' }} viewBox="0 0 200 200">
+                    <circle cx="100" cy="100" r="50" fill="none" stroke="#E07040" strokeWidth="2.5" />
+                    <circle cx="100" cy="100" r="20" fill="none" stroke="#E07040" strokeWidth="1.5" />
+                    <circle cx="100" cy="100" r="6" fill="rgba(224,112,64,0.3)" />
+                    {Array.from({ length: 8 }).map((_, i) => {
+                        const angle = (i / 8) * Math.PI * 2
+                        const x1 = 100 + Math.cos(angle) * 50
+                        const y1 = 100 + Math.sin(angle) * 50
+                        const x2 = 100 + Math.cos(angle) * 65
+                        const y2 = 100 + Math.sin(angle) * 65
+                        return <line key={`gb-${i}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#E07040" strokeWidth="8" strokeLinecap="round" />
+                    })}
+                </svg>
+
+                {/* Small gear — mid left, clockwise */}
+                <svg style={{ position: 'absolute', top: '40%', left: 60, width: 100, height: 100, opacity: 0.05, animation: 'steamGearSpin 15s linear infinite' }} viewBox="0 0 200 200">
+                    <circle cx="100" cy="100" r="45" fill="none" stroke="#5A9E8F" strokeWidth="2" />
+                    <circle cx="100" cy="100" r="15" fill="none" stroke="#5A9E8F" strokeWidth="1.5" />
+                    {Array.from({ length: 6 }).map((_, i) => {
+                        const angle = (i / 6) * Math.PI * 2
+                        const x1 = 100 + Math.cos(angle) * 45
+                        const y1 = 100 + Math.sin(angle) * 45
+                        const x2 = 100 + Math.cos(angle) * 58
+                        const y2 = 100 + Math.sin(angle) * 58
+                        return <line key={`gs-${i}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#5A9E8F" strokeWidth="7" strokeLinecap="round" />
+                    })}
+                </svg>
+
+                {/* Steam pipe network — horizontal pipes with joints */}
+                <svg style={{ position: 'absolute', bottom: '25%', left: 0, width: '100%', height: 4, opacity: 0.1 }} preserveAspectRatio="none">
+                    <line x1="0" y1="2" x2="100%" y2="2" stroke="#C8973E" strokeWidth="3" />
+                </svg>
+                {[80, 250, 450, 650, 850].map((x, i) => (
+                    <div key={`joint-${i}`} style={{
+                        position: 'absolute', bottom: 'calc(25% - 4px)', left: x, width: 10, height: 10,
+                        borderRadius: '50%', border: '1.5px solid rgba(200,151,62,0.15)',
+                        background: 'rgba(200,151,62,0.06)',
+                    }} />
+                ))}
+
+                {/* Vertical pipe */}
+                <div style={{ position: 'absolute', top: 0, right: '22%', width: 3, height: '25%', background: 'rgba(200,151,62,0.08)' }} />
+                <div style={{ position: 'absolute', top: 0, right: 'calc(22% - 3px)', width: 8, height: 8, borderRadius: '50%', border: '1.5px solid rgba(200,151,62,0.12)', background: 'rgba(200,151,62,0.04)', marginTop: 'calc(25% - 4px)' }} />
+
+                {/* Pressure gauge — SVG */}
+                <svg style={{ position: 'absolute', top: '15%', right: '10%', width: 80, height: 80, opacity: 0.12 }} viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="42" fill="none" stroke="#C8973E" strokeWidth="2" />
+                    <circle cx="50" cy="50" r="38" fill="none" stroke="rgba(200,151,62,0.3)" strokeWidth="0.5" />
+                    {/* Tick marks */}
+                    {Array.from({ length: 8 }).map((_, i) => {
+                        const angle = (i / 8) * Math.PI * 2 - Math.PI / 2
+                        const x1 = 50 + Math.cos(angle) * 35
+                        const y1 = 50 + Math.sin(angle) * 35
+                        const x2 = 50 + Math.cos(angle) * 40
+                        const y2 = 50 + Math.sin(angle) * 40
+                        return <line key={`tick-${i}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#C8973E" strokeWidth="1.5" />
+                    })}
+                    {/* Needle */}
+                    <line x1="50" y1="50" x2="50" y2="15" stroke="#E07040" strokeWidth="1.5" strokeLinecap="round" style={{ transformOrigin: '50px 50px', animation: 'steamNeedle 4s ease-in-out infinite' }} />
+                    <circle cx="50" cy="50" r="4" fill="#C8973E" />
+                </svg>
+
+                {/* Steam puffs rising from pipe joints */}
+                {[
+                    { x: 83, delay: 0 }, { x: 253, delay: 3 }, { x: 453, delay: 7 }, { x: 853, delay: 5 },
+                ].map((p, i) => (
+                    <div key={`puff-${i}`} style={{
+                        position: 'absolute', bottom: 'calc(25% + 8px)', left: p.x,
+                        width: 6, height: 6, borderRadius: '50%',
+                        background: 'rgba(212,206,192,0.15)',
+                        filter: 'blur(2px)',
+                        animation: `steamPuff 8s ease-out ${p.delay}s infinite`,
+                    }} />
+                ))}
+
+                {/* Victorian scrollwork corners */}
+                <svg style={{ position: 'absolute', top: 20, left: 20, width: 80, height: 80, opacity: 0.1 }} viewBox="0 0 80 80">
+                    <path d="M5 5 Q5 25 15 18 Q28 8 22 22 Q16 36 28 28 Q40 20 34 34" fill="none" stroke="#C8973E" strokeWidth="1.2" strokeLinecap="round" />
+                    <circle cx="8" cy="8" r="2" fill="rgba(200,151,62,0.4)" />
+                </svg>
+                <svg style={{ position: 'absolute', bottom: 20, right: 20, width: 80, height: 80, opacity: 0.1, transform: 'rotate(180deg)' }} viewBox="0 0 80 80">
+                    <path d="M5 5 Q5 25 15 18 Q28 8 22 22 Q16 36 28 28 Q40 20 34 34" fill="none" stroke="#C8973E" strokeWidth="1.2" strokeLinecap="round" />
+                    <circle cx="8" cy="8" r="2" fill="rgba(200,151,62,0.4)" />
+                </svg>
+
+                {/* Gaslight lantern — top center */}
+                <svg style={{ position: 'absolute', top: 30, left: '50%', transform: 'translateX(-50%)', width: 30, height: 50, opacity: 0.15 }} viewBox="0 0 30 50">
+                    {/* Hook */}
+                    <line x1="15" y1="0" x2="15" y2="10" stroke="#C8973E" strokeWidth="1.5" />
+                    {/* Lantern body */}
+                    <rect x="8" y="10" width="14" height="20" rx="2" fill="none" stroke="#C8973E" strokeWidth="1.5" />
+                    {/* Flame glow */}
+                    <ellipse cx="15" cy="22" rx="3" ry="5" fill="rgba(232,184,76,0.4)" style={{ animation: 'steamFlicker 3s ease-in-out infinite' }} />
+                    {/* Bottom cap */}
+                    <line x1="6" y1="30" x2="24" y2="30" stroke="#C8973E" strokeWidth="1.5" />
+                    <line x1="10" y1="30" x2="10" y2="34" stroke="#C8973E" strokeWidth="1" />
+                    <line x1="20" y1="30" x2="20" y2="34" stroke="#C8973E" strokeWidth="1" />
+                </svg>
+
+                {/* Content */}
+                <div style={{ textAlign: 'center', zIndex: 2 }}>
+                    <h1 style={{
+                        fontFamily: "'Cinzel Decorative', serif", fontSize: stageFont(52), color: '#E8DCC8',
+                        fontWeight: 400, lineHeight: 1.2, marginBottom: 8,
+                        textShadow: '0 0 20px rgba(200,151,62,0.35), 0 0 50px rgba(200,151,62,0.12), 0 0 80px rgba(224,112,64,0.06)',
+                        letterSpacing: '0.06em',
+                    }}>
+                        Queue a Tune
+                    </h1>
+                    <p style={{
+                        fontFamily: "'Spectral', serif", fontSize: stageFont(16), color: '#A89878',
+                        letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: 48,
+                        fontStyle: 'italic',
+                    }}>
+                        Scan to power the engine
+                    </p>
+                    {qrUrl && (
+                        <div style={{
+                            display: 'inline-block', padding: 14,
+                            border: '2px solid rgba(200,151,62,0.3)',
+                            borderImage: 'repeating-linear-gradient(90deg, transparent 0px, transparent 14px, rgba(200,151,62,0.4) 14px, rgba(200,151,62,0.4) 18px, transparent 18px, transparent 32px) 1',
+                            background: 'rgba(20,17,15,0.8)',
+                            backdropFilter: 'blur(12px)',
+                            borderRadius: 4,
+                        }}>
+                            <img src={qrUrl} alt="QR" style={{ width: 210, height: 210, display: 'block', borderRadius: 2 }} />
+                        </div>
+                    )}
+                    {sessionCode && (
+                        <p style={{
+                            fontFamily: "'Cinzel', serif", fontSize: stageFont(26), fontWeight: 600,
+                            color: '#C8973E', letterSpacing: '0.35em', textTransform: 'uppercase', marginTop: 20,
+                            textShadow: '0 0 15px rgba(200,151,62,0.3)',
+                        }}>
+                            {sessionCode}
+                        </p>
+                    )}
+                </div>
+            </div>
+        )
+    }
+
+    // ---- Retrowave (80s Synthwave) idle ----
+    if (theme.name === 'retrowave') {
+        return (
+            <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
+                background: 'linear-gradient(180deg, #0a0614 0%, #0d0820 25%, #150a2e 45%, #1a0828 55%, #2a1040 63%, #8B2060 72%, #FF6B2B 85%, #FFD700 100%)',
+                position: 'relative', overflow: 'hidden',
+            }}>
+                {/* Starfield — upper portion */}
+                {[
+                    { x: 8, y: 5, s: 1.5, d: 3.2, c: 'rgba(255,255,255,0.7)' },
+                    { x: 15, y: 12, s: 1, d: 4.5, c: 'rgba(255,45,149,0.5)' },
+                    { x: 25, y: 3, s: 1.2, d: 3.8, c: 'rgba(255,255,255,0.6)' },
+                    { x: 35, y: 18, s: 1, d: 5.1, c: 'rgba(0,191,255,0.5)' },
+                    { x: 45, y: 7, s: 1.5, d: 3.5, c: 'rgba(255,255,255,0.8)' },
+                    { x: 55, y: 14, s: 1, d: 4.2, c: 'rgba(255,255,255,0.5)' },
+                    { x: 62, y: 4, s: 1.3, d: 3.9, c: 'rgba(255,45,149,0.4)' },
+                    { x: 72, y: 20, s: 1, d: 5.5, c: 'rgba(255,255,255,0.6)' },
+                    { x: 78, y: 9, s: 1.5, d: 3.3, c: 'rgba(0,191,255,0.4)' },
+                    { x: 88, y: 16, s: 1, d: 4.8, c: 'rgba(255,255,255,0.7)' },
+                    { x: 92, y: 2, s: 1.2, d: 3.6, c: 'rgba(255,255,255,0.5)' },
+                    { x: 20, y: 25, s: 1, d: 5.2, c: 'rgba(255,255,255,0.4)' },
+                    { x: 40, y: 22, s: 1.3, d: 4.0, c: 'rgba(255,107,43,0.4)' },
+                    { x: 60, y: 28, s: 1, d: 4.7, c: 'rgba(255,255,255,0.5)' },
+                    { x: 80, y: 24, s: 1.2, d: 3.4, c: 'rgba(255,45,149,0.3)' },
+                    { x: 5, y: 30, s: 1, d: 5.0, c: 'rgba(255,255,255,0.4)' },
+                    { x: 50, y: 32, s: 1.5, d: 3.7, c: 'rgba(0,191,255,0.3)' },
+                    { x: 95, y: 28, s: 1, d: 4.3, c: 'rgba(255,255,255,0.6)' },
+                ].map((star, i) => (
+                    <div key={`rw-star-${i}`} style={{
+                        position: 'absolute', left: `${star.x}%`, top: `${star.y}%`,
+                        width: star.s, height: star.s, borderRadius: '50%',
+                        background: star.c,
+                        animation: `${i % 2 === 0 ? 'rwTwinkle' : 'rwTwinkle2'} ${star.d}s ease-in-out infinite`,
+                        animationDelay: `${i * 0.3}s`,
+                    }} />
+                ))}
+
+                {/* Ambient sun glow — pulsing warm haze behind the sun */}
+                <div style={{
+                    position: 'absolute', left: '50%', top: '58%', transform: 'translateX(-50%)',
+                    width: 500, height: 250, borderRadius: '50%',
+                    background: 'radial-gradient(ellipse, rgba(255,107,43,0.25) 0%, rgba(255,45,149,0.08) 40%, transparent 70%)',
+                    filter: 'blur(30px)',
+                    animation: 'rwSunPulse 5s ease-in-out infinite',
+                    zIndex: 0,
+                }} />
+
+                {/* Banded Sun — semicircle with horizontal dark stripes */}
+                <svg style={{ position: 'absolute', left: '50%', top: '52%', transform: 'translateX(-50%)', width: 320, height: 160, zIndex: 1 }} viewBox="0 0 320 160">
+                    <defs>
+                        <linearGradient id="rw-sun-grad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#FFD700" />
+                            <stop offset="25%" stopColor="#FFAA00" />
+                            <stop offset="50%" stopColor="#FF6B2B" />
+                            <stop offset="75%" stopColor="#FF2D95" />
+                            <stop offset="100%" stopColor="#B44AFF" />
+                        </linearGradient>
+                        <clipPath id="rw-sun-clip">
+                            <circle cx="160" cy="160" r="150" />
+                        </clipPath>
+                    </defs>
+                    {/* Sun body */}
+                    <rect x="10" y="0" width="300" height="160" fill="url(#rw-sun-grad)" clipPath="url(#rw-sun-clip)" />
+                    {/* Horizontal dark bands — increasing thickness toward bottom */}
+                    <rect x="0" y="55" width="320" height="3" fill="#0a0614" opacity="0.6" clipPath="url(#rw-sun-clip)" />
+                    <rect x="0" y="68" width="320" height="4" fill="#0a0614" opacity="0.65" clipPath="url(#rw-sun-clip)" />
+                    <rect x="0" y="82" width="320" height="5" fill="#0a0614" opacity="0.7" clipPath="url(#rw-sun-clip)" />
+                    <rect x="0" y="97" width="320" height="7" fill="#0a0614" opacity="0.75" clipPath="url(#rw-sun-clip)" />
+                    <rect x="0" y="114" width="320" height="9" fill="#0a0614" opacity="0.8" clipPath="url(#rw-sun-clip)" />
+                    <rect x="0" y="133" width="320" height="12" fill="#0a0614" opacity="0.85" clipPath="url(#rw-sun-clip)" />
+                </svg>
+
+                {/* Horizon haze — warm glow at the horizon line */}
+                <div style={{
+                    position: 'absolute', left: 0, right: 0, top: '62%', height: '8%', zIndex: 1,
+                    background: 'linear-gradient(180deg, transparent 0%, rgba(255,107,43,0.12) 30%, rgba(255,45,149,0.08) 70%, transparent 100%)',
+                    filter: 'blur(8px)',
+                }} />
+
+                {/* Perspective Grid Floor */}
+                <svg style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '38%', zIndex: 2 }} viewBox="0 0 1000 380" preserveAspectRatio="none">
+                    {/* Horizontal lines — closer spacing near top (horizon) */}
+                    {[0, 8, 20, 38, 62, 95, 138, 195, 265, 350].map((y, i) => (
+                        <line key={`rw-hline-${i}`} x1="0" y1={y} x2="1000" y2={y}
+                            stroke="rgba(255,45,149,0.35)" strokeWidth={i < 3 ? 0.5 : 1} />
+                    ))}
+                    {/* Vertical lines fanning from center vanishing point */}
+                    {Array.from({ length: 17 }, (_, i) => {
+                        const topX = 500
+                        const bottomX = (i / 16) * 1000
+                        return <line key={`rw-vline-${i}`} x1={topX} y1="0" x2={bottomX} y2="380"
+                            stroke="rgba(0,191,255,0.3)" strokeWidth={0.8} />
+                    })}
+                </svg>
+
+                {/* Palm tree silhouette — left (thicker, more detailed) */}
+                <svg style={{ position: 'absolute', left: '2%', bottom: '15%', width: 160, height: 300, zIndex: 3 }} viewBox="0 0 160 300">
+                    {/* Thick curved trunk */}
+                    <path d="M72 300 Q68 240 74 180 Q78 140 80 110 Q82 90 76 65" stroke="#0a0614" strokeWidth="10" fill="none" strokeLinecap="round" />
+                    {/* Dense frond canopy — overlapping leaves */}
+                    <path d="M76 65 Q10 20 -5 50 Q20 35 76 65" fill="#0a0614" />
+                    <path d="M76 65 Q15 -5 0 -10 Q25 10 76 65" fill="#0a0614" />
+                    <path d="M76 65 Q50 -15 55 -20 Q62 5 76 65" fill="#0a0614" />
+                    <path d="M76 65 Q95 -10 110 0 Q95 15 76 65" fill="#0a0614" />
+                    <path d="M76 65 Q110 15 135 25 Q108 30 76 65" fill="#0a0614" />
+                    <path d="M76 65 Q115 40 145 55 Q110 48 76 65" fill="#0a0614" />
+                    {/* Drooping frond tips */}
+                    <path d="M76 65 Q5 45 -10 65" stroke="#0a0614" strokeWidth="2.5" fill="none" />
+                    <path d="M76 65 Q120 50 150 68" stroke="#0a0614" strokeWidth="2.5" fill="none" />
+                </svg>
+
+                {/* Palm tree silhouette — right (mirrored, slightly smaller) */}
+                <svg style={{ position: 'absolute', right: '3%', bottom: '17%', width: 140, height: 260, zIndex: 3, transform: 'scaleX(-1)' }} viewBox="0 0 160 300">
+                    <path d="M72 300 Q68 240 74 180 Q78 140 80 110 Q82 90 76 65" stroke="#0a0614" strokeWidth="10" fill="none" strokeLinecap="round" />
+                    <path d="M76 65 Q10 20 -5 50 Q20 35 76 65" fill="#0a0614" />
+                    <path d="M76 65 Q15 -5 0 -10 Q25 10 76 65" fill="#0a0614" />
+                    <path d="M76 65 Q50 -15 55 -20 Q62 5 76 65" fill="#0a0614" />
+                    <path d="M76 65 Q95 -10 110 0 Q95 15 76 65" fill="#0a0614" />
+                    <path d="M76 65 Q110 15 135 25 Q108 30 76 65" fill="#0a0614" />
+                    <path d="M76 65 Q115 40 145 55 Q110 48 76 65" fill="#0a0614" />
+                    <path d="M76 65 Q5 45 -10 65" stroke="#0a0614" strokeWidth="2.5" fill="none" />
+                    <path d="M76 65 Q120 50 150 68" stroke="#0a0614" strokeWidth="2.5" fill="none" />
+                </svg>
+
+                {/* VHS Tracking Line */}
+                <div style={{
+                    position: 'absolute', left: 0, right: 0, height: 3, zIndex: 10,
+                    background: 'linear-gradient(90deg, transparent 0%, rgba(255,45,149,0.15) 15%, rgba(255,255,255,0.3) 45%, rgba(0,191,255,0.2) 65%, rgba(255,45,149,0.15) 85%, transparent 100%)',
+                    boxShadow: '0 0 8px rgba(255,45,149,0.2), 0 0 20px rgba(0,191,255,0.1)',
+                    animation: 'rwVhsTrack 8s linear infinite',
+                }} />
+
+                {/* Content — positioned above the sun */}
+                <div style={{
+                    position: 'relative', zIndex: 5, display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', gap: 16, textAlign: 'center', marginTop: -160,
+                }}>
+                    <h1 style={{
+                        fontFamily: "'Audiowide', sans-serif", fontSize: stageFont(80), fontWeight: 400,
+                        background: 'linear-gradient(180deg, #FFD700 0%, #FF6B2B 40%, #FF2D95 100%)',
+                        WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                        filter: 'drop-shadow(0 0 25px rgba(255,45,149,0.5)) drop-shadow(0 0 8px rgba(255,107,43,0.4))',
+                        margin: 0, letterSpacing: 6,
+                    }}>
+                        HIT PLAY
+                    </h1>
+                    <p style={{
+                        fontFamily: "'Rajdhani', sans-serif", fontSize: stageFont(16), color: 'rgba(155,140,191,0.7)',
+                        letterSpacing: 8, textTransform: 'uppercase', margin: 0,
+                    }}>
+                        Scan to ride the wave
+                    </p>
+
+                    {qrUrl && (
+                        <div style={{
+                            background: 'rgba(10,6,20,0.9)', padding: 18, borderRadius: 4,
+                            border: '1px solid rgba(255,45,149,0.35)',
+                            boxShadow: '0 0 25px rgba(255,45,149,0.15), 0 0 50px rgba(0,191,255,0.06), inset 0 0 20px rgba(0,0,0,0.3)',
+                            backdropFilter: 'blur(16px)',
+                        }}>
+                            <img src={qrUrl} alt="QR" style={{ width: 130, height: 130, borderRadius: 2, display: 'block' }} />
+                        </div>
+                    )}
+                    {sessionCode && (
+                        <div style={{
+                            background: 'rgba(10,6,20,0.85)', padding: '6px 20px', borderRadius: 4,
+                            border: '1px solid rgba(255,45,149,0.25)',
+                            boxShadow: '0 0 12px rgba(255,45,149,0.1)',
+                        }}>
+                            <p style={{
+                                fontFamily: "'Audiowide', sans-serif", fontSize: stageFont(24), color: '#FF2D95',
+                                letterSpacing: 10, margin: 0,
+                                textShadow: '0 0 12px rgba(255,45,149,0.6), 0 0 30px rgba(255,45,149,0.25)',
+                            }}>
+                                {sessionCode}
+                            </p>
+                        </div>
+                    )}
+                </div>
+            </div>
+        )
+    }
+
+    // ---- Comic Book (pop-art) idle ----
+    if (theme.name === 'comic-book') {
+        const STAR = 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)'
+        const onos = [
+            { t: 'POW!', x: '7%', y: '13%', bg: '#FFD400', fg: '#FF1F4B', rot: -14, d: 2.6 },
+            { t: 'BAM!', x: '79%', y: '9%', bg: '#FF1F4B', fg: '#FFFFFF', rot: 11, d: 3.1 },
+            { t: 'ZAP!', x: '83%', y: '68%', bg: '#2FA8FF', fg: '#FFD400', rot: -8, d: 2.9 },
+            { t: 'WOW!', x: '4%', y: '70%', bg: '#FFFFFF', fg: '#2FA8FF', rot: 9, d: 3.4 },
+        ]
+        return (
+            <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
+                background: '#FFF7E6', position: 'relative', overflow: 'hidden',
+                backgroundImage:
+                    'radial-gradient(rgba(255,31,75,0.16) 2px, transparent 2.4px), radial-gradient(rgba(47,168,255,0.14) 2px, transparent 2.4px)',
+                backgroundSize: '22px 22px, 22px 22px', backgroundPosition: '0 0, 11px 11px',
+            }}>
+                {/* Radial speed-line burst behind the hero */}
+                <div style={{
+                    position: 'absolute', left: '50%', top: '46%', width: '160vmax', height: '160vmax',
+                    transform: 'translate(-50%, -50%)',
+                    background: 'repeating-conic-gradient(from 0deg, rgba(22,22,29,0.06) 0deg 2.2deg, transparent 2.2deg 4.4deg)',
+                    animation: 'comic-idle-burst 90s linear infinite', zIndex: 0,
+                }} />
+
+                {/* Onomatopoeia starbursts — the star is a clipped layer; the
+                   word sits ABOVE it (not clipped), colored with an ink
+                   outline so it stays crisp and never gets cut by the points. */}
+                {onos.map((o, i) => (
+                    <div key={`ono-${i}`} style={{
+                        position: 'absolute', left: o.x, top: o.y, zIndex: 2,
+                        width: 150, height: 150,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        ['--wig-a' as string]: `${o.rot - 6}deg`, ['--wig-b' as string]: `${o.rot + 6}deg`,
+                        animation: `comic-wiggle ${o.d}s ease-in-out infinite`,
+                    }}>
+                        {/* Star shape (ink border via stacked clips) */}
+                        <div style={{
+                            position: 'absolute', inset: 0, clipPath: STAR, background: '#16161D',
+                        }} />
+                        <div style={{
+                            position: 'absolute', inset: 9, clipPath: STAR, background: o.bg,
+                        }} />
+                        {/* Word on top — never clipped */}
+                        <span style={{
+                            position: 'relative', zIndex: 1,
+                            fontFamily: theme.fontDisplay, color: o.fg, fontSize: stageFont(30),
+                            letterSpacing: 1, transform: `rotate(${o.rot}deg)`,
+                            WebkitTextStroke: '2px #16161D',
+                            textShadow: '2px 2px 0 #16161D',
+                        }}>{o.t}</span>
+                    </div>
+                ))}
+
+                {/* Hero speech-bubble panel */}
+                <div style={{
+                    position: 'relative', zIndex: 3, textAlign: 'center',
+                    background: '#FFFFFF', border: '6px solid #16161D', borderRadius: 28,
+                    boxShadow: '10px 10px 0 #16161D', padding: '40px 56px 44px',
+                    animation: 'comic-bob 4s ease-in-out infinite',
+                }}>
+                    {/* speech-bubble tail — 45°-rotated square straddling the
+                        bottom edge (white fill covers the bottom border at the
+                        overlap; the ink right+bottom borders form the point). */}
+                    <div style={{
+                        position: 'absolute', left: 66, bottom: -22, width: 40, height: 40,
+                        background: '#FFFFFF', borderRight: '6px solid #16161D', borderBottom: '6px solid #16161D',
+                        borderBottomRightRadius: 6, transform: 'rotate(45deg)',
+                    }} />
+                    <h1 style={{
+                        fontFamily: theme.fontDisplay, fontSize: stageFont(74), color: '#FF1F4B',
+                        lineHeight: 1.0, margin: 0, letterSpacing: 1,
+                        WebkitTextStroke: '2px #16161D',
+                        textShadow: '5px 5px 0 #16161D',
+                    }}>
+                        GRAB THE MIC!
+                    </h1>
+                    <p style={{
+                        fontFamily: theme.fontBody, fontWeight: 800, fontSize: stageFont(18),
+                        color: '#16161D', letterSpacing: '0.18em', textTransform: 'uppercase',
+                        margin: '14px 0 26px',
+                    }}>
+                        Scan to add your song
+                    </p>
+                    {qrUrl && (
+                        <div style={{ display: 'flex', justifyContent: 'center' }}>
+                            <div style={{
+                                padding: 12, background: '#FFFFFF',
+                                border: '4px solid #16161D', borderRadius: 10, boxShadow: '5px 5px 0 #16161D',
+                            }}>
+                                <img src={qrUrl} alt="QR" style={{ width: 196, height: 196, display: 'block' }} />
+                            </div>
+                        </div>
+                    )}
+                    {sessionCode && (
+                        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 22 }}>
+                            <div style={{
+                                padding: '6px 22px',
+                                background: '#FFD400', border: '4px solid #16161D', borderRadius: 8,
+                                boxShadow: '4px 4px 0 #16161D', transform: 'rotate(-2deg)',
+                            }}>
+                                <p style={{
+                                    fontFamily: theme.fontDisplay, fontSize: stageFont(26), color: '#16161D',
+                                    letterSpacing: '0.22em', margin: 0,
+                                }}>
+                                    {sessionCode}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        )
+    }
+
+    // ---- Tropical (Tiki Beach) idle ----
+    if (theme.name === 'tropical') {
+        const frondAngles = [-162, -124, -86, -48, -8, 30, 66]
+        const clouds = [
+            { x: '6%', y: '9%', s: 1.0, d: 26 },
+            { x: '60%', y: '5%', s: 1.3, d: 34 },
+            { x: '34%', y: '17%', s: 0.8, d: 30 },
+        ]
+
+        // A single coconut palm, drawn rooted at bottom-centre. The caller
+        // positions it and the wrapper div sways the whole tree (reliable
+        // HTML transform-origin; avoids SVG-internal origin pitfalls).
+        const Palm = (k: string, posStyle: React.CSSProperties, flip: boolean, swayDur: number) => (
+            <div key={k} style={{ position: 'absolute', zIndex: 2, transformOrigin: 'bottom center', animation: `tropPalmTrunk ${swayDur}s ease-in-out infinite`, ...posStyle }}>
+                <svg width="360" height="470" viewBox="0 0 360 470" style={{ display: 'block', transform: flip ? 'scaleX(-1)' : 'none', filter: 'drop-shadow(0 10px 16px rgba(14,46,41,0.28))' }}>
+                    {/* trunk */}
+                    <path d="M168 470 C 158 360 132 262 196 176 C 202 168 216 172 210 186 C 160 266 182 366 196 470 Z" fill="#A9764A" />
+                    <path d="M168 470 C 160 360 138 262 196 176 C 200 170 207 172 206 180 C 162 266 174 366 182 470 Z" fill="#C28F5A" />
+                    {[238, 300, 362, 424].map((ny, i) => (
+                        <path key={i} d={`M${164 - i} ${ny} q 20 -9 38 0`} stroke="#7C5230" strokeWidth="3" fill="none" opacity="0.45" />
+                    ))}
+                    {/* coconuts */}
+                    <circle cx="196" cy="186" r="12" fill="#5C3F22" />
+                    <circle cx="216" cy="194" r="11" fill="#6B4A2A" />
+                    <circle cx="202" cy="204" r="11" fill="#4A3119" />
+                    {/* fronds */}
+                    {frondAngles.map((a, i) => (
+                        <path
+                            key={i}
+                            transform={`translate(204 176) rotate(${a})`}
+                            d="M0 0 C 50 -22 116 -20 172 6 C 162 2 162 14 172 20 C 116 8 56 13 0 0 Z"
+                            fill={i % 2 === 0 ? '#1FA85C' : '#178A4A'}
+                            stroke="#0E6B39"
+                            strokeWidth="2"
+                            strokeLinejoin="round"
+                        />
+                    ))}
+                    <path transform="translate(204 176) rotate(-100)" d="M0 0 C 18 -64 16 -130 4 -182 C -4 -130 -12 -64 0 0 Z" fill="#23B85F" stroke="#0E6B39" strokeWidth="2" />
+                </svg>
+            </div>
+        )
+
+        // A bamboo tiki torch with a flickering flame + rising embers.
+        const Torch = (k: string, side: 'left' | 'right') => {
+            const pos: React.CSSProperties = { position: 'absolute', bottom: '16%', width: 90, height: 300, zIndex: 4 }
+            if (side === 'left') pos.left = '19%'
+            else pos.right = '19%'
+            return (
+                <div key={k} style={pos}>
+                    {/* warm flame glow */}
+                    <div style={{ position: 'absolute', top: -26, left: '50%', width: 180, height: 180, transform: 'translateX(-50%)', background: 'radial-gradient(circle, rgba(255,170,60,0.55) 0%, transparent 64%)', animation: 'tropSun 2.2s ease-in-out infinite', pointerEvents: 'none' }} />
+                    {/* flame — separate boxes so CSS transform-origin is reliable */}
+                    <div style={{ position: 'absolute', top: 6, left: '50%', width: 62, height: 86, transform: 'translateX(-50%)', zIndex: 2 }}>
+                        <svg width="62" height="86" viewBox="0 0 62 86" style={{ position: 'absolute', inset: 0, transformOrigin: '50% 100%', animation: 'tropFlame 0.9s ease-in-out infinite' }}>
+                            <path d="M31 84 C 7 64 5 38 31 4 C 57 38 55 64 31 84 Z" fill="#FF6B2C" />
+                        </svg>
+                        <svg width="40" height="58" viewBox="0 0 40 58" style={{ position: 'absolute', left: 11, bottom: 10, transformOrigin: '50% 100%', animation: 'tropFlameCore 0.7s ease-in-out infinite' }}>
+                            <path d="M20 56 C 6 44 6 24 20 4 C 34 24 34 44 20 56 Z" fill="#FFD23F" />
+                        </svg>
+                    </div>
+                    {/* embers */}
+                    {[0, 1, 2].map((i) => (
+                        <div key={i} style={{ position: 'absolute', top: 36, left: 38 + i * 6, width: 5, height: 5, borderRadius: '50%', background: i % 2 ? '#FFD23F' : '#FF8A3C', ['--ember-x' as string]: `${(i - 1) * 18}px`, animation: `tropEmber ${1.9 + i * 0.5}s ease-in ${i * 0.45}s infinite`, pointerEvents: 'none' }} />
+                    ))}
+                    {/* bamboo pole + woven bowl */}
+                    <svg width="90" height="300" viewBox="0 0 90 300" style={{ position: 'absolute', bottom: 0, left: 0, filter: 'drop-shadow(0 8px 12px rgba(14,46,41,0.25))' }}>
+                        <rect x="34" y="86" width="22" height="214" rx="7" fill="#CDA85A" />
+                        <rect x="38" y="86" width="6" height="214" fill="#E2C684" opacity="0.7" />
+                        {[120, 162, 204, 246].map((ny, i) => (
+                            <rect key={i} x="31" y={ny} width="28" height="6" rx="2.5" fill="#9A7536" />
+                        ))}
+                        <path d="M18 88 q 27 30 54 0 q -9 -20 -27 -20 q -18 0 -27 20 Z" fill="#6B4A2A" stroke="#4A3119" strokeWidth="2.5" />
+                        <path d="M18 88 q 27 12 54 0" stroke="#3A2614" strokeWidth="3" fill="none" />
+                    </svg>
+                </div>
+            )
+        }
+
+        return (
+            <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
+                position: 'relative', overflow: 'hidden',
+                background: 'linear-gradient(180deg, #38B6E8 0%, #5ECBE8 28%, #2FC4C0 50%, #7FE0D6 58%, #F4E2B8 70%, #FFF4DE 100%)',
+            }}>
+                {/* sun */}
+                <div style={{ position: 'absolute', top: '9%', right: '12%', width: 130, height: 130, borderRadius: '50%', background: 'radial-gradient(circle, #FFE27A 0%, #FFC83D 58%, #FFB02E 100%)', animation: 'tropSun 6s ease-in-out infinite', zIndex: 1 }} />
+                {/* drifting clouds */}
+                {clouds.map((c, i) => (
+                    <div key={`cl-${i}`} style={{ position: 'absolute', left: c.x, top: c.y, transform: `scale(${c.s})`, animation: `tropCloud ${c.d}s ease-in-out infinite alternate`, zIndex: 1 }}>
+                        <div style={{ position: 'relative', width: 180, height: 50 }}>
+                            <div style={{ position: 'absolute', bottom: 0, left: 0, width: 180, height: 36, borderRadius: 30, background: 'rgba(255,255,255,0.92)' }} />
+                            <div style={{ position: 'absolute', bottom: 8, left: 32, width: 62, height: 62, borderRadius: '50%', background: 'rgba(255,255,255,0.92)' }} />
+                            <div style={{ position: 'absolute', bottom: 6, left: 84, width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,0.92)' }} />
+                        </div>
+                    </div>
+                ))}
+                {/* shimmering lagoon band */}
+                <div style={{ position: 'absolute', left: 0, right: 0, top: '50%', height: '11%', zIndex: 1, opacity: 0.5, backgroundImage: 'repeating-linear-gradient(95deg, rgba(255,255,255,0.6) 0 3px, transparent 3px 24px)', animation: 'tropWave 6s linear infinite' }} />
+
+                {/* palms */}
+                {Palm('palm-l', { left: -86, bottom: -34 }, false, 7)}
+                {Palm('palm-r', { right: -86, bottom: -34 }, true, 8.5)}
+
+                {/* torches */}
+                {Torch('torch-l', 'left')}
+                {Torch('torch-r', 'right')}
+
+                {/* hero — a lashed wooden tiki sign framed in bamboo */}
+                <div style={{ position: 'relative', zIndex: 5, textAlign: 'center', animation: 'tropBob 5s ease-in-out infinite' }}>
+                    {/* hibiscus bloom, top-left corner */}
+                    <svg width="78" height="78" viewBox="0 0 70 70" style={{ position: 'absolute', top: -34, left: -30, zIndex: 6, transform: 'rotate(-18deg)', filter: 'drop-shadow(0 4px 6px rgba(14,46,41,0.3))' }}>
+                        {[0, 72, 144, 216, 288].map((a) => (
+                            <ellipse key={a} cx="35" cy="17" rx="13" ry="17" fill="#FF3D81" stroke="#E02468" strokeWidth="1.5" transform={`rotate(${a} 35 35)`} />
+                        ))}
+                        <circle cx="35" cy="35" r="7.5" fill="#FFC83D" />
+                        <circle cx="35" cy="35" r="3" fill="#FF8A3C" />
+                    </svg>
+                    {/* monstera leaf, top-right corner */}
+                    <svg width="86" height="86" viewBox="0 0 100 100" style={{ position: 'absolute', top: -40, right: -38, zIndex: 6, transform: 'rotate(22deg)', filter: 'drop-shadow(0 4px 6px rgba(14,46,41,0.3))' }}>
+                        <path d="M50 96 C 12 70 6 30 46 6 C 92 26 90 72 50 96 Z" fill="#1FA85C" stroke="#0E6B39" strokeWidth="2.5" />
+                        <path d="M50 90 L50 20 M50 64 L24 52 M50 64 L76 52 M50 42 L30 32 M50 42 L70 32" stroke="#0E6B39" strokeWidth="2.5" fill="none" strokeLinecap="round" opacity="0.6" />
+                    </svg>
+
+                    <div style={{
+                        position: 'relative', overflow: 'hidden',
+                        background: 'linear-gradient(165deg, #8A5A2F 0%, #6E4423 100%)',
+                        borderRadius: 26, padding: '46px 64px 50px',
+                        border: '7px solid #CDA85A',
+                        boxShadow: '0 24px 56px rgba(14,46,41,0.42), inset 0 0 0 3px rgba(0,0,0,0.22)',
+                    }}>
+                        {/* wood grain */}
+                        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(180deg, rgba(0,0,0,0.10) 0 2px, transparent 2px 17px)', pointerEvents: 'none' }} />
+                        {/* corner rope lashings */}
+                        {[{ t: 8, l: 8 }, { t: 8, r: 8 }, { b: 8, l: 8 }, { b: 8, r: 8 }].map((p, i) => (
+                            <div key={i} style={{ position: 'absolute', width: 26, height: 26, borderRadius: 6, background: 'repeating-linear-gradient(45deg, #E8D4A0 0 3px, #B8995E 3px 6px)', transform: 'rotate(45deg)', opacity: 0.9, ...p }} />
+                        ))}
+
+                        <h1 style={{ position: 'relative', fontFamily: theme.fontDisplay, fontSize: stageFont(98), color: '#FFF8E6', margin: 0, lineHeight: 1.0, textShadow: '0 3px 0 rgba(0,0,0,0.35), 0 0 30px rgba(255,200,61,0.4)' }}>
+                            Catch a Wave
+                        </h1>
+                        <p style={{ position: 'relative', fontFamily: theme.fontBody, fontWeight: 700, fontSize: stageFont(18), color: '#FFE9C2', letterSpacing: '0.16em', textTransform: 'uppercase', margin: '16px 0 28px' }}>
+                            Scan to add your song
+                        </p>
+                        {qrUrl && (
+                            <div style={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
+                                <div style={{ padding: 12, background: '#FFF8E6', border: '5px solid #CDA85A', borderRadius: 14, boxShadow: '0 10px 22px rgba(0,0,0,0.3)' }}>
+                                    <img src={qrUrl} alt="QR" style={{ width: 196, height: 196, display: 'block', borderRadius: 6 }} />
+                                </div>
+                            </div>
+                        )}
+                        {sessionCode && (
+                            <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', marginTop: 24 }}>
+                                <div style={{ padding: '7px 26px', background: 'linear-gradient(135deg, #FFD23F, #FFB02E)', border: '4px solid #6E4423', borderRadius: 999, boxShadow: '0 6px 16px rgba(0,0,0,0.28)', transform: 'rotate(-2deg)' }}>
+                                    <p style={{ fontFamily: theme.fontDisplay, fontSize: stageFont(33), color: '#6E4423', letterSpacing: '0.14em', margin: 0 }}>
+                                        {sessionCode}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    // ---- Urban (Hip Hop) idle — also the fallback for unthemed idles ----
+    // A city wall after dark: streetlight pool + faint block courses, a
+    // flickering neon OPEN MIC sign, the headline sprayed as a dripping
+    // stencil plate, and the QR wheatpasted up as a taped paper flyer.
+    return (
+        <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
+            background: URB_VOID, position: 'relative', overflow: 'hidden',
+        }}>
+            <UrbanRoughDefs id="urban-idle-rough" />
+            <UrbanWallLayers noiseId="urban-idle-noise" />
+
+            <div style={{ textAlign: 'center', zIndex: 1, position: 'relative' }}>
+                {/* Flickering neon sign */}
+                <div className="nb-rise" style={{ marginBottom: 30 }}>
+                    <UrbanNeonSign text="Open Mic" fontSize={stageFont(19)} />
+                </div>
+
+                {/* Sprayed, dripping headline plate */}
+                <div className="nb-rise" style={{ animationDelay: '0.06s', marginBottom: 18 }}>
+                    <UrbanSprayPlate color={URB_GREEN} filterId="urban-idle-rough" rotate={-2} style={{ padding: '2px 18px 6px' }}>
+                        <h1 style={{
+                            fontFamily: URB_MARKER, fontSize: stageFont(64), fontWeight: 400,
+                            lineHeight: 1.12, margin: 0, padding: '0 8px', letterSpacing: '2px',
+                        }}>
+                            DROP A TRACK
+                        </h1>
+                    </UrbanSprayPlate>
+                </div>
+                <p className="nb-rise" style={{
+                    animationDelay: '0.12s',
+                    fontFamily: URB_STENCIL, fontWeight: 300, fontSize: stageFont(16), color: URB_ASH,
+                    letterSpacing: '0.42em', textTransform: 'uppercase', marginBottom: 44,
+                }}>
+                    Scan the flyer — run the queue
+                </p>
+
+                {/* Wheatpasted QR flyer */}
+                {qrUrl && (
+                    <div className="nb-rise" style={{ display: 'inline-block', animationDelay: '0.18s', position: 'relative', transform: 'rotate(-1.8deg)' }}>
+                        <div style={{
+                            background: URB_PAPER, padding: '16px 16px 12px',
+                            clipPath: 'polygon(0 0, 100% 0, 100% 94%, 90% 100%, 72% 95%, 48% 100%, 26% 96%, 10% 100%, 0 95%)',
+                            boxShadow: '0 24px 55px rgba(0,0,0,0.85)',
+                        }}>
+                            <img src={qrUrl} alt="QR" style={{ width: 208, height: 208, display: 'block' }} />
+                            <span style={{
+                                display: 'block', marginTop: 10, marginBottom: 4, textAlign: 'center',
+                                fontFamily: URB_STENCIL, fontWeight: 700, fontSize: stageFont(13),
+                                letterSpacing: '0.4em', textTransform: 'uppercase', color: '#0A0A0A',
+                            }}>
+                                Pull Up
+                            </span>
+                        </div>
+                        <UrbanTape style={{ top: -12, left: '50%', marginLeft: -52 }} rotate={-2} width={104} />
+                    </div>
+                )}
+
+                {/* Session code — stencil sprayed under the flyer */}
+                {sessionCode && (
+                    <p className="nb-rise" style={{
+                        animationDelay: '0.24s',
+                        fontFamily: URB_STENCIL, fontSize: stageFont(25), fontWeight: 600, color: URB_GREEN,
+                        letterSpacing: '0.45em', textTransform: 'uppercase', marginTop: 26,
+                        textShadow: `0 0 14px ${URB_GREEN}66, 0 0 34px ${URB_GREEN}33`,
+                    }}>
+                        [ {sessionCode} ]
+                    </p>
+                )}
+            </div>
+        </div>
+    )
+}
+
+// ── Lobby Mode ──────────────────────────────────────────────────────────────
+// The stretch of the night where the stage just holds its join screen and songs
+// pile into the queue. Two extras ride along: an optional slow random cycle
+// through every theme's join screen (crossfaded), and a notice along the bottom
+// each time a song is queued or requested.
+
+const LOBBY_THEME_KEYS = Object.keys(THEMES)
+const LOBBY_DWELL_MS = 20_000   // how long each theme's join screen holds
+const LOBBY_FADE_MS = 1500      // must cover .lobby-layer--out in karaoke.css
+const NOTICE_TTL_MS = 8600      // total time a notice stays on screen
+const NOTICE_EXIT_MS = 520      // must match .lobby-notice--leaving
+const NOTICE_MAX = 3            // oldest notices drop off the top of the stack
+
+interface LobbyNotice {
+    id: string
+    kind: 'queued' | 'requested'
+    title: string
+    artist: string
+    artUrl: string | null
+    /** Guest who queued / requested it. */
+    byName: string | null
+    byPicture: string | null
+    /** Singers are stored as references — name + avatar resolve live from the
+     *  guest roster at render time (see resolveNoticeSinger). */
+    singers: Array<{ name: string; color: string; guestId?: string }>
+    leaving?: boolean
+}
+
+// A notice's visual treatment. Everything starts from the theme's own card
+// surface + tokens (so a theme is never wrong by default), then the themes with
+// a strong structural identity override the parts that make them recognisable.
+interface NoticeSkin {
+    card: React.CSSProperties
+    /** Parallelogram lean; the content counter-skews so text stays upright. */
+    skew: number
+    label: React.CSSProperties
+    title: React.CSSProperties
+    meta: React.CSSProperties
+    art: React.CSSProperties
+    chip: (color: string) => React.CSSProperties
+    rule: string
+    decor: ReactNode
+}
+
+function noticeSkin(theme: Theme): NoticeSkin {
+    const sharp = theme.cornerStyle === 'sharp'
+    const radius = sharp ? 0 : Math.min(theme.radius, 20)
+    const glow = theme.shadowStyle === 'glow'
+    const cardShadow = typeof theme.card.boxShadow === 'string' ? theme.card.boxShadow : ''
+    const ink = theme.black
+    const sub = theme.muted
+
+    const skin: NoticeSkin = {
+        card: {
+            ...theme.card,
+            borderRadius: radius,
+            padding: '14px 24px 14px 14px',
+            boxShadow: glow
+                ? `0 24px 60px rgba(0,0,0,0.62), 0 0 34px -10px ${theme.accentGlowColor}`
+                : [cardShadow, '0 22px 46px rgba(0,0,0,0.34)'].filter(Boolean).join(', '),
+        },
+        skew: 0,
+        label: {
+            fontFamily: theme.fontBody, fontWeight: 700, fontSize: stageFont(11),
+            letterSpacing: '0.26em', textTransform: 'uppercase', color: theme.accentA,
+        },
+        title: {
+            fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(23),
+            color: ink, lineHeight: 1.12,
+            ...(theme.displayUppercase ? { textTransform: 'uppercase' as const, letterSpacing: theme.displayLetterSpacing } : {}),
+        },
+        meta: { fontFamily: theme.fontBody, fontSize: stageFont(14), color: sub },
+        art: {
+            borderRadius: sharp ? 0 : Math.min(theme.radiusSmall, 12),
+            border: theme.borderThin,
+            boxShadow: glow ? `0 0 18px -4px ${theme.accentGlowColor}` : '0 8px 20px rgba(0,0,0,0.4)',
+        },
+        chip: (color: string) => ({
+            border: `1px solid ${color}66`, background: `${color}1f`, color: ink,
+            borderRadius: sharp ? 0 : 99, fontFamily: theme.fontBody, fontWeight: 600,
+        }),
+        rule: theme.dimBorder,
+        decor: null,
+    }
+
+    switch (theme.name) {
+        // Printed gig poster: flat white sheet, ink rule, hard offset shadow.
+        case 'neo-brutal':
+            skin.card = {
+                ...skin.card, background: '#FFFFFF', border: `3px solid ${NB_INK}`, borderRadius: 0,
+                boxShadow: `9px 9px 0 ${NB_INK}, 0 26px 50px rgba(0,0,0,0.3)`,
+            }
+            skin.label = { ...skin.label, color: NB_INK, background: '#FFD60A', padding: '3px 10px', border: `2px solid ${NB_INK}` }
+            skin.title = { ...skin.title, color: NB_INK }
+            skin.meta = { ...skin.meta, color: '#555555', fontWeight: 600 }
+            skin.art = { ...skin.art, borderRadius: 0, border: `2.5px solid ${NB_INK}`, boxShadow: `4px 4px 0 ${NB_INK}` }
+            skin.rule = NB_INK
+            skin.decor = <NbCropMark style={{ top: 7, right: 7 }} rotate={90} />
+            break
+        // Inked comic panel: heavy black keyline, halftone corner, offset drop.
+        case 'comic-book':
+            skin.card = {
+                ...skin.card, border: '4px solid #16161D', borderRadius: 4,
+                boxShadow: '8px 8px 0 #16161D, 0 24px 46px rgba(0,0,0,0.35)',
+            }
+            skin.label = { ...skin.label, color: '#16161D', background: theme.vividYellow, padding: '3px 11px', border: '2.5px solid #16161D', letterSpacing: '0.16em' }
+            skin.art = { ...skin.art, borderRadius: 0, border: '3px solid #16161D', boxShadow: '4px 4px 0 #16161D' }
+            skin.rule = '#16161D'
+            break
+        // Wheatpasted show bill: leaning parallelogram, stencil type, taped on.
+        case 'urban':
+            skin.skew = -7
+            skin.card = {
+                ...skin.card, background: '#111114', border: `2px solid ${URB_GREEN}`, borderRadius: 0,
+                boxShadow: `0 26px 54px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.05) inset`,
+            }
+            skin.label = { ...skin.label, fontFamily: URB_STENCIL, color: URB_GREEN, letterSpacing: '0.4em' }
+            skin.title = { ...skin.title, fontFamily: URB_MARKER, color: '#FFFFFF', letterSpacing: '1px', textTransform: 'none' }
+            skin.meta = { ...skin.meta, fontFamily: URB_STENCIL, fontWeight: 300, color: URB_ASH, letterSpacing: '0.16em', textTransform: 'uppercase' }
+            skin.art = { ...skin.art, borderRadius: 0, border: `2px solid ${URB_PAPER}`, boxShadow: '0 10px 26px rgba(0,0,0,0.7)' }
+            skin.rule = `${URB_GREEN}55`
+            skin.decor = <UrbanTape style={{ top: -11, left: 26 }} rotate={-4} width={86} />
+            break
+        // Hanging washi card: paper wash, gold hairlines, vermillion seal.
+        case 'zen':
+            skin.card = {
+                ...skin.card, background: ZEN_PAPER, border: '1px solid rgba(201,168,76,0.5)', borderRadius: 3,
+                boxShadow: '0 26px 54px rgba(0,0,0,0.55), inset 0 0 40px rgba(201,168,76,0.08)',
+            }
+            skin.label = { ...skin.label, fontFamily: ZEN_SANS, color: ZEN_VERM, letterSpacing: '0.32em', fontWeight: 500 }
+            skin.title = { ...skin.title, fontFamily: ZEN_SERIF, color: ZEN_INK, fontWeight: 600, textTransform: 'none' }
+            skin.meta = { ...skin.meta, fontFamily: ZEN_SANS, color: '#6B5B45', letterSpacing: '0.1em' }
+            skin.art = { ...skin.art, borderRadius: 2, border: '1px solid rgba(36,31,22,0.35)', boxShadow: '0 8px 18px rgba(0,0,0,0.35)' }
+            skin.chip = (color: string) => ({
+                border: `1px solid ${color}88`, background: `${color}18`, color: ZEN_INK,
+                borderRadius: 2, fontFamily: ZEN_SANS, fontWeight: 500,
+            })
+            skin.rule = 'rgba(201,168,76,0.55)'
+            skin.decor = (
+                <span style={{
+                    position: 'absolute', top: 12, right: 14, width: 26, height: 26, borderRadius: 3,
+                    border: `1.5px solid ${ZEN_VERM}`, color: ZEN_VERM, opacity: 0.8,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontFamily: ZEN_SERIF, fontSize: stageFont(13), fontWeight: 700,
+                }}>唄</span>
+            )
+            break
+        // Riveted brass plate bolted to the engine-room wall.
+        case 'steampunk':
+            skin.card = {
+                ...skin.card, background: STM_PLATE_BG, border: `2px solid ${STM_BRASS}`, borderRadius: 4,
+                boxShadow: `0 24px 52px rgba(0,0,0,0.7), inset 0 1px 0 rgba(232,220,200,0.12), 0 0 22px -8px ${STM_COPPER}`,
+                padding: '16px 26px 16px 16px',
+            }
+            skin.label = { ...skin.label, fontFamily: STM_HEADING, color: STM_BRASS, letterSpacing: '0.3em' }
+            skin.title = { ...skin.title, fontFamily: STM_SERIF, color: STM_PARCH, fontWeight: 600, textTransform: 'none' }
+            skin.meta = { ...skin.meta, fontFamily: STM_SERIF, fontStyle: 'italic', color: STM_MID }
+            skin.art = { ...skin.art, borderRadius: 2, border: `1.5px solid ${STM_BRASS}88`, boxShadow: '0 8px 20px rgba(0,0,0,0.6)' }
+            skin.rule = `${STM_BRASS}66`
+            skin.decor = <SteamRivets inset={6} />
+            break
+        // Bamboo-framed beach sign on sun-warmed sand.
+        case 'tropical':
+            skin.card = {
+                ...skin.card, borderRadius: 20, border: `2.5px solid #CDA85A`,
+                boxShadow: '0 24px 50px rgba(14,46,41,0.42), inset 0 1px 0 rgba(255,255,255,0.6)',
+            }
+            skin.label = { ...skin.label, color: theme.accentC, letterSpacing: '0.22em' }
+            skin.art = { ...skin.art, borderRadius: 14, border: '3px solid #CDA85A', boxShadow: '0 8px 20px rgba(14,46,41,0.35)' }
+            skin.rule = 'rgba(205,168,90,0.6)'
+            skin.decor = <TropHibiscus size={40} rotate={16} style={{ position: 'absolute', top: -13, right: -11 }} />
+            break
+        // Hand-drawn note: sketchy off-square border, marker underline.
+        case 'sketch':
+            skin.card = {
+                ...skin.card, borderRadius: '20px 8px 22px 10px',
+                boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
+            }
+            skin.art = { ...skin.art, borderRadius: '12px 5px 14px 6px' }
+            break
+        default:
+            break
+    }
+    return skin
+}
+
+// Resolve a notice singer's live display name + avatar from the guest roster,
+// falling back to the name captured on the queue item for name-only singers.
+function resolveNoticeSinger(
+    s: { name: string; color: string; guestId?: string },
+    guests: Map<string, { name: string; profile_picture: string | null }>,
+) {
+    const guest = s.guestId ? guests.get(s.guestId) : undefined
+    return { name: guest?.name ?? s.name, picture: guest?.profile_picture ?? null, color: s.color }
+}
+
+export function LobbyNoticeCard({ notice, theme, guests }: {
+    notice: LobbyNotice
+    theme: Theme
+    guests: Map<string, { name: string; profile_picture: string | null }>
+}) {
+    const skin = noticeSkin(theme)
+    const singers = notice.singers.map(s => resolveNoticeSinger(s, guests))
+    const label = notice.kind === 'requested' ? 'Song requested' : 'Added to the queue'
+    const artSize = 78
+
+    const avatar = (name: string, picture: string | null, color: string, size: number) => (
+        picture ? (
+            <img src={picture} alt="" style={{
+                width: size, height: size, borderRadius: '50%', objectFit: 'cover',
+                border: `2px solid ${color}`, flexShrink: 0,
+            }} />
+        ) : (
+            <span style={{
+                width: size, height: size, borderRadius: '50%', flexShrink: 0,
+                background: color, color: '#101014', border: `2px solid ${color}`,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: size * 0.46,
+            }}>
+                {(name || '?').charAt(0).toUpperCase()}
+            </span>
+        )
+    )
+
+    return (
+        // Three layers on purpose: the OUTER element owns the enter/exit
+        // animation (which animates `transform`), so any structural skew has to
+        // live on the card inside it or the keyframes would wipe it out. The
+        // content then counter-skews so text and art stay upright.
+        <div className={'lobby-notice' + (notice.leaving ? ' lobby-notice--leaving' : '')}>
+            <div style={{
+                position: 'relative', minWidth: 460, maxWidth: '58vw',
+                transform: skin.skew ? `skewX(${skin.skew}deg)` : undefined,
+                ...skin.card,
+            }}>
+                {skin.decor}
+                <div style={{
+                    display: 'flex', alignItems: 'center', gap: 16,
+                    transform: skin.skew ? `skewX(${-skin.skew}deg)` : undefined,
+                }}>
+                    {notice.artUrl ? (
+                        <img src={notice.artUrl} alt="" style={{ width: artSize, height: artSize, objectFit: 'cover', flexShrink: 0, ...skin.art }} />
+                    ) : (
+                        <span style={{
+                            width: artSize, height: artSize, flexShrink: 0, ...skin.art,
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            background: `repeating-linear-gradient(135deg, ${theme.creamDark}, ${theme.creamDark} 7px, ${theme.cream} 7px, ${theme.cream} 14px)`,
+                            color: theme.muted, fontFamily: theme.fontDisplay, fontSize: stageFont(24), fontWeight: 700,
+                        }}>?</span>
+                    )}
+
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 7 }}>
+                            <span style={skin.label}>{label}</span>
+                            {/* With singers listed below, the credit rides up here
+                                instead of taking a row of its own. */}
+                            {notice.byName && singers.length > 0 && (
+                                <span style={{ ...skin.meta, fontSize: stageFont(12), whiteSpace: 'nowrap' }}>
+                                    by {notice.byName}
+                                </span>
+                            )}
+                            <span style={{ flex: 1, height: 1, background: skin.rule, minWidth: 16 }} />
+                        </div>
+                        <div style={{ ...skin.title, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {notice.title}
+                        </div>
+                        <div style={{ ...skin.meta, marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {notice.artist}
+                        </div>
+
+                        {/* Who's singing it — or who asked for it, when there are no
+                            singers yet (a request isn't a queued turn). */}
+                        {singers.length > 0 ? (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: 11 }}>
+                                {singers.map((s, i) => (
+                                    <span key={i} style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: 8,
+                                        padding: '3px 13px 3px 3px', fontSize: stageFont(13),
+                                        whiteSpace: 'nowrap', ...skin.chip(s.color),
+                                    }}>
+                                        {avatar(s.name, s.picture, s.color, 26)}
+                                        {s.name}
+                                    </span>
+                                ))}
+                            </div>
+                        ) : notice.byName ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginTop: 11 }}>
+                                {avatar(notice.byName, notice.byPicture, theme.accentA, 26)}
+                                <span style={{ ...skin.meta, fontSize: stageFont(13) }}>
+                                    {notice.byName} {notice.kind === 'requested' ? 'asked for this one' : 'added this one'}
+                                </span>
+                            </div>
+                        ) : null}
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+function LobbyNotices({ theme }: { theme: Theme }) {
+    const { state } = useApp()
+    const guestsMap = useGuestsMap()
+    const [notices, setNotices] = useState<LobbyNotice[]>([])
+    const timersRef = useRef<number[]>([])
+    // Queue-item ids already accounted for, plus a short warm-up window. The
+    // stage window's INIT_STATE snapshot and the session's existing-queue fetch
+    // both land just after mount — during the warm-up their ids are recorded
+    // silently so songs that were already queued don't all pop as "new".
+    const seenRef = useRef<Set<string>>(new Set())
+    const warmRef = useRef(false)
+
+    useEffect(() => {
+        const t = window.setTimeout(() => { warmRef.current = true }, 2200)
+        return () => window.clearTimeout(t)
+    }, [])
+
+    useEffect(() => () => { timersRef.current.forEach(id => window.clearTimeout(id)) }, [])
+
+    const push = useCallback((notice: LobbyNotice) => {
+        setNotices(prev => [...prev, notice].slice(-NOTICE_MAX))
+        timersRef.current.push(
+            window.setTimeout(() => {
+                setNotices(prev => prev.map(n => n.id === notice.id ? { ...n, leaving: true } : n))
+            }, NOTICE_TTL_MS - NOTICE_EXIT_MS),
+            window.setTimeout(() => {
+                setNotices(prev => prev.filter(n => n.id !== notice.id))
+            }, NOTICE_TTL_MS),
+        )
+    }, [])
+
+    // Songs landing in the queue — added by the host or sent from a phone. Both
+    // arrive as ENQUEUE_SONG and reach the stage through the state relay, so
+    // diffing the queue catches every source without another subscription.
+    useEffect(() => {
+        for (const item of state.queue) {
+            if (seenRef.current.has(item.id)) continue
+            seenRef.current.add(item.id)
+            if (!warmRef.current) continue
+            // A secret song must stay secret — no title, artist, or art on stage.
+            push({
+                id: 'q-' + item.id,
+                kind: 'queued',
+                title: item.isHidden ? 'Secret Song' : item.track.name,
+                artist: item.isHidden ? 'Revealed on stage' : item.track.artists.map(a => a.name).join(', '),
+                artUrl: item.isHidden ? null : (item.track.album.images[0]?.url ?? null),
+                byName: item.addedBy ?? null,
+                byPicture: null,
+                singers: item.isHidden
+                    ? []
+                    : item.singers.map(s => ({ name: s.name, color: s.color, guestId: s.guestId })),
+            })
+        }
+    }, [state.queue, push])
+
+    // Song requests (a guest asking for something not in the library yet) have
+    // no queue row to diff — the main window forwards them over IPC, the same
+    // relay reactions use.
+    useEffect(() => {
+        if (!window.electronAPI?.onStageNotice) return
+        const handler = window.electronAPI.onStageNotice((n: any) => {
+            if (!n || n.kind !== 'requested' || !n.id) return
+            push({
+                id: 'r-' + n.id,
+                kind: 'requested',
+                title: n.title || 'A song',
+                artist: n.artist || '',
+                artUrl: n.artUrl || null,
+                byName: n.byName || null,
+                byPicture: n.byPicture || null,
+                singers: [],
+            })
+        })
+        return () => { window.electronAPI?.offStageNotice?.(handler) }
+    }, [push])
+
+    if (notices.length === 0) return null
+
+    return (
+        <div style={{
+            position: 'fixed', left: 0, right: 0, bottom: 40, zIndex: 9998,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
+            pointerEvents: 'none',
+        }}>
+            {notices.map(n => (
+                <LobbyNoticeCard key={n.id} notice={n} theme={theme} guests={guestsMap} />
+            ))}
+        </div>
+    )
+}
+
+export function LobbyStage({ cycle, theme, qrUrl, sessionCode, notices }: {
+    cycle: boolean
+    theme: Theme
+    qrUrl: string | null
+    sessionCode: string | null
+    notices: boolean
+}) {
+    // Which theme's join screen is up, plus the one dissolving out over it.
+    const [visible, setVisible] = useState(theme.name)
+    const [outgoing, setOutgoing] = useState<{ name: string; key: number } | null>(null)
+    const visibleRef = useRef(visible)
+    const stepRef = useRef(0)
+
+    // Random walk through the theme ring, never repeating the screen that's
+    // already up. Read through a ref so the interval isn't torn down and
+    // restarted (which would reset the dwell) on every swap.
+    useEffect(() => {
+        if (!cycle) return
+        const id = window.setInterval(() => {
+            const prev = visibleRef.current
+            const pool = LOBBY_THEME_KEYS.filter(k => k !== prev)
+            const next = pool[Math.floor(Math.random() * pool.length)] ?? prev
+            visibleRef.current = next
+            stepRef.current += 1
+            setOutgoing({ name: prev, key: stepRef.current })
+            setVisible(next)
+        }, LOBBY_DWELL_MS)
+        return () => window.clearInterval(id)
+    }, [cycle])
+
+    // Cycling off (or the session theme changed while it's off) — snap back to
+    // the session's own theme with no half-finished crossfade left behind.
+    useEffect(() => {
+        if (cycle) return
+        visibleRef.current = theme.name
+        setVisible(theme.name)
+        setOutgoing(null)
+    }, [cycle, theme.name])
+
+    // Retire the outgoing layer once its fade-out has finished.
+    useEffect(() => {
+        if (!outgoing) return
+        const t = window.setTimeout(() => setOutgoing(null), LOBBY_FADE_MS)
+        return () => window.clearTimeout(t)
+    }, [outgoing])
+
+    // Every theme's globalCss is scoped to [data-theme="<name>"] (plus @import
+    // font loads and @keyframes), so mounting them all at once is inert for the
+    // themes not on screen — and it means an incoming screen's fonts and
+    // keyframes are already parsed before it fades in, instead of popping mid-
+    // crossfade. ThemeProvider's own <style> is left untouched.
+    useEffect(() => {
+        if (!cycle) return
+        if (!window.electronAPI?.isStageWindow) return
+        const style = document.createElement('style')
+        style.id = 'lobby-cycle-css'
+        style.textContent = Object.values(THEMES).map(t => t.globalCss ?? '').join('\n')
+        document.head.appendChild(style)
+        return () => { style.remove() }
+    }, [cycle])
+
+    // data-theme selects which of those scoped blocks applies. ThemeProvider /
+    // StageThemeProvider set it from the SESSION theme and only re-run when that
+    // changes, so the cycle owns the attribute while it's up and hands it back
+    // on the way out.
+    useEffect(() => {
+        if (!cycle) return
+        if (!window.electronAPI?.isStageWindow) return
+        const root = document.documentElement
+        root.dataset.theme = visible
+        return () => { root.dataset.theme = theme.name }
+    }, [cycle, visible, theme.name])
+
+    if (!cycle) {
+        return (
+            <>
+                <IdleStageScreen theme={theme} qrUrl={qrUrl} sessionCode={sessionCode} />
+                {notices && <LobbyNotices theme={theme} />}
+            </>
+        )
+    }
+
+    const visibleTheme = THEMES[visible] ?? theme
+    const outgoingTheme = outgoing ? (THEMES[outgoing.name] ?? null) : null
+
+    return (
+        <div style={{ position: 'relative', height: '100vh', overflow: 'hidden', background: visibleTheme.appBg }}>
+            <div key={visible} className="lobby-layer lobby-layer--in">
+                <IdleStageScreen theme={visibleTheme} qrUrl={qrUrl} sessionCode={sessionCode} />
+            </div>
+            {outgoingTheme && outgoing && (
+                <div key={'out-' + outgoing.key} className="lobby-layer lobby-layer--out" aria-hidden>
+                    <IdleStageScreen theme={outgoingTheme} qrUrl={qrUrl} sessionCode={sessionCode} />
+                </div>
+            )}
+            {notices && <LobbyNotices theme={visibleTheme} />}
+        </div>
+    )
+}
+
 // ---- Main Component (Display Only) ----
 export default function KaraokePage() {
     const { state, dispatch } = useApp()
@@ -2487,1481 +4463,24 @@ export default function KaraokePage() {
         )
     }
 
-    // Empty state — themed waiting screen with QR code
-    if (!track) {
-        const qrUrl = state.karaokeQrDataUrl
-        const sessionCode = state.karaokeSessionCode
-
-        // ---- Neo-Brutal idle ----
-        // A printed gig poster at rest: print grid + halftone fields, floating
-        // color blocks, scrolling ink tickers top and bottom, a two-layer
-        // display headline, and a QR plate that periodically "presses" itself
-        // to pull eyes to the code.
-        if (theme.name === 'neo-brutal') {
-            const heading = 'ADD A SONG'
-            const idleBlocks: Array<React.CSSProperties & { rot: number; dur: number }> = [
-                { top: '13%', left: '6%', width: 120, height: 120, background: '#FFD60A', rot: -8, dur: 7 },
-                { bottom: '15%', right: '7%', width: 92, height: 92, background: '#B388FF', rot: 12, dur: 8.5 },
-                { top: '22%', right: '13%', width: 62, height: 62, background: '#00E676', rot: -3, dur: 9.5 },
-                { bottom: '22%', left: '12%', width: 74, height: 74, background: '#FF3B30', rot: 6, dur: 8 },
-            ]
-            return (
-                <div style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
-                    background: NB_CREAM, position: 'relative', overflow: 'hidden',
-                }}>
-                    <div className="nb-print-grid" style={{ position: 'absolute', inset: 0 }} />
-                    <div className="nb-dots" style={{ position: 'absolute', top: -120, right: -90, width: 480, height: 480, transform: 'rotate(9deg)' }} />
-                    <div className="nb-dots" style={{ position: 'absolute', bottom: -140, left: -100, width: 540, height: 540, transform: 'rotate(-6deg)' }} />
-                    {idleBlocks.map(({ rot, dur, ...pos }, i) => (
-                        <div
-                            key={i}
-                            style={{
-                                position: 'absolute', border: `3px solid ${NB_INK}`, boxShadow: `6px 6px 0 ${NB_INK}`,
-                                ['--nb-rot' as string]: `${rot}deg`,
-                                animation: `nb-float ${dur}s ease-in-out ${i * 0.6}s infinite`,
-                                ...pos,
-                            }}
-                        />
-                    ))}
-                    <NbCropMark style={{ top: 26, left: 26 }} />
-                    <NbCropMark style={{ top: 26, right: 26 }} rotate={90} />
-                    <NbCropMark style={{ bottom: 26, right: 26 }} rotate={180} />
-                    <NbCropMark style={{ bottom: 26, left: 26 }} rotate={270} />
-
-                    <div style={{ textAlign: 'center', zIndex: 1, position: 'relative' }}>
-                        {/* Ink chip above the headline */}
-                        <div className="nb-rise" style={{ display: 'inline-flex', alignItems: 'center', gap: 12, background: NB_INK, padding: '7px 20px', marginBottom: 22, transform: 'rotate(-1.4deg)' }}>
-                            <NbEq color="#FFD60A" fontSize={stageFont(15)} />
-                            <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(14), letterSpacing: '0.3em', color: NB_CREAM }}>
-                                MIC IS OPEN
-                            </span>
-                        </div>
-                        {/* Two-layer display headline: yellow offset print behind ink */}
-                        <h1 className="nb-rise" style={{ position: 'relative', fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(88), lineHeight: 1.02, margin: '0 0 14px', animationDelay: '0.06s' }}>
-                            <span aria-hidden style={{ position: 'absolute', left: '0.055em', top: '0.055em', color: '#FFD60A', WebkitTextStroke: `0.028em ${NB_INK}`, whiteSpace: 'nowrap' }}>
-                                {heading}
-                            </span>
-                            <span style={{ position: 'relative', color: NB_INK, whiteSpace: 'nowrap' }}>{heading}</span>
-                        </h1>
-                        <p className="nb-rise" style={{ fontFamily: theme.fontBody, fontWeight: 700, fontSize: stageFont(17), color: NB_INK, opacity: 0.65, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 40, animationDelay: '0.12s' }}>
-                            Scan the code to load the queue
-                        </p>
-                        {qrUrl && (
-                            <div className="nb-rise" style={{ display: 'inline-block', animationDelay: '0.18s' }}>
-                                <div style={{
-                                    padding: 18, background: '#FFFFFF', border: `4px solid ${NB_INK}`,
-                                    boxShadow: `10px 10px 0 ${NB_INK}`, animation: 'nb-qr-press 5.5s ease-in-out 2s infinite',
-                                }}>
-                                    <img src={qrUrl} alt="QR" style={{ width: 216, height: 216, display: 'block' }} />
-                                </div>
-                            </div>
-                        )}
-                        {sessionCode && (
-                            <div className="nb-rise" style={{ display: 'flex', justifyContent: 'center', marginTop: 30, animationDelay: '0.24s' }}>
-                                <div style={{
-                                    padding: '8px 28px', background: '#FFD60A', border: `3px solid ${NB_INK}`,
-                                    boxShadow: `5px 5px 0 ${NB_INK}`, transform: 'rotate(-1.5deg)',
-                                }}>
-                                    <p style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(26), color: NB_INK, letterSpacing: '0.3em', margin: 0 }}>
-                                        {sessionCode}
-                                    </p>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )
-        }
-
-        // ---- Cyberpunk idle ----
-        if (theme.name === 'cyberpunk') {
-            return (
-                <div style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
-                    background: '#060610', position: 'relative', overflow: 'hidden',
-                }}>
-                    {/* Dot grid background */}
-                    <div style={{
-                        position: 'absolute', inset: 0, opacity: 0.15,
-                        backgroundImage: 'radial-gradient(circle, #00ff88 1px, transparent 1px)',
-                        backgroundSize: '28px 28px',
-                    }} />
-                    {/* Scanline overlay */}
-                    <div style={{
-                        position: 'absolute', inset: 0, opacity: 0.04, pointerEvents: 'none',
-                        background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,136,0.3) 2px, rgba(0,255,136,0.3) 4px)',
-                    }} />
-
-                    <div style={{ textAlign: 'center', zIndex: 1 }}>
-                        <p style={{
-                            fontFamily: 'Share Tech Mono, monospace', fontSize: stageFont(16), color: '#00ff88', opacity: 0.5,
-                            letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: 12,
-                        }}>
-                            {'>'} system.queue.status
-                        </p>
-                        <h1 style={{
-                            fontFamily: 'Share Tech Mono, monospace', fontSize: stageFont(56), fontWeight: 400, color: '#00ff88',
-                            lineHeight: 1.2, marginBottom: 8,
-                            textShadow: '0 0 20px rgba(0,255,136,0.6), 0 0 60px rgba(0,255,136,0.3)',
-                        }}>
-                            // AWAITING INPUT
-                        </h1>
-                        <p style={{
-                            fontFamily: 'Share Tech Mono, monospace', fontSize: stageFont(14), color: '#00e5ff', opacity: 0.4,
-                            marginBottom: 48,
-                        }}>
-                            scan_qr_code() to enqueue track
-                        </p>
-                        {qrUrl && (
-                            <div style={{
-                                display: 'inline-block', padding: 12,
-                                border: '1px solid #00ff88',
-                                boxShadow: '0 0 15px rgba(0,255,136,0.3), inset 0 0 15px rgba(0,255,136,0.1)',
-                            }}>
-                                <img src={qrUrl} alt="QR" style={{ width: 200, height: 200, display: 'block' }} />
-                            </div>
-                        )}
-                        {sessionCode && (
-                            <p style={{
-                                fontFamily: 'Share Tech Mono, monospace', fontSize: stageFont(22), color: '#00ff88',
-                                letterSpacing: '0.3em', textTransform: 'uppercase', marginTop: 20,
-                                textShadow: '0 0 10px rgba(0,255,136,0.5)',
-                            }}>
-                                [{sessionCode}]
-                            </p>
-                        )}
-                    </div>
-                </div>
-            )
-        }
-
-        // ---- Sketch (Hand-Drawn) idle ----
-        if (theme.name === 'sketch') {
-            return (
-                <div style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
-                    background: '#fdfbf7', position: 'relative', overflow: 'hidden',
-                }}>
-                    {/* Dot paper background */}
-                    <div style={{
-                        position: 'absolute', inset: 0, opacity: 0.3,
-                        backgroundImage: 'radial-gradient(circle, #2d2d2d 1px, transparent 1px)',
-                        backgroundSize: '24px 24px',
-                    }} />
-
-                    {/* Hand-drawn doodle decorations */}
-                    <svg style={{ position: 'absolute', top: 80, left: 100, width: 60, height: 60, opacity: 0.2 }} viewBox="0 0 60 60">
-                        <path d="M30 5 L35 20 L50 20 L38 30 L42 45 L30 36 L18 45 L22 30 L10 20 L25 20 Z" fill="none" stroke="#2d2d2d" strokeWidth="2" strokeLinejoin="round" />
-                    </svg>
-                    <svg style={{ position: 'absolute', bottom: 100, right: 120, width: 50, height: 50, opacity: 0.15 }} viewBox="0 0 50 50">
-                        <circle cx="25" cy="25" r="20" fill="none" stroke="#ff4d4d" strokeWidth="2.5" strokeDasharray="4 3" />
-                    </svg>
-                    <svg style={{ position: 'absolute', top: 160, right: 180, width: 40, height: 40, opacity: 0.2 }} viewBox="0 0 40 40">
-                        <path d="M5 35 Q10 5 20 20 Q30 35 35 8" fill="none" stroke="#2d5da1" strokeWidth="2.5" strokeLinecap="round" />
-                    </svg>
-                    <svg style={{ position: 'absolute', bottom: 140, left: 200, width: 45, height: 30, opacity: 0.2 }} viewBox="0 0 45 30">
-                        <path d="M5 15 Q12 2 22 15 Q32 28 40 12" fill="none" stroke="#ff4d4d" strokeWidth="2" strokeLinecap="round" />
-                    </svg>
-
-                    <div style={{ textAlign: 'center', zIndex: 1 }}>
-                        <h1 style={{
-                            fontFamily: 'Kalam, cursive', fontSize: stageFont(68), fontWeight: 700, color: '#2d2d2d',
-                            lineHeight: 1.2, marginBottom: 8,
-                            transform: 'rotate(-1.5deg)',
-                        }}>
-                            Add a song!
-                        </h1>
-                        <p style={{
-                            fontFamily: 'Patrick Hand, cursive', fontSize: stageFont(22), color: '#2d2d2d', opacity: theme.name === 'sketch' ? 0.9 : 0.5,
-                            marginBottom: 44, transform: 'rotate(0.5deg)',
-                        }}>
-                            Scan this to pick your tune
-                        </p>
-                        {qrUrl && (
-                            <div style={{
-                                display: 'inline-block', padding: 16,
-                                background: 'white', border: '3px solid #2d2d2d',
-                                borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px',
-                                boxShadow: '4px 4px 0 rgba(0,0,0,0.12)',
-                                transform: 'rotate(1deg)',
-                            }}>
-                                <img src={qrUrl} alt="QR" style={{ width: 200, height: 200, display: 'block', borderRadius: 4 }} />
-                            </div>
-                        )}
-                        {sessionCode && (
-                            <p style={{
-                                fontFamily: 'Kalam, cursive', fontSize: stageFont(26), fontWeight: 700, color: '#2d5da1',
-                                letterSpacing: '0.2em', textTransform: 'uppercase', marginTop: 20,
-                                transform: 'rotate(-0.8deg)',
-                            }}>
-                                {sessionCode}
-                            </p>
-                        )}
-                    </div>
-                </div>
-            )
-        }
-
-        // ---- Deep Sea idle ----
-        if (theme.name === 'deep-sea') {
-            return (
-                <div style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
-                    background: 'linear-gradient(180deg, #020612 0%, #040918 30%, #071840 70%, #0a1a3a 100%)',
-                    position: 'relative', overflow: 'hidden',
-                }}>
-                    {/* Caustic light refraction */}
-                    <div style={{
-                        position: 'absolute', inset: 0, opacity: 0.05,
-                        background: 'repeating-conic-gradient(from 0deg at 50% 50%, rgba(0,255,200,0.4) 0deg, transparent 30deg, rgba(180,77,255,0.3) 60deg, transparent 90deg)',
-                        backgroundSize: '180px 180px',
-                        filter: 'blur(30px)',
-                        animation: 'dsCausticDrift 25s linear infinite',
-                    }} />
-
-                    {/* Jellyfish SVG — top left, drifting */}
-                    <svg style={{ position: 'absolute', top: 80, left: 100, width: 90, height: 120, opacity: 0.2, animation: 'dsBubbleRise 22s ease-in-out infinite alternate' }} viewBox="0 0 60 80">
-                        <ellipse cx="30" cy="22" rx="22" ry="18" fill="none" stroke="rgba(180,77,255,0.7)" strokeWidth="1.5" />
-                        <ellipse cx="30" cy="22" rx="22" ry="18" fill="rgba(180,77,255,0.08)" />
-                        <path d="M12 34 Q14 50 10 70" fill="none" stroke="rgba(180,77,255,0.4)" strokeWidth="1.2" strokeLinecap="round" />
-                        <path d="M22 36 Q24 55 20 75" fill="none" stroke="rgba(180,77,255,0.35)" strokeWidth="1" strokeLinecap="round" />
-                        <path d="M30 38 Q30 58 28 78" fill="none" stroke="rgba(180,77,255,0.4)" strokeWidth="1.2" strokeLinecap="round" />
-                        <path d="M38 36 Q36 55 40 75" fill="none" stroke="rgba(180,77,255,0.35)" strokeWidth="1" strokeLinecap="round" />
-                        <path d="M48 34 Q46 50 50 70" fill="none" stroke="rgba(180,77,255,0.4)" strokeWidth="1.2" strokeLinecap="round" />
-                    </svg>
-
-                    {/* Jellyfish SVG — bottom right, different color */}
-                    <svg style={{ position: 'absolute', bottom: 100, right: 120, width: 70, height: 95, opacity: 0.15, animation: 'dsBubbleRise 28s ease-in-out infinite alternate-reverse' }} viewBox="0 0 60 80">
-                        <ellipse cx="30" cy="22" rx="20" ry="16" fill="none" stroke="rgba(0,255,200,0.6)" strokeWidth="1.5" />
-                        <ellipse cx="30" cy="22" rx="20" ry="16" fill="rgba(0,255,200,0.06)" />
-                        <path d="M14 32 Q16 48 12 68" fill="none" stroke="rgba(0,255,200,0.35)" strokeWidth="1" strokeLinecap="round" />
-                        <path d="M24 34 Q26 52 22 72" fill="none" stroke="rgba(0,255,200,0.3)" strokeWidth="1" strokeLinecap="round" />
-                        <path d="M36 34 Q34 52 38 72" fill="none" stroke="rgba(0,255,200,0.3)" strokeWidth="1" strokeLinecap="round" />
-                        <path d="M46 32 Q44 48 48 68" fill="none" stroke="rgba(0,255,200,0.35)" strokeWidth="1" strokeLinecap="round" />
-                    </svg>
-
-                    {/* Small jellyfish — top right */}
-                    <svg style={{ position: 'absolute', top: 200, right: 220, width: 45, height: 60, opacity: 0.12, animation: 'dsBubbleRise 18s ease-in-out infinite alternate' }} viewBox="0 0 60 80">
-                        <ellipse cx="30" cy="22" rx="18" ry="14" fill="none" stroke="rgba(255,107,138,0.5)" strokeWidth="1.5" />
-                        <ellipse cx="30" cy="22" rx="18" ry="14" fill="rgba(255,107,138,0.06)" />
-                        <path d="M16 30 Q18 45 14 62" fill="none" stroke="rgba(255,107,138,0.3)" strokeWidth="1" strokeLinecap="round" />
-                        <path d="M30 32 Q30 48 28 65" fill="none" stroke="rgba(255,107,138,0.3)" strokeWidth="1" strokeLinecap="round" />
-                        <path d="M44 30 Q42 45 46 62" fill="none" stroke="rgba(255,107,138,0.3)" strokeWidth="1" strokeLinecap="round" />
-                    </svg>
-
-                    {/* Bubble clusters */}
-                    <svg style={{ position: 'absolute', bottom: 60, left: 200, width: 40, height: 80, opacity: 0.15, animation: 'dsBubbleRise 15s linear infinite' }} viewBox="0 0 40 80">
-                        <circle cx="20" cy="60" r="8" fill="none" stroke="rgba(0,255,200,0.4)" strokeWidth="1" />
-                        <circle cx="12" cy="40" r="5" fill="none" stroke="rgba(0,255,200,0.3)" strokeWidth="0.8" />
-                        <circle cx="28" cy="25" r="3.5" fill="none" stroke="rgba(0,255,200,0.25)" strokeWidth="0.8" />
-                        <circle cx="18" cy="10" r="2" fill="none" stroke="rgba(0,255,200,0.2)" strokeWidth="0.6" />
-                    </svg>
-                    <svg style={{ position: 'absolute', bottom: 40, right: 300, width: 35, height: 70, opacity: 0.12, animation: 'dsBubbleRise 20s linear infinite' }} viewBox="0 0 40 80">
-                        <circle cx="22" cy="65" r="7" fill="none" stroke="rgba(180,77,255,0.35)" strokeWidth="1" />
-                        <circle cx="15" cy="45" r="4.5" fill="none" stroke="rgba(180,77,255,0.3)" strokeWidth="0.8" />
-                        <circle cx="25" cy="28" r="3" fill="none" stroke="rgba(180,77,255,0.25)" strokeWidth="0.8" />
-                    </svg>
-
-                    {/* Ambient light rays from above */}
-                    <div style={{
-                        position: 'absolute', top: 0, left: '20%', width: '15%', height: '60%',
-                        background: 'linear-gradient(180deg, rgba(0,255,200,0.04) 0%, transparent 100%)',
-                        transform: 'skewX(-8deg)', transformOrigin: 'top',
-                    }} />
-                    <div style={{
-                        position: 'absolute', top: 0, right: '25%', width: '10%', height: '50%',
-                        background: 'linear-gradient(180deg, rgba(180,77,255,0.03) 0%, transparent 100%)',
-                        transform: 'skewX(5deg)', transformOrigin: 'top',
-                    }} />
-
-                    <div style={{ textAlign: 'center', zIndex: 1 }}>
-                        <p style={{
-                            fontFamily: 'Nunito, sans-serif', fontSize: stageFont(14), color: '#00ffc8', opacity: 0.4,
-                            letterSpacing: '0.4em', textTransform: 'uppercase', marginBottom: 10,
-                        }}>
-                            ~ now surfacing ~
-                        </p>
-                        <h1 style={{
-                            fontFamily: 'Quicksand, sans-serif', fontSize: stageFont(68), fontWeight: 700, color: '#e0fff8',
-                            lineHeight: 1.1, marginBottom: 8,
-                            textShadow: '0 0 30px rgba(0,255,200,0.5), 0 0 60px rgba(0,255,200,0.25), 0 0 100px rgba(180,77,255,0.15)',
-                        }}>
-                            Add a Song
-                        </h1>
-                        <p style={{
-                            fontFamily: 'Nunito, sans-serif', fontSize: stageFont(20), color: '#8ecfc2',
-                            marginBottom: 44,
-                        }}>
-                            Scan to dive into the queue
-                        </p>
-                        {qrUrl && (
-                            <div style={{
-                                display: 'inline-block', padding: 16, position: 'relative',
-                                border: '1px solid rgba(0,255,200,0.25)',
-                                borderRadius: 16,
-                                boxShadow: '0 0 25px rgba(0,255,200,0.15), 0 0 50px rgba(180,77,255,0.08), inset 0 0 30px rgba(0,255,200,0.03)',
-                                background: 'rgba(4,9,24,0.7)',
-                                backdropFilter: 'blur(12px)',
-                            }}>
-                                <img src={qrUrl} alt="QR" style={{ width: 210, height: 210, display: 'block', borderRadius: 8 }} />
-                            </div>
-                        )}
-                        {sessionCode && (
-                            <p style={{
-                                fontFamily: 'Quicksand, sans-serif', fontSize: stageFont(26), fontWeight: 700, color: '#00ffc8',
-                                letterSpacing: '0.3em', textTransform: 'uppercase', marginTop: 24,
-                                textShadow: '0 0 15px rgba(0,255,200,0.5), 0 0 30px rgba(0,255,200,0.2)',
-                            }}>
-                                {sessionCode}
-                            </p>
-                        )}
-                    </div>
-                </div>
-            )
-        }
-
-        // ---- Psychedelic idle ----
-        if (theme.name === 'psychedelic') {
-            return (
-                <div style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
-                    background: 'radial-gradient(ellipse at 50% 50%, #2a1248 0%, #1a0a2e 50%, #0f0620 100%)',
-                    position: 'relative', overflow: 'hidden',
-                }}>
-                    {/* Lava lamp blobs */}
-                    <div style={{
-                        position: 'absolute', inset: '-20%', opacity: 0.5,
-                        background: 'radial-gradient(ellipse 300px 300px at 25% 35%, rgba(255,45,149,0.2) 0%, transparent 70%), radial-gradient(ellipse 250px 350px at 70% 55%, rgba(182,255,45,0.15) 0%, transparent 70%), radial-gradient(ellipse 350px 250px at 50% 75%, rgba(255,140,45,0.15) 0%, transparent 70%)',
-                        filter: 'blur(60px)',
-                        animation: 'psyBlobMorph 20s ease-in-out infinite alternate',
-                    }} />
-                    {/* Second blob layer */}
-                    <div style={{
-                        position: 'absolute', inset: '-10%', opacity: 0.4,
-                        background: 'radial-gradient(ellipse 280px 280px at 60% 25%, rgba(45,217,255,0.15) 0%, transparent 70%), radial-gradient(ellipse 320px 200px at 35% 70%, rgba(255,45,255,0.12) 0%, transparent 70%)',
-                        filter: 'blur(50px)',
-                        animation: 'psyBlobMorph2 28s ease-in-out infinite alternate',
-                    }} />
-
-                    {/* Spinning mandala ring — top left */}
-                    <svg style={{ position: 'absolute', top: 60, left: 80, width: 140, height: 140, opacity: 0.12, animation: 'psyHueShift 12s linear infinite' }} viewBox="0 0 100 100">
-                        <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,45,149,0.6)" strokeWidth="1" strokeDasharray="8 6" style={{ transformOrigin: '50px 50px', animation: 'dsCausticDrift 30s linear infinite' }} />
-                        <circle cx="50" cy="50" r="32" fill="none" stroke="rgba(182,255,45,0.5)" strokeWidth="1" strokeDasharray="5 8" style={{ transformOrigin: '50px 50px', animation: 'dsCausticDrift 22s linear infinite reverse' }} />
-                        <circle cx="50" cy="50" r="22" fill="none" stroke="rgba(255,140,45,0.5)" strokeWidth="1" strokeDasharray="4 5" style={{ transformOrigin: '50px 50px', animation: 'dsCausticDrift 18s linear infinite' }} />
-                        <circle cx="50" cy="50" r="12" fill="none" stroke="rgba(45,217,255,0.5)" strokeWidth="1.5" />
-                    </svg>
-
-                    {/* Peace sign — bottom right */}
-                    <svg style={{ position: 'absolute', bottom: 80, right: 100, width: 100, height: 100, opacity: 0.12, animation: 'psyWobble 8s ease-in-out infinite' }} viewBox="0 0 60 60">
-                        <circle cx="30" cy="30" r="26" fill="none" stroke="rgba(182,255,45,0.6)" strokeWidth="2" />
-                        <line x1="30" y1="4" x2="30" y2="56" stroke="rgba(182,255,45,0.6)" strokeWidth="2" />
-                        <line x1="30" y1="30" x2="12" y2="50" stroke="rgba(182,255,45,0.6)" strokeWidth="2" strokeLinecap="round" />
-                        <line x1="30" y1="30" x2="48" y2="50" stroke="rgba(182,255,45,0.6)" strokeWidth="2" strokeLinecap="round" />
-                    </svg>
-
-                    {/* Smaller peace sign — top right */}
-                    <svg style={{ position: 'absolute', top: 180, right: 200, width: 55, height: 55, opacity: 0.08, animation: 'psyWobble 6s ease-in-out infinite reverse' }} viewBox="0 0 60 60">
-                        <circle cx="30" cy="30" r="26" fill="none" stroke="rgba(255,45,149,0.6)" strokeWidth="2" />
-                        <line x1="30" y1="4" x2="30" y2="56" stroke="rgba(255,45,149,0.6)" strokeWidth="2" />
-                        <line x1="30" y1="30" x2="12" y2="50" stroke="rgba(255,45,149,0.6)" strokeWidth="2" strokeLinecap="round" />
-                        <line x1="30" y1="30" x2="48" y2="50" stroke="rgba(255,45,149,0.6)" strokeWidth="2" strokeLinecap="round" />
-                    </svg>
-
-                    {/* Spinning mandala ring — bottom left */}
-                    <svg style={{ position: 'absolute', bottom: 120, left: 160, width: 90, height: 90, opacity: 0.1, animation: 'psyHueShift 16s linear infinite' }} viewBox="0 0 100 100">
-                        <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(255,140,45,0.5)" strokeWidth="1" strokeDasharray="6 4" style={{ transformOrigin: '50px 50px', animation: 'dsCausticDrift 20s linear infinite reverse' }} />
-                        <circle cx="50" cy="50" r="28" fill="none" stroke="rgba(255,45,255,0.4)" strokeWidth="1" strokeDasharray="3 6" style={{ transformOrigin: '50px 50px', animation: 'dsCausticDrift 15s linear infinite' }} />
-                        <circle cx="50" cy="50" r="16" fill="none" stroke="rgba(182,255,45,0.4)" strokeWidth="1.5" />
-                    </svg>
-
-                    {/* Decorative flower — center right */}
-                    <svg style={{ position: 'absolute', top: '40%', right: 60, width: 70, height: 70, opacity: 0.1, animation: 'dsCausticDrift 24s linear infinite' }} viewBox="0 0 60 60">
-                        {[0, 60, 120, 180, 240, 300].map(angle => (
-                            <ellipse key={angle} cx="30" cy="14" rx="8" ry="14" fill="none" stroke="rgba(255,45,149,0.5)" strokeWidth="1" transform={`rotate(${angle} 30 30)`} />
-                        ))}
-                        <circle cx="30" cy="30" r="6" fill="rgba(255,140,45,0.15)" stroke="rgba(255,140,45,0.4)" strokeWidth="1" />
-                    </svg>
-
-                    <div style={{ textAlign: 'center', zIndex: 1 }}>
-                        <p style={{
-                            fontFamily: 'Spicy Rice, cursive', fontSize: stageFont(16), color: '#ff2d95', opacity: 0.5,
-                            letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: 8,
-                        }}>
-                            ~ far out ~
-                        </p>
-                        <h1 style={{
-                            fontFamily: 'Chicle, cursive', fontSize: stageFont(72), color: '#f5ecff',
-                            lineHeight: 1.1, marginBottom: 8,
-                            textShadow: '0 0 30px rgba(255,45,149,0.5), 0 0 60px rgba(182,255,45,0.25), 0 0 100px rgba(255,140,45,0.15)',
-                            animation: 'psyWobble 6s ease-in-out infinite',
-                        }}>
-                            Add a Song
-                        </h1>
-                        <p style={{
-                            fontFamily: 'Spicy Rice, cursive', fontSize: stageFont(22), color: '#c8a8e8',
-                            marginBottom: 44,
-                        }}>
-                            Scan to join the groove
-                        </p>
-                        {qrUrl && (
-                            <div style={{
-                                display: 'inline-block', padding: 16, position: 'relative',
-                                border: '2px solid rgba(255,45,149,0.3)',
-                                borderRadius: 20,
-                                boxShadow: '0 0 25px rgba(255,45,149,0.18), 0 0 50px rgba(182,255,45,0.1), inset 0 0 30px rgba(255,45,149,0.04)',
-                                background: 'rgba(26,10,46,0.65)',
-                                backdropFilter: 'blur(12px)',
-                            }}>
-                                <img src={qrUrl} alt="QR" style={{ width: 210, height: 210, display: 'block', borderRadius: 10 }} />
-                            </div>
-                        )}
-                        {sessionCode && (
-                            <p style={{
-                                fontFamily: 'Chicle, cursive', fontSize: stageFont(28), color: '#ff2d95',
-                                letterSpacing: '0.2em', textTransform: 'uppercase', marginTop: 24,
-                                textShadow: '0 0 15px rgba(255,45,149,0.5), 0 0 30px rgba(182,255,45,0.2)',
-                            }}>
-                                {sessionCode}
-                            </p>
-                        )}
-                    </div>
-                </div>
-            )
-        }
-
-        // ---- Zen (Japanese Garden) idle ----
-        if (theme.name === 'zen') {
-            return (
-                <div style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
-                    background: 'linear-gradient(180deg, #0e0c09 0%, #1a1814 30%, #1f1b15 60%, #15120e 100%)',
-                    position: 'relative', overflow: 'hidden',
-                }}>
-                    {/* Ink wash background overlay */}
-                    <div style={{
-                        position: 'absolute', inset: '-20%', opacity: 0.05,
-                        background: 'radial-gradient(ellipse 60% 50% at 25% 30%, rgba(201,168,76,0.5) 0%, transparent 70%), radial-gradient(ellipse 50% 60% at 70% 60%, rgba(139,107,74,0.4) 0%, transparent 70%)',
-                        filter: 'blur(40px)', animation: 'zenInkDrift 30s ease-in-out infinite',
-                    }} />
-
-                    {/* Mountain silhouettes — back layer */}
-                    <svg style={{ position: 'absolute', bottom: '18%', left: 0, width: '100%', height: '45%', opacity: 0.08 }} viewBox="0 0 1200 400" preserveAspectRatio="none">
-                        <path d="M0 400 L0 280 Q150 120 300 220 Q450 100 600 180 Q750 60 900 200 Q1050 130 1200 250 L1200 400 Z" fill="#B8A898" />
-                    </svg>
-                    {/* Mountain silhouettes — mid layer */}
-                    <svg style={{ position: 'absolute', bottom: '15%', left: 0, width: '100%', height: '40%', opacity: 0.05 }} viewBox="0 0 1200 400" preserveAspectRatio="none">
-                        <path d="M0 400 L0 320 Q200 180 400 280 Q550 150 700 240 Q850 170 1000 260 Q1100 200 1200 300 L1200 400 Z" fill="#8B7B6B" />
-                    </svg>
-
-                    {/* Drifting mist — layer 1 (slow) */}
-                    <div style={{
-                        position: 'absolute', top: '35%', left: '-100%', width: '300%', height: 80,
-                        background: 'linear-gradient(90deg, transparent 0%, rgba(240,230,211,0.03) 20%, rgba(240,230,211,0.05) 50%, rgba(240,230,211,0.03) 80%, transparent 100%)',
-                        animation: 'zenMistDrift 35s linear infinite', filter: 'blur(8px)',
-                    }} />
-                    {/* Drifting mist — layer 2 (faster) */}
-                    <div style={{
-                        position: 'absolute', top: '50%', left: '-100%', width: '300%', height: 60,
-                        background: 'linear-gradient(90deg, transparent 0%, rgba(240,230,211,0.02) 30%, rgba(240,230,211,0.04) 50%, rgba(240,230,211,0.02) 70%, transparent 100%)',
-                        animation: 'zenMistDrift 25s linear infinite reverse', filter: 'blur(12px)',
-                    }} />
-                    {/* Drifting mist — layer 3 (subtle) */}
-                    <div style={{
-                        position: 'absolute', top: '65%', left: '-100%', width: '300%', height: 50,
-                        background: 'linear-gradient(90deg, transparent 0%, rgba(201,168,76,0.02) 25%, rgba(201,168,76,0.03) 50%, rgba(201,168,76,0.02) 75%, transparent 100%)',
-                        animation: 'zenMistDrift 45s linear infinite', filter: 'blur(15px)',
-                    }} />
-
-                    {/* Bamboo stalks — left */}
-                    <svg style={{ position: 'absolute', left: 40, top: 0, height: '100%', width: 60, opacity: 0.12 }} viewBox="0 0 60 800">
-                        {/* Main stalk */}
-                        <line x1="20" y1="0" x2="20" y2="800" stroke="#7BA05B" strokeWidth="3" />
-                        <line x1="20" y1="150" x2="20" y2="155" stroke="#5A7A3E" strokeWidth="5" />
-                        <line x1="20" y1="350" x2="20" y2="355" stroke="#5A7A3E" strokeWidth="5" />
-                        <line x1="20" y1="550" x2="20" y2="555" stroke="#5A7A3E" strokeWidth="5" />
-                        {/* Leaves */}
-                        <ellipse cx="35" cy="140" rx="18" ry="4" fill="#7BA05B" opacity="0.7" style={{ transformOrigin: '20px 140px', animation: 'zenBambooSway 6s ease-in-out infinite' }} />
-                        <ellipse cx="5" cy="340" rx="16" ry="3.5" fill="#7BA05B" opacity="0.6" style={{ transformOrigin: '20px 340px', animation: 'zenBambooSway 7s ease-in-out infinite reverse' }} />
-                        <ellipse cx="38" cy="540" rx="15" ry="3" fill="#7BA05B" opacity="0.5" style={{ transformOrigin: '20px 540px', animation: 'zenBambooSway 8s ease-in-out infinite' }} />
-                        {/* Second stalk */}
-                        <line x1="45" y1="100" x2="45" y2="800" stroke="#7BA05B" strokeWidth="2" opacity="0.6" />
-                        <ellipse cx="55" cy="280" rx="12" ry="3" fill="#7BA05B" opacity="0.4" style={{ transformOrigin: '45px 280px', animation: 'zenBambooSway 9s ease-in-out infinite' }} />
-                    </svg>
-
-                    {/* Bamboo stalks — right */}
-                    <svg style={{ position: 'absolute', right: 40, top: 0, height: '100%', width: 60, opacity: 0.12 }} viewBox="0 0 60 800">
-                        <line x1="40" y1="50" x2="40" y2="800" stroke="#7BA05B" strokeWidth="3" />
-                        <line x1="40" y1="200" x2="40" y2="205" stroke="#5A7A3E" strokeWidth="5" />
-                        <line x1="40" y1="450" x2="40" y2="455" stroke="#5A7A3E" strokeWidth="5" />
-                        <line x1="40" y1="650" x2="40" y2="655" stroke="#5A7A3E" strokeWidth="5" />
-                        <ellipse cx="25" cy="190" rx="17" ry="3.5" fill="#7BA05B" opacity="0.7" style={{ transformOrigin: '40px 190px', animation: 'zenBambooSway 7s ease-in-out infinite' }} />
-                        <ellipse cx="52" cy="440" rx="14" ry="3" fill="#7BA05B" opacity="0.5" style={{ transformOrigin: '40px 440px', animation: 'zenBambooSway 8s ease-in-out infinite reverse' }} />
-                        <line x1="15" y1="0" x2="15" y2="800" stroke="#7BA05B" strokeWidth="2" opacity="0.5" />
-                        <ellipse cx="5" cy="350" rx="12" ry="2.5" fill="#7BA05B" opacity="0.35" style={{ transformOrigin: '15px 350px', animation: 'zenBambooSway 10s ease-in-out infinite' }} />
-                    </svg>
-
-                    {/* Torii Gate — SVG */}
-                    <svg style={{ position: 'absolute', bottom: '22%', left: '50%', transform: 'translateX(-50%)', width: 320, height: 260, opacity: 0.25 }} viewBox="0 0 320 260">
-                        {/* Top beam (kasagi) — curved */}
-                        <path d="M20 30 Q160 5 300 30" stroke="#D4442A" strokeWidth="10" fill="none" strokeLinecap="round" />
-                        {/* Second beam (nuki) */}
-                        <line x1="45" y1="55" x2="275" y2="55" stroke="#D4442A" strokeWidth="6" />
-                        {/* Left pillar */}
-                        <line x1="60" y1="30" x2="60" y2="260" stroke="#D4442A" strokeWidth="8" />
-                        {/* Right pillar */}
-                        <line x1="260" y1="30" x2="260" y2="260" stroke="#D4442A" strokeWidth="8" />
-                        {/* Pillar caps */}
-                        <circle cx="60" cy="25" r="6" fill="#D4442A" />
-                        <circle cx="260" cy="25" r="6" fill="#D4442A" />
-                    </svg>
-
-                    {/* Reflection pool — mirrored torii below */}
-                    <div style={{
-                        position: 'absolute', bottom: 0, left: 0, width: '100%', height: '18%',
-                        background: 'linear-gradient(180deg, transparent 0%, rgba(201,168,76,0.02) 100%)',
-                        overflow: 'hidden',
-                    }}>
-                        <svg style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%) scaleY(-1)', width: 320, height: 260, opacity: 0.06, filter: 'blur(4px)' }} viewBox="0 0 320 260">
-                            <path d="M20 30 Q160 5 300 30" stroke="#D4442A" strokeWidth="10" fill="none" strokeLinecap="round" />
-                            <line x1="45" y1="55" x2="275" y2="55" stroke="#D4442A" strokeWidth="6" />
-                            <line x1="60" y1="30" x2="60" y2="260" stroke="#D4442A" strokeWidth="8" />
-                            <line x1="260" y1="30" x2="260" y2="260" stroke="#D4442A" strokeWidth="8" />
-                        </svg>
-                    </div>
-
-                    {/* Enso circle — brush stroke drawing itself */}
-                    <svg style={{ position: 'absolute', top: '8%', right: '12%', width: 120, height: 120, opacity: 0.1 }} viewBox="0 0 100 100">
-                        <circle cx="50" cy="50" r="38" fill="none" stroke="#C9A84C" strokeWidth="4" strokeLinecap="round"
-                            strokeDasharray="240" strokeDashoffset="240"
-                            style={{ animation: 'zenEnsoDraw 6s ease-in-out infinite alternate' }}
-                        />
-                        {/* Brush drip at end of stroke */}
-                        <circle cx="88" cy="50" r="2" fill="#C9A84C" opacity="0.5" />
-                    </svg>
-
-                    {/* Cherry blossom petals — scattered SVGs */}
-                    {[
-                        { x: '15%', y: '12%', size: 14, delay: 0, dur: 18, opacity: 0.15 },
-                        { x: '75%', y: '20%', size: 10, delay: 4, dur: 22, opacity: 0.12 },
-                        { x: '30%', y: '8%', size: 12, delay: 8, dur: 20, opacity: 0.1 },
-                        { x: '60%', y: '15%', size: 8, delay: 12, dur: 24, opacity: 0.13 },
-                        { x: '85%', y: '5%', size: 11, delay: 2, dur: 19, opacity: 0.11 },
-                        { x: '45%', y: '25%', size: 9, delay: 6, dur: 21, opacity: 0.14 },
-                    ].map((p, i) => (
-                        <svg key={`petal-${i}`} style={{
-                            position: 'absolute', left: p.x, top: p.y, width: p.size, height: p.size, opacity: p.opacity,
-                            animation: `zenPetalFall ${p.dur}s linear ${p.delay}s infinite`,
-                        }} viewBox="0 0 10 10">
-                            <ellipse cx="5" cy="5" rx="4" ry="2.5" fill="#E8A0BF" transform="rotate(30 5 5)" />
-                        </svg>
-                    ))}
-
-                    {/* Incense smoke wisps */}
-                    <div style={{
-                        position: 'absolute', bottom: '25%', left: '48%', width: 2, height: 200,
-                        background: 'linear-gradient(180deg, transparent 0%, rgba(240,230,211,0.06) 30%, rgba(240,230,211,0.03) 70%, transparent 100%)',
-                        animation: 'zenSmoke 12s ease-in-out infinite', filter: 'blur(3px)',
-                    }} />
-                    <div style={{
-                        position: 'absolute', bottom: '25%', left: '52%', width: 1.5, height: 150,
-                        background: 'linear-gradient(180deg, transparent 0%, rgba(201,168,76,0.04) 40%, rgba(201,168,76,0.02) 70%, transparent 100%)',
-                        animation: 'zenSmoke 15s ease-in-out 3s infinite', filter: 'blur(4px)',
-                    }} />
-
-                    {/* Content */}
-                    <div style={{ textAlign: 'center', zIndex: 2 }}>
-                        <h1 style={{
-                            fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: stageFont(72), color: '#F0E6D3',
-                            fontWeight: 500, fontStyle: 'italic', lineHeight: 1.1, marginBottom: 8,
-                            textShadow: '0 0 30px rgba(201,168,76,0.25), 0 0 60px rgba(201,168,76,0.1)',
-                            letterSpacing: '0.05em',
-                        }}>
-                            Find Your Song
-                        </h1>
-                        <p style={{
-                            fontFamily: "'Zen Kaku Gothic New', sans-serif", fontSize: stageFont(16), color: '#B8A898',
-                            letterSpacing: '0.35em', textTransform: 'uppercase', marginBottom: 48,
-                        }}>
-                            Scan to begin
-                        </p>
-                        {qrUrl && (
-                            <div style={{
-                                display: 'inline-block', padding: 14,
-                                border: '1px solid rgba(201,168,76,0.3)',
-                                borderImage: 'linear-gradient(135deg, transparent 0%, rgba(201,168,76,0.5) 15%, transparent 25%, transparent 50%, rgba(201,168,76,0.4) 60%, transparent 70%, transparent 85%, rgba(201,168,76,0.5) 95%, transparent 100%) 1',
-                                background: 'rgba(26,24,20,0.7)',
-                                backdropFilter: 'blur(12px)',
-                                borderRadius: 8,
-                            }}>
-                                <img src={qrUrl} alt="QR" style={{ width: 210, height: 210, display: 'block', borderRadius: 4 }} />
-                            </div>
-                        )}
-                        {sessionCode && (
-                            <p style={{
-                                fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: stageFont(28), fontWeight: 600,
-                                color: '#C9A84C', letterSpacing: '0.3em', textTransform: 'uppercase', marginTop: 20,
-                                textShadow: '0 0 15px rgba(201,168,76,0.3)',
-                            }}>
-                                {sessionCode}
-                            </p>
-                        )}
-                    </div>
-                </div>
-            )
-        }
-
-        // ---- Space (Cosmic) idle ----
-        if (theme.name === 'space') {
-            return (
-                <div style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
-                    background: 'linear-gradient(180deg, #04040A 0%, #08080F 40%, #0A0A18 100%)',
-                    position: 'relative', overflow: 'hidden',
-                }}>
-                    {/* Nebula cloud overlay */}
-                    <div style={{
-                        position: 'absolute', inset: '-20%', opacity: 0.05,
-                        background: 'radial-gradient(ellipse 55% 45% at 20% 35%, rgba(224,64,251,0.6) 0%, transparent 70%), radial-gradient(ellipse 45% 55% at 75% 55%, rgba(64,224,208,0.5) 0%, transparent 70%)',
-                        filter: 'blur(50px)', animation: 'spaceNebulaDrift 35s ease-in-out infinite',
-                    }} />
-
-                    {/* Starfield — scattered dots */}
-                    {[
-                        { x: '5%', y: '8%', s: 2, o: 0.7 }, { x: '12%', y: '22%', s: 1.5, o: 0.4 },
-                        { x: '20%', y: '5%', s: 1, o: 0.6 }, { x: '28%', y: '35%', s: 2, o: 0.3 },
-                        { x: '35%', y: '12%', s: 1.5, o: 0.5 }, { x: '42%', y: '28%', s: 1, o: 0.7 },
-                        { x: '55%', y: '8%', s: 2, o: 0.4 }, { x: '62%', y: '18%', s: 1.5, o: 0.6 },
-                        { x: '70%', y: '32%', s: 1, o: 0.5 }, { x: '78%', y: '6%', s: 2, o: 0.3 },
-                        { x: '85%', y: '25%', s: 1.5, o: 0.7 }, { x: '92%', y: '15%', s: 1, o: 0.4 },
-                        { x: '8%', y: '70%', s: 1.5, o: 0.5 }, { x: '18%', y: '85%', s: 2, o: 0.3 },
-                        { x: '75%', y: '75%', s: 1, o: 0.6 }, { x: '88%', y: '65%', s: 1.5, o: 0.4 },
-                        { x: '50%', y: '90%', s: 2, o: 0.35 }, { x: '30%', y: '60%', s: 1, o: 0.5 },
-                    ].map((star, i) => (
-                        <div key={`star-${i}`} style={{
-                            position: 'absolute', left: star.x, top: star.y,
-                            width: star.s, height: star.s, borderRadius: '50%',
-                            background: i % 5 === 0 ? 'rgba(224,64,251,0.8)' : i % 7 === 0 ? 'rgba(64,224,208,0.7)' : 'rgba(232,230,240,0.8)',
-                            opacity: star.o,
-                            animation: `spaceTwinkle${i % 2 === 0 ? '' : '2'} ${3 + (i % 4)}s ease-in-out ${(i * 0.7) % 4}s infinite`,
-                        }} />
-                    ))}
-
-                    {/* Warp star trails — radial lines from center */}
-                    <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.06 }} viewBox="0 0 1200 800">
-                        {Array.from({ length: 16 }).map((_, i) => {
-                            const angle = (i / 16) * Math.PI * 2
-                            const cx = 600, cy = 400
-                            const innerR = 80, outerR = 600
-                            const x1 = cx + Math.cos(angle) * innerR
-                            const y1 = cy + Math.sin(angle) * innerR
-                            const x2 = cx + Math.cos(angle) * outerR
-                            const y2 = cy + Math.sin(angle) * outerR
-                            return <line key={`warp-${i}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(232,230,240,0.5)" strokeWidth={0.8 + (i % 3) * 0.4} />
-                        })}
-                    </svg>
-
-                    {/* Planet (Saturn-like) silhouette — lower right */}
-                    <svg style={{ position: 'absolute', bottom: '10%', right: '15%', width: 220, height: 180, opacity: 0.15 }} viewBox="0 0 220 180">
-                        {/* Planet body */}
-                        <circle cx="110" cy="95" r="55" fill="#0A0A18" stroke="rgba(224,64,251,0.3)" strokeWidth="1.5" />
-                        {/* Edge glow */}
-                        <circle cx="110" cy="95" r="55" fill="none" stroke="rgba(64,224,208,0.15)" strokeWidth="3" />
-                        {/* Ring — elliptical arc */}
-                        <ellipse cx="110" cy="95" rx="95" ry="20" fill="none" stroke="rgba(255,183,64,0.25)" strokeWidth="2" strokeDasharray="4 3" />
-                        <ellipse cx="110" cy="95" rx="85" ry="16" fill="none" stroke="rgba(224,64,251,0.15)" strokeWidth="1" />
-                    </svg>
-
-                    {/* Orbiting particles around planet */}
-                    {[0, 1, 2].map(i => (
-                        <div key={`orbit-${i}`} style={{
-                            position: 'absolute', bottom: `calc(10% + 85px)`, right: `calc(15% + 100px)`,
-                            width: 4, height: 4, borderRadius: '50%',
-                            background: i === 0 ? '#E040FB' : i === 1 ? '#40E0D0' : '#FFB740',
-                            opacity: 0.6,
-                            animation: `spaceOrbit ${4 + i * 1.5}s linear ${i * 1.2}s infinite`,
-                        }} />
-                    ))}
-
-                    {/* Distant galaxy — top left */}
-                    <svg style={{ position: 'absolute', top: '12%', left: '10%', width: 60, height: 60, opacity: 0.06 }} viewBox="0 0 60 60">
-                        <ellipse cx="30" cy="30" rx="25" ry="8" fill="none" stroke="rgba(224,64,251,0.5)" strokeWidth="0.8" transform="rotate(-30 30 30)" />
-                        <ellipse cx="30" cy="30" rx="18" ry="6" fill="none" stroke="rgba(64,224,208,0.4)" strokeWidth="0.6" transform="rotate(-30 30 30)" />
-                        <circle cx="30" cy="30" r="3" fill="rgba(232,230,240,0.3)" />
-                    </svg>
-
-                    {/* Distant galaxy — bottom left */}
-                    <svg style={{ position: 'absolute', bottom: '20%', left: '20%', width: 45, height: 45, opacity: 0.04 }} viewBox="0 0 60 60">
-                        <ellipse cx="30" cy="30" rx="22" ry="7" fill="none" stroke="rgba(255,183,64,0.5)" strokeWidth="0.7" transform="rotate(20 30 30)" />
-                        <ellipse cx="30" cy="30" rx="15" ry="5" fill="none" stroke="rgba(224,64,251,0.3)" strokeWidth="0.5" transform="rotate(20 30 30)" />
-                        <circle cx="30" cy="30" r="2.5" fill="rgba(232,230,240,0.25)" />
-                    </svg>
-
-                    {/* Shooting star */}
-                    <div style={{
-                        position: 'absolute', top: '15%', left: '25%', width: 80, height: 1,
-                        background: 'linear-gradient(90deg, transparent 0%, rgba(232,230,240,0.6) 40%, rgba(64,224,208,0.4) 100%)',
-                        transform: 'rotate(-25deg)',
-                        animation: 'spaceShootingStar 12s linear infinite',
-                        borderRadius: 1,
-                    }} />
-                    <div style={{
-                        position: 'absolute', top: '40%', right: '20%', width: 60, height: 1,
-                        background: 'linear-gradient(90deg, transparent 0%, rgba(232,230,240,0.5) 40%, rgba(224,64,251,0.3) 100%)',
-                        transform: 'rotate(-30deg)',
-                        animation: 'spaceShootingStar 18s linear 6s infinite',
-                        borderRadius: 1,
-                    }} />
-
-                    {/* Content */}
-                    <div style={{ textAlign: 'center', zIndex: 2 }}>
-                        <h1 style={{
-                            fontFamily: "'Orbitron', sans-serif", fontSize: stageFont(64), color: '#E8E6F0',
-                            fontWeight: 700, lineHeight: 1.1, marginBottom: 8,
-                            textShadow: '0 0 30px rgba(224,64,251,0.35), 0 0 60px rgba(64,224,208,0.15), 0 0 100px rgba(224,64,251,0.1)',
-                            letterSpacing: '0.08em', textTransform: 'uppercase',
-                        }}>
-                            Launch a Song
-                        </h1>
-                        <p style={{
-                            fontFamily: "'Exo 2', sans-serif", fontSize: stageFont(16), color: '#9896A8',
-                            letterSpacing: '0.4em', textTransform: 'uppercase', marginBottom: 48,
-                        }}>
-                            Scan to queue from orbit
-                        </p>
-                        {qrUrl && (
-                            <div style={{
-                                display: 'inline-block', padding: 14,
-                                border: '1px solid rgba(64,224,208,0.3)',
-                                boxShadow: '0 0 20px rgba(64,224,208,0.1), 0 0 40px rgba(224,64,251,0.05), inset 0 0 20px rgba(64,224,208,0.03)',
-                                background: 'rgba(8,8,15,0.75)',
-                                backdropFilter: 'blur(12px)',
-                                borderRadius: 6,
-                            }}>
-                                <img src={qrUrl} alt="QR" style={{ width: 210, height: 210, display: 'block', borderRadius: 3 }} />
-                            </div>
-                        )}
-                        {sessionCode && (
-                            <p style={{
-                                fontFamily: "'Orbitron', sans-serif", fontSize: stageFont(24), fontWeight: 600,
-                                color: '#E040FB', letterSpacing: '0.35em', textTransform: 'uppercase', marginTop: 20,
-                                textShadow: '0 0 15px rgba(224,64,251,0.4), 0 0 30px rgba(224,64,251,0.15)',
-                            }}>
-                                {sessionCode}
-                            </p>
-                        )}
-                    </div>
-                </div>
-            )
-        }
-
-        // ---- Steampunk (Victorian Industrial) idle ----
-        if (theme.name === 'steampunk') {
-            return (
-                <div style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
-                    background: 'linear-gradient(180deg, #0e0b09 0%, #14110F 35%, #1a1510 65%, #100d0a 100%)',
-                    position: 'relative', overflow: 'hidden',
-                }}>
-                    {/* Warm vignette */}
-                    <div style={{
-                        position: 'absolute', inset: 0,
-                        background: 'radial-gradient(ellipse at center, rgba(200,151,62,0.03) 0%, transparent 50%, rgba(0,0,0,0.4) 100%)',
-                    }} />
-
-                    {/* Large gear — top right, spinning clockwise */}
-                    <svg style={{ position: 'absolute', top: -60, right: -40, width: 280, height: 280, opacity: 0.08, animation: 'steamGearSpin 30s linear infinite' }} viewBox="0 0 200 200">
-                        <circle cx="100" cy="100" r="60" fill="none" stroke="#C8973E" strokeWidth="3" />
-                        <circle cx="100" cy="100" r="25" fill="none" stroke="#C8973E" strokeWidth="2" />
-                        <circle cx="100" cy="100" r="8" fill="rgba(200,151,62,0.3)" />
-                        {Array.from({ length: 12 }).map((_, i) => {
-                            const angle = (i / 12) * Math.PI * 2
-                            const x1 = 100 + Math.cos(angle) * 60
-                            const y1 = 100 + Math.sin(angle) * 60
-                            const x2 = 100 + Math.cos(angle) * 78
-                            const y2 = 100 + Math.sin(angle) * 78
-                            return <line key={`gt-${i}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#C8973E" strokeWidth="10" strokeLinecap="round" />
-                        })}
-                    </svg>
-
-                    {/* Medium gear — bottom left, counter-clockwise (interlocking ratio) */}
-                    <svg style={{ position: 'absolute', bottom: -30, left: -20, width: 200, height: 200, opacity: 0.06, animation: 'steamGearSpinReverse 20s linear infinite' }} viewBox="0 0 200 200">
-                        <circle cx="100" cy="100" r="50" fill="none" stroke="#E07040" strokeWidth="2.5" />
-                        <circle cx="100" cy="100" r="20" fill="none" stroke="#E07040" strokeWidth="1.5" />
-                        <circle cx="100" cy="100" r="6" fill="rgba(224,112,64,0.3)" />
-                        {Array.from({ length: 8 }).map((_, i) => {
-                            const angle = (i / 8) * Math.PI * 2
-                            const x1 = 100 + Math.cos(angle) * 50
-                            const y1 = 100 + Math.sin(angle) * 50
-                            const x2 = 100 + Math.cos(angle) * 65
-                            const y2 = 100 + Math.sin(angle) * 65
-                            return <line key={`gb-${i}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#E07040" strokeWidth="8" strokeLinecap="round" />
-                        })}
-                    </svg>
-
-                    {/* Small gear — mid left, clockwise */}
-                    <svg style={{ position: 'absolute', top: '40%', left: 60, width: 100, height: 100, opacity: 0.05, animation: 'steamGearSpin 15s linear infinite' }} viewBox="0 0 200 200">
-                        <circle cx="100" cy="100" r="45" fill="none" stroke="#5A9E8F" strokeWidth="2" />
-                        <circle cx="100" cy="100" r="15" fill="none" stroke="#5A9E8F" strokeWidth="1.5" />
-                        {Array.from({ length: 6 }).map((_, i) => {
-                            const angle = (i / 6) * Math.PI * 2
-                            const x1 = 100 + Math.cos(angle) * 45
-                            const y1 = 100 + Math.sin(angle) * 45
-                            const x2 = 100 + Math.cos(angle) * 58
-                            const y2 = 100 + Math.sin(angle) * 58
-                            return <line key={`gs-${i}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#5A9E8F" strokeWidth="7" strokeLinecap="round" />
-                        })}
-                    </svg>
-
-                    {/* Steam pipe network — horizontal pipes with joints */}
-                    <svg style={{ position: 'absolute', bottom: '25%', left: 0, width: '100%', height: 4, opacity: 0.1 }} preserveAspectRatio="none">
-                        <line x1="0" y1="2" x2="100%" y2="2" stroke="#C8973E" strokeWidth="3" />
-                    </svg>
-                    {[80, 250, 450, 650, 850].map((x, i) => (
-                        <div key={`joint-${i}`} style={{
-                            position: 'absolute', bottom: 'calc(25% - 4px)', left: x, width: 10, height: 10,
-                            borderRadius: '50%', border: '1.5px solid rgba(200,151,62,0.15)',
-                            background: 'rgba(200,151,62,0.06)',
-                        }} />
-                    ))}
-
-                    {/* Vertical pipe */}
-                    <div style={{ position: 'absolute', top: 0, right: '22%', width: 3, height: '25%', background: 'rgba(200,151,62,0.08)' }} />
-                    <div style={{ position: 'absolute', top: 0, right: 'calc(22% - 3px)', width: 8, height: 8, borderRadius: '50%', border: '1.5px solid rgba(200,151,62,0.12)', background: 'rgba(200,151,62,0.04)', marginTop: 'calc(25% - 4px)' }} />
-
-                    {/* Pressure gauge — SVG */}
-                    <svg style={{ position: 'absolute', top: '15%', right: '10%', width: 80, height: 80, opacity: 0.12 }} viewBox="0 0 100 100">
-                        <circle cx="50" cy="50" r="42" fill="none" stroke="#C8973E" strokeWidth="2" />
-                        <circle cx="50" cy="50" r="38" fill="none" stroke="rgba(200,151,62,0.3)" strokeWidth="0.5" />
-                        {/* Tick marks */}
-                        {Array.from({ length: 8 }).map((_, i) => {
-                            const angle = (i / 8) * Math.PI * 2 - Math.PI / 2
-                            const x1 = 50 + Math.cos(angle) * 35
-                            const y1 = 50 + Math.sin(angle) * 35
-                            const x2 = 50 + Math.cos(angle) * 40
-                            const y2 = 50 + Math.sin(angle) * 40
-                            return <line key={`tick-${i}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#C8973E" strokeWidth="1.5" />
-                        })}
-                        {/* Needle */}
-                        <line x1="50" y1="50" x2="50" y2="15" stroke="#E07040" strokeWidth="1.5" strokeLinecap="round" style={{ transformOrigin: '50px 50px', animation: 'steamNeedle 4s ease-in-out infinite' }} />
-                        <circle cx="50" cy="50" r="4" fill="#C8973E" />
-                    </svg>
-
-                    {/* Steam puffs rising from pipe joints */}
-                    {[
-                        { x: 83, delay: 0 }, { x: 253, delay: 3 }, { x: 453, delay: 7 }, { x: 853, delay: 5 },
-                    ].map((p, i) => (
-                        <div key={`puff-${i}`} style={{
-                            position: 'absolute', bottom: 'calc(25% + 8px)', left: p.x,
-                            width: 6, height: 6, borderRadius: '50%',
-                            background: 'rgba(212,206,192,0.15)',
-                            filter: 'blur(2px)',
-                            animation: `steamPuff 8s ease-out ${p.delay}s infinite`,
-                        }} />
-                    ))}
-
-                    {/* Victorian scrollwork corners */}
-                    <svg style={{ position: 'absolute', top: 20, left: 20, width: 80, height: 80, opacity: 0.1 }} viewBox="0 0 80 80">
-                        <path d="M5 5 Q5 25 15 18 Q28 8 22 22 Q16 36 28 28 Q40 20 34 34" fill="none" stroke="#C8973E" strokeWidth="1.2" strokeLinecap="round" />
-                        <circle cx="8" cy="8" r="2" fill="rgba(200,151,62,0.4)" />
-                    </svg>
-                    <svg style={{ position: 'absolute', bottom: 20, right: 20, width: 80, height: 80, opacity: 0.1, transform: 'rotate(180deg)' }} viewBox="0 0 80 80">
-                        <path d="M5 5 Q5 25 15 18 Q28 8 22 22 Q16 36 28 28 Q40 20 34 34" fill="none" stroke="#C8973E" strokeWidth="1.2" strokeLinecap="round" />
-                        <circle cx="8" cy="8" r="2" fill="rgba(200,151,62,0.4)" />
-                    </svg>
-
-                    {/* Gaslight lantern — top center */}
-                    <svg style={{ position: 'absolute', top: 30, left: '50%', transform: 'translateX(-50%)', width: 30, height: 50, opacity: 0.15 }} viewBox="0 0 30 50">
-                        {/* Hook */}
-                        <line x1="15" y1="0" x2="15" y2="10" stroke="#C8973E" strokeWidth="1.5" />
-                        {/* Lantern body */}
-                        <rect x="8" y="10" width="14" height="20" rx="2" fill="none" stroke="#C8973E" strokeWidth="1.5" />
-                        {/* Flame glow */}
-                        <ellipse cx="15" cy="22" rx="3" ry="5" fill="rgba(232,184,76,0.4)" style={{ animation: 'steamFlicker 3s ease-in-out infinite' }} />
-                        {/* Bottom cap */}
-                        <line x1="6" y1="30" x2="24" y2="30" stroke="#C8973E" strokeWidth="1.5" />
-                        <line x1="10" y1="30" x2="10" y2="34" stroke="#C8973E" strokeWidth="1" />
-                        <line x1="20" y1="30" x2="20" y2="34" stroke="#C8973E" strokeWidth="1" />
-                    </svg>
-
-                    {/* Content */}
-                    <div style={{ textAlign: 'center', zIndex: 2 }}>
-                        <h1 style={{
-                            fontFamily: "'Cinzel Decorative', serif", fontSize: stageFont(52), color: '#E8DCC8',
-                            fontWeight: 400, lineHeight: 1.2, marginBottom: 8,
-                            textShadow: '0 0 20px rgba(200,151,62,0.35), 0 0 50px rgba(200,151,62,0.12), 0 0 80px rgba(224,112,64,0.06)',
-                            letterSpacing: '0.06em',
-                        }}>
-                            Queue a Tune
-                        </h1>
-                        <p style={{
-                            fontFamily: "'Spectral', serif", fontSize: stageFont(16), color: '#A89878',
-                            letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: 48,
-                            fontStyle: 'italic',
-                        }}>
-                            Scan to power the engine
-                        </p>
-                        {qrUrl && (
-                            <div style={{
-                                display: 'inline-block', padding: 14,
-                                border: '2px solid rgba(200,151,62,0.3)',
-                                borderImage: 'repeating-linear-gradient(90deg, transparent 0px, transparent 14px, rgba(200,151,62,0.4) 14px, rgba(200,151,62,0.4) 18px, transparent 18px, transparent 32px) 1',
-                                background: 'rgba(20,17,15,0.8)',
-                                backdropFilter: 'blur(12px)',
-                                borderRadius: 4,
-                            }}>
-                                <img src={qrUrl} alt="QR" style={{ width: 210, height: 210, display: 'block', borderRadius: 2 }} />
-                            </div>
-                        )}
-                        {sessionCode && (
-                            <p style={{
-                                fontFamily: "'Cinzel', serif", fontSize: stageFont(26), fontWeight: 600,
-                                color: '#C8973E', letterSpacing: '0.35em', textTransform: 'uppercase', marginTop: 20,
-                                textShadow: '0 0 15px rgba(200,151,62,0.3)',
-                            }}>
-                                {sessionCode}
-                            </p>
-                        )}
-                    </div>
-                </div>
-            )
-        }
-
-        // ---- Retrowave (80s Synthwave) idle ----
-        if (theme.name === 'retrowave') {
-            return (
-                <div style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
-                    background: 'linear-gradient(180deg, #0a0614 0%, #0d0820 25%, #150a2e 45%, #1a0828 55%, #2a1040 63%, #8B2060 72%, #FF6B2B 85%, #FFD700 100%)',
-                    position: 'relative', overflow: 'hidden',
-                }}>
-                    {/* Starfield — upper portion */}
-                    {[
-                        { x: 8, y: 5, s: 1.5, d: 3.2, c: 'rgba(255,255,255,0.7)' },
-                        { x: 15, y: 12, s: 1, d: 4.5, c: 'rgba(255,45,149,0.5)' },
-                        { x: 25, y: 3, s: 1.2, d: 3.8, c: 'rgba(255,255,255,0.6)' },
-                        { x: 35, y: 18, s: 1, d: 5.1, c: 'rgba(0,191,255,0.5)' },
-                        { x: 45, y: 7, s: 1.5, d: 3.5, c: 'rgba(255,255,255,0.8)' },
-                        { x: 55, y: 14, s: 1, d: 4.2, c: 'rgba(255,255,255,0.5)' },
-                        { x: 62, y: 4, s: 1.3, d: 3.9, c: 'rgba(255,45,149,0.4)' },
-                        { x: 72, y: 20, s: 1, d: 5.5, c: 'rgba(255,255,255,0.6)' },
-                        { x: 78, y: 9, s: 1.5, d: 3.3, c: 'rgba(0,191,255,0.4)' },
-                        { x: 88, y: 16, s: 1, d: 4.8, c: 'rgba(255,255,255,0.7)' },
-                        { x: 92, y: 2, s: 1.2, d: 3.6, c: 'rgba(255,255,255,0.5)' },
-                        { x: 20, y: 25, s: 1, d: 5.2, c: 'rgba(255,255,255,0.4)' },
-                        { x: 40, y: 22, s: 1.3, d: 4.0, c: 'rgba(255,107,43,0.4)' },
-                        { x: 60, y: 28, s: 1, d: 4.7, c: 'rgba(255,255,255,0.5)' },
-                        { x: 80, y: 24, s: 1.2, d: 3.4, c: 'rgba(255,45,149,0.3)' },
-                        { x: 5, y: 30, s: 1, d: 5.0, c: 'rgba(255,255,255,0.4)' },
-                        { x: 50, y: 32, s: 1.5, d: 3.7, c: 'rgba(0,191,255,0.3)' },
-                        { x: 95, y: 28, s: 1, d: 4.3, c: 'rgba(255,255,255,0.6)' },
-                    ].map((star, i) => (
-                        <div key={`rw-star-${i}`} style={{
-                            position: 'absolute', left: `${star.x}%`, top: `${star.y}%`,
-                            width: star.s, height: star.s, borderRadius: '50%',
-                            background: star.c,
-                            animation: `${i % 2 === 0 ? 'rwTwinkle' : 'rwTwinkle2'} ${star.d}s ease-in-out infinite`,
-                            animationDelay: `${i * 0.3}s`,
-                        }} />
-                    ))}
-
-                    {/* Ambient sun glow — pulsing warm haze behind the sun */}
-                    <div style={{
-                        position: 'absolute', left: '50%', top: '58%', transform: 'translateX(-50%)',
-                        width: 500, height: 250, borderRadius: '50%',
-                        background: 'radial-gradient(ellipse, rgba(255,107,43,0.25) 0%, rgba(255,45,149,0.08) 40%, transparent 70%)',
-                        filter: 'blur(30px)',
-                        animation: 'rwSunPulse 5s ease-in-out infinite',
-                        zIndex: 0,
-                    }} />
-
-                    {/* Banded Sun — semicircle with horizontal dark stripes */}
-                    <svg style={{ position: 'absolute', left: '50%', top: '52%', transform: 'translateX(-50%)', width: 320, height: 160, zIndex: 1 }} viewBox="0 0 320 160">
-                        <defs>
-                            <linearGradient id="rw-sun-grad" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#FFD700" />
-                                <stop offset="25%" stopColor="#FFAA00" />
-                                <stop offset="50%" stopColor="#FF6B2B" />
-                                <stop offset="75%" stopColor="#FF2D95" />
-                                <stop offset="100%" stopColor="#B44AFF" />
-                            </linearGradient>
-                            <clipPath id="rw-sun-clip">
-                                <circle cx="160" cy="160" r="150" />
-                            </clipPath>
-                        </defs>
-                        {/* Sun body */}
-                        <rect x="10" y="0" width="300" height="160" fill="url(#rw-sun-grad)" clipPath="url(#rw-sun-clip)" />
-                        {/* Horizontal dark bands — increasing thickness toward bottom */}
-                        <rect x="0" y="55" width="320" height="3" fill="#0a0614" opacity="0.6" clipPath="url(#rw-sun-clip)" />
-                        <rect x="0" y="68" width="320" height="4" fill="#0a0614" opacity="0.65" clipPath="url(#rw-sun-clip)" />
-                        <rect x="0" y="82" width="320" height="5" fill="#0a0614" opacity="0.7" clipPath="url(#rw-sun-clip)" />
-                        <rect x="0" y="97" width="320" height="7" fill="#0a0614" opacity="0.75" clipPath="url(#rw-sun-clip)" />
-                        <rect x="0" y="114" width="320" height="9" fill="#0a0614" opacity="0.8" clipPath="url(#rw-sun-clip)" />
-                        <rect x="0" y="133" width="320" height="12" fill="#0a0614" opacity="0.85" clipPath="url(#rw-sun-clip)" />
-                    </svg>
-
-                    {/* Horizon haze — warm glow at the horizon line */}
-                    <div style={{
-                        position: 'absolute', left: 0, right: 0, top: '62%', height: '8%', zIndex: 1,
-                        background: 'linear-gradient(180deg, transparent 0%, rgba(255,107,43,0.12) 30%, rgba(255,45,149,0.08) 70%, transparent 100%)',
-                        filter: 'blur(8px)',
-                    }} />
-
-                    {/* Perspective Grid Floor */}
-                    <svg style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '38%', zIndex: 2 }} viewBox="0 0 1000 380" preserveAspectRatio="none">
-                        {/* Horizontal lines — closer spacing near top (horizon) */}
-                        {[0, 8, 20, 38, 62, 95, 138, 195, 265, 350].map((y, i) => (
-                            <line key={`rw-hline-${i}`} x1="0" y1={y} x2="1000" y2={y}
-                                stroke="rgba(255,45,149,0.35)" strokeWidth={i < 3 ? 0.5 : 1} />
-                        ))}
-                        {/* Vertical lines fanning from center vanishing point */}
-                        {Array.from({ length: 17 }, (_, i) => {
-                            const topX = 500
-                            const bottomX = (i / 16) * 1000
-                            return <line key={`rw-vline-${i}`} x1={topX} y1="0" x2={bottomX} y2="380"
-                                stroke="rgba(0,191,255,0.3)" strokeWidth={0.8} />
-                        })}
-                    </svg>
-
-                    {/* Palm tree silhouette — left (thicker, more detailed) */}
-                    <svg style={{ position: 'absolute', left: '2%', bottom: '15%', width: 160, height: 300, zIndex: 3 }} viewBox="0 0 160 300">
-                        {/* Thick curved trunk */}
-                        <path d="M72 300 Q68 240 74 180 Q78 140 80 110 Q82 90 76 65" stroke="#0a0614" strokeWidth="10" fill="none" strokeLinecap="round" />
-                        {/* Dense frond canopy — overlapping leaves */}
-                        <path d="M76 65 Q10 20 -5 50 Q20 35 76 65" fill="#0a0614" />
-                        <path d="M76 65 Q15 -5 0 -10 Q25 10 76 65" fill="#0a0614" />
-                        <path d="M76 65 Q50 -15 55 -20 Q62 5 76 65" fill="#0a0614" />
-                        <path d="M76 65 Q95 -10 110 0 Q95 15 76 65" fill="#0a0614" />
-                        <path d="M76 65 Q110 15 135 25 Q108 30 76 65" fill="#0a0614" />
-                        <path d="M76 65 Q115 40 145 55 Q110 48 76 65" fill="#0a0614" />
-                        {/* Drooping frond tips */}
-                        <path d="M76 65 Q5 45 -10 65" stroke="#0a0614" strokeWidth="2.5" fill="none" />
-                        <path d="M76 65 Q120 50 150 68" stroke="#0a0614" strokeWidth="2.5" fill="none" />
-                    </svg>
-
-                    {/* Palm tree silhouette — right (mirrored, slightly smaller) */}
-                    <svg style={{ position: 'absolute', right: '3%', bottom: '17%', width: 140, height: 260, zIndex: 3, transform: 'scaleX(-1)' }} viewBox="0 0 160 300">
-                        <path d="M72 300 Q68 240 74 180 Q78 140 80 110 Q82 90 76 65" stroke="#0a0614" strokeWidth="10" fill="none" strokeLinecap="round" />
-                        <path d="M76 65 Q10 20 -5 50 Q20 35 76 65" fill="#0a0614" />
-                        <path d="M76 65 Q15 -5 0 -10 Q25 10 76 65" fill="#0a0614" />
-                        <path d="M76 65 Q50 -15 55 -20 Q62 5 76 65" fill="#0a0614" />
-                        <path d="M76 65 Q95 -10 110 0 Q95 15 76 65" fill="#0a0614" />
-                        <path d="M76 65 Q110 15 135 25 Q108 30 76 65" fill="#0a0614" />
-                        <path d="M76 65 Q115 40 145 55 Q110 48 76 65" fill="#0a0614" />
-                        <path d="M76 65 Q5 45 -10 65" stroke="#0a0614" strokeWidth="2.5" fill="none" />
-                        <path d="M76 65 Q120 50 150 68" stroke="#0a0614" strokeWidth="2.5" fill="none" />
-                    </svg>
-
-                    {/* VHS Tracking Line */}
-                    <div style={{
-                        position: 'absolute', left: 0, right: 0, height: 3, zIndex: 10,
-                        background: 'linear-gradient(90deg, transparent 0%, rgba(255,45,149,0.15) 15%, rgba(255,255,255,0.3) 45%, rgba(0,191,255,0.2) 65%, rgba(255,45,149,0.15) 85%, transparent 100%)',
-                        boxShadow: '0 0 8px rgba(255,45,149,0.2), 0 0 20px rgba(0,191,255,0.1)',
-                        animation: 'rwVhsTrack 8s linear infinite',
-                    }} />
-
-                    {/* Content — positioned above the sun */}
-                    <div style={{
-                        position: 'relative', zIndex: 5, display: 'flex', flexDirection: 'column',
-                        alignItems: 'center', gap: 16, textAlign: 'center', marginTop: -160,
-                    }}>
-                        <h1 style={{
-                            fontFamily: "'Audiowide', sans-serif", fontSize: stageFont(80), fontWeight: 400,
-                            background: 'linear-gradient(180deg, #FFD700 0%, #FF6B2B 40%, #FF2D95 100%)',
-                            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                            filter: 'drop-shadow(0 0 25px rgba(255,45,149,0.5)) drop-shadow(0 0 8px rgba(255,107,43,0.4))',
-                            margin: 0, letterSpacing: 6,
-                        }}>
-                            HIT PLAY
-                        </h1>
-                        <p style={{
-                            fontFamily: "'Rajdhani', sans-serif", fontSize: stageFont(16), color: 'rgba(155,140,191,0.7)',
-                            letterSpacing: 8, textTransform: 'uppercase', margin: 0,
-                        }}>
-                            Scan to ride the wave
-                        </p>
-
-                        {state.karaokeQrDataUrl && (
-                            <div style={{
-                                background: 'rgba(10,6,20,0.9)', padding: 18, borderRadius: 4,
-                                border: '1px solid rgba(255,45,149,0.35)',
-                                boxShadow: '0 0 25px rgba(255,45,149,0.15), 0 0 50px rgba(0,191,255,0.06), inset 0 0 20px rgba(0,0,0,0.3)',
-                                backdropFilter: 'blur(16px)',
-                            }}>
-                                <img src={state.karaokeQrDataUrl} alt="QR" style={{ width: 130, height: 130, borderRadius: 2, display: 'block' }} />
-                            </div>
-                        )}
-                        {sessionCode && (
-                            <div style={{
-                                background: 'rgba(10,6,20,0.85)', padding: '6px 20px', borderRadius: 4,
-                                border: '1px solid rgba(255,45,149,0.25)',
-                                boxShadow: '0 0 12px rgba(255,45,149,0.1)',
-                            }}>
-                                <p style={{
-                                    fontFamily: "'Audiowide', sans-serif", fontSize: stageFont(24), color: '#FF2D95',
-                                    letterSpacing: 10, margin: 0,
-                                    textShadow: '0 0 12px rgba(255,45,149,0.6), 0 0 30px rgba(255,45,149,0.25)',
-                                }}>
-                                    {sessionCode}
-                                </p>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )
-        }
-
-        // ---- Comic Book (pop-art) idle ----
-        if (theme.name === 'comic-book') {
-            const STAR = 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)'
-            const onos = [
-                { t: 'POW!', x: '7%', y: '13%', bg: '#FFD400', fg: '#FF1F4B', rot: -14, d: 2.6 },
-                { t: 'BAM!', x: '79%', y: '9%', bg: '#FF1F4B', fg: '#FFFFFF', rot: 11, d: 3.1 },
-                { t: 'ZAP!', x: '83%', y: '68%', bg: '#2FA8FF', fg: '#FFD400', rot: -8, d: 2.9 },
-                { t: 'WOW!', x: '4%', y: '70%', bg: '#FFFFFF', fg: '#2FA8FF', rot: 9, d: 3.4 },
-            ]
-            return (
-                <div style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
-                    background: '#FFF7E6', position: 'relative', overflow: 'hidden',
-                    backgroundImage:
-                        'radial-gradient(rgba(255,31,75,0.16) 2px, transparent 2.4px), radial-gradient(rgba(47,168,255,0.14) 2px, transparent 2.4px)',
-                    backgroundSize: '22px 22px, 22px 22px', backgroundPosition: '0 0, 11px 11px',
-                }}>
-                    {/* Radial speed-line burst behind the hero */}
-                    <div style={{
-                        position: 'absolute', left: '50%', top: '46%', width: '160vmax', height: '160vmax',
-                        transform: 'translate(-50%, -50%)',
-                        background: 'repeating-conic-gradient(from 0deg, rgba(22,22,29,0.06) 0deg 2.2deg, transparent 2.2deg 4.4deg)',
-                        animation: 'comic-idle-burst 90s linear infinite', zIndex: 0,
-                    }} />
-
-                    {/* Onomatopoeia starbursts — the star is a clipped layer; the
-                       word sits ABOVE it (not clipped), colored with an ink
-                       outline so it stays crisp and never gets cut by the points. */}
-                    {onos.map((o, i) => (
-                        <div key={`ono-${i}`} style={{
-                            position: 'absolute', left: o.x, top: o.y, zIndex: 2,
-                            width: 150, height: 150,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            ['--wig-a' as string]: `${o.rot - 6}deg`, ['--wig-b' as string]: `${o.rot + 6}deg`,
-                            animation: `comic-wiggle ${o.d}s ease-in-out infinite`,
-                        }}>
-                            {/* Star shape (ink border via stacked clips) */}
-                            <div style={{
-                                position: 'absolute', inset: 0, clipPath: STAR, background: '#16161D',
-                            }} />
-                            <div style={{
-                                position: 'absolute', inset: 9, clipPath: STAR, background: o.bg,
-                            }} />
-                            {/* Word on top — never clipped */}
-                            <span style={{
-                                position: 'relative', zIndex: 1,
-                                fontFamily: theme.fontDisplay, color: o.fg, fontSize: stageFont(30),
-                                letterSpacing: 1, transform: `rotate(${o.rot}deg)`,
-                                WebkitTextStroke: '2px #16161D',
-                                textShadow: '2px 2px 0 #16161D',
-                            }}>{o.t}</span>
-                        </div>
-                    ))}
-
-                    {/* Hero speech-bubble panel */}
-                    <div style={{
-                        position: 'relative', zIndex: 3, textAlign: 'center',
-                        background: '#FFFFFF', border: '6px solid #16161D', borderRadius: 28,
-                        boxShadow: '10px 10px 0 #16161D', padding: '40px 56px 44px',
-                        animation: 'comic-bob 4s ease-in-out infinite',
-                    }}>
-                        {/* speech-bubble tail — 45°-rotated square straddling the
-                            bottom edge (white fill covers the bottom border at the
-                            overlap; the ink right+bottom borders form the point). */}
-                        <div style={{
-                            position: 'absolute', left: 66, bottom: -22, width: 40, height: 40,
-                            background: '#FFFFFF', borderRight: '6px solid #16161D', borderBottom: '6px solid #16161D',
-                            borderBottomRightRadius: 6, transform: 'rotate(45deg)',
-                        }} />
-                        <h1 style={{
-                            fontFamily: theme.fontDisplay, fontSize: stageFont(74), color: '#FF1F4B',
-                            lineHeight: 1.0, margin: 0, letterSpacing: 1,
-                            WebkitTextStroke: '2px #16161D',
-                            textShadow: '5px 5px 0 #16161D',
-                        }}>
-                            GRAB THE MIC!
-                        </h1>
-                        <p style={{
-                            fontFamily: theme.fontBody, fontWeight: 800, fontSize: stageFont(18),
-                            color: '#16161D', letterSpacing: '0.18em', textTransform: 'uppercase',
-                            margin: '14px 0 26px',
-                        }}>
-                            Scan to add your song
-                        </p>
-                        {qrUrl && (
-                            <div style={{ display: 'flex', justifyContent: 'center' }}>
-                                <div style={{
-                                    padding: 12, background: '#FFFFFF',
-                                    border: '4px solid #16161D', borderRadius: 10, boxShadow: '5px 5px 0 #16161D',
-                                }}>
-                                    <img src={qrUrl} alt="QR" style={{ width: 196, height: 196, display: 'block' }} />
-                                </div>
-                            </div>
-                        )}
-                        {sessionCode && (
-                            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 22 }}>
-                                <div style={{
-                                    padding: '6px 22px',
-                                    background: '#FFD400', border: '4px solid #16161D', borderRadius: 8,
-                                    boxShadow: '4px 4px 0 #16161D', transform: 'rotate(-2deg)',
-                                }}>
-                                    <p style={{
-                                        fontFamily: theme.fontDisplay, fontSize: stageFont(26), color: '#16161D',
-                                        letterSpacing: '0.22em', margin: 0,
-                                    }}>
-                                        {sessionCode}
-                                    </p>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )
-        }
-
-        // ---- Tropical (Tiki Beach) idle ----
-        if (theme.name === 'tropical') {
-            const frondAngles = [-162, -124, -86, -48, -8, 30, 66]
-            const clouds = [
-                { x: '6%', y: '9%', s: 1.0, d: 26 },
-                { x: '60%', y: '5%', s: 1.3, d: 34 },
-                { x: '34%', y: '17%', s: 0.8, d: 30 },
-            ]
-
-            // A single coconut palm, drawn rooted at bottom-centre. The caller
-            // positions it and the wrapper div sways the whole tree (reliable
-            // HTML transform-origin; avoids SVG-internal origin pitfalls).
-            const Palm = (k: string, posStyle: React.CSSProperties, flip: boolean, swayDur: number) => (
-                <div key={k} style={{ position: 'absolute', zIndex: 2, transformOrigin: 'bottom center', animation: `tropPalmTrunk ${swayDur}s ease-in-out infinite`, ...posStyle }}>
-                    <svg width="360" height="470" viewBox="0 0 360 470" style={{ display: 'block', transform: flip ? 'scaleX(-1)' : 'none', filter: 'drop-shadow(0 10px 16px rgba(14,46,41,0.28))' }}>
-                        {/* trunk */}
-                        <path d="M168 470 C 158 360 132 262 196 176 C 202 168 216 172 210 186 C 160 266 182 366 196 470 Z" fill="#A9764A" />
-                        <path d="M168 470 C 160 360 138 262 196 176 C 200 170 207 172 206 180 C 162 266 174 366 182 470 Z" fill="#C28F5A" />
-                        {[238, 300, 362, 424].map((ny, i) => (
-                            <path key={i} d={`M${164 - i} ${ny} q 20 -9 38 0`} stroke="#7C5230" strokeWidth="3" fill="none" opacity="0.45" />
-                        ))}
-                        {/* coconuts */}
-                        <circle cx="196" cy="186" r="12" fill="#5C3F22" />
-                        <circle cx="216" cy="194" r="11" fill="#6B4A2A" />
-                        <circle cx="202" cy="204" r="11" fill="#4A3119" />
-                        {/* fronds */}
-                        {frondAngles.map((a, i) => (
-                            <path
-                                key={i}
-                                transform={`translate(204 176) rotate(${a})`}
-                                d="M0 0 C 50 -22 116 -20 172 6 C 162 2 162 14 172 20 C 116 8 56 13 0 0 Z"
-                                fill={i % 2 === 0 ? '#1FA85C' : '#178A4A'}
-                                stroke="#0E6B39"
-                                strokeWidth="2"
-                                strokeLinejoin="round"
-                            />
-                        ))}
-                        <path transform="translate(204 176) rotate(-100)" d="M0 0 C 18 -64 16 -130 4 -182 C -4 -130 -12 -64 0 0 Z" fill="#23B85F" stroke="#0E6B39" strokeWidth="2" />
-                    </svg>
-                </div>
-            )
-
-            // A bamboo tiki torch with a flickering flame + rising embers.
-            const Torch = (k: string, side: 'left' | 'right') => {
-                const pos: React.CSSProperties = { position: 'absolute', bottom: '16%', width: 90, height: 300, zIndex: 4 }
-                if (side === 'left') pos.left = '19%'
-                else pos.right = '19%'
-                return (
-                    <div key={k} style={pos}>
-                        {/* warm flame glow */}
-                        <div style={{ position: 'absolute', top: -26, left: '50%', width: 180, height: 180, transform: 'translateX(-50%)', background: 'radial-gradient(circle, rgba(255,170,60,0.55) 0%, transparent 64%)', animation: 'tropSun 2.2s ease-in-out infinite', pointerEvents: 'none' }} />
-                        {/* flame — separate boxes so CSS transform-origin is reliable */}
-                        <div style={{ position: 'absolute', top: 6, left: '50%', width: 62, height: 86, transform: 'translateX(-50%)', zIndex: 2 }}>
-                            <svg width="62" height="86" viewBox="0 0 62 86" style={{ position: 'absolute', inset: 0, transformOrigin: '50% 100%', animation: 'tropFlame 0.9s ease-in-out infinite' }}>
-                                <path d="M31 84 C 7 64 5 38 31 4 C 57 38 55 64 31 84 Z" fill="#FF6B2C" />
-                            </svg>
-                            <svg width="40" height="58" viewBox="0 0 40 58" style={{ position: 'absolute', left: 11, bottom: 10, transformOrigin: '50% 100%', animation: 'tropFlameCore 0.7s ease-in-out infinite' }}>
-                                <path d="M20 56 C 6 44 6 24 20 4 C 34 24 34 44 20 56 Z" fill="#FFD23F" />
-                            </svg>
-                        </div>
-                        {/* embers */}
-                        {[0, 1, 2].map((i) => (
-                            <div key={i} style={{ position: 'absolute', top: 36, left: 38 + i * 6, width: 5, height: 5, borderRadius: '50%', background: i % 2 ? '#FFD23F' : '#FF8A3C', ['--ember-x' as string]: `${(i - 1) * 18}px`, animation: `tropEmber ${1.9 + i * 0.5}s ease-in ${i * 0.45}s infinite`, pointerEvents: 'none' }} />
-                        ))}
-                        {/* bamboo pole + woven bowl */}
-                        <svg width="90" height="300" viewBox="0 0 90 300" style={{ position: 'absolute', bottom: 0, left: 0, filter: 'drop-shadow(0 8px 12px rgba(14,46,41,0.25))' }}>
-                            <rect x="34" y="86" width="22" height="214" rx="7" fill="#CDA85A" />
-                            <rect x="38" y="86" width="6" height="214" fill="#E2C684" opacity="0.7" />
-                            {[120, 162, 204, 246].map((ny, i) => (
-                                <rect key={i} x="31" y={ny} width="28" height="6" rx="2.5" fill="#9A7536" />
-                            ))}
-                            <path d="M18 88 q 27 30 54 0 q -9 -20 -27 -20 q -18 0 -27 20 Z" fill="#6B4A2A" stroke="#4A3119" strokeWidth="2.5" />
-                            <path d="M18 88 q 27 12 54 0" stroke="#3A2614" strokeWidth="3" fill="none" />
-                        </svg>
-                    </div>
-                )
-            }
-
-            return (
-                <div style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
-                    position: 'relative', overflow: 'hidden',
-                    background: 'linear-gradient(180deg, #38B6E8 0%, #5ECBE8 28%, #2FC4C0 50%, #7FE0D6 58%, #F4E2B8 70%, #FFF4DE 100%)',
-                }}>
-                    {/* sun */}
-                    <div style={{ position: 'absolute', top: '9%', right: '12%', width: 130, height: 130, borderRadius: '50%', background: 'radial-gradient(circle, #FFE27A 0%, #FFC83D 58%, #FFB02E 100%)', animation: 'tropSun 6s ease-in-out infinite', zIndex: 1 }} />
-                    {/* drifting clouds */}
-                    {clouds.map((c, i) => (
-                        <div key={`cl-${i}`} style={{ position: 'absolute', left: c.x, top: c.y, transform: `scale(${c.s})`, animation: `tropCloud ${c.d}s ease-in-out infinite alternate`, zIndex: 1 }}>
-                            <div style={{ position: 'relative', width: 180, height: 50 }}>
-                                <div style={{ position: 'absolute', bottom: 0, left: 0, width: 180, height: 36, borderRadius: 30, background: 'rgba(255,255,255,0.92)' }} />
-                                <div style={{ position: 'absolute', bottom: 8, left: 32, width: 62, height: 62, borderRadius: '50%', background: 'rgba(255,255,255,0.92)' }} />
-                                <div style={{ position: 'absolute', bottom: 6, left: 84, width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,0.92)' }} />
-                            </div>
-                        </div>
-                    ))}
-                    {/* shimmering lagoon band */}
-                    <div style={{ position: 'absolute', left: 0, right: 0, top: '50%', height: '11%', zIndex: 1, opacity: 0.5, backgroundImage: 'repeating-linear-gradient(95deg, rgba(255,255,255,0.6) 0 3px, transparent 3px 24px)', animation: 'tropWave 6s linear infinite' }} />
-
-                    {/* palms */}
-                    {Palm('palm-l', { left: -86, bottom: -34 }, false, 7)}
-                    {Palm('palm-r', { right: -86, bottom: -34 }, true, 8.5)}
-
-                    {/* torches */}
-                    {Torch('torch-l', 'left')}
-                    {Torch('torch-r', 'right')}
-
-                    {/* hero — a lashed wooden tiki sign framed in bamboo */}
-                    <div style={{ position: 'relative', zIndex: 5, textAlign: 'center', animation: 'tropBob 5s ease-in-out infinite' }}>
-                        {/* hibiscus bloom, top-left corner */}
-                        <svg width="78" height="78" viewBox="0 0 70 70" style={{ position: 'absolute', top: -34, left: -30, zIndex: 6, transform: 'rotate(-18deg)', filter: 'drop-shadow(0 4px 6px rgba(14,46,41,0.3))' }}>
-                            {[0, 72, 144, 216, 288].map((a) => (
-                                <ellipse key={a} cx="35" cy="17" rx="13" ry="17" fill="#FF3D81" stroke="#E02468" strokeWidth="1.5" transform={`rotate(${a} 35 35)`} />
-                            ))}
-                            <circle cx="35" cy="35" r="7.5" fill="#FFC83D" />
-                            <circle cx="35" cy="35" r="3" fill="#FF8A3C" />
-                        </svg>
-                        {/* monstera leaf, top-right corner */}
-                        <svg width="86" height="86" viewBox="0 0 100 100" style={{ position: 'absolute', top: -40, right: -38, zIndex: 6, transform: 'rotate(22deg)', filter: 'drop-shadow(0 4px 6px rgba(14,46,41,0.3))' }}>
-                            <path d="M50 96 C 12 70 6 30 46 6 C 92 26 90 72 50 96 Z" fill="#1FA85C" stroke="#0E6B39" strokeWidth="2.5" />
-                            <path d="M50 90 L50 20 M50 64 L24 52 M50 64 L76 52 M50 42 L30 32 M50 42 L70 32" stroke="#0E6B39" strokeWidth="2.5" fill="none" strokeLinecap="round" opacity="0.6" />
-                        </svg>
-
-                        <div style={{
-                            position: 'relative', overflow: 'hidden',
-                            background: 'linear-gradient(165deg, #8A5A2F 0%, #6E4423 100%)',
-                            borderRadius: 26, padding: '46px 64px 50px',
-                            border: '7px solid #CDA85A',
-                            boxShadow: '0 24px 56px rgba(14,46,41,0.42), inset 0 0 0 3px rgba(0,0,0,0.22)',
-                        }}>
-                            {/* wood grain */}
-                            <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(180deg, rgba(0,0,0,0.10) 0 2px, transparent 2px 17px)', pointerEvents: 'none' }} />
-                            {/* corner rope lashings */}
-                            {[{ t: 8, l: 8 }, { t: 8, r: 8 }, { b: 8, l: 8 }, { b: 8, r: 8 }].map((p, i) => (
-                                <div key={i} style={{ position: 'absolute', width: 26, height: 26, borderRadius: 6, background: 'repeating-linear-gradient(45deg, #E8D4A0 0 3px, #B8995E 3px 6px)', transform: 'rotate(45deg)', opacity: 0.9, ...p }} />
-                            ))}
-
-                            <h1 style={{ position: 'relative', fontFamily: theme.fontDisplay, fontSize: stageFont(98), color: '#FFF8E6', margin: 0, lineHeight: 1.0, textShadow: '0 3px 0 rgba(0,0,0,0.35), 0 0 30px rgba(255,200,61,0.4)' }}>
-                                Catch a Wave
-                            </h1>
-                            <p style={{ position: 'relative', fontFamily: theme.fontBody, fontWeight: 700, fontSize: stageFont(18), color: '#FFE9C2', letterSpacing: '0.16em', textTransform: 'uppercase', margin: '16px 0 28px' }}>
-                                Scan to add your song
-                            </p>
-                            {qrUrl && (
-                                <div style={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
-                                    <div style={{ padding: 12, background: '#FFF8E6', border: '5px solid #CDA85A', borderRadius: 14, boxShadow: '0 10px 22px rgba(0,0,0,0.3)' }}>
-                                        <img src={qrUrl} alt="QR" style={{ width: 196, height: 196, display: 'block', borderRadius: 6 }} />
-                                    </div>
-                                </div>
-                            )}
-                            {sessionCode && (
-                                <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', marginTop: 24 }}>
-                                    <div style={{ padding: '7px 26px', background: 'linear-gradient(135deg, #FFD23F, #FFB02E)', border: '4px solid #6E4423', borderRadius: 999, boxShadow: '0 6px 16px rgba(0,0,0,0.28)', transform: 'rotate(-2deg)' }}>
-                                        <p style={{ fontFamily: theme.fontDisplay, fontSize: stageFont(33), color: '#6E4423', letterSpacing: '0.14em', margin: 0 }}>
-                                            {sessionCode}
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )
-        }
-
-        // ---- Urban (Hip Hop) idle — also the fallback for unthemed idles ----
-        // A city wall after dark: streetlight pool + faint block courses, a
-        // flickering neon OPEN MIC sign, the headline sprayed as a dripping
-        // stencil plate, and the QR wheatpasted up as a taped paper flyer.
+    // Empty state — themed waiting screen with QR code. Lobby Mode also lands
+    // here with songs already queued: the stage holds the join screen while
+    // guests pile them in, and nothing is ever put on deck.
+    //
+    // The stageMode guard matters — flipping the lobby on mid-performance must
+    // NOT yank the stage off a song that's underway, because the singers' mic
+    // chains live in the playing branch below and would be torn down with it
+    // (their vocals would cut out). A song in flight finishes; resolveNextSong
+    // then hands the stage back to the lobby instead of pulling up the next one.
+    if (!track || (state.lobbyMode && state.stageMode !== 'playing')) {
         return (
-            <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
-                background: URB_VOID, position: 'relative', overflow: 'hidden',
-            }}>
-                <UrbanRoughDefs id="urban-idle-rough" />
-                <UrbanWallLayers noiseId="urban-idle-noise" />
-
-                <div style={{ textAlign: 'center', zIndex: 1, position: 'relative' }}>
-                    {/* Flickering neon sign */}
-                    <div className="nb-rise" style={{ marginBottom: 30 }}>
-                        <UrbanNeonSign text="Open Mic" fontSize={stageFont(19)} />
-                    </div>
-
-                    {/* Sprayed, dripping headline plate */}
-                    <div className="nb-rise" style={{ animationDelay: '0.06s', marginBottom: 18 }}>
-                        <UrbanSprayPlate color={URB_GREEN} filterId="urban-idle-rough" rotate={-2} style={{ padding: '2px 18px 6px' }}>
-                            <h1 style={{
-                                fontFamily: URB_MARKER, fontSize: stageFont(64), fontWeight: 400,
-                                lineHeight: 1.12, margin: 0, padding: '0 8px', letterSpacing: '2px',
-                            }}>
-                                DROP A TRACK
-                            </h1>
-                        </UrbanSprayPlate>
-                    </div>
-                    <p className="nb-rise" style={{
-                        animationDelay: '0.12s',
-                        fontFamily: URB_STENCIL, fontWeight: 300, fontSize: stageFont(16), color: URB_ASH,
-                        letterSpacing: '0.42em', textTransform: 'uppercase', marginBottom: 44,
-                    }}>
-                        Scan the flyer — run the queue
-                    </p>
-
-                    {/* Wheatpasted QR flyer */}
-                    {qrUrl && (
-                        <div className="nb-rise" style={{ display: 'inline-block', animationDelay: '0.18s', position: 'relative', transform: 'rotate(-1.8deg)' }}>
-                            <div style={{
-                                background: URB_PAPER, padding: '16px 16px 12px',
-                                clipPath: 'polygon(0 0, 100% 0, 100% 94%, 90% 100%, 72% 95%, 48% 100%, 26% 96%, 10% 100%, 0 95%)',
-                                boxShadow: '0 24px 55px rgba(0,0,0,0.85)',
-                            }}>
-                                <img src={qrUrl} alt="QR" style={{ width: 208, height: 208, display: 'block' }} />
-                                <span style={{
-                                    display: 'block', marginTop: 10, marginBottom: 4, textAlign: 'center',
-                                    fontFamily: URB_STENCIL, fontWeight: 700, fontSize: stageFont(13),
-                                    letterSpacing: '0.4em', textTransform: 'uppercase', color: '#0A0A0A',
-                                }}>
-                                    Pull Up
-                                </span>
-                            </div>
-                            <UrbanTape style={{ top: -12, left: '50%', marginLeft: -52 }} rotate={-2} width={104} />
-                        </div>
-                    )}
-
-                    {/* Session code — stencil sprayed under the flyer */}
-                    {sessionCode && (
-                        <p className="nb-rise" style={{
-                            animationDelay: '0.24s',
-                            fontFamily: URB_STENCIL, fontSize: stageFont(25), fontWeight: 600, color: URB_GREEN,
-                            letterSpacing: '0.45em', textTransform: 'uppercase', marginTop: 26,
-                            textShadow: `0 0 14px ${URB_GREEN}66, 0 0 34px ${URB_GREEN}33`,
-                        }}>
-                            [ {sessionCode} ]
-                        </p>
-                    )}
-                </div>
-            </div>
+            <LobbyStage
+                cycle={state.lobbyMode && state.lobbyCycleThemes}
+                theme={theme}
+                qrUrl={state.karaokeQrDataUrl}
+                sessionCode={state.karaokeSessionCode}
+                notices={state.lobbyMode}
+            />
         )
     }
 

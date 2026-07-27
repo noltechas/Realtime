@@ -545,6 +545,13 @@ export function useKaraokeSession() {
     useEffect(() => {
         if (window.electronAPI?.isStageWindow) return
         if (!state.karaokeSessionId) return
+        // Lobby Mode has no next-up: nothing is on deck, so every queued song
+        // stays in open vote competition and none gets pinned. Clearing the ref
+        // means the top song is locked again the moment the lobby ends.
+        if (state.lobbyMode) {
+            lockedRemoteIdRef.current = null
+            return
+        }
         const top = state.queue[0]
         if (!top?.remoteQueueId) {
             lockedRemoteIdRef.current = null
@@ -565,7 +572,54 @@ export function useKaraokeSession() {
         window.electronAPI?.lockQueueItem?.(top.remoteQueueId)
             .then(() => console.log('[Karaoke] Lock pushed to Supabase'))
             .catch(err => console.warn('[Karaoke] lockQueueItem failed:', err))
-    }, [state.queue, state.karaokeSessionId, dispatch])
+    }, [state.queue, state.karaokeSessionId, state.lobbyMode, dispatch])
+
+    // Entering Lobby Mode clears the persisted lock so the companion and mobile
+    // queues stop showing a pinned "Next Up" card while songs are still being
+    // collected. Edge-triggered on the flag so it doesn't spam Supabase.
+    const lobbyUnlockedRef = useRef(false)
+    useEffect(() => {
+        if (window.electronAPI?.isStageWindow) return
+        if (!state.karaokeSessionId) return
+        if (!state.lobbyMode) { lobbyUnlockedRef.current = false; return }
+        if (lobbyUnlockedRef.current) return
+        lobbyUnlockedRef.current = true
+        window.electronAPI?.unlockQueuedItems?.()
+            .catch(err => console.warn('[Karaoke] unlockQueuedItems failed:', err))
+    }, [state.lobbyMode, state.karaokeSessionId])
+
+    // Forward incoming song requests to the stage window so Lobby Mode can
+    // announce them. Requests never create a queue row, so the stage can't spot
+    // them by diffing the queue the way it does for queued songs. This lives
+    // here (not in AdminPage) so it fires no matter which page the host is on.
+    useEffect(() => {
+        if (window.electronAPI?.isStageWindow) return
+        const sessionId = state.karaokeSessionId
+        if (!sessionId) return
+
+        const ch = supabase
+            .channel('renderer-requests-' + sessionId)
+            .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'karaoke_song_requests', filter: 'session_id=eq.' + sessionId },
+                (payload) => {
+                    const row = payload.new as any
+                    if (!row?.id) return
+                    window.electronAPI?.sendStageNotice?.({
+                        kind: 'requested',
+                        id: row.id,
+                        title: row.track_name || 'A song',
+                        artist: row.track_artist || '',
+                        artUrl: row.track_art_url || null,
+                        byName: row.requested_by_name || null,
+                        byPicture: row.requested_by_profile_picture || null,
+                    })
+                }
+            )
+            .subscribe()
+
+        return () => { supabase.removeChannel(ch) }
+    }, [state.karaokeSessionId])
 
     // Sync theme changes to Supabase
     useEffect(() => {

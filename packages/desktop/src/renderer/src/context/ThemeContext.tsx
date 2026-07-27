@@ -60,8 +60,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setThemeName(theme.nextThemeName)
   }
 
-  // Inject theme-specific global CSS and set data-theme attribute
+  // Inject theme-specific global CSS and set data-theme attribute.
+  // STAGE WINDOW ONLY: the main window's host console has a fixed design
+  // (styles/admin.css) and must never receive theme CSS — several themes
+  // restyle body/button/* via [data-theme] selectors, which would override it.
   useEffect(() => {
+    if (!window.electronAPI?.isStageWindow) return
     document.documentElement.dataset.theme = theme.name
 
     let style = document.getElementById('theme-global-css') as HTMLStyleElement | null
@@ -105,6 +109,10 @@ export function StageThemeProvider({ themeName, children }: { themeName?: string
   const effective: Theme = override ?? parent
 
   useEffect(() => {
+    // Same stage-window gate as ThemeProvider: never let theme CSS leak into
+    // the main window's fixed-design console (its cleanup would re-inject the
+    // parent theme's CSS document-wide).
+    if (!window.electronAPI?.isStageWindow) return
     const root = document.documentElement
     root.dataset.theme = effective.name
 

@@ -69,6 +69,10 @@ export interface ReactionCellProps {
   disabled?: boolean
 }
 
+export interface ScreenTitleProps {
+  title: string
+}
+
 export interface StageTabIconProps {
   color: string
   size?: number
@@ -133,6 +137,12 @@ export interface ThemeUIModule {
   // (e.g. deep-sea's bubble-float). Themes without one return `children`
   // unchanged.
   ItemFloater: React.ComponentType<{ delay?: number; style?: ViewStyle; children: React.ReactNode }>
+
+  // Optional bespoke screen heading (Queue, React, …). When a theme provides
+  // one, screens render it instead of `<Text style={styles.h1}>`, which lets the
+  // theme add structure a single Text can't carry — tropical pairs a surf-script
+  // title with its signature wave rule. Themes without one fall back to h1.
+  ScreenTitle?: React.ComponentType<ScreenTitleProps>
 
   // Songs screen atoms
   SongsSearchBar: React.ComponentType<SongsSearchBarProps>

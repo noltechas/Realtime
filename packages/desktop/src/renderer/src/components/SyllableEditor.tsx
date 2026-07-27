@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import type { Syllable, LyricLine } from '../context/AppContext'
-import type { Theme } from '../styles/theme'
 import { deriveTapTimings } from '../utils/resyncSyllables'
+import { Button, Icon, IconButton } from './ui'
 
 /**
  * Inline per-syllable editor for a single lyric line.
@@ -47,12 +47,11 @@ interface Props {
     line: LyricLine
     nextLineStartMs?: number
     instrumentalPath: string | null
-    theme: Theme
     onChange: (next: { syllables: Syllable[]; words: string }) => void
     onClose: () => void
 }
 
-export function SyllableEditor({ line, nextLineStartMs, instrumentalPath, theme, onChange, onClose }: Props) {
+export function SyllableEditor({ line, nextLineStartMs, instrumentalPath, onChange, onClose }: Props) {
     // Working syllables (source of truth while the editor is open). Initialised once.
     const [syls, setSyls] = useState<Syllable[]>(() => deepCopy(line.syllables || []))
     const originalRef = useRef<Syllable[]>(deepCopy(line.syllables || []))
@@ -269,28 +268,26 @@ export function SyllableEditor({ line, nextLineStartMs, instrumentalPath, theme,
 
     // ── Render ────────────────────────────────────────────────────────────────
     const panel: CSSProperties = {
-        margin: '2px 14px 10px 52px', padding: 12, borderRadius: theme.radius,
-        background: theme.cream, border: theme.border, boxShadow: theme.shadow,
+        margin: '2px 12px 10px 48px', padding: 12,
         display: 'flex', flexDirection: 'column', gap: 10,
     }
-    const labelStyle: CSSProperties = { fontSize: 11, fontWeight: 700, color: theme.muted, fontFamily: theme.fontDisplay, textTransform: 'uppercase', letterSpacing: 0.5 }
 
     return (
-        <div style={panel} tabIndex={0}>
-            <style>{`@keyframes sylPulse{0%,100%{box-shadow:0 0 0 0 ${theme.accentA}00}50%{box-shadow:0 0 0 4px ${theme.accentA}55}}`}</style>
+        <div className="adm-well" style={panel} tabIndex={0}>
+            <style>{`@keyframes admSylPulse{0%,100%{box-shadow:0 0 0 0 rgba(245,165,36,0)}50%{box-shadow:0 0 0 4px rgba(245,165,36,0.35)}}`}</style>
 
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={labelStyle}>Per-syllable editor</div>
-                <button
-                    onClick={onClose}
-                    style={{ background: 'none', border: 'none', color: theme.faint, cursor: 'pointer', fontSize: 16, padding: 2, lineHeight: 1 }}
-                    title="Close editor"
-                >✕</button>
+                <div className="adm-label">Per-syllable editor</div>
+                <IconButton icon="x" size={24} title="Close editor" onClick={onClose} />
             </div>
 
             {/* Timeline strip */}
-            <div style={{ position: 'relative', height: 30, background: theme.creamDark, borderRadius: theme.radiusSmall, border: theme.borderThin, overflow: 'hidden' }}>
+            <div style={{
+                position: 'relative', height: 30, overflow: 'hidden',
+                background: 'var(--adm-card)', borderRadius: 'var(--adm-r-sm)',
+                border: '1px solid var(--adm-line)',
+            }}>
                 {syls.map((s, i) => {
                     const left = ((s.startMs - windowStart) / windowSpan) * 100
                     const width = (s.durMs / windowSpan) * 100
@@ -299,14 +296,19 @@ export function SyllableEditor({ line, nextLineStartMs, instrumentalPath, theme,
                         <div key={i} title={`${trimmed(s.text) || '·'} — ${fmtTime(s.startMs)} (${s.durMs}ms)`}
                             style={{
                                 position: 'absolute', top: 3, bottom: 3, left: `${left}%`, width: `${Math.max(0.6, width)}%`,
-                                background: active ? theme.accentA : `${theme.accentC}55`,
-                                border: `1px solid ${theme.black}22`, borderRadius: 3, overflow: 'hidden',
-                                fontSize: 9, color: theme.black, lineHeight: '22px', textAlign: 'center', whiteSpace: 'nowrap',
+                                background: active ? 'var(--adm-amber)' : 'rgba(76,195,232,0.35)',
+                                border: '1px solid rgba(0,0,0,0.35)', borderRadius: 3, overflow: 'hidden',
+                                fontSize: 9, color: active ? '#191104' : 'var(--adm-text)',
+                                lineHeight: '22px', textAlign: 'center', whiteSpace: 'nowrap',
                             }}>{trimmed(s.text)}</div>
                     )
                 })}
                 {tapMode && playheadMs >= windowStart && (
-                    <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${Math.min(100, ((playheadMs - windowStart) / windowSpan) * 100)}%`, width: 2, background: theme.hotRed, boxShadow: `0 0 4px ${theme.hotRed}` }} />
+                    <div style={{
+                        position: 'absolute', top: 0, bottom: 0,
+                        left: `${Math.min(100, ((playheadMs - windowStart) / windowSpan) * 100)}%`,
+                        width: 2, background: 'var(--adm-red)', boxShadow: '0 0 5px var(--adm-red)',
+                    }} />
                 )}
             </div>
 
@@ -322,10 +324,10 @@ export function SyllableEditor({ line, nextLineStartMs, instrumentalPath, theme,
                                 onClick={tapMode ? () => reArm(i) : undefined}
                                 style={{
                                     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-                                    padding: 3, borderRadius: theme.radiusSmall, cursor: tapMode ? 'pointer' : 'default',
-                                    background: isTapped ? `${theme.accentA}33` : 'transparent',
-                                    border: `2px solid ${isArmed ? theme.accentA : 'transparent'}`,
-                                    animation: isArmed ? 'sylPulse 1s ease-in-out infinite' : undefined,
+                                    padding: 3, borderRadius: 6, cursor: tapMode ? 'pointer' : 'default',
+                                    background: isTapped ? 'var(--adm-amber-soft)' : 'transparent',
+                                    border: `1px solid ${isArmed ? 'var(--adm-amber)' : 'transparent'}`,
+                                    animation: isArmed ? 'admSylPulse 1s ease-in-out infinite' : undefined,
                                 }}
                             >
                                 <input
@@ -335,16 +337,17 @@ export function SyllableEditor({ line, nextLineStartMs, instrumentalPath, theme,
                                     disabled={tapMode}
                                     style={{
                                         width: `${Math.max(2, trimmed(s.text).length + 1)}ch`, minWidth: 18, textAlign: 'center',
-                                        fontSize: 13, fontFamily: theme.fontBody, color: theme.black,
-                                        background: theme.white, border: theme.borderThin, borderRadius: 4, padding: '3px 2px', outline: 'none',
+                                        fontSize: 13, fontFamily: 'var(--adm-body)', color: 'var(--adm-text)',
+                                        background: 'var(--adm-card)', border: '1px solid var(--adm-line)',
+                                        borderRadius: 4, padding: '3px 2px', outline: 'none',
                                     }}
                                 />
                                 {!tapMode && (
                                     <div style={{ display: 'flex', gap: 1 }}>
-                                        <ChipBtn theme={theme} title="Split syllable" onClick={() => splitChip(i)}>⇆</ChipBtn>
-                                        {i < syls.length - 1 && <ChipBtn theme={theme} title="Merge with next" onClick={() => mergeNext(i)}>⋯</ChipBtn>}
-                                        <ChipBtn theme={theme} title="Add syllable after" onClick={() => addAfter(i)}>+</ChipBtn>
-                                        <ChipBtn theme={theme} title="Delete syllable" onClick={() => deleteChip(i)}>✕</ChipBtn>
+                                        <ChipBtn title="Split syllable" onClick={() => splitChip(i)}>⇆</ChipBtn>
+                                        {i < syls.length - 1 && <ChipBtn title="Merge with next" onClick={() => mergeNext(i)}>⋯</ChipBtn>}
+                                        <ChipBtn title="Add syllable after" onClick={() => addAfter(i)}>+</ChipBtn>
+                                        <ChipBtn title="Delete syllable" onClick={() => deleteChip(i)}>✕</ChipBtn>
                                     </div>
                                 )}
                             </div>
@@ -356,7 +359,7 @@ export function SyllableEditor({ line, nextLineStartMs, instrumentalPath, theme,
                                     disabled={tapMode}
                                     style={{
                                         width: boundary ? 10 : 4, alignSelf: 'stretch', minHeight: 26, margin: '0 1px',
-                                        background: boundary ? `${theme.muted}33` : theme.accentC, border: 'none',
+                                        background: boundary ? 'rgba(159,172,202,0.22)' : 'var(--adm-cyan)', border: 'none',
                                         borderRadius: 2, cursor: tapMode ? 'default' : 'pointer', padding: 0,
                                     }}
                                 />
@@ -369,43 +372,53 @@ export function SyllableEditor({ line, nextLineStartMs, instrumentalPath, theme,
             {/* Tap controls */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 {!tapMode ? (
-                    <button
-                        onClick={startTapMode}
-                        disabled={!hasAudio || !audioReady}
-                        style={{
-                            ...theme.btnSecondary, fontSize: 12, padding: '7px 16px',
-                            opacity: hasAudio && audioReady ? 1 : 0.5, cursor: hasAudio && audioReady ? 'pointer' : 'not-allowed',
-                        }}
-                    >▶ Play &amp; Tap timing</button>
+                    <Button size="sm" icon="play" onClick={startTapMode} disabled={!hasAudio || !audioReady}>
+                        Play &amp; Tap timing
+                    </Button>
                 ) : (
                     <>
-                        <button
-                            onClick={recordTap}
-                            style={{ ...theme.btnSecondary, fontSize: 14, fontWeight: 800, padding: '9px 28px', background: theme.accentA, color: theme.black, border: `2px solid ${theme.black}` }}
-                        >TAP (Space)</button>
-                        <button onClick={() => stopTapMode({ commitTaps: true })} style={{ ...theme.btnSecondary, fontSize: 12, padding: '7px 14px' }}>Stop &amp; keep</button>
-                        <button onClick={() => stopTapMode({ commitTaps: false })} style={{ background: 'none', border: 'none', color: theme.faint, fontSize: 12, cursor: 'pointer' }}>Cancel</button>
-                        <span style={{ fontSize: 12, color: theme.muted, fontFamily: theme.fontBody }}>
+                        <Button variant="primary" onClick={recordTap} style={{ padding: '8px 26px', fontWeight: 700 }}>
+                            TAP (Space)
+                        </Button>
+                        <Button size="sm" onClick={() => stopTapMode({ commitTaps: true })}>Stop &amp; keep</Button>
+                        <Button variant="ghost" size="sm" onClick={() => stopTapMode({ commitTaps: false })}>Cancel</Button>
+                        <span style={{ fontSize: 12, color: 'var(--adm-text-2)' }}>
                             {armed < syls.length ? `Tap syllable ${armed + 1} / ${syls.length}: “${trimmed(syls[armed]?.text) || '·'}”` : 'All tapped — stopping…'}
                         </span>
                     </>
                 )}
-                <button onClick={reset} disabled={tapMode} style={{ background: 'none', border: 'none', color: tapMode ? theme.faint : theme.muted, fontSize: 12, cursor: tapMode ? 'default' : 'pointer', textDecoration: 'underline' }}>Reset line</button>
-                {!hasAudio && <span style={{ fontSize: 11, color: theme.faint, fontFamily: theme.fontBody }}>No instrumental — numeric fine-tune only.</span>}
-                {hasAudio && !audioReady && !tapMode && <span style={{ fontSize: 11, color: theme.faint, fontFamily: theme.fontBody }}>Loading audio…</span>}
+                <button
+                    onClick={reset}
+                    disabled={tapMode}
+                    style={{
+                        background: 'none', border: 'none', fontSize: 12,
+                        color: tapMode ? 'var(--adm-text-3)' : 'var(--adm-text-2)',
+                        cursor: tapMode ? 'default' : 'pointer', textDecoration: 'underline',
+                        fontFamily: 'var(--adm-body)',
+                    }}
+                >
+                    Reset line
+                </button>
+                {!hasAudio && <span style={{ fontSize: 11, color: 'var(--adm-text-3)' }}>No instrumental — numeric fine-tune only.</span>}
+                {hasAudio && !audioReady && !tapMode && <span style={{ fontSize: 11, color: 'var(--adm-text-3)' }}>Loading audio…</span>}
             </div>
 
             {/* Numeric fine-tune */}
             {!tapMode && (
                 <details>
-                    <summary style={{ ...labelStyle, cursor: 'pointer' }}>Fine-tune timing (ms)</summary>
+                    <summary className="adm-label" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <Icon name="clock" size={11} /> Fine-tune timing (ms)
+                    </summary>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
                         {syls.map((s, i) => (
-                            <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 4, border: theme.borderThin, borderRadius: theme.radiusSmall, background: theme.white }}>
-                                <span style={{ fontSize: 10, color: theme.muted, textAlign: 'center', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{trimmed(s.text) || '·'}</span>
+                            <div key={i} style={{
+                                display: 'flex', flexDirection: 'column', gap: 2, padding: 5,
+                                border: '1px solid var(--adm-line)', borderRadius: 6, background: 'var(--adm-card)',
+                            }}>
+                                <span style={{ fontSize: 10, color: 'var(--adm-text-2)', textAlign: 'center', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{trimmed(s.text) || '·'}</span>
                                 <div style={{ display: 'flex', gap: 3 }}>
-                                    <NumField theme={theme} label="start" value={s.startMs} onCommit={v => setTiming(i, 'startMs', v)} />
-                                    <NumField theme={theme} label="dur" value={s.durMs} onCommit={v => setTiming(i, 'durMs', v)} />
+                                    <NumField label="start" value={s.startMs} onCommit={v => setTiming(i, 'startMs', v)} />
+                                    <NumField label="dur" value={s.durMs} onCommit={v => setTiming(i, 'durMs', v)} />
                                 </div>
                             </div>
                         ))}
@@ -416,31 +429,36 @@ export function SyllableEditor({ line, nextLineStartMs, instrumentalPath, theme,
     )
 }
 
-function ChipBtn({ theme, title, onClick, children }: { theme: Theme; title: string; onClick: () => void; children: ReactNode }) {
+function ChipBtn({ title, onClick, children }: { title: string; onClick: () => void; children: ReactNode }) {
     return (
         <button
             onClick={onClick}
             title={title}
             style={{
                 width: 16, height: 16, fontSize: 10, lineHeight: '14px', padding: 0,
-                background: theme.creamDark, border: theme.borderThin, borderRadius: 3,
-                color: theme.muted, cursor: 'pointer',
+                background: 'var(--adm-card-2)', border: '1px solid var(--adm-line)', borderRadius: 3,
+                color: 'var(--adm-text-2)', cursor: 'pointer',
             }}
         >{children}</button>
     )
 }
 
-function NumField({ theme, label, value, onCommit }: { theme: Theme; label: string; value: number; onCommit: (v: number) => void }) {
+function NumField({ label, value, onCommit }: { label: string; value: number; onCommit: (v: number) => void }) {
     const [v, setV] = useState(String(value))
     useEffect(() => { setV(String(value)) }, [value])
     return (
         <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <span style={{ fontSize: 8, color: theme.faint }}>{label}</span>
+            <span style={{ fontSize: 8, color: 'var(--adm-text-3)' }}>{label}</span>
             <input
                 value={v}
                 onChange={e => setV(e.target.value.replace(/[^0-9]/g, ''))}
                 onBlur={() => { const n = parseInt(v, 10); if (!isNaN(n)) onCommit(n) }}
-                style={{ width: 52, fontSize: 11, textAlign: 'center', fontFamily: 'monospace', color: theme.black, background: theme.cream, border: theme.borderThin, borderRadius: 3, padding: '2px 0', outline: 'none' }}
+                className="adm-mono"
+                style={{
+                    width: 52, fontSize: 11, textAlign: 'center', color: 'var(--adm-text)',
+                    background: 'var(--adm-well)', border: '1px solid var(--adm-line)',
+                    borderRadius: 3, padding: '2px 0', outline: 'none',
+                }}
             />
         </label>
     )

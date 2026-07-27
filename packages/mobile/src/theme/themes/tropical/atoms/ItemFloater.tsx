@@ -1,9 +1,11 @@
-import React, { useEffect, useRef } from 'react'
+import React from 'react'
 import { Animated, type ViewStyle } from 'react-native'
+import { useEnter } from './_tropical'
 
-// Tropical item entry — list items drift up and settle like a buoy bobbing into
-// place: a soft fade + rise + gentle overshoot, staggered by `delay`. Replaces
-// the neo-brutal no-op floater so lists feel like they wash ashore.
+// Tropical item entry — content washes ashore: it fades up, rises and settles
+// with a hair of overshoot on the shared entrance spring, staggered by `delay`.
+// Same curve as every other arrival in the theme (see useEnter), so a list, a
+// hero and a card all move like they belong to one system.
 export function ItemFloater({
   delay = 0,
   style,
@@ -13,25 +15,10 @@ export function ItemFloater({
   style?: ViewStyle
   children: React.ReactNode
 }) {
-  const v = useRef(new Animated.Value(0)).current
-
-  useEffect(() => {
-    const anim = Animated.spring(v, {
-      toValue: 1,
-      delay,
-      useNativeDriver: true,
-      damping: 13,
-      stiffness: 140,
-      mass: 0.9,
-    })
-    anim.start()
-    return () => anim.stop()
-  }, [v, delay])
-
-  const translateY = v.interpolate({ inputRange: [0, 1], outputRange: [16, 0] })
+  const { opacity, translateY, scale } = useEnter(delay, 18)
 
   return (
-    <Animated.View style={[style, { opacity: v, transform: [{ translateY }] }]}>
+    <Animated.View style={[style, { opacity, transform: [{ translateY }, { scale }] }]}>
       {children}
     </Animated.View>
   )

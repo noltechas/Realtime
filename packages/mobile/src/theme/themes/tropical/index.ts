@@ -6,6 +6,7 @@ import { GenreTabs } from './atoms/GenreTabs'
 import { TabBar } from './atoms/TabBar'
 import { Backdrop } from './atoms/Backdrop'
 import { ItemFloater } from './atoms/ItemFloater'
+import { ScreenTitle } from './atoms/ScreenTitle'
 import { SongsSearchBar } from './atoms/SongsSearchBar'
 import { SongCard } from './atoms/SongCard'
 import { QueueRow } from './atoms/QueueRow'
@@ -14,13 +15,17 @@ import { StageTabIcon } from './atoms/StageTabIcon'
 import { StagePlayButton } from './atoms/StagePlayButton'
 import { StageToggleBox } from './atoms/StageToggleBox'
 import { YoureUpHero } from './atoms/YoureUpHero'
+import { ArtOverlay } from './atoms/ArtOverlay'
 
-// Tropical / Tiki Beach — a sun-drenched island getaway over a full-bleed photo
-// backdrop. Warm sand panels framed in bamboo, lagoon-turquoise accents, sunset
-// + hibiscus pops, flickering tiki-torch flames and Pacifico surf-script
-// headings. Every atom reads colors directly from the shared tropical vocabulary
-// (_tropical.tsx) so there's no per-theme name branching here; switching themes
-// swaps the entire ThemeUIModule via the registry.
+// Tropical — "Lagoon". A bright, airy, modern beach: a drawn sky→sand scene with
+// water drifting across the bottom, frosted sea-glass surfaces floating on soft
+// tinted shadows, one confident lagoon accent doing the work, and dimensional lit
+// objects (sun, beads, chrome mic) where the theme needs presence.
+//
+// Every colour, type ramp, shadow, spring and object comes from the shared
+// vocabulary in atoms/_tropical.tsx — no atom invents its own. Switching themes
+// swaps this whole module through the registry, so nothing here branches on the
+// theme name.
 export const TROPICAL_UI: ThemeUIModule = {
   styles,
 
@@ -32,6 +37,8 @@ export const TROPICAL_UI: ThemeUIModule = {
   Backdrop,
   ItemFloater,
 
+  ScreenTitle,
+
   SongsSearchBar,
   SongCard,
 
@@ -42,13 +49,13 @@ export const TROPICAL_UI: ThemeUIModule = {
   StagePlayButton,
   StageToggleBox,
   YoureUpHero,
+  ArtOverlay,
 
-  // Reaction cells punch the emoji / chatbubble / camera / image icons onto a
-  // bright lei-medallion disc; deep-palm ink keeps them legible across the
-  // sunshine/lagoon/palm spot colors. The "+" custom-emoji glyph uses the faint
-  // driftwood tone so it reads as a placeholder.
+  // Reaction tiles are frosted glass over a pale tide-pool wash, so the
+  // screen-owned Ionicons inside them take the theme's soft ink; the "+" on an
+  // empty custom-emoji tile drops to driftwood so it reads as a placeholder.
   reactionIconColors: {
-    iconColor: '#123A33',
-    plusIconColor: '#9DB5AB',
+    iconColor: '#2F6B62',
+    plusIconColor: '#A3C0B9',
   },
 }
