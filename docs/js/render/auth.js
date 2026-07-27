@@ -55,7 +55,7 @@ export function renderJoin(){
     '<div class="avatar-upload-hint">Tap to add a photo (optional)</div>'+
     '<input class="join-input" id="name-input" placeholder="Your name" maxlength="30" autocomplete="off" value="'+esc(S.joinName||"")+'">'+
     '<button class="join-btn" id="join-btn" disabled>Join Session</button>'+
-    '<button id="rejoin-open" style="margin-top:14px;width:100%;max-width:320px;padding:14px 16px;border-radius:99px;border:1px solid var(--white-faint);background:transparent;color:var(--white-muted);font-size:13px;font-weight:700;font-family:var(--font-display);cursor:pointer;letter-spacing:0.5px">Rejoin existing user</button>'+
+    '<button id="rejoin-open" class="join-alt-btn" type="button">Rejoin existing user</button>'+
     '<div class="join-session-code">'+esc(S.sessionCode)+'</div>'+
   '</div>';
 }

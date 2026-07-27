@@ -461,11 +461,6 @@
   min-width: 0;
   overflow: hidden;
 }
-[data-theme="neo-brutal"] .awards-icon-grid button,
-[data-theme="sketch"]     .awards-icon-grid button {
-  background: #fff;
-  border-color: rgba(0,0,0,0.12);
-}
 .awards-icon-grid button:hover { color: var(--white); }
 .awards-icon-grid button:active { transform: scale(0.93); }
 .awards-icon-grid button.active {

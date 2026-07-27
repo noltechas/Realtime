@@ -98,7 +98,7 @@ export function renderSongCards(fl){
   // Sentinel marks the bottom of the grid for the IntersectionObserver.
   // We render the request CTA at the very end (after all batches are loaded).
   var sentinel=hasMore
-    ? '<div id="songs-sentinel" class="song-empty" style="grid-column:1/-1;padding:24px 12px;font-size:12px;opacity:0.6;">Loading more songs…</div>'
+    ? '<div id="songs-sentinel" class="songs-sentinel">Loading more songs…</div>'
     : '';
   return cards+sentinel+renderRequestCta();
 }
@@ -120,7 +120,7 @@ export function renderRequest(){
       var art=t.art?'<img src="'+esc(t.art)+'" alt="" loading="lazy">':'<div class="song-card-placeholder">&#127925;</div>';
       var overlay;
       if(inCatalog){
-        overlay='<span class="song-card-added">'+esc(addedLabel(S.theme_name))+'</span>';
+        overlay='<span class="song-card-added">'+esc(addedLabel())+'</span>';
       }else{
         var plusInner=submitting?
           '<div class="spinner" role="presentation"></div>':
@@ -184,7 +184,7 @@ export function renderSongs(){
     '<div class="songs-header" id="songs-header">'+
       '<div class="songs-header-top">'+
         '<div class="songs-header-top-inner">'+
-          (S.sessionName?'<div style="font-size:11px;opacity:0.5;letter-spacing:1px;text-transform:uppercase;margin-bottom:2px;">'+esc(S.sessionName)+'</div>':'')+
+          (S.sessionName?'<div class="songs-session-eyebrow">'+esc(S.sessionName)+'</div>':'')+
           '<div class="songs-title">Songs'+(safe?' (safe mode)':'')+'</div>'+
           (safe?'':'<div class="search-bar">'+
             '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'+

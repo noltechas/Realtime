@@ -1,6 +1,5 @@
 import { S } from '../state.js';
 import { esc } from '../utils.js';
-import { applyTheme } from '../themes.js';
 import { renderJoin, renderRejoin, renderJoining, renderProfile, renderDownloadPrompt } from './auth.js';
 import { renderSongs, renderRequest } from './songs.js';
 import { renderWizardShell, renderWizardSingers, renderWizardRoles, renderWizardStage, renderWizardFooter, renderSingerPickerOverlay } from './wizard.js';
@@ -25,15 +24,6 @@ export function render(){
   }
   trackScreen();
   var a=document.getElementById("app");
-  // Apply song's stage theme on You're Up screen, restore global theme otherwise
-  if(S.screen==="youreup"&&S.nowPlayingStageTheme){
-    var saved=S.theme_name;
-    S.theme_name=S.nowPlayingStageTheme;
-    applyTheme();
-    S.theme_name=saved;
-  }else{
-    applyTheme();
-  }
   // Bottom nav and overlays live OUTSIDE #app so no in-app styling, animation
   // transform, or backdrop-filter context can break their `position: fixed`.
   // Each render() pass populates them via their own mount nodes.

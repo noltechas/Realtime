@@ -1,6 +1,5 @@
 import { sb, S, caches } from './state.js';
 import { tokenIfFresh, showQueueNotification } from './utils.js';
-import { applyTheme } from './themes.js';
 import { render } from './render/main.js';
 import { captureQueueRects, flipQueueAnimation, renderWithQueueFlip } from './animation.js';
 import { saveLocal, saveDeviceProfile, loadVotedMap, saveVotedMap } from './persistence.js';
@@ -107,19 +106,16 @@ export function sendReaction(type,content){
   });
 }
 export async function validateSession(){
-  var r=await sb.from("karaoke_sessions").select("id,is_active,name,now_playing_track_id,now_playing_name,now_playing_artist,now_playing_art_url,theme_name,is_playing,now_playing_singer_configs,now_playing_stage_theme,vocal_fx_enabled,autotune_enabled,trending_gifs,spotify_token,spotify_token_expires_at").eq("code",S.sessionCode).single();
+  var r=await sb.from("karaoke_sessions").select("id,is_active,name,now_playing_track_id,now_playing_name,now_playing_artist,now_playing_art_url,is_playing,now_playing_singer_configs,vocal_fx_enabled,autotune_enabled,trending_gifs,spotify_token,spotify_token_expires_at").eq("code",S.sessionCode).single();
   if(r.error||!r.data||!r.data.is_active){S.screen="error";S.errorMessage="This session has ended or does not exist.";render();return;}
   S.sessionId=r.data.id;caches.playedTrackIds={};
   if(r.data.trending_gifs&&Array.isArray(r.data.trending_gifs)){caches.allGifs=r.data.trending_gifs;}
   S.sessionName=r.data.name||null;
-  S.theme_name=r.data.theme_name;
-  applyTheme();
   S.isPlaying=!!r.data.is_playing;
   S.vocalFxEnabled=r.data.vocal_fx_enabled!==false;
   S.autotuneEnabled=r.data.autotune_enabled!==false;
   S.spotifyToken=tokenIfFresh(r.data.spotify_token,r.data.spotify_token_expires_at);
   S.nowPlayingSingerConfigs=r.data.now_playing_singer_configs||null;
-  S.nowPlayingStageTheme=r.data.now_playing_stage_theme||null;
   if(r.data.now_playing_name){S.nowPlaying={trackId:r.data.now_playing_track_id,name:r.data.now_playing_name,artist:r.data.now_playing_artist,artUrl:r.data.now_playing_art_url};if(r.data.now_playing_track_id)caches.playedTrackIds[r.data.now_playing_track_id]=true;}
   if(S.guestId){
     var gr=await sb.from("karaoke_guests").select("id,profile_picture,default_color").eq("id",S.guestId).eq("session_id",S.sessionId).single();
@@ -301,10 +297,6 @@ export function subRT(){
     if(d.vocal_fx_enabled!==undefined)S.vocalFxEnabled=d.vocal_fx_enabled!==false;
     if(d.autotune_enabled!==undefined)S.autotuneEnabled=d.autotune_enabled!==false;
     S.nowPlayingSingerConfigs=d.now_playing_singer_configs||null;
-    var prevStageTheme=S.nowPlayingStageTheme;
-    S.nowPlayingStageTheme=d.now_playing_stage_theme||null;
-    if(d.theme_name)S.theme_name=d.theme_name;
-    if(d.theme_name||prevStageTheme!==S.nowPlayingStageTheme)applyTheme();
     if(d.spotify_token!==undefined||d.spotify_token_expires_at!==undefined){
       S.spotifyToken=tokenIfFresh(d.spotify_token,d.spotify_token_expires_at);
     }

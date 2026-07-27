@@ -1,58 +1,119 @@
-/* Tropical theme faces — Florida Vibes (display) + The Last Trunks (body),
-   self-hosted so they match the desktop/stage + mobile tropical theme exactly. */
-@font-face {
-  font-family: 'Florida Vibes';
-  src: url('../fonts/FloridaVibes.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'The Last Trunks';
-  src: url('../fonts/TheLastTrunks.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
+/* ==========================================================================
+   Realtime Karaoke — companion web app
+   "After Hours" design system: a dim premium music venue, lit from above.
+   Ink-dark stage, soft spotlight pools, glass panels with a top light,
+   fine grain, springy motion. One hero gradient, used sparingly.
+
+   Fonts (loaded in index.html): Bricolage Grotesque (display),
+   Instrument Sans (body).
+   ========================================================================== */
 
 :root {
-  --black: #050508;
-  --surface-1: rgba(255,255,255,0.03);
-  --surface-2: rgba(255,255,255,0.06);
-  --surface-3: rgba(255,255,255,0.09);
-  --white: #f4f0fb;
-  --white-muted: rgba(244,240,251,0.55);
-  --white-faint: rgba(244,240,251,0.3);
-  --white-ghost: rgba(255,255,255,0.06);
-  --violet: #a78bfa;
-  --pink: #f472b6;
-  --cyan: #22d3ee;
-  --emerald: #34d399;
-  --amber: #fbbf24;
-  --red: #ef4444;
-  --grad-hero: linear-gradient(135deg, #e879f9, #a78bfa, #818cf8);
-  --grad-text: linear-gradient(135deg, #f472b6, #a78bfa, #818cf8);
-  --font-display: "Space Grotesk", system-ui, sans-serif;
-  --font-body: "DM Sans", system-ui, sans-serif;
+  /* Core semantic tokens — names are shared with awards.css and a few
+     inline styles in the render modules; keep the names stable. */
+  --black: #0A0A10;
+  --white: #F4F3F9;
+  --white-muted: rgba(244, 243, 249, 0.62);
+  --white-faint: rgba(244, 243, 249, 0.36);
+  --white-ghost: rgba(255, 255, 255, 0.08);
+  --surface-1: rgba(255, 255, 255, 0.045);
+  --surface-2: rgba(255, 255, 255, 0.08);
+  --surface-3: rgba(255, 255, 255, 0.12);
+
+  /* Solid card fills — used in long scrolling lists where translucent
+     stacking or backdrop-filter would hurt iOS Safari. */
+  --card: #13131C;
+  --card-2: #191924;
+  --hairline: rgba(255, 255, 255, 0.09);
+  --hairline-strong: rgba(255, 255, 255, 0.17);
+
+  /* Accents */
+  --violet: #8B7CFF;
+  --pink: #FF5E8A;
+  --cyan: #4CC9F0;
+  --emerald: #3DDC97;
+  --amber: #FFC46B;
+  --red: #FF4D67;
+  --glow-violet: rgba(139, 124, 255, 0.35);
+
+  /* The one hero gradient — logo, primary CTAs, active states. */
+  --grad-hero: linear-gradient(135deg, #FF5E8A, #8B7CFF 52%, #4CC9F0);
+  --grad-text: linear-gradient(100deg, #FF7FA3, #9D90FF 55%, #6FD8FF);
+
+  --font-display: "Bricolage Grotesque", "Space Grotesk", system-ui, sans-serif;
+  --font-body: "Instrument Sans", "DM Sans", system-ui, sans-serif;
+
+  /* Motion + light */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.45, 0.64, 1);
+  --top-light: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  --shadow-card: 0 10px 30px -12px rgba(0, 0, 0, 0.55);
+  --shadow-float: 0 24px 60px -16px rgba(0, 0, 0, 0.65);
 }
+
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html { background: var(--black); color: var(--white); font-family: var(--font-body); font-size: 16px; overscroll-behavior: contain; }
+
+html {
+  background: var(--black);
+  color: var(--white);
+  font-family: var(--font-body);
+  font-size: 16px;
+  overscroll-behavior: contain;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
 body { min-height: 100dvh; position: relative; overflow-x: hidden; }
+
+::selection { background: rgba(139, 124, 255, 0.35); color: var(--white); }
+
+/* --------------------------------------------------------------------------
+   Atmosphere. Two fixed layers behind everything:
+   1. .mesh-bg — spotlight pools drifting very slowly (transform/opacity only)
+   2. body::before — fine photographic grain so surfaces never look plastic
+   -------------------------------------------------------------------------- */
 .mesh-bg {
-  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  position: fixed; inset: -10%; z-index: 0; pointer-events: none;
   background:
-    radial-gradient(ellipse 60% 50% at 20% 20%, rgba(139,92,246,0.08), transparent),
-    radial-gradient(ellipse 50% 40% at 80% 80%, rgba(236,72,153,0.06), transparent),
-    radial-gradient(ellipse 40% 60% at 50% 50%, rgba(59,130,246,0.04), transparent);
-  animation: meshShift 20s ease-in-out infinite alternate;
+    radial-gradient(ellipse 70% 45% at 50% -8%, rgba(139, 124, 255, 0.16), transparent 62%),
+    radial-gradient(ellipse 44% 32% at 90% 12%, rgba(255, 94, 138, 0.09), transparent 65%),
+    radial-gradient(ellipse 50% 36% at 6% 30%, rgba(76, 201, 240, 0.07), transparent 65%),
+    radial-gradient(ellipse 62% 50% at 50% 114%, rgba(139, 124, 255, 0.07), transparent 70%);
+  animation: stageDrift 26s ease-in-out infinite alternate;
 }
-@keyframes meshShift {
-  0% { opacity: 0.7; transform: scale(1) rotate(0deg); }
-  100% { opacity: 1; transform: scale(1.1) rotate(2deg); }
+@keyframes stageDrift {
+  from { opacity: 0.75; transform: translate3d(0, 0, 0) scale(1); }
+  to   { opacity: 1;    transform: translate3d(0, -1.6%, 0) scale(1.05); }
 }
-.app { position: relative; z-index: 1; padding-bottom: 80px; }
-.screen { animation: screenIn 0.3s cubic-bezier(0.22,1,0.36,1); }
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+}
+
+/* App shell — content sits above the atmosphere; bottom padding clears the
+   floating dock nav. */
+.app { position: relative; z-index: 1; padding-bottom: calc(108px + env(safe-area-inset-bottom)); }
+
+.screen { animation: screenIn 0.42s var(--ease-out) both; }
 @keyframes screenIn {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Keyboard focus — one consistent ring everywhere. */
+:focus { outline: none; }
+:focus-visible { outline: 2px solid var(--violet); outline-offset: 2px; border-radius: 6px; }
+
+/* Desktop niceties */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 99px; border: 3px solid var(--black); }
+::-webkit-scrollbar-track { background: transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

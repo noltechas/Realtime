@@ -2,44 +2,14 @@ import { S, caches } from '../state.js';
 import { esc, avatarHTML, fmtD, resolveSingerConfig } from '../utils.js';
 import { loadVotedMap } from '../persistence.js';
 
-export function hiddenLabel(t){
-  if(t==="cyberpunk")return"[REDACTED]";
-  if(t==="sketch")return"shhh\u2026";
-  if(t==="urban")return"UNKNOWN";
-  if(t==="deep-sea")return"Lost in the deep";
-  if(t==="psychedelic")return"Mystery Jam";
-  if(t==="zen")return"\u79D8";
-  if(t==="space")return"UNKNOWN SIGNAL";
-  if(t==="steampunk")return"Classified";
-  if(t==="retrowave")return"NO SIGNAL";
-  if(t==="tropical")return"Island Mystery";
-  return"HIDDEN SONG";
+export function hiddenLabel(){
+  return"Secret Song";
 }
-export function hiddenSubtitle(t){
-  if(t==="cyberpunk")return"// access denied";
-  if(t==="sketch")return"it's a secret!";
-  if(t==="urban")return"track redacted";
-  if(t==="deep-sea")return"a song from the abyss";
-  if(t==="psychedelic")return"guess the groove";
-  if(t==="zen")return"concealed";
-  if(t==="space")return"transmission encrypted";
-  if(t==="steampunk")return"sealed by the archivist";
-  if(t==="retrowave")return"track.dat \u2014 error 404";
-  if(t==="tropical")return"washed up from who-knows-where";
-  return"surprise pick!";
+export function hiddenSubtitle(){
+  return"surprise pick \u2014 revealed when it plays";
 }
-export function hiddenArtInner(t){
-  if(t==="cyberpunk")return'<span class="qh-cyber">[??]</span>';
-  if(t==="sketch")return'<svg class="qh-sketch" width="44" height="44" viewBox="0 0 44 44"><path d="M13 17 Q 13 10 22 10 Q 31 10 31 17 Q 31 22 22 25 L 22 30" stroke="#2d2d2d" stroke-width="2.5" fill="none" stroke-linecap="round"/><circle cx="22" cy="35" r="1.7" fill="#2d2d2d"/></svg>';
-  if(t==="urban")return'<span class="qh-urban">??</span>';
-  if(t==="deep-sea")return'<svg class="qh-ds" width="44" height="44" viewBox="0 0 44 44"><ellipse cx="22" cy="18" rx="10" ry="8" fill="rgba(0,255,200,0.15)" stroke="#00ffc8" stroke-width="1.2"/><path d="M15 24 q-1 4 -2 8 M19 26 q 0 4 -1 8 M22 26 q 0 4 0 8 M25 26 q 0 4 1 8 M29 24 q 1 4 2 8" stroke="#00ffc8" stroke-width="1" fill="none" opacity="0.8"/><text x="22" y="21" text-anchor="middle" font-size="10" font-weight="700" fill="#00ffc8">?</text></svg>';
-  if(t==="psychedelic")return'<span class="qh-psy">?</span>';
-  if(t==="zen")return'<span class="qh-zen">\u79D8</span>';
-  if(t==="space")return'<span class="qh-space">???</span>';
-  if(t==="steampunk")return'<svg class="qh-steam" width="44" height="44" viewBox="0 0 44 44"><rect x="13" y="20" width="18" height="16" rx="2" fill="#C8973E" stroke="#14110F" stroke-width="1.5"/><path d="M17 20 v-3 a5 5 0 0 1 10 0 v3" stroke="#C8973E" stroke-width="2" fill="none"/><circle cx="22" cy="28" r="1.6" fill="#14110F"/></svg>';
-  if(t==="retrowave")return'<span class="qh-retro">NO<br>SIG</span>';
-  if(t==="tropical")return'<svg class="qh-trop" width="44" height="44" viewBox="0 0 44 44"><path d="M9 15 Q 22 6 35 15" stroke="#1FA85C" stroke-width="2.4" fill="none" stroke-linecap="round"/><line x1="22" y1="9" x2="22" y2="18" stroke="#1FA85C" stroke-width="2.4" stroke-linecap="round"/><circle cx="22" cy="29" r="10" fill="#6E4423" stroke="#CDA85A" stroke-width="1.5"/><text x="22" y="33" text-anchor="middle" font-size="12" font-weight="700" fill="#FFC83D">?</text></svg>';
-  return'<span class="qh-neo">?</span>';
+export function hiddenArtInner(){
+  return '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="10.5" width="17" height="10.5" rx="2.5"/><path d="M7 10.5 V7 a5 5 0 0 1 10 0 v3.5"/></svg>';
 }
 export function renderQueue(){
   var npH="";
@@ -53,7 +23,6 @@ export function renderQueue(){
     var cat=S.catalog.find(function(c){return c.track_id===q.track_id;});
     var roles=cat&&cat.roles?cat.roles:[];
     var hidden=!!q.is_hidden;
-    var rowTheme=q.stage_theme||"neo-brutal";
     var isLocked=!!q.locked&&i===0;
     var total=(q.score||0)+(q.bonus_points||0);
     var voted=votedMap[q.id];
@@ -81,10 +50,10 @@ export function renderQueue(){
     var isMine=!isLocked&&!!S.guestId&&q.added_by_guest_id===S.guestId;
     var classes='queue-item'+(hidden?' queue-item--hidden':'')+(isLocked?' queue-item--locked':'');
     var artOrIcon=hidden
-      ? '<div class="q-hidden-art">'+hiddenArtInner(rowTheme)+'</div>'
+      ? '<div class="q-hidden-art">'+hiddenArtInner()+'</div>'
       : (q.track_art_url?'<img src="'+q.track_art_url+'" alt="">':"");
-    var titleHtml=hidden?esc(hiddenLabel(rowTheme)):esc(q.track_name);
-    var artistHtml=hidden?esc(hiddenSubtitle(rowTheme)):esc(q.track_artist);
+    var titleHtml=hidden?hiddenLabel():esc(q.track_name);
+    var artistHtml=hidden?hiddenSubtitle():esc(q.track_artist);
     var voteCol="";
     var scoreCls="queue-vote-score--"+(total>0?"pos":(total<0?"neg":"zero"));
     // Bare number \u2014 color (green/red) carries the sign. Suppress entirely when 0.
@@ -139,7 +108,7 @@ export function renderQueue(){
           '</div>'+
         '</div>';
     }
-    return '<div class="'+classes+'" data-q-id="'+esc(q.id)+'" data-stage-theme="'+esc(rowTheme)+'">'+
+    return '<div class="'+classes+'" data-q-id="'+esc(q.id)+'">'+
       '<div class="queue-pos">'+(i+1)+'</div>'+
       artOrIcon+
       '<div class="queue-item-info"><div class="queue-item-title">'+titleHtml+'</div><div class="queue-item-artist">'+artistHtml+'</div>'+

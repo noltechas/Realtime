@@ -64,29 +64,29 @@ export function renderBN(act){
 export function renderYoureUp(){
   var np=S.nowPlaying;if(!np)return'';
   var ms=S.matchedSinger;
-  var singerColor=ms?ms.color:"#a78bfa";
-  var singerGlow=ms?ms.colorGlow:"rgba(167,139,250,0.3)";
+  var singerColor=ms?ms.color:"#8b7cff";
+  var singerGlow=ms?ms.colorGlow:"rgba(139,124,255,0.3)";
+  // Singer color is functional data (each guest's chosen color) — passed to
+  // CSS as custom properties so the stylesheet owns the actual design.
+  var scVars='--sc:'+singerColor+';--sc-soft:'+singerColor+'cc;--sg:'+singerGlow;
   var artH=np.artUrl?'<img class="youreup-art" src="'+np.artUrl+'" alt="">':'';
   var playIcon=S.isPlaying?
     '<svg viewBox="0 0 24 24"><rect x="5" y="3" width="5" height="18" rx="1"/><rect x="14" y="3" width="5" height="18" rx="1"/></svg>':
     '<svg viewBox="0 0 24 24"><polygon points="6,3 20,12 6,21"/></svg>';
-  var btnBg=S.isPlaying?
-    'background:rgba(255,255,255,0.15);box-shadow:0 0 40px '+singerGlow+',0 0 80px '+singerGlow:
-    'background:linear-gradient(135deg, '+singerColor+', '+singerColor+'cc);box-shadow:0 8px 40px '+singerGlow+',0 0 80px '+singerGlow;
   var vfxOn=S.vocalFxEnabled!==false;
   var atOn=S.autotuneEnabled!==false;
-  var checkSvg='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-  var toggles='<div style="display:flex;gap:12px;margin-top:14px;width:100%;max-width:320px">'+
-    '<button id="youreup-vfx-btn" style="flex:1;display:flex;align-items:center;gap:10px;padding:14px 16px;border-radius:12px;border:2px solid '+(vfxOn?singerColor:'var(--white-faint)')+';background:'+(vfxOn?singerColor+'22':'transparent')+';cursor:pointer">'+
-      '<div style="width:30px;height:30px;border-radius:6px;border:2.5px solid '+(vfxOn?singerColor:'var(--white-faint)')+';background:'+(vfxOn?singerColor:'transparent')+';display:flex;align-items:center;justify-content:center;flex-shrink:0">'+(vfxOn?checkSvg:'')+'</div>'+
-      '<span style="font-size:14px;font-weight:700;font-family:var(--font-display);color:'+(vfxOn?'var(--white)':'var(--white-faint)')+'">Vocal FX</span>'+
-    '</button>'+
-    '<button id="youreup-at-btn" style="flex:1;display:flex;align-items:center;gap:10px;padding:14px 16px;border-radius:12px;border:2px solid '+(atOn?singerColor:'var(--white-faint)')+';background:'+(atOn?singerColor+'22':'transparent')+';cursor:pointer">'+
-      '<div style="width:30px;height:30px;border-radius:6px;border:2.5px solid '+(atOn?singerColor:'var(--white-faint)')+';background:'+(atOn?singerColor:'transparent')+';display:flex;align-items:center;justify-content:center;flex-shrink:0">'+(atOn?checkSvg:'')+'</div>'+
-      '<span style="font-size:14px;font-weight:700;font-family:var(--font-display);color:'+(atOn?'var(--white)':'var(--white-faint)')+'">Autotune</span>'+
-    '</button>'+
+  var checkSvg='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+  var toggleBtn=function(id,label,on){
+    return '<button id="'+id+'" class="youreup-toggle'+(on?" is-on":"")+'" type="button" style="'+scVars+'">'+
+      '<span class="youreup-toggle-box" aria-hidden="true">'+(on?checkSvg:'')+'</span>'+
+      '<span class="youreup-toggle-label">'+label+'</span>'+
+    '</button>';
+  };
+  var toggles='<div class="youreup-toggles">'+
+    toggleBtn("youreup-vfx-btn","Vocal FX",vfxOn)+
+    toggleBtn("youreup-at-btn","Autotune",atOn)+
   '</div>';
-  var skipBtn='<button id="youreup-skip-btn" class="youreup-skip-btn" style="margin-top:12px;width:100%;max-width:320px;padding:12px 16px;border-radius:12px;border:2px solid var(--white-faint);background:transparent;color:var(--white-muted);font-size:13px;font-weight:700;font-family:var(--font-display);cursor:pointer;letter-spacing:0.5px;display:flex;align-items:center;justify-content:center;gap:8px">'+
+  var skipBtn='<button id="youreup-skip-btn" class="youreup-skip-btn" type="button">'+
     '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>'+
     'Skip Song'+
   '</button>';
@@ -101,22 +101,23 @@ export function renderYoureUp(){
         '</div>'+
       '</div>'+
     '</div>':'';
+  var playBtn='<button class="youreup-play-btn'+(S.isPlaying?" is-playing":"")+'" id="youreup-play-btn" style="'+scVars+'" aria-label="'+(S.isPlaying?"Pause":"Play")+'">'+playIcon+'</button>';
   if(S.isPlaying){
-    return '<div class="youreup-screen screen">'+
+    return '<div class="youreup-screen screen" style="'+scVars+'">'+
       '<div class="youreup-song" style="margin-top:0">'+esc(np.name)+'</div>'+
       '<div class="youreup-artist">'+esc(np.artist||"")+'</div>'+
-      '<button class="youreup-play-btn" id="youreup-play-btn" style="'+btnBg+'">'+playIcon+'</button>'+
+      playBtn+
       toggles+
       skipBtn+
       skipConfirm+
     '</div>';
   }
-  return '<div class="youreup-screen screen">'+
+  return '<div class="youreup-screen screen" style="'+scVars+'">'+
     '<div class="youreup-title">You\'re Up!</div>'+
     artH+
     '<div class="youreup-song">'+esc(np.name)+'</div>'+
     '<div class="youreup-artist">'+esc(np.artist||"")+'</div>'+
-    '<button class="youreup-play-btn" id="youreup-play-btn" style="'+btnBg+'">'+playIcon+'</button>'+
+    playBtn+
     toggles+
     skipBtn+
     skipConfirm+

@@ -5,8 +5,7 @@ export function filterGifs(query){
   var q=query.toLowerCase();
   return caches.allGifs.filter(function(g){return g.title&&g.title.toLowerCase().indexOf(q)!==-1;});
 }
-export function addedLabel(_theme){
-  // Uniform across themes; theme styling still gives it character.
+export function addedLabel(){
   return "Added";
 }
 export function tokenIfFresh(token,expiresAt){

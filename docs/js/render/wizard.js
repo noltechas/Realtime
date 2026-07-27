@@ -163,23 +163,33 @@ export function renderWizardRoles(){
     warnHtml;
 }
 export function renderWizardStage(){
+  // Stage themes change how the song looks on the DESKTOP stage display —
+  // the picker itself renders as uniform cards in the site's own design,
+  // with a small swatch strip previewing each theme's palette.
   var tiles=[
-    {k:"neo-brutal",label:"Default",style:"background:#FFFDF5;color:#1A1A1A;border:3px solid #1A1A1A;border-radius:8px;font-family:'Space Grotesk',sans-serif;box-shadow:3px 3px 0 #1A1A1A;"},
-    {k:"cyberpunk",label:"Cyberpunk",style:"background:#0a0a1a;color:#00ff88;border:1.5px solid #00ff88;border-radius:0;font-family:'Courier New',monospace;text-shadow:0 0 8px rgba(0,255,136,0.5);"},
-    {k:"sketch",label:"Sketch",style:"background:#fdfbf7;color:#2d5da1;border:2px dashed #2d5da1;border-radius:255px 15px 225px 15px / 15px 225px 15px 255px;font-family:'Patrick Hand',cursive;"},
-    {k:"urban",label:"Urban",style:"background:#0a0a0a;color:#D4FF00;border:1.5px solid #D4FF00;border-radius:4px;font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:2px;"},
-    {k:"deep-sea",label:"Deep Sea",style:"background:#040918;color:#00ffc8;border:1px solid rgba(0,255,200,0.4);border-radius:12px;font-family:'Quicksand',sans-serif;text-shadow:0 0 8px rgba(0,255,200,0.4);"},
-    {k:"psychedelic",label:"Psychedelic",style:"background:#1a0a2e;color:#ff2d95;border:1px solid rgba(255,45,149,0.4);border-radius:16px;font-family:'Chicle',cursive;text-shadow:0 0 8px rgba(255,45,149,0.4);"},
-    {k:"zen",label:"Zen",style:"background:#1a1814;color:#D4B85A;border:1px solid rgba(201,168,76,0.4);border-radius:6px;font-family:'Cormorant Garamond',serif;font-style:italic;text-shadow:0 0 8px rgba(201,168,76,0.3);"},
-    {k:"space",label:"Space",style:"background:#08080F;color:#E040FB;border:1px solid rgba(224,64,251,0.4);border-radius:4px;font-family:'Orbitron',sans-serif;text-shadow:0 0 8px rgba(224,64,251,0.4);letter-spacing:1px;font-size:11px;"},
-    {k:"steampunk",label:"Steampunk",style:"background:#14110F;color:#C8973E;border:1px solid rgba(200,151,62,0.4);border-radius:3px;font-family:'Cinzel Decorative',serif;text-shadow:0 0 8px rgba(200,151,62,0.3);font-size:11px;"},
-    {k:"retrowave",label:"Retrowave",style:"background:#0a0614;color:#FF2D95;border:1px solid rgba(255,45,149,0.4);border-radius:4px;font-family:'Audiowide',sans-serif;text-shadow:0 0 8px rgba(255,45,149,0.4);font-size:11px;"},
-    {k:"comic-book",label:"Comic Book",style:"background:#FFFFFF;color:#16161D;border:3px solid #16161D;border-radius:6px;font-family:'Luckiest Guy',cursive;box-shadow:3px 3px 0 #16161D;text-transform:uppercase;letter-spacing:1px;"},
-    {k:"tropical",label:"Tropical",style:"background:linear-gradient(180deg,#36C5F0,#2FC4C0 60%,#FFF4DE);color:#0E2E29;border:2px solid #CDA85A;border-radius:16px;font-family:'Florida Vibes',cursive;box-shadow:0 5px 14px rgba(14,46,41,0.2);"}
+    {k:"neo-brutal",label:"Default",c:["#FFF8EE","#FF3B30","#FFD60A"]},
+    {k:"cyberpunk",label:"Cyberpunk",c:["#060610","#00FF88","#00E5FF"]},
+    {k:"sketch",label:"Sketch",c:["#FDFBF7","#2D5DA1","#2D2D2D"]},
+    {k:"urban",label:"Urban",c:["#0A0A0A","#D4FF00","#F5F5F5"]},
+    {k:"deep-sea",label:"Deep Sea",c:["#040918","#00FFC8","#B44DFF"]},
+    {k:"psychedelic",label:"Psychedelic",c:["#1A0A2E","#FF2D95","#B6FF2D"]},
+    {k:"zen",label:"Zen",c:["#1A1814","#D4B85A","#F0E6D2"]},
+    {k:"space",label:"Space",c:["#08080F","#E040FB","#40E0D0"]},
+    {k:"steampunk",label:"Steampunk",c:["#14110F","#C8973E","#D4A04A"]},
+    {k:"retrowave",label:"Retrowave",c:["#0A0614","#FF2D95","#00BFFF"]},
+    {k:"comic-book",label:"Comic Book",c:["#FFFFFF","#FF1F4B","#FFD400"]},
+    {k:"tropical",label:"Tropical",c:["#36C5F0","#10B7B0","#FFF4DE"]}
   ];
   var grid=tiles.map(function(tt){
     var sel=(S.stage_theme===tt.k);
-    return '<button class="theme-pick-btn'+(sel?" selected":"")+'" data-stage-theme="'+tt.k+'" type="button" style="'+tt.style+'">'+esc(tt.label)+'</button>';
+    var dots=tt.c.map(function(col){return '<i style="background:'+col+'"></i>';}).join("");
+    return '<button class="theme-pick-btn'+(sel?" is-selected":"")+'" data-stage-theme="'+tt.k+'" type="button" aria-pressed="'+(sel?"true":"false")+'">'+
+      '<span class="theme-pick-swatch" aria-hidden="true">'+dots+'</span>'+
+      '<span class="theme-pick-label">'+esc(tt.label)+'</span>'+
+      '<span class="theme-pick-check" aria-hidden="true">'+
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'+
+      '</span>'+
+    '</button>';
   }).join("");
   return '<div class="wiz-hero">Finish up</div>'+
     '<div class="wiz-hero-sub">Pick a stage theme and decide whether the title stays a secret until it plays.</div>'+
@@ -189,7 +199,7 @@ export function renderWizardStage(){
       '<div class="wiz-stage-hint">Themes change how this song looks on the big screen.</div>'+
     '</div>'+
     '<div class="config-section">'+
-      '<button class="secret-toggle'+(S.hide_song?" is-checked":"")+'" id="hide-toggle-btn" role="checkbox" aria-checked="'+(S.hide_song?"true":"false")+'" type="button" style="width:100%;padding:12px 14px;border:1.5px solid var(--white-ghost);border-radius:12px;background:var(--surface-1)">'+
+      '<button class="secret-toggle'+(S.hide_song?" is-checked":"")+'" id="hide-toggle-btn" role="checkbox" aria-checked="'+(S.hide_song?"true":"false")+'" type="button">'+
         '<span class="secret-toggle__box" aria-hidden="true">'+
           (S.hide_song?'<svg width="10" height="10" viewBox="0 0 14 14"><path d="M2.5 7.5 L5.5 10 L11 4" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>':'')+
         '</span>'+
