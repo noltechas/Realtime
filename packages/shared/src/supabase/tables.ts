@@ -18,6 +18,8 @@ export interface SingerConfig {
   color: string
   colorGlow: string
   roleIndices: number[]
+  /** Consumed one-time gift attached by the desktop only for the active turn. */
+  oneTimeNwordPassGiftId?: string
   /** @deprecated LEGACY ONLY. The "white person" lyric-sanitization flag now
    *  lives on the canonical `karaoke_guests` row (`white_person_check`) and is
    *  toggled per-guest by the host on the Admin screen — guests no longer set
@@ -56,11 +58,10 @@ export interface KaraokeGuestRow {
   name: string
   profile_picture: string | null
   default_color: string | null
-  /** When true (the DB default), this guest is a "white" singer: the n-word in
-   *  their assigned lyric lines is replaced with "fella(s)" on the stage. The
-   *  host toggles it per-guest on the Admin screen; it is resolved LIVE at
-   *  render time, so flipping it re-censors every song they are in without
-   *  re-queueing. Guests no longer set this from the companion site / app. */
+  /** Legacy inverse entitlement flag. FALSE means the host granted this guest
+   *  a permanent N-Word Pass; TRUE (the DB default) means affected lyrics are
+   *  sanitized. Product code should prefer `guestHasNwordPass()` instead of
+   *  exposing this implementation detail in the UI. */
   white_person_check: boolean
   created_at: string
   /** Presence heartbeat stamped by the mobile companion while foregrounded

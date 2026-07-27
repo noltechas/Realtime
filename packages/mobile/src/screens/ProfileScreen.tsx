@@ -7,17 +7,28 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { UNIVERSAL_SINGER_COLORS, findColorIndex, updateGuest } from '@karaoke/shared'
+import {
+  UNIVERSAL_SINGER_COLORS,
+  findColorIndex,
+  guestHasNwordPass,
+  updateGuest,
+  type KaraokeGuestRow,
+} from '@karaoke/shared'
 import type { RootStackParamList } from '../navigation/types'
 import { useTheme } from '../theme/ThemeContext'
 import { useProfile } from '../hooks/useProfile'
 import { useSession } from '../hooks/useSession'
 import { AvatarPicker } from '../components/AvatarPicker'
 import { supabase } from '../supabase/client'
+import { useSessionGuests } from '../hooks/useSessionGuests'
+import { useNwordPasses } from '../hooks/useNwordPasses'
+import { NwordPassCard } from '../components/NwordPassCard'
+import { NwordPassGiftModal } from '../components/NwordPassGiftModal'
 
 export function ProfileScreen() {
   const { tokens, ui } = useTheme()
@@ -25,10 +36,13 @@ export function ProfileScreen() {
   const navigation = useNavigation()
   const { profile, saveProfile } = useProfile()
   const { session, clearSession } = useSession()
+  const guestsById = useSessionGuests()
+  const { pendingGift, sharePass } = useNwordPasses()
 
   const [name, setName] = useState('')
   const [colorIndex, setColorIndex] = useState(0)
   const [picture, setPicture] = useState<string | null>(null)
+  const [shareOpen, setShareOpen] = useState(false)
 
   // Seed local form state from the saved profile once it loads.
   const seeded = useRef(false)
@@ -101,6 +115,24 @@ export function ProfileScreen() {
 
   const selectedColor = UNIVERSAL_SINGER_COLORS[colorIndex]?.color ?? tokens.hotRed
   const initial = (name.trim()[0] ?? '').toUpperCase()
+  const ownGuest = session?.guestId
+    ? guestsById.get(session.guestId)
+    : undefined
+  const hasNwordPass = guestHasNwordPass(ownGuest)
+  const lobbyGuests = Array.from(guestsById.values())
+
+  const handleGift = useCallback(
+    async (recipient: KaraokeGuestRow): Promise<void> => {
+      await sharePass(recipient.id)
+      Alert.alert(
+        'Pass sent',
+        recipient.name +
+          ' will receive a one-time N-Word Pass for their next eligible song.',
+      )
+    },
+    [sharePass],
+  )
+
   // Floating tab bar lives ~96px above the screen bottom (plus the home
   // indicator inset). Reserve that space so centering happens within the
   // visible non-bar area instead of the full screen height.
@@ -144,12 +176,15 @@ export function ProfileScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
-        <View
-          style={{
-            flex: 1,
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{
+            flexGrow: 1,
             alignItems: 'center',
             justifyContent: 'center',
-            paddingBottom: tabBarReserve,
+            paddingHorizontal: 24,
+            paddingTop: session ? 74 : 28,
+            paddingBottom: tabBarReserve + 28,
           }}
         >
           <AvatarPicker
@@ -198,11 +233,39 @@ export function ProfileScreen() {
             />
           </View>
 
-          <View style={{ marginTop: 28, alignSelf: 'stretch' }}>
+          <View style={{ marginTop: 28, width: '100%', maxWidth: 430 }}>
             <ui.ColorPicker value={colorIndex} onChange={setColorIndex} />
           </View>
-        </View>
+
+          {hasNwordPass && ownGuest ? (
+            <NwordPassCard
+              holderName={ownGuest.name}
+              identifier={ownGuest.id}
+              variant="permanent"
+              onShare={() => setShareOpen(true)}
+              style={{ marginTop: 34, maxWidth: 390 }}
+            />
+          ) : pendingGift ? (
+            <NwordPassCard
+              holderName={ownGuest?.name || name.trim() || 'Guest'}
+              identifier={pendingGift.id}
+              variant="one-time"
+              giftedBy={pendingGift.giver_name_snapshot}
+              style={{ marginTop: 34, maxWidth: 390 }}
+            />
+          ) : null}
+        </ScrollView>
       </KeyboardAvoidingView>
+
+      {session ? (
+        <NwordPassGiftModal
+          visible={shareOpen}
+          guests={lobbyGuests}
+          ownGuestId={session.guestId}
+          onClose={() => setShareOpen(false)}
+          onGift={handleGift}
+        />
+      ) : null}
     </SafeAreaView>
   )
 }

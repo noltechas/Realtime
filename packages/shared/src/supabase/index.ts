@@ -29,6 +29,19 @@ export type {
   UpdateGuestInput,
 } from './guests'
 export {
+  guestHasNwordPass,
+  listPendingNwordPassGifts,
+  giftNwordPass,
+  markNwordPassGiftSeen,
+  consumeNwordPassGift,
+  subscribeToNwordPassGifts,
+} from './nwordPasses'
+export type {
+  NwordPassGiftRow,
+  ConsumeNwordPassGiftInput,
+  NwordPassGiftChangeHandler,
+} from './nwordPasses'
+export {
   listQueue,
   subscribeToQueue,
   sortQueue,

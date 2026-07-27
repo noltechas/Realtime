@@ -13,6 +13,8 @@ import { SessionRevealLayer } from '../awards/SessionRevealLayer'
 import { QueueToastOverlay } from '../components/QueueToastOverlay'
 import { useSession } from '../hooks/useSession'
 import { usePushNotifications } from '../hooks/usePushNotifications'
+import { NwordPassProvider } from '../hooks/useNwordPasses'
+import { NwordPassGiftOverlay } from '../components/NwordPassGiftOverlay'
 
 function PushNotificationRegistrar() {
   const { session } = useSession()
@@ -34,33 +36,37 @@ export function SessionTabs() {
   return (
     <SessionThemeProvider>
       <SessionGuestsProvider>
-      <Tabs.Navigator
-        screenOptions={{ headerShown: false }}
-        tabBar={(props) => <ThemedTabBar {...props} />}
-        initialRouteName="Queue"
-      >
-        <Tabs.Screen name="Queue" component={QueueScreen} />
-        <Tabs.Screen name="Songs" component={SongsScreen} />
-        <Tabs.Screen
-          name="Stage"
-          component={StageScreen}
-          // Label flips between "React" and "Stage" inside LiquidGlassTabBar
-          // based on whether the local guest is matched on the now-playing
-          // track. StageTabIcon swaps the glyph (mic vs smiley) the same way.
-          options={{
-            tabBarIcon: ({ color }) => <StageTabIcon color={color} />,
-          }}
-        />
-        <Tabs.Screen name="Awards" component={AwardsScreen} />
-        <Tabs.Screen name="Profile" component={ProfileScreen} />
-      </Tabs.Navigator>
-      {/* Global awards-ceremony overlay — always mounted so the reveal takes
-          over from any tab (and resumes if the app was reopened mid-show). */}
-      <SessionRevealLayer />
-      {/* Queue toast notifications — floats above all tabs. */}
-      <QueueToastOverlay />
-      {/* Registers this device's push token so the host can notify us when it's our turn. */}
-      <PushNotificationRegistrar />
+        <NwordPassProvider>
+          <Tabs.Navigator
+            screenOptions={{ headerShown: false }}
+            tabBar={(props) => <ThemedTabBar {...props} />}
+            initialRouteName="Queue"
+          >
+            <Tabs.Screen name="Queue" component={QueueScreen} />
+            <Tabs.Screen name="Songs" component={SongsScreen} />
+            <Tabs.Screen
+              name="Stage"
+              component={StageScreen}
+              // Label flips between "React" and "Stage" inside LiquidGlassTabBar
+              // based on whether the local guest is matched on the now-playing
+              // track. StageTabIcon swaps the glyph (mic vs smiley) the same way.
+              options={{
+                tabBarIcon: ({ color }) => <StageTabIcon color={color} />,
+              }}
+            />
+            <Tabs.Screen name="Awards" component={AwardsScreen} />
+            <Tabs.Screen name="Profile" component={ProfileScreen} />
+          </Tabs.Navigator>
+          {/* Global awards-ceremony overlay — always mounted so the reveal takes
+              over from any tab (and resumes if the app was reopened mid-show). */}
+          <SessionRevealLayer />
+          {/* Queue toast notifications — floats above all tabs. */}
+          <QueueToastOverlay />
+          {/* A cinematic reveal for live gifts and gifts missed while suspended. */}
+          <NwordPassGiftOverlay />
+          {/* Registers this device's push token so the host can notify us when it's our turn. */}
+          <PushNotificationRegistrar />
+        </NwordPassProvider>
       </SessionGuestsProvider>
     </SessionThemeProvider>
   )

@@ -404,7 +404,7 @@ export interface Guest {
     sessionId: string
     name: string
     profilePicture: string | null
-    whitePersonCheck: boolean
+    hasNwordPass: boolean
 }
 
 export async function listGuests(sessionId: string): Promise<Guest[]> {
@@ -421,20 +421,39 @@ export async function listGuests(sessionId: string): Promise<Guest[]> {
         sessionId: r.session_id,
         name: r.name,
         profilePicture: r.profile_picture,
-        whitePersonCheck: r.white_person_check !== false
+        // Compatibility column is inverse: FALSE means the host granted a pass.
+        hasNwordPass: r.white_person_check === false
     }))
 }
 
-export async function updateGuest(id: string, fields: { name?: string; profilePicture?: string | null; whitePersonCheck?: boolean }): Promise<void> {
+export async function updateGuest(id: string, fields: { name?: string; profilePicture?: string | null; hasNwordPass?: boolean }): Promise<void> {
     const update: any = {}
     if (fields.name !== undefined) update.name = fields.name
     if (fields.profilePicture !== undefined) update.profile_picture = fields.profilePicture
-    if (fields.whitePersonCheck !== undefined) update.white_person_check = fields.whitePersonCheck
+    if (fields.hasNwordPass !== undefined) update.white_person_check = !fields.hasNwordPass
     const { error } = await supabase
         .from('karaoke_guests')
         .update(update)
         .eq('id', id)
     if (error) console.error('Failed to update guest:', error.message)
+
+    // A permanent entitlement supersedes any borrowed one-time pass. Revoke
+    // the pending gift so the desktop will not waste it on a future song and
+    // the recipient's profile updates immediately through Realtime.
+    if (!error && fields.hasNwordPass === true) {
+        const { error: revokeError } = await supabase
+            .from('karaoke_nword_pass_gifts')
+            .update({
+                revoked_at: new Date().toISOString(),
+                revoked_reason: 'permanent_pass_granted',
+            })
+            .eq('recipient_guest_id', id)
+            .is('used_at', null)
+            .is('revoked_at', null)
+        if (revokeError) {
+            console.error('Failed to retire one-time N-Word Pass:', revokeError.message)
+        }
+    }
 }
 
 export async function removeGuest(id: string): Promise<void> {

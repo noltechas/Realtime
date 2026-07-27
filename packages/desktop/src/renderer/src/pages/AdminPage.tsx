@@ -25,7 +25,7 @@ interface AdminGuest {
     id: string
     name: string
     profilePicture: string | null
-    whitePersonCheck: boolean
+    hasNwordPass: boolean
 }
 
 interface SongRequest {
@@ -623,7 +623,7 @@ export default function AdminPage() {
 
         let cancelled = false
         window.electronAPI.listGuests().then(list => {
-            if (!cancelled) setGuests(list.map(g => ({ id: g.id, name: g.name, profilePicture: g.profilePicture, whitePersonCheck: g.whitePersonCheck })))
+            if (!cancelled) setGuests(list.map(g => ({ id: g.id, name: g.name, profilePicture: g.profilePicture, hasNwordPass: g.hasNwordPass })))
         })
 
         const channel = supabase
@@ -633,13 +633,13 @@ export default function AdminPage() {
                     const r = payload.new as any
                     setGuests(prev => {
                         if (prev.some(g => g.id === r.id)) return prev
-                        return [...prev, { id: r.id, name: r.name, profilePicture: r.profile_picture, whitePersonCheck: r.white_person_check !== false }]
+                        return [...prev, { id: r.id, name: r.name, profilePicture: r.profile_picture, hasNwordPass: r.white_person_check === false }]
                     })
                 })
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'karaoke_guests', filter: `session_id=eq.${sessionId}` },
                 (payload) => {
                     const r = payload.new as any
-                    setGuests(prev => prev.map(g => g.id === r.id ? { ...g, name: r.name, profilePicture: r.profile_picture, whitePersonCheck: r.white_person_check !== false } : g))
+                    setGuests(prev => prev.map(g => g.id === r.id ? { ...g, name: r.name, profilePicture: r.profile_picture, hasNwordPass: r.white_person_check === false } : g))
                 })
             .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'karaoke_guests', filter: `session_id=eq.${sessionId}` },
                 (payload) => {
@@ -777,13 +777,12 @@ export default function AdminPage() {
         await window.electronAPI.removeGuest(id)
     }
 
-    // Per-guest "white person" toggle. ON (default) = their n-word lyric lines
-    // are sanitized to "fella(s)" on stage; OFF = the host has cleared them to
-    // sing it. Resolved live on the stage, so this re-censors their current
-    // song immediately.
-    const toggleGuestWhiteCheck = async (id: string, next: boolean) => {
-        setGuests(prev => prev.map(g => g.id === id ? { ...g, whitePersonCheck: next } : g))
-        await window.electronAPI.updateGuest(id, { whitePersonCheck: next })
+    // Permanent N-Word Pass. The database keeps the legacy inverse
+    // `white_person_check` column, but product code deals only in the positive
+    // entitlement so the control reads exactly as it behaves.
+    const toggleGuestNwordPass = async (id: string, next: boolean) => {
+        setGuests(prev => prev.map(g => g.id === id ? { ...g, hasNwordPass: next } : g))
+        await window.electronAPI.updateGuest(id, { hasNwordPass: next })
     }
 
     const loadCatalog = async () => {
@@ -2115,18 +2114,18 @@ export default function AdminPage() {
                                             </div>
                                         </div>
 
-                                        {/* White-singer (lyric sanitization) toggle */}
+                                        {/* Permanent N-Word Pass */}
                                         <div className="adm-well" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 12px' }}>
                                             <Toggle
-                                                on={guest.whitePersonCheck}
-                                                onToggle={() => toggleGuestWhiteCheck(guest.id, !guest.whitePersonCheck)}
+                                                on={guest.hasNwordPass}
+                                                onToggle={() => toggleGuestNwordPass(guest.id, !guest.hasNwordPass)}
                                             />
                                             <div style={{ flex: 1, minWidth: 0 }}>
-                                                <div style={{ fontSize: 12.5, fontWeight: 650 }}>White singer</div>
+                                                <div style={{ fontSize: 12.5, fontWeight: 650 }}>N-Word Pass</div>
                                                 <div style={{ fontSize: 11, color: 'var(--adm-text-3)' }}>
-                                                    {guest.whitePersonCheck
-                                                        ? 'On — the n-word is sanitized to “fella(s)” in their lyrics'
-                                                        : 'Off — their lyrics are shown uncensored'}
+                                                    {guest.hasNwordPass
+                                                        ? 'On — their assigned lyrics are shown uncensored'
+                                                        : 'Off — affected words are replaced with “fella(s)”'}
                                                 </div>
                                             </div>
                                         </div>

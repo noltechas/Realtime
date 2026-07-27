@@ -2,7 +2,11 @@ import { useEffect, useRef } from 'react'
 import { createClient, RealtimeChannel } from '@supabase/supabase-js'
 import { useApp, QueueItem, NEON_COLORS, MicFxOverride } from '../context/AppContext'
 import { DEFAULT_VOICE_EFFECTS } from '../audio/VoiceEffectsTypes'
-import type { KaraokeGuestRow } from '@karaoke/shared'
+import {
+    consumeNwordPassGift,
+    guestHasNwordPass,
+    type KaraokeGuestRow,
+} from '@karaoke/shared'
 
 const SUPABASE_URL = 'https://hnnbxwitjkeijvoldfuv.supabase.co'
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhubmJ4d2l0amtlaWp2b2xkZnV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MjcwMTQsImV4cCI6MjA5MDUwMzAxNH0.ENzZ2VLxszHr9StjFds06In7CyGkiyPvu6Jh1LUMMvA'
@@ -41,6 +45,37 @@ interface CatalogSong {
     spotifyData?: any
 }
 
+const OFFENSIVE_WORD_PATTERN = /nigg(?:a|er)s?/i
+
+// Mirrors KaraokePage's role assignment for affected lyric lines so a gift is
+// claimed only for a guest who actually sings one in this performance.
+function eligibleNwordPassSingerIndices(item: QueueItem): Set<number> {
+    const eligible = new Set<number>()
+    if (item.singers.length === 0) return eligible
+
+    item.lyrics.forEach((line, lineIndex) => {
+        if (!OFFENSIVE_WORD_PATTERN.test(line.words)) return
+
+        if (item.roles.length > 0 && line.roleIndex !== undefined) {
+            if (line.roleIndex === -1) {
+                item.singers.forEach((_, index) => eligible.add(index))
+                return
+            }
+            item.singers.forEach((singer, index) => {
+                if (singer.roleIndices?.includes(line.roleIndex as number)) {
+                    eligible.add(index)
+                }
+            })
+            return
+        }
+
+        // Songs without authored roles use the stage's round-robin fallback.
+        eligible.add(lineIndex % item.singers.length)
+    })
+
+    return eligible
+}
+
 export function useKaraokeSession() {
     const { state, dispatch } = useApp()
     const catalogRef = useRef<CatalogSong[]>([])
@@ -53,6 +88,9 @@ export function useKaraokeSession() {
     const lastSeenSkipAtRef = useRef<string | null>(null)
     const reconcileTimerRef = useRef<NodeJS.Timeout | null>(null)
     const restoredNowPlayingForRef = useRef<string | null>(null)
+    const nwordPassConsumptionKeysRef = useRef(new Set<string>())
+    const currentNowPlayingIdRef = useRef<string | null>(null)
+    currentNowPlayingIdRef.current = state.nowPlaying?.id ?? null
 
     // Load catalog for resolving remote additions
     useEffect(() => {
@@ -145,6 +183,7 @@ export function useKaraokeSession() {
             vocalTrack: i === 0 ? 'lead' as const : 'backing' as const,
             roleIndices: sc.roleIndices,
             whitePersonCheck: sc.whitePersonCheck || false,
+            oneTimeNwordPassGiftId: sc.oneTimeNwordPassGiftId || undefined,
             // Preserve the guestId carried by the mobile/website so the
             // round-trip back to now_playing_singer_configs lets remote
             // clients match by stable id (see syncNowPlaying below), and so
@@ -286,6 +325,7 @@ export function useKaraokeSession() {
                         vocalTrack: i === 0 ? 'lead' as const : 'backing' as const,
                         roleIndices: sc.roleIndices,
                         whitePersonCheck: sc.whitePersonCheck || false,
+                        oneTimeNwordPassGiftId: sc.oneTimeNwordPassGiftId || undefined,
                         guestId: sc.guestId || undefined,
                     }))
                     dispatch({
@@ -366,6 +406,7 @@ export function useKaraokeSession() {
                     vocalTrack: i === 0 ? 'lead' as const : 'backing' as const,
                     roleIndices: sc.roleIndices,
                     whitePersonCheck: sc.whitePersonCheck || false,
+                    oneTimeNwordPassGiftId: sc.oneTimeNwordPassGiftId || undefined,
                     guestId: sc.guestId || undefined,
                 }))
 
@@ -400,6 +441,68 @@ export function useKaraokeSession() {
                 })
             }, () => finish(null))
     }, [state.karaokeSessionId, state.nowPlaying, dispatch])
+
+    // Claim a borrowed pass when playback actually starts — not while a song
+    // is merely on deck, because skipping that song should not waste the use.
+    useEffect(() => {
+        if (window.electronAPI?.isStageWindow) return
+        const item = state.nowPlaying
+        const sessionId = state.karaokeSessionId
+        if (!state.isPlaying || !item || !sessionId) return
+
+        const eligibleIndices = eligibleNwordPassSingerIndices(item)
+        if (eligibleIndices.size === 0) return
+
+        const guestById = new Map(state.guests.map(guest => [guest.id, guest]))
+        const guestIds = new Set<string>()
+        eligibleIndices.forEach(index => {
+            const singer = item.singers[index]
+            if (!singer?.guestId || singer.oneTimeNwordPassGiftId) return
+            // Never burn a borrowed pass if the admin granted a permanent pass
+            // between gifting and playback.
+            if (guestHasNwordPass(guestById.get(singer.guestId))) return
+            guestIds.add(singer.guestId)
+        })
+
+        guestIds.forEach(guestId => {
+            const key = item.id + ':' + guestId
+            if (nwordPassConsumptionKeysRef.current.has(key)) return
+            nwordPassConsumptionKeysRef.current.add(key)
+
+            void consumeNwordPassGift(supabase, {
+                sessionId,
+                recipientGuestId: guestId,
+                turnId: item.id,
+                trackId: item.track.id,
+                trackName: item.track.name,
+            }).then(gift => {
+                if (!gift || currentNowPlayingIdRef.current !== item.id) return
+                // One guest can occupy multiple singer slots. Stamp all of them
+                // so every assigned line sees the same consumed authorization.
+                item.singers
+                    .filter(singer => singer.guestId === guestId)
+                    .forEach(singer => {
+                        dispatch({
+                            type: 'UPDATE_NOW_PLAYING_SINGER',
+                            payload: {
+                                singerId: singer.id,
+                                updates: { oneTimeNwordPassGiftId: gift.id },
+                            },
+                        })
+                    })
+            }).catch(error => {
+                // A pause/resume or roster refresh may retry a transient error.
+                nwordPassConsumptionKeysRef.current.delete(key)
+                console.warn('[Karaoke] Failed to consume one-time N-Word Pass:', error)
+            })
+        })
+    }, [
+        state.isPlaying,
+        state.nowPlaying?.id,
+        state.karaokeSessionId,
+        state.guests,
+        dispatch,
+    ])
 
     // Subscribe to broadcast reactions from companion site
     useEffect(() => {
@@ -500,6 +603,9 @@ export function useKaraokeSession() {
                     // admin/host- or name-only singers with no linked account.
                     // Never publish a base64 avatar here.
                     ...(s.guestId ? { guestId: s.guestId } : { name: s.name }),
+                    ...(s.oneTimeNwordPassGiftId
+                        ? { oneTimeNwordPassGiftId: s.oneTimeNwordPassGiftId }
+                        : {}),
                 })),
                 stageTheme: state.nowPlaying.stageTheme || null
             })
@@ -517,7 +623,12 @@ export function useKaraokeSession() {
             prevNowPlayingRowRef.current = null
             window.electronAPI?.syncNowPlaying(null)
         }
-    }, [state.nowPlaying?.id, state.nowPlaying?.remoteQueueId, state.karaokeSessionId])
+    }, [
+        state.nowPlaying?.id,
+        state.nowPlaying?.remoteQueueId,
+        state.nowPlaying?.singers.map(s => s.oneTimeNwordPassGiftId || '').join('|'),
+        state.karaokeSessionId,
+    ])
 
     // When the host advances to a new song, bump bonus_points on every
     // remaining queued row so long-waiting songs eventually surface.

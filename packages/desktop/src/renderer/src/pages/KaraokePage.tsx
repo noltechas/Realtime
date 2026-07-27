@@ -2073,7 +2073,7 @@ function ReactionsOverlay() {
 // theme gets its own scene (ending in the Urban fallback for unthemed names).
 // Lives at module scope, driven ONLY by its props, so Lobby Mode can mount a
 // screen for any theme — not just the active one — and crossfade between them.
-export function IdleStageScreen({ theme, qrUrl, sessionCode }: {
+function IdleStageScreen({ theme, qrUrl, sessionCode }: {
     theme: Theme
     qrUrl: string | null
     sessionCode: string | null
@@ -3748,7 +3748,7 @@ function resolveNoticeSinger(
     return { name: guest?.name ?? s.name, picture: guest?.profile_picture ?? null, color: s.color }
 }
 
-export function LobbyNoticeCard({ notice, theme, guests }: {
+function LobbyNoticeCard({ notice, theme, guests }: {
     notice: LobbyNotice
     theme: Theme
     guests: Map<string, { name: string; profile_picture: string | null }>
@@ -3946,7 +3946,7 @@ function LobbyNotices({ theme }: { theme: Theme }) {
     )
 }
 
-export function LobbyStage({ cycle, theme, qrUrl, sessionCode, notices }: {
+function LobbyStage({ cycle, theme, qrUrl, sessionCode, notices }: {
     cycle: boolean
     theme: Theme
     qrUrl: string | null
@@ -5833,22 +5833,21 @@ export default function KaraokePage() {
                                         inlineStyle.opacity = 1
                                     }
 
-                                    // Everyone is a "white" singer (lyrics sanitized) by default. The
-                                    // host turns it OFF per-person on the Admin > Guests screen, which
-                                    // flips `white_person_check` on the guest row; we resolve it LIVE
-                                    // off guestsMap so toggling re-censors the current song instantly.
-                                    // Singers with no linked guest stay sanitized.
-                                    const isSingerWhite = (idx: number) => {
+                                    // A line stays uncensored only when the singer has either the
+                                    // host-controlled permanent pass or a gift consumed for THIS
+                                    // now-playing turn. Name-only singers remain sanitized.
+                                    const singerNeedsSanitation = (idx: number) => {
                                         const s = singers[idx]
                                         if (!s) return false
+                                        if (s.oneTimeNwordPassGiftId) return false
                                         if (s.guestId) {
                                             const g = guestsMap.get(s.guestId)
                                             return g ? g.white_person_check !== false : true
                                         }
                                         return true
                                     }
-                                    const needsSanitation = line.singerIndices?.some((idx: number) => isSingerWhite(idx)) ||
-                                        (line.singerIndex !== undefined && isSingerWhite(line.singerIndex));
+                                    const needsSanitation = line.singerIndices?.some((idx: number) => singerNeedsSanitation(idx)) ||
+                                        (line.singerIndex !== undefined && singerNeedsSanitation(line.singerIndex));
 
                                     const sanitize = (s: string) => s.replace(/nigg(?:a|er)s?/gi, (match: string) => {
                                         const isPlural = match.toLowerCase().endsWith('s');

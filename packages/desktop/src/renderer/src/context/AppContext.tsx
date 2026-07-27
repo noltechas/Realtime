@@ -38,6 +38,9 @@ export interface Singer {
     vocalTrack: 'lead' | 'backing' | 'both'
     roleIndices?: number[]
     whitePersonCheck?: boolean
+    /** Consumed one-time gift for only the active performance. Persisted in
+     *  now-playing singer config so a desktop/stage restart stays consistent. */
+    oneTimeNwordPassGiftId?: string
     /** Stable session-scoped guest UUID when the singer is a known remote
      *  guest. The singer's display name and profile picture are resolved LIVE
      *  from the `karaoke_guests` record (see state.guests / useGuestsMap), so
@@ -480,6 +483,18 @@ function mergeMicSlotsIntoItem(item: QueueItem, slots: MicSlotConfig[]): QueueIt
     return { ...item, singers: mergedSingers, voiceEffects: mergedEffects }
 }
 
+// Historical/re-queued copies must never carry a consumed one-time allowance
+// into a replay.
+function stripOneTimeNwordPasses(item: QueueItem): QueueItem {
+    return {
+        ...item,
+        singers: item.singers.map(singer => ({
+            ...singer,
+            oneTimeNwordPassGiftId: undefined,
+        })),
+    }
+}
+
 // Helper: ensure slots array has at least minCount entries
 function ensureSlots(slots: MicSlotConfig[], minCount: number): MicSlotConfig[] {
     if (slots.length >= minCount) return slots
@@ -498,7 +513,7 @@ function resolveNextSong(state: AppState): Partial<AppState> {
     const savedSlots = saveMicSlots(state)
 
     const newHistory = state.nowPlaying
-        ? [...state.history, state.nowPlaying]
+        ? [...state.history, stripOneTimeNwordPasses(state.nowPlaying)]
         : state.history
     // Lobby Mode never puts a song on deck — finishing (or skipping) the
     // current song returns the stage to the join screen and leaves the queue
@@ -539,7 +554,7 @@ function resolvePrevSong(state: AppState): Partial<AppState> | null {
 
     const prevItem = mergeMicSlotsIntoItem(state.history[state.history.length - 1], savedSlots)
     const newQueue = state.nowPlaying
-        ? [state.nowPlaying, ...state.queue]
+        ? [stripOneTimeNwordPasses(state.nowPlaying), ...state.queue]
         : state.queue
     return {
         nowPlaying: prevItem,

@@ -744,7 +744,7 @@ ipcMain.handle('karaoke:list-guests', async () => {
     return listGuests(activeSession.id)
 })
 
-ipcMain.handle('karaoke:update-guest', async (_event, id: string, fields: { name?: string; profilePicture?: string | null; whitePersonCheck?: boolean }) => {
+ipcMain.handle('karaoke:update-guest', async (_event, id: string, fields: { name?: string; profilePicture?: string | null; hasNwordPass?: boolean }) => {
     await updateGuest(id, fields)
 })
 

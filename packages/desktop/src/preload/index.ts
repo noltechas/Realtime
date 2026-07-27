@@ -73,8 +73,8 @@ export type ElectronAPI = {
     onRemoteQueueRemove: (callback: (row: any) => void) => any
     offRemoteQueueRemove: (handler: any) => void
     // Guest management
-    listGuests: () => Promise<{ id: string; sessionId: string; name: string; profilePicture: string | null; whitePersonCheck: boolean }[]>
-    updateGuest: (id: string, fields: { name?: string; profilePicture?: string | null; whitePersonCheck?: boolean }) => Promise<void>
+    listGuests: () => Promise<{ id: string; sessionId: string; name: string; profilePicture: string | null; hasNwordPass: boolean }[]>
+    updateGuest: (id: string, fields: { name?: string; profilePicture?: string | null; hasNwordPass?: boolean }) => Promise<void>
     removeGuest: (id: string) => Promise<void>
     // Reactions relay (main → stage)
     sendReaction: (reaction: any) => void
