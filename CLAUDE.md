@@ -54,6 +54,14 @@ npm run build    # Production build to out/
 npm run start    # Run production build
 ```
 
+**One asset is not in git.** `packages/desktop/src/renderer/src/assets/liquid-light.mp4`
+(54 MB, the psychedelic stage's backdrop footage) is gitignored, so a fresh clone fails to
+build with `Could not resolve "../assets/liquid-light.mp4"`. Regenerate it with the ffmpeg
+recipe in [that directory's README](packages/desktop/src/renderer/src/assets/README.md).
+The mobile copy at `packages/mobile/assets/video/` IS committed and must stay that way —
+EAS Build uploads through git, so ignoring it would ship a store binary with a black
+background.
+
 ## TypeScript Rules
 
 - **Strict mode is enabled** in both `tsconfig.node.json` and `tsconfig.web.json`. Keep it that way.
