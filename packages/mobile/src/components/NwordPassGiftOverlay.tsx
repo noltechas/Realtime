@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Animated,
-  Dimensions,
   Modal,
   Pressable,
   Text,
@@ -17,7 +16,6 @@ import { useSessionRow } from '../hooks/useSessionRow'
 import { NwordPassCard } from './NwordPassCard'
 
 const AUTO_DISMISS_MS = 6800
-const { width: SCREEN_WIDTH } = Dimensions.get('window')
 
 export function NwordPassGiftOverlay() {
   const insets = useSafeAreaInsets()
@@ -39,8 +37,6 @@ export function NwordPassGiftOverlay() {
   const cardRotate = useRef(new Animated.Value(-5)).current
   const headlineOpacity = useRef(new Animated.Value(0)).current
   const headlineY = useRef(new Animated.Value(18)).current
-  const haloScale = useRef(new Animated.Value(0.2)).current
-  const haloOpacity = useRef(new Animated.Value(0)).current
   const continueOpacity = useRef(new Animated.Value(0)).current
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -107,30 +103,14 @@ export function NwordPassGiftOverlay() {
     cardRotate.setValue(-5)
     headlineOpacity.setValue(0)
     headlineY.setValue(18)
-    haloScale.setValue(0.2)
-    haloOpacity.setValue(0)
     continueOpacity.setValue(0)
 
     Animated.sequence([
-      Animated.parallel([
-        Animated.timing(backdrop, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(haloOpacity, {
-          toValue: 1,
-          duration: 380,
-          useNativeDriver: true,
-        }),
-        Animated.spring(haloScale, {
-          toValue: 1,
-          damping: 12,
-          stiffness: 90,
-          mass: 0.8,
-          useNativeDriver: true,
-        }),
-      ]),
+      Animated.timing(backdrop, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
       Animated.parallel([
         Animated.spring(cardScale, {
           toValue: 1,
@@ -188,8 +168,6 @@ export function NwordPassGiftOverlay() {
     cardRotate,
     headlineOpacity,
     headlineY,
-    haloScale,
-    haloOpacity,
     continueOpacity,
     close,
   ])
@@ -226,24 +204,23 @@ export function NwordPassGiftOverlay() {
         >
           <LinearGradient
             pointerEvents="none"
-            colors={['rgba(244,214,122,0.20)', 'rgba(8,9,9,0)', 'rgba(154,114,36,0.13)']}
-            start={{ x: 0.05, y: 0 }}
-            end={{ x: 0.95, y: 1 }}
+            colors={['#17224A', '#080A10', '#080A10']}
+            start={{ x: 0.15, y: 0 }}
+            end={{ x: 0.85, y: 0.88 }}
             style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
           />
 
-          <Animated.View
+          <LinearGradient
             pointerEvents="none"
+            colors={['rgba(88,112,255,0.30)', 'rgba(88,112,255,0)']}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
             style={{
               position: 'absolute',
-              width: SCREEN_WIDTH * 1.1,
-              height: SCREEN_WIDTH * 1.1,
-              borderRadius: SCREEN_WIDTH,
-              borderWidth: 1,
-              borderColor: 'rgba(244,214,122,0.24)',
-              backgroundColor: 'rgba(244,214,122,0.035)',
-              opacity: haloOpacity,
-              transform: [{ scale: haloScale }],
+              top: 0,
+              right: '18%',
+              bottom: '42%',
+              left: '18%',
             }}
           />
 
@@ -257,29 +234,29 @@ export function NwordPassGiftOverlay() {
           >
             <Text
               style={{
-                color: '#B99A4C',
+                color: '#91A2FF',
                 fontSize: 10,
                 fontWeight: '900',
-                letterSpacing: 4,
-                marginBottom: 8,
+                letterSpacing: 2.2,
+                marginBottom: 10,
               }}
             >
-              ACCESS GRANTED
+              N-WORD PASS RECEIVED
             </Text>
             <Text
               style={{
-                color: '#FFF8DF',
-                fontSize: 28,
+                color: '#FFFFFF',
+                fontSize: 29,
                 fontWeight: '900',
-                letterSpacing: -0.7,
+                letterSpacing: -0.9,
                 textAlign: 'center',
               }}
             >
-              A one-time pass is yours.
+              From {activeGift.giver_name_snapshot}
             </Text>
             <Text
               style={{
-                color: '#B8B3A4',
+                color: '#AEB4C4',
                 fontSize: 14,
                 lineHeight: 20,
                 textAlign: 'center',
@@ -287,8 +264,7 @@ export function NwordPassGiftOverlay() {
                 maxWidth: 330,
               }}
             >
-              {activeGift.giver_name_snapshot} shared their N-Word Pass with you.
-              It will apply automatically to your next eligible song.
+              One use. Automatically applied to your next eligible song.
             </Text>
           </Animated.View>
 
@@ -310,16 +286,14 @@ export function NwordPassGiftOverlay() {
           >
             <NwordPassCard
               holderName={profile?.name || 'Guest'}
-              identifier={activeGift.id}
               variant="one-time"
-              giftedBy={activeGift.giver_name_snapshot}
               compact
             />
           </Animated.View>
 
           <Animated.Text
             style={{
-              color: '#847B66',
+              color: '#747B8C',
               fontSize: 10,
               fontWeight: '700',
               letterSpacing: 1.4,
@@ -327,7 +301,7 @@ export function NwordPassGiftOverlay() {
               opacity: continueOpacity,
             }}
           >
-            TAP ANYWHERE TO CONTINUE
+            TAP TO CLOSE
           </Animated.Text>
         </Pressable>
       </Animated.View>

@@ -45,6 +45,10 @@ npm-debug.log*
 
 # Local one-off / per-artist scripts (not part of the app build)
 scripts/
+!packages/mobile/scripts/
+!packages/mobile/scripts/delauney-glyphs.json
+!packages/mobile/scripts/extract-delauney-glyphs.py
+!packages/mobile/scripts/generate-nword-pass-glb.js
 
 # Generated per-icon SVGs (~7,500 files) from scripts/fetch-award-icons.js.
 # Non-featured icons render from the Iconify CDN at runtime, so these

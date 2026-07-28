@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useApp, useGuestsMap, singerFxKey, NEON_COLORS } from '../context/AppContext'
+import type { MicSlotConfig, Singer, VoiceEffects } from '../context/AppContext'
 import { useTheme, THEMES } from '../context/ThemeContext'
 import type { Theme } from '../styles/theme'
 import { AwardsRevealAnimation } from '../awards/AwardsRevealAnimation'
@@ -1871,6 +1872,108 @@ function MicMeter({ singer, active, effects, vocalFx = true, autotune = true, ma
                 })}
             </div>
         </div>
+    )
+}
+
+// ---- Open (unclaimed) Mics ----
+// Every configured mic slot stays live for the whole song, not just the ones a
+// signed-up singer occupies, so anyone can grab a spare mic and hop in mid-song.
+// A spare mic runs the FIRST singer's effects chain (nobody owns it, so it gets
+// the lead treatment) at its own slot level.
+
+// Resolve the effects entry a singer index maps to. Songs store either one
+// VoiceEffects object (uniform) or one per role; a singer's first roleIndex
+// picks their entry, falling back to the first.
+function resolveSingerEffects(
+    effects: VoiceEffects | VoiceEffects[] | null,
+    singer: Singer | undefined
+): VoiceEffects | null {
+    if (!effects) return null
+    if (!Array.isArray(effects)) return effects
+    const index = singer?.roleIndices && singer.roleIndices.length > 0 ? singer.roleIndices[0] : 0
+    return effects[index] || effects[0] || null
+}
+
+// One unclaimed mic. Renders nothing — it just owns the mic engine lifecycle
+// via useSingerMic, exactly like a singer's MicMeter does.
+function OpenMic({ deviceId, effects, mainOutputId, active }: {
+    deviceId: string
+    effects: VoiceEffects | null
+    mainOutputId: string
+    active: boolean
+}) {
+    useSingerMic(deviceId, active && !!deviceId, effects, mainOutputId)
+    return null
+}
+
+// Mounts an engine for every configured mic device no singer in this song is
+// already using. Same lifetime as the singers' mics (ready + playing), so the
+// spares warm up on deck and stay open until the song leaves the stage.
+function OpenMics({ micSlots, singers, voiceEffects, vocalFx, autotune, mainOutputId, active }: {
+    micSlots: MicSlotConfig[]
+    singers: Singer[]
+    voiceEffects: VoiceEffects | VoiceEffects[] | null
+    vocalFx: boolean
+    autotune: boolean
+    mainOutputId: string
+    active: boolean
+}) {
+    // Devices already driven by a singer's own MicMeter — never double-open one.
+    // Compared as full slot ids (including any `#ch=N` suffix) so two channels
+    // of the same interface still count as two separate mics.
+    const claimedKey = singers.map(s => s.micDeviceId).filter(Boolean).join('|')
+    const slotsKey = micSlots.map(s => `${s.micDeviceId}@${s.micLevel ?? 1}`).join('|')
+    const openMics = useMemo(() => {
+        const claimed = new Set(claimedKey ? claimedKey.split('|') : [])
+        const seen = new Set<string>()
+        const out: { deviceId: string; micLevel: number; slotIndex: number }[] = []
+        micSlots.forEach((slot, slotIndex) => {
+            const deviceId = slot.micDeviceId
+            if (!deviceId || claimed.has(deviceId) || seen.has(deviceId)) return
+            seen.add(deviceId)
+            out.push({ deviceId, micLevel: slot.micLevel ?? 1.0, slotIndex })
+        })
+        return out
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [slotsKey, claimedKey])
+
+    // Whose treatment each open mic borrows: the singer holding that slot if the
+    // song has one (a singer whose mic the host cleared), otherwise the FIRST
+    // singer. Keyed by the resolved role index so the memo below only recomputes
+    // when the mapping really changes.
+    const roleKey = openMics
+        .map(m => {
+            const owner = singers[m.slotIndex] ?? singers[0]
+            return owner?.roleIndices && owner.roleIndices.length > 0 ? owner.roleIndices[0] : 0
+        })
+        .join(',')
+
+    // One stable effects object per open mic — the borrowed chain at the slot's
+    // own level — so the engine only re-applies when something actually changed.
+    // An open mic has no owner, so its FX/autotune toggles come from the host's
+    // session flags, not a singer's personal (guest-keyed) override.
+    const perMicEffects = useMemo(
+        () => openMics.map(m => {
+            const owner = singers[m.slotIndex] ?? singers[0]
+            const fx = applyFxToggles(resolveSingerEffects(voiceEffects, owner), vocalFx, autotune)
+            return fx ? { ...fx, micLevel: m.micLevel } : null
+        }),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [openMics, voiceEffects, roleKey, vocalFx, autotune]
+    )
+
+    return (
+        <>
+            {openMics.map((m, i) => (
+                <OpenMic
+                    key={m.deviceId}
+                    deviceId={m.deviceId}
+                    effects={perMicEffects[i]}
+                    mainOutputId={mainOutputId}
+                    active={active}
+                />
+            ))}
+        </>
     )
 }
 
@@ -5339,6 +5442,18 @@ export default function KaraokePage() {
                     })}
                 </div>
             )}
+
+            {/* Spare mics: every configured mic slot no singer occupies stays
+                live with the first singer's effects, so anyone can hop in. */}
+            <OpenMics
+                micSlots={state.micSlots}
+                singers={singers}
+                voiceEffects={voiceEffects}
+                vocalFx={state.sessionFx?.vocalFx ?? true}
+                autotune={state.sessionFx?.autotune ?? true}
+                mainOutputId={state.mainOutputId}
+                active={state.stageMode === 'playing' || state.stageMode === 'ready'}
+            />
 
             {/* Lyrics & Stage Centerpiece */}
             <div

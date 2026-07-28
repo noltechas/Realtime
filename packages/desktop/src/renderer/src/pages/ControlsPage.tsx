@@ -200,8 +200,12 @@ function AudioMixPanel() {
     const hasVocals = !!np?.stemsPath?.vocals
     const vocalOutputId = state.monitorDeviceIds.length > 0 ? state.monitorDeviceIds[0] : ''
 
-    // Show all persisted mic slots, at least as many as current singers
-    const slotCount = Math.max(singers.length, state.micSlots.length)
+    // Show all persisted mic slots, at least as many as current singers, plus
+    // one empty row to add another. Every configured mic stays live during a
+    // song whether or not a singer signed up on it (see OpenMics on the stage),
+    // so the host needs a way to assign spares beyond the singer count.
+    const MAX_SLOTS = 8
+    const slotCount = Math.min(MAX_SLOTS, Math.max(singers.length, state.micSlots.length) + 1)
 
     useEffect(() => {
         if (singers.length > state.micSlots.length) {
@@ -223,13 +227,20 @@ function AudioMixPanel() {
         gap: 14,
     }
 
-    // Build a map from mic device ID to singer name for the current song
-    const micToSingerMap = new Map<string, string>()
+    // Map each in-use mic device to a label for the "already assigned" hint in
+    // the pickers — a singer for the current song, or a spare open mic.
+    const micUsageLabels = new Map<string, string>()
     for (const singer of singers) {
         if (singer.micDeviceId) {
-            micToSingerMap.set(singer.micDeviceId, singer.name)
+            micUsageLabels.set(singer.micDeviceId, `${singer.name}'s Mic`)
         }
     }
+    state.micSlots.forEach((slot, idx) => {
+        if (!slot.micDeviceId || singers[idx]) return
+        if (!micUsageLabels.has(slot.micDeviceId)) {
+            micUsageLabels.set(slot.micDeviceId, `Open Mic ${idx + 1}`)
+        }
+    })
 
     return (
         <Card>
@@ -357,7 +368,13 @@ function AudioMixPanel() {
                         const singer = singers[i]
                         const slot = state.micSlots[i] || { micDeviceId: '', micLevel: 1.0 }
                         const isActive = !!singer
-                        const slotOpacity = isActive ? 1 : 0.45
+                        // A configured mic no singer is on: live all song long
+                        // with the first singer's chain, so don't dim it like an
+                        // empty slot. A device some singer already holds isn't a
+                        // second mic — the stage opens each device once.
+                        const isOpenMic = !isActive && !!slot.micDeviceId
+                            && !singers.some(s => s.micDeviceId === slot.micDeviceId)
+                        const slotOpacity = isActive || isOpenMic ? 1 : 0.45
 
                         let effects: VoiceEffects | null = null
                         if (isActive && voiceEffects) {
@@ -385,6 +402,9 @@ function AudioMixPanel() {
                         } else if (isActive) {
                             slotLabel = `${singer.name} Mic`
                             labelColor = singer.color
+                        } else if (isOpenMic) {
+                            slotLabel = `Open Mic ${i + 1}`
+                            labelColor = 'var(--adm-text)'
                         } else {
                             slotLabel = `Mic Slot ${i + 1}`
                             labelColor = 'var(--adm-text-3)'
@@ -428,8 +448,8 @@ function AudioMixPanel() {
                                     <div style={{ ...labelStyle, color: labelColor, display: 'flex', alignItems: 'center', gap: 6 }}>
                                         <span style={{
                                             width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-                                            background: isActive ? singer.color : 'var(--adm-text-3)',
-                                            boxShadow: isActive ? `0 0 7px ${singer.color}` : 'none',
+                                            background: isActive ? singer.color : isOpenMic ? 'var(--adm-cyan)' : 'var(--adm-text-3)',
+                                            boxShadow: isActive ? `0 0 7px ${singer.color}` : isOpenMic ? '0 0 7px var(--adm-cyan)' : 'none',
                                         }} />
                                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{slotLabel}</span>
                                     </div>
@@ -440,9 +460,9 @@ function AudioMixPanel() {
                                     >
                                         <option value="">Off (No Mic)</option>
                                         {audioInputs.map(d => {
-                                            const assignedSinger = micToSingerMap.get(d.deviceId)
-                                            const suffix = assignedSinger && d.deviceId !== micDeviceId
-                                                ? ` (${assignedSinger}'s Mic)`
+                                            const usedBy = micUsageLabels.get(d.deviceId)
+                                            const suffix = usedBy && d.deviceId !== micDeviceId
+                                                ? ` (${usedBy})`
                                                 : ''
                                             return (
                                                 <option key={d.deviceId} value={d.deviceId}>
@@ -458,11 +478,11 @@ function AudioMixPanel() {
                                     <div style={rowStyle}>
                                         <div style={{ width: 104, flexShrink: 0 }} />
                                         <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10 }}>
-                                            <Icon name="mic" size={13} style={{ color: isActive ? singer.color : 'var(--adm-text-3)' }} />
+                                            <Icon name="mic" size={13} style={{ color: isActive ? singer.color : isOpenMic ? 'var(--adm-cyan)' : 'var(--adm-text-3)' }} />
                                             <Fader
                                                 min={0} max={1} step={0.01}
                                                 value={micLevel}
-                                                color={isActive ? singer.color : undefined}
+                                                color={isActive ? singer.color : isOpenMic ? 'var(--adm-cyan)' : undefined}
                                                 onChange={handleMicLevelChange}
                                                 style={{ flex: 1 }}
                                             />
@@ -473,12 +493,19 @@ function AudioMixPanel() {
                                     </div>
                                 )}
 
-                                {/* Show device name + singer assignment below */}
-                                {micDeviceId && isActive && (
+                                {/* Show device name below — plus, for a spare mic,
+                                    whose treatment it borrows */}
+                                {micDeviceId && (isActive || isOpenMic) && (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                                         <div style={{ width: 104, flexShrink: 0 }} />
                                         <span style={{ fontSize: 10.5, color: 'var(--adm-text-3)' }}>
                                             {deviceLabel}
+                                            {isOpenMic && (
+                                                <>
+                                                    {deviceLabel ? ' — ' : ''}
+                                                    live all song, {singers[0] ? `${singers[0].name}'s` : 'the first singer’s'} vocal FX
+                                                </>
+                                            )}
                                         </span>
                                     </div>
                                 )}

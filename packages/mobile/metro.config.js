@@ -12,6 +12,12 @@ const config = getDefaultConfig(projectRoot)
 
 config.watchFolders = [workspaceRoot]
 
+// Filament loads models directly from the app bundle. Metro does not include
+// GLB files by default, so register the extension once for all future 3D assets.
+if (!config.resolver.assetExts.includes('glb')) {
+  config.resolver.assetExts.push('glb')
+}
+
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, 'node_modules'),
   path.resolve(workspaceRoot, 'node_modules'),

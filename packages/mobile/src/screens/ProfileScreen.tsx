@@ -240,18 +240,27 @@ export function ProfileScreen() {
           {hasNwordPass && ownGuest ? (
             <NwordPassCard
               holderName={ownGuest.name}
-              identifier={ownGuest.id}
               variant="permanent"
+              interactive
               onShare={() => setShareOpen(true)}
-              style={{ marginTop: 34, maxWidth: 390 }}
+              style={{
+                width: '95%',
+                maxWidth: 328,
+                marginTop: 30,
+                alignSelf: 'center',
+              }}
             />
           ) : pendingGift ? (
             <NwordPassCard
               holderName={ownGuest?.name || name.trim() || 'Guest'}
-              identifier={pendingGift.id}
               variant="one-time"
-              giftedBy={pendingGift.giver_name_snapshot}
-              style={{ marginTop: 34, maxWidth: 390 }}
+              interactive
+              style={{
+                width: '95%',
+                maxWidth: 328,
+                marginTop: 30,
+                alignSelf: 'center',
+              }}
             />
           ) : null}
         </ScrollView>
