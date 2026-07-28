@@ -12,7 +12,7 @@ import Svg, {
   Line,
   Polygon,
 } from 'react-native-svg'
-import { useLinearLoop, useOscillator } from '../../theme/themes/space/_shared'
+import { useLinearLoop, useOscillator } from '../../theme/themes/space/atoms/_ship'
 
 // ─── Space-specific wizard chrome ───────────────────────────────────────────
 // These components are only rendered when the active wizard theme is 'space'.

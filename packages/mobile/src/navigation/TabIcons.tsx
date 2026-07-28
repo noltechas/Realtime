@@ -36,10 +36,19 @@ function AwardsIcon({ color, size = 20 }: TabIconProps) {
   return <Ionicons name="trophy" size={Math.round(size * 1.05)} color={color} />
 }
 
+function StageIcon({ color, size = 20 }: TabIconProps) {
+  // Fallback only. SessionTabs normally overrides the Stage tab's glyph via
+  // `options.tabBarIcon` so it can swap mic/smiley on whether the local guest is
+  // up — but a tab bar that renders a label with no icon at all when that
+  // override is missing looks broken, which is exactly what happened.
+  return <Ionicons name="happy-outline" size={Math.round(size * 1.08)} color={color} />
+}
+
 export const TAB_ICONS: Record<string, TabIconComponent> = {
   Home: HomeIcon,
   Profile: ProfileIcon,
   Queue: QueueIcon,
   Songs: SongsIcon,
   Awards: AwardsIcon,
+  Stage: StageIcon,
 }

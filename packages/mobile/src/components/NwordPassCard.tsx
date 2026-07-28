@@ -42,17 +42,37 @@ interface NwordPassCardProps {
   holderName: string
   variant: 'permanent' | 'one-time'
   onShare?: () => void
+  onReady?: () => void
+  presentationTransform?: NwordPassPresentationTransform
+  paused?: boolean
   interactive?: boolean
   compact?: boolean
   style?: ViewStyle
 }
 
+interface NwordPassPresentationTransform {
+  translateY: Animated.Value
+  translateZ: Animated.Value
+  scale: Animated.Value
+  rotateZ: Animated.Value
+  tiltX: Animated.Value
+  initial: {
+    translateY: number
+    translateZ: number
+    scale: number
+    rotateZ: number
+    tiltX: number
+  }
+}
+
 interface HolderNameTextureProps {
   uri: string
+  onReady?: () => void
 }
 
 interface HolderNameComposerProps {
   holderName: string
+  variant: 'permanent' | 'one-time'
   onTextureReady: (uri: string) => void
 }
 
@@ -100,6 +120,12 @@ const FILAMENT_FRAME_RATE_OPTIONS = {
   scaleRate: 0.35,
   history: 8,
 }
+const FILAMENT_PRESENTATION_FRAME_RATE_OPTIONS = {
+  interval: 1,
+  headRoomRatio: 0.12,
+  scaleRate: 0.28,
+  history: 6,
+}
 const FILAMENT_DYNAMIC_RESOLUTION = {
   enabled: true,
   homogeneousScaling: true,
@@ -144,13 +170,24 @@ function decodeBase64(base64: string) {
 
 function HolderNameComposer({
   holderName,
+  variant,
   onTextureReady,
 }: HolderNameComposerProps) {
   const svgRef = useRef<Svg | null>(null)
   const renderVersion = useRef(0)
   const displayName = (holderName.trim() || 'Guest').toLocaleUpperCase()
   const fontSize =
-    displayName.length > 24 ? 28 : displayName.length > 16 ? 34 : 46
+    variant === 'one-time'
+      ? displayName.length > 16
+        ? 24
+        : displayName.length > 10
+          ? 29
+          : 36
+      : displayName.length > 24
+        ? 28
+        : displayName.length > 16
+          ? 34
+          : 46
 
   useEffect(() => {
     const version = ++renderVersion.current
@@ -231,8 +268,13 @@ function HolderNameComposer({
   )
 }
 
-function HolderNameTexture({ uri }: HolderNameTextureProps) {
+function HolderNameTexture({ uri, onReady }: HolderNameTextureProps) {
   const texture = useBuffer({ source: { uri } })
+
+  useEffect(() => {
+    if (texture != null) onReady?.()
+  }, [onReady, texture])
+
   if (texture == null) return null
 
   return (
@@ -270,30 +312,73 @@ function PortraitSelectionControls({
   )
 }
 
+function PassVariantControls({
+  variant,
+}: {
+  variant: 'permanent' | 'one-time'
+}) {
+  return (
+    <EntitySelector
+      byName="OneTimeUse"
+      scale={
+        variant === 'one-time'
+          ? VISIBLE_ENTITY_SCALE
+          : HIDDEN_ENTITY_SCALE
+      }
+      multiplyWithCurrentTransform={false}
+    />
+  )
+}
+
 function FilamentCardScene({
   interactive,
+  variant,
   rotationX,
   rotationY,
   holderTextureUri,
   selectedPortrait,
   isFlipped,
+  presentationTransform,
+  paused,
+  onReady,
 }: {
   interactive: boolean
+  variant: 'permanent' | 'one-time'
   rotationX: Animated.Value
   rotationY: Animated.Value
   holderTextureUri: string | null
   selectedPortrait: PortraitId
   isFlipped: boolean
+  presentationTransform?: NwordPassPresentationTransform
+  paused: boolean
+  onReady?: () => void
 }) {
   const model = useModel(CARD_MODEL)
-  const { transformManager } = useFilamentContext()
+  const { choreographer, transformManager } = useFilamentContext()
   const modelRoot = model.state === 'loaded' ? model.rootEntity : null
   const [rotationReady, setRotationReady] = useState(false)
+  const [readyHolderTextureUri, setReadyHolderTextureUri] =
+    useState<string | null>(null)
   const rotationFrame = useRef<number | null>(null)
   const lastRotationApplyAt = useRef(0)
-  const currentRotation = useRef({
+  const currentTransform = useRef({
     x: interactive ? (isFlipped ? -0.025 : REST_ROTATION[0]) : 0,
     y: interactive ? (isFlipped ? FLIPPED_Y : REST_ROTATION[1]) : 0,
+    presentationY: presentationTransform
+      ? presentationTransform.initial.translateY
+      : 0,
+    presentationZ: presentationTransform
+      ? presentationTransform.initial.translateZ
+      : 0,
+    presentationScale: presentationTransform
+      ? presentationTransform.initial.scale
+      : 1,
+    presentationRotateZ: presentationTransform
+      ? presentationTransform.initial.rotateZ
+      : 0,
+    presentationTiltX: presentationTransform
+      ? presentationTransform.initial.tiltX
+      : 0,
   })
 
   useLayoutEffect(() => {
@@ -302,52 +387,152 @@ function FilamentCardScene({
       return
     }
 
-    const applyRotation = (timestamp?: number) => {
+    const minimumFrameTime = presentationTransform ? 15 : 28
+    const applyTransform = (timestamp?: number) => {
       if (
         timestamp != null &&
-        timestamp - lastRotationApplyAt.current < 28
+        timestamp - lastRotationApplyAt.current < minimumFrameTime
       ) {
-        rotationFrame.current = requestAnimationFrame(applyRotation)
+        rotationFrame.current = requestAnimationFrame(applyTransform)
         return
       }
       rotationFrame.current = null
       lastRotationApplyAt.current = timestamp ?? performance.now()
-      transformManager.setEntityRotation(
+      const current = currentTransform.current
+      const scale = current.presentationScale
+
+      transformManager.openLocalTransformTransaction()
+      transformManager.setEntityScale(
         modelRoot,
-        currentRotation.current.x,
-        [1, 0, 0],
+        [scale, scale, scale],
         false,
       )
       transformManager.setEntityRotation(
         modelRoot,
-        currentRotation.current.y,
+        current.x + current.presentationTiltX,
+        [1, 0, 0],
+        true,
+      )
+      transformManager.setEntityRotation(
+        modelRoot,
+        current.y,
         [0, 1, 0],
         true,
       )
+      transformManager.setEntityRotation(
+        modelRoot,
+        current.presentationRotateZ,
+        [0, 0, 1],
+        true,
+      )
+      transformManager.setEntityPosition(
+        modelRoot,
+        [0, current.presentationY, current.presentationZ],
+        true,
+      )
+      transformManager.commitLocalTransformTransaction()
     }
-    const scheduleRotation = () => {
+    const scheduleTransform = () => {
       if (rotationFrame.current != null) return
-      rotationFrame.current = requestAnimationFrame(applyRotation)
+      rotationFrame.current = requestAnimationFrame(applyTransform)
     }
     const xListener = rotationX.addListener(({ value }) => {
-      currentRotation.current.x = value
-      scheduleRotation()
+      currentTransform.current.x = value
+      scheduleTransform()
     })
     const yListener = rotationY.addListener(({ value }) => {
-      currentRotation.current.y = value
-      scheduleRotation()
+      currentTransform.current.y = value
+      scheduleTransform()
     })
+    const presentationListeners: Array<{
+      value: Animated.Value
+      id: string
+    }> = []
 
-    applyRotation()
+    if (presentationTransform) {
+      presentationListeners.push(
+        {
+          value: presentationTransform.translateY,
+          id: presentationTransform.translateY.addListener(({ value }) => {
+            currentTransform.current.presentationY = value
+            scheduleTransform()
+          }),
+        },
+        {
+          value: presentationTransform.scale,
+          id: presentationTransform.scale.addListener(({ value }) => {
+            currentTransform.current.presentationScale = value
+            scheduleTransform()
+          }),
+        },
+        {
+          value: presentationTransform.translateZ,
+          id: presentationTransform.translateZ.addListener(({ value }) => {
+            currentTransform.current.presentationZ = value
+            scheduleTransform()
+          }),
+        },
+        {
+          value: presentationTransform.rotateZ,
+          id: presentationTransform.rotateZ.addListener(({ value }) => {
+            currentTransform.current.presentationRotateZ = value
+            scheduleTransform()
+          }),
+        },
+        {
+          value: presentationTransform.tiltX,
+          id: presentationTransform.tiltX.addListener(({ value }) => {
+            currentTransform.current.presentationTiltX = value
+            scheduleTransform()
+          }),
+        },
+      )
+    }
+
+    applyTransform()
     setRotationReady(true)
     return () => {
       rotationX.removeListener(xListener)
       rotationY.removeListener(yListener)
+      presentationListeners.forEach(listener => {
+        listener.value.removeListener(listener.id)
+      })
       if (rotationFrame.current != null) {
         cancelAnimationFrame(rotationFrame.current)
       }
     }
-  }, [modelRoot, rotationX, rotationY, transformManager])
+  }, [
+    modelRoot,
+    presentationTransform,
+    rotationX,
+    rotationY,
+    transformManager,
+  ])
+
+  useEffect(() => {
+    if (
+      !rotationReady ||
+      holderTextureUri == null ||
+      readyHolderTextureUri !== holderTextureUri
+    ) {
+      return
+    }
+    const frame = requestAnimationFrame(() => onReady?.())
+    return () => cancelAnimationFrame(frame)
+  }, [
+    holderTextureUri,
+    onReady,
+    readyHolderTextureUri,
+    rotationReady,
+  ])
+
+  useEffect(() => {
+    if (paused) {
+      choreographer.stop()
+    } else {
+      choreographer.start()
+    }
+  }, [choreographer, paused])
 
   return (
     <FilamentView
@@ -356,7 +541,15 @@ function FilamentCardScene({
       style={StyleSheet.absoluteFill}
     >
       <Camera
-        cameraPosition={[0, 0, interactive ? INTERACTIVE_CAMERA_Z : 2.62]}
+        cameraPosition={[
+          0,
+          0,
+          interactive
+            ? INTERACTIVE_CAMERA_Z
+            : variant === 'one-time'
+              ? 2.82
+              : 2.62,
+        ]}
         cameraTarget={[0, 0, 0]}
         focalLengthInMillimeters={28}
         near={0.1}
@@ -377,10 +570,12 @@ function FilamentCardScene({
       {rotationReady ? (
         <ModelRenderer model={model}>
           <PortraitSelectionControls selectedPortrait={selectedPortrait} />
+          <PassVariantControls variant={variant} />
           {holderTextureUri ? (
             <HolderNameTexture
               key={holderTextureUri}
               uri={holderTextureUri}
+              onReady={() => setReadyHolderTextureUri(holderTextureUri)}
             />
           ) : null}
         </ModelRenderer>
@@ -391,22 +586,30 @@ function FilamentCardScene({
 
 function CardMaterial({
   interactive,
+  variant,
   rotationX,
   rotationY,
   holderTextureUri,
   selectedPortrait,
   isFlipped,
+  presentationTransform,
+  paused,
+  onReady,
 }: {
   interactive: boolean
+  variant: 'permanent' | 'one-time'
   rotationX: Animated.Value
   rotationY: Animated.Value
   holderTextureUri: string | null
   selectedPortrait: PortraitId
   isFlipped: boolean
+  presentationTransform?: NwordPassPresentationTransform
+  paused: boolean
+  onReady?: () => void
 }) {
   return (
     <View style={StyleSheet.absoluteFill}>
-      {!interactive ? (
+      {!interactive && !presentationTransform ? (
         <View style={[StyleSheet.absoluteFill, styles.loadingSurface]} />
       ) : null}
       <View
@@ -421,23 +624,38 @@ function CardMaterial({
           dithering="none"
           shadowing={false}
           screenSpaceRefraction={false}
-          frameRateOptions={FILAMENT_FRAME_RATE_OPTIONS}
+          frameRateOptions={
+            presentationTransform
+              ? FILAMENT_PRESENTATION_FRAME_RATE_OPTIONS
+              : FILAMENT_FRAME_RATE_OPTIONS
+          }
           dynamicResolutionOptions={
             Platform.OS === 'android'
               ? FILAMENT_DYNAMIC_RESOLUTION
               : undefined
           }
           fallback={
-            <View style={[StyleSheet.absoluteFill, styles.loadingSurface]} />
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                presentationTransform
+                  ? styles.transparentSurface
+                  : styles.loadingSurface,
+              ]}
+            />
           }
         >
           <FilamentCardScene
             interactive={interactive}
+            variant={variant}
             rotationX={rotationX}
             rotationY={rotationY}
             holderTextureUri={holderTextureUri}
             selectedPortrait={selectedPortrait}
             isFlipped={isFlipped}
+            presentationTransform={presentationTransform}
+            paused={paused}
+            onReady={onReady}
           />
         </FilamentScene>
       </View>
@@ -449,6 +667,9 @@ export function NwordPassCard({
   holderName,
   variant,
   onShare,
+  onReady,
+  presentationTransform,
+  paused = false,
   interactive = false,
   compact = false,
   style,
@@ -760,18 +981,25 @@ export function NwordPassCard({
               styles.card,
               {
                 borderRadius: cardRadius,
-                backgroundColor: interactive ? 'transparent' : '#080A0E',
+                backgroundColor:
+                  interactive || presentationTransform
+                    ? 'transparent'
+                    : '#080A0E',
                 overflow: interactive ? 'visible' : 'hidden',
               },
             ]}
           >
             <CardMaterial
               interactive={interactive}
+              variant={variant}
               rotationX={rotationX}
               rotationY={rotationY}
               holderTextureUri={holderTextureUri}
               selectedPortrait={selectedPortrait}
               isFlipped={isFlipped}
+              presentationTransform={presentationTransform}
+              paused={paused}
+              onReady={onReady}
             />
             {canFlip ? (
               <Pressable
@@ -835,6 +1063,7 @@ export function NwordPassCard({
 
       <HolderNameComposer
         holderName={safeName}
+        variant={variant}
         onTextureReady={setHolderTextureUri}
       />
     </>
@@ -866,6 +1095,9 @@ const styles = StyleSheet.create({
   },
   loadingSurface: {
     backgroundColor: '#090C11',
+  },
+  transparentSurface: {
+    backgroundColor: 'transparent',
   },
   interactiveSceneOverscan: {
     top: '-9%',

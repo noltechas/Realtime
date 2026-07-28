@@ -1,13 +1,17 @@
 import React from 'react'
-import { View, Text, Pressable, ScrollView } from 'react-native'
+import { View, Text, Pressable } from 'react-native'
 import { UNIVERSAL_SINGER_COLORS } from '@karaoke/shared'
 import { useTheme } from '../../../ThemeContext'
 import { blobCornerRadii, sketchAngle } from '../../../helpers'
 import type { ColorPickerProps } from '../../../types'
 
 // Sketch color picker — universal palette, blob-shaped swatches with a slight
-// per-color rotation so the strip reads as paint chips taped to a page rather
+// per-color rotation so the chips read as paint chips taped to a page rather
 // than a uniform row of circles.
+//
+// A wrapping grid rather than a horizontal scroller — a scroller cut the last
+// chips off at the screen edge. 40 + 10 fits seven per row, so 13 lands as a
+// clean 7 + 6, which suits the taped-to-a-page look better than a strip anyway.
 export function ColorPicker({ value, onChange, label = 'Your Color' }: ColorPickerProps) {
   const { tokens } = useTheme()
   return (
@@ -26,10 +30,14 @@ export function ColorPicker({ value, onChange, label = 'Your Color' }: ColorPick
       >
         {label}
       </Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 24, gap: 12 }}
+      <View
+        style={{
+          paddingHorizontal: 24,
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          columnGap: 10,
+          rowGap: 12,
+        }}
       >
         {UNIVERSAL_SINGER_COLORS.map((c, i) => {
           const selected = i === value
@@ -56,7 +64,7 @@ export function ColorPicker({ value, onChange, label = 'Your Color' }: ColorPick
             />
           )
         })}
-      </ScrollView>
+      </View>
     </View>
   )
 }

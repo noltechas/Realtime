@@ -40,6 +40,11 @@ export interface GenreTabsProps {
 export interface SongCardProps {
   track: KaraokeCatalogRow
   onPress: () => void
+  /** Position in the rendered grid. Optional so themes that don't care can ignore
+   *  it; themes that walk a palette per item use it to guarantee that neighbouring
+   *  cards never draw the same colour (hashing the track id picks independently and
+   *  collides often). */
+  index?: number
 }
 
 export interface QueueRowProps {
@@ -67,6 +72,10 @@ export interface ReactionCellProps {
   onPress: () => void
   onEditPress?: () => void
   disabled?: boolean
+  /** Position in the 3x2 grid. Optional so themes that don't care can ignore it;
+   *  themes that walk a palette per cell use it so no two cells draw the same
+   *  colour (hashing the label picks independently and collides often). */
+  index?: number
 }
 
 export interface ScreenTitleProps {
@@ -133,6 +142,16 @@ export interface ThemeUIModule {
   // Navigation chrome
   TabBar: React.ComponentType<BottomTabBarProps>
   Backdrop: React.ComponentType<{}>
+  // Optional full-screen layer mounted ONCE per themed subtree, behind every
+  // screen — as opposed to `Backdrop`, which each screen renders for itself.
+  //
+  // This exists for themes whose backdrop owns an expensive singleton resource.
+  // Space renders a real Filament 3D scene here: six screens each mounting
+  // their own would mean six GPU engines, whereas one instance above the
+  // navigator means one, shared, for the whole session. A theme that opts in
+  // must also make its `styles.screen` / `styles.page` backgrounds transparent,
+  // or its own screens will paint over the layer.
+  SceneLayer?: React.ComponentType<{}>
   // Wraps a child node and applies any theme-specific entry animation
   // (e.g. deep-sea's bubble-float). Themes without one return `children`
   // unchanged.

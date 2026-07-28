@@ -38,7 +38,15 @@ export function SessionTabs() {
       <SessionGuestsProvider>
         <NwordPassProvider>
           <Tabs.Navigator
-            screenOptions={{ headerShown: false }}
+            screenOptions={{
+              headerShown: false,
+              // Every screen paints its own opaque `ui.styles.screen`
+              // background, so the navigator's scene container never needed a
+              // color of its own — and leaving it at the navigation library's
+              // default light gray would cover a theme's `ui.SceneLayer`
+              // (see theme/types.ts), which is mounted behind this navigator.
+              sceneStyle: { backgroundColor: 'transparent' },
+            }}
             tabBar={(props) => <ThemedTabBar {...props} />}
             initialRouteName="Queue"
           >

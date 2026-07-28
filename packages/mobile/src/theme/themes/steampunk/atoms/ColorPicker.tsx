@@ -1,5 +1,5 @@
 import React from 'react'
-import { View, Text, Pressable, ScrollView } from 'react-native'
+import { View, Text, Pressable } from 'react-native'
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg'
 import { UNIVERSAL_SINGER_COLORS } from '@karaoke/shared'
 import { useTheme } from '../../../ThemeContext'
@@ -11,6 +11,13 @@ import type { ColorPickerProps } from '../../../types'
 // collets. The selected lamp is LIT: brighter ring, inner glow, a soft amber
 // halo. Unselected lamps sit dim in their settings. No rotation, no rivets —
 // a bank of instrument lights, read at a glance.
+//
+// A wrapping grid rather than a horizontal scroller — a scroller cut the last
+// lamps off at the screen edge. CELL + gap fits seven per row, so 13 lands as a
+// clean 7 + 6, which reads as a proper annunciator bank. Each lamp sits in a
+// fixed CELL and only its own diameter changes when lit, so selecting a colour
+// can't reflow the bank.
+const CELL = 42
 export function SteampunkColorPicker({ value, onChange, label = 'Your Color' }: ColorPickerProps) {
   const { tokens } = useTheme()
   return (
@@ -28,10 +35,15 @@ export function SteampunkColorPicker({ value, onChange, label = 'Your Color' }: 
       >
         {label}
       </Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 24, gap: 14, paddingVertical: 6, alignItems: 'center' }}
+      <View
+        style={{
+          paddingHorizontal: 24,
+          paddingVertical: 6,
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          columnGap: 8,
+          rowGap: 12,
+        }}
       >
         {UNIVERSAL_SINGER_COLORS.map((c, i) => (
           <EnamelLamp
@@ -42,7 +54,7 @@ export function SteampunkColorPicker({ value, onChange, label = 'Your Color' }: 
             onPress={() => onChange(i)}
           />
         ))}
-      </ScrollView>
+      </View>
     </View>
   )
 }
@@ -59,11 +71,15 @@ function EnamelLamp({
   onPress: () => void
 }) {
   const id = `lamp-${hashKey(`${color}-${seed}`)}`
-  const size = selected ? 46 : 38
+  const size = selected ? CELL : 36
   const r = size / 2
 
   return (
-    <Pressable onPress={onPress} hitSlop={8}>
+    <Pressable
+      onPress={onPress}
+      hitSlop={8}
+      style={{ width: CELL, height: CELL, alignItems: 'center', justifyContent: 'center' }}
+    >
       <View
         style={{
           width: size,

@@ -2,106 +2,107 @@ import { StyleSheet, type ViewStyle, type TextStyle } from 'react-native'
 import type { ThemeTokens } from '@karaoke/shared'
 import type { ThemeUIStyles } from '../../types'
 
-// Space stylesheet — HUD-style cool-white text on the deep void. Headings get
-// a nebula-magenta + plasma-cyan double glow (echoing the desktop space
-// theme's `text-shadow` chain). The flat card is a faint translucent panel
-// with a 1px magenta rim and a subtle plasma glow — atoms that want HUD
-// brackets or a corner cross-hair render their own ornaments on top.
+// Space stylesheet — instrument-panel typography on transparent screens.
 //
-// No structural skew or blob shape — space's identity comes from cosmic
-// ornaments (stars, orbits, HUD brackets, scan lines) layered onto otherwise
-// clean rectangles, not from warped geometry.
+// TRANSPARENT `screen` AND `page` ARE LOAD-BEARING. This theme mounts a single
+// Filament scene behind the whole navigator via `ui.SceneLayer` (see
+// theme/types.ts). If either of these painted `appBg`, the screens would cover
+// the 3D outboard view and the theme would collapse to a flat dark app. The
+// animated backdrop in ThemeCrossfade already guarantees there is never a
+// see-through hole behind them.
+//
+// Type: Chakra Petch caps for anything that labels a control (it is a display
+// face and gets illegible below ~10px, so it is never used for prose), Exo 2
+// for body copy, Share Tech Mono for every numeral the user reads as telemetry.
+// Glow is applied sparingly — a hairline text shadow at low alpha to suggest a
+// backlit panel, not the heavy neon bloom the previous space theme used.
 export function buildSpaceStyles(t: ThemeTokens): ThemeUIStyles {
   const sheet = StyleSheet.create({
     screen: {
       flex: 1,
-      backgroundColor: t.appBg,
+      backgroundColor: 'transparent',
     },
     page: {
-      paddingHorizontal: 24,
-      paddingTop: 24,
+      paddingHorizontal: 20,
+      paddingTop: 20,
       paddingBottom: 48,
-      backgroundColor: t.appBg,
+      backgroundColor: 'transparent',
       flexGrow: 1,
     },
     h1: {
       fontFamily: t.fontDisplay,
-      fontSize: 30,
+      fontSize: 26,
       color: t.black,
-      letterSpacing: t.displayLetterSpacing + 1,
+      letterSpacing: 4,
       textTransform: 'uppercase',
-      textShadowColor: 'rgba(224,64,251,0.55)',
-      textShadowRadius: 18,
+      textShadowColor: 'rgba(91,233,255,0.35)',
+      textShadowRadius: 10,
       textShadowOffset: { width: 0, height: 0 },
     },
     h2: {
       fontFamily: t.fontDisplay,
-      fontSize: 22,
+      fontSize: 18,
       color: t.black,
-      letterSpacing: t.displayLetterSpacing,
+      letterSpacing: 2.6,
       textTransform: 'uppercase',
-      textShadowColor: 'rgba(64,224,208,0.5)',
-      textShadowRadius: 12,
-      textShadowOffset: { width: 0, height: 0 },
     },
     body: {
       fontFamily: t.fontBody,
-      fontSize: 16,
+      fontSize: 15,
       color: t.black,
       lineHeight: 22,
     },
     muted: {
       fontFamily: t.fontBody,
-      fontSize: 14,
+      fontSize: 13,
       color: t.muted,
+      lineHeight: 19,
     },
-    // Default card — translucent void panel with a thin magenta rim and a
-    // soft cyan glow. Atoms that want HUD-bracket corners or constellation
-    // dot patterns render those ornaments on top of this shell.
+    // Plain-View fallback surface for the few screens that style a card
+    // directly instead of going through `MachinedPanel`. Kept visually close to
+    // a panel — glass fill, powered hairline — but without the chamfer, which
+    // needs a measured SVG.
     card: {
-      backgroundColor: 'rgba(21,21,40,0.72)',
+      backgroundColor: 'rgba(13,20,29,0.90)',
       borderWidth: 1,
-      borderColor: 'rgba(224,64,251,0.25)',
-      borderRadius: 10,
+      borderColor: 'rgba(91,233,255,0.22)',
+      borderRadius: 3,
       padding: 16,
     },
     input: {
-      backgroundColor: 'rgba(224,64,251,0.06)',
+      backgroundColor: 'rgba(7,12,19,0.92)',
       borderWidth: 1,
-      borderColor: 'rgba(224,64,251,0.35)',
-      borderRadius: 6,
-      paddingHorizontal: 16,
+      borderColor: 'rgba(91,233,255,0.28)',
+      borderRadius: 2,
+      paddingHorizontal: 14,
       paddingVertical: 12,
-      fontSize: 16,
+      fontSize: 15,
       fontFamily: t.fontBody,
       color: t.black,
     } as ViewStyle & TextStyle,
+    // Readout chip — square, not a pill. Nothing on a machined panel is round.
     pillBox: {
-      borderRadius: 999,
+      borderRadius: 2,
       borderWidth: 1,
-      borderColor: 'rgba(64,224,208,0.4)',
-      backgroundColor: 'rgba(64,224,208,0.08)',
-      paddingHorizontal: 12,
-      paddingVertical: 4,
+      borderColor: 'rgba(91,233,255,0.34)',
+      backgroundColor: 'rgba(91,233,255,0.07)',
+      paddingHorizontal: 9,
+      paddingVertical: 3,
     },
     pillText: {
-      fontFamily: t.fontDisplay,
+      fontFamily: 'ShareTechMono_400Regular',
       fontSize: 12,
-      color: t.accentB,
-      letterSpacing: 1,
+      color: t.accentA,
+      letterSpacing: 1.2,
       textTransform: 'uppercase',
     },
     sectionLabel: {
       fontFamily: t.fontDisplay,
-      fontSize: 12,
-      letterSpacing: 2,
-      color: t.accentA,
-      opacity: 0.85,
+      fontSize: 10,
+      letterSpacing: 3.4,
+      color: t.muted,
       marginBottom: 12,
       textTransform: 'uppercase',
-      textShadowColor: 'rgba(224,64,251,0.45)',
-      textShadowRadius: 6,
-      textShadowOffset: { width: 0, height: 0 },
     },
   })
 

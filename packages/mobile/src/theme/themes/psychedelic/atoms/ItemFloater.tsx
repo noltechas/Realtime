@@ -1,11 +1,13 @@
 import React, { useEffect, useRef } from 'react'
-import { Animated, type ViewStyle } from 'react-native'
+import { Animated, Easing, type ViewStyle } from 'react-native'
 
-// Psychedelic list-item floater — items rise from 24px below + opacity 0 with
-// a soft spring on entrance, then sit still. The continuous "alive" motion in
-// this theme lives in the per-atom oscillators (SongCard shape morph, QueueRow
-// aurora sweep, GenreTabs breath, etc.) — re-running an idle bob *per list
-// item* on top of those was eating frame budget on long lists, so it's gone.
+// Psychedelic list-item entrance — a short, calm fade and rise.
+//
+// The background is in constant motion, so rows arrive quietly: 220ms, easeOut, a
+// 10px rise, no overshoot. An earlier pass sprang them in from 88% scale, which
+// against moving footage read as restless.
+//
+// This also covers the frame before a glass panel's blur is ready.
 export function ItemFloater({
   children,
   delay = 0,
@@ -18,22 +20,21 @@ export function ItemFloater({
   const enter = useRef(new Animated.Value(0)).current
 
   useEffect(() => {
-    const t = setTimeout(() => {
-      Animated.spring(enter, {
+    const handle = setTimeout(() => {
+      Animated.timing(enter, {
         toValue: 1,
-        tension: 55,
-        friction: 10,
+        duration: 220,
+        easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }).start()
     }, delay)
-    return () => clearTimeout(t)
+    return () => clearTimeout(handle)
   }, [delay, enter])
 
-  const opacity = enter.interpolate({ inputRange: [0, 1], outputRange: [0, 1] })
-  const translateY = enter.interpolate({ inputRange: [0, 1], outputRange: [24, 0] })
+  const translateY = enter.interpolate({ inputRange: [0, 1], outputRange: [10, 0] })
 
   return (
-    <Animated.View style={[style, { opacity, transform: [{ translateY }] }]}>
+    <Animated.View style={[style, { opacity: enter, transform: [{ translateY }] }]}>
       {children}
     </Animated.View>
   )

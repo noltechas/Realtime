@@ -1,5 +1,5 @@
 import React from 'react'
-import { View, Text, Pressable, ScrollView } from 'react-native'
+import { View, Text, Pressable } from 'react-native'
 import { UNIVERSAL_SINGER_COLORS } from '@karaoke/shared'
 import { useTheme } from '../../../ThemeContext'
 import type { ColorPickerProps } from '../../../types'
@@ -7,6 +7,10 @@ import type { ColorPickerProps } from '../../../types'
 // Deep-sea color picker — rounded swatches with a strong cyan
 // bioluminescent halo around the selected one. Reads from the universal
 // palette so a user's identity color persists across theme switches.
+//
+// A wrapping grid rather than a horizontal scroller — a scroller cut the last
+// swatches off at the screen edge. 38 + 12 fits seven per row, so 13 lands as
+// a clean 7 + 6.
 export function ColorPicker({
   value,
   onChange,
@@ -29,10 +33,14 @@ export function ColorPicker({
       >
         {label}
       </Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 24, gap: 12 }}
+      <View
+        style={{
+          paddingHorizontal: 24,
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          columnGap: 12,
+          rowGap: 14,
+        }}
       >
         {UNIVERSAL_SINGER_COLORS.map((c, i) => {
           const selected = i === value
@@ -66,7 +74,7 @@ export function ColorPicker({
             />
           )
         })}
-      </ScrollView>
+      </View>
     </View>
   )
 }

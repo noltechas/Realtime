@@ -107,6 +107,46 @@ export function AvatarPicker({
 
   const ringWidth = Math.max(4, Math.round(size * 0.045))
   const badgeSize = Math.round(size * 0.31)
+  const radius = tokens.cornerStyle === 'sharp' ? 0 : 999
+
+  // The shadow and the photo clip MUST live on separate views. iOS refuses to
+  // draw a layer's shadow when that same layer clips its contents, so while
+  // these were combined the shadow silently rendered nothing on every theme —
+  // the portrait read as a sticker pasted onto the page. If you merge the two
+  // views back together, the shadow disappears again with no warning.
+  //
+  // Which shadow is a `shadowStyle` decision, not an `isDark` one: the hard
+  // offset plate belongs to the themes that use it everywhere else (neo-brutal,
+  // comic-book, sketch), a dark theme wants the portrait lit in the singer's own
+  // colour, and a light theme with a glow vocabulary (tropical) wants a soft
+  // neutral drop rather than a slab of black.
+  const shadow =
+    tokens.shadowStyle === 'offset'
+      ? {
+          shadowColor: tokens.black,
+          shadowOffset: {
+            width: Math.max(3, Math.round(size * 0.05)),
+            height: Math.max(3, Math.round(size * 0.055)),
+          },
+          shadowOpacity: 1,
+          shadowRadius: 0,
+          elevation: 5,
+        }
+      : tokens.isDark
+        ? {
+            shadowColor: ringColor,
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: 0.6,
+            shadowRadius: 16,
+            elevation: 4,
+          }
+        : {
+            shadowColor: tokens.black,
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: 0.18,
+            shadowRadius: 12,
+            elevation: 4,
+          }
 
   return (
     <Pressable onPress={onPress} hitSlop={8} style={{ width: size, height: size }}>
@@ -114,49 +154,56 @@ export function AvatarPicker({
         style={{
           width: size,
           height: size,
-          borderRadius: tokens.cornerStyle === 'sharp' ? 0 : 999,
-          borderWidth: ringWidth,
-          borderColor: ringColor,
+          borderRadius: radius,
+          // An opaque fill is what gives iOS a shape to derive the shadow from;
+          // the inner view covers it, so this colour is never actually seen.
           backgroundColor: tokens.white,
-          alignItems: 'center',
-          justifyContent: 'center',
-          overflow: 'hidden',
-          shadowColor: tokens.isDark ? ringColor : tokens.black,
-          shadowOffset: tokens.isDark ? { width: 0, height: 0 } : { width: 4, height: 4 },
-          shadowOpacity: tokens.isDark ? 0.6 : 1,
-          shadowRadius: tokens.isDark ? 16 : 0,
-          elevation: 4,
+          ...shadow,
         }}
       >
-        {picture ? (
-          <Image
-            source={{ uri: picture }}
-            style={{ width: '100%', height: '100%' }}
-            resizeMode="cover"
-          />
-        ) : initial ? (
-          <Text
-            style={{
-              fontFamily: tokens.fontDisplay,
-              fontWeight: '900',
-              fontSize: Math.round(size * 0.42),
-              color: tokens.black,
-            }}
-          >
-            {initial}
-          </Text>
-        ) : (
-          <View
-            style={{
-              width: Math.round(size * 0.4),
-              height: Math.round(size * 0.4),
-              borderRadius: 999,
-              borderWidth: 3,
-              borderColor: tokens.muted,
-              borderStyle: 'dashed',
-            }}
-          />
-        )}
+        <View
+          style={{
+            width: '100%',
+            height: '100%',
+            borderRadius: radius,
+            borderWidth: ringWidth,
+            borderColor: ringColor,
+            backgroundColor: tokens.white,
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'hidden',
+          }}
+        >
+          {picture ? (
+            <Image
+              source={{ uri: picture }}
+              style={{ width: '100%', height: '100%' }}
+              resizeMode="cover"
+            />
+          ) : initial ? (
+            <Text
+              style={{
+                fontFamily: tokens.fontDisplay,
+                fontWeight: '900',
+                fontSize: Math.round(size * 0.42),
+                color: tokens.black,
+              }}
+            >
+              {initial}
+            </Text>
+          ) : (
+            <View
+              style={{
+                width: Math.round(size * 0.4),
+                height: Math.round(size * 0.4),
+                borderRadius: 999,
+                borderWidth: 3,
+                borderColor: tokens.muted,
+                borderStyle: 'dashed',
+              }}
+            />
+          )}
+        </View>
       </View>
       <View
         style={{

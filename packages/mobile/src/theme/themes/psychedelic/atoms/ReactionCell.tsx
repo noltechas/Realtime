@@ -1,233 +1,126 @@
 import React, { useRef } from 'react'
-import {
-  View,
-  Text,
-  Pressable,
-  Animated,
-  StyleSheet,
-  type ViewStyle,
-  type TextStyle,
-} from 'react-native'
-import { LinearGradient } from 'expo-linear-gradient'
-import Svg, { Circle } from 'react-native-svg'
+import { Animated, Easing, Pressable, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '../../../ThemeContext'
-import { hashKey } from '../../../helpers'
-import { useOscillator } from '../_shared'
 import type { ReactionCellProps } from '../../../types'
+import { DYES, INK, Plate, phaseFor, pouredRadii, useLift, usePulse } from './_glass'
 
-// ── Per-cell hue palette ────────────────────────────────────────────────────
-// Each reaction grid cell gets its OWN psychedelic color: a top→bottom
-// gradient stroke that paints a distinct identity (and reads as one of the
-// classic psy-poster gem tones). Color is picked deterministically from the
-// label hash so the same label always lands on the same hue.
-const CELL_HUES: { tint: string; gradient: [string, string]; glow: string }[] = [
-  // hot pink → tangerine
-  { tint: '#ff2d95', gradient: ['#ff2d95', '#ff8c2d'], glow: '#ff2d95' },
-  // tangerine → acid yellow
-  { tint: '#ff8c2d', gradient: ['#ff8c2d', '#ffd84d'], glow: '#ff8c2d' },
-  // lime → cyan
-  { tint: '#b6ff2d', gradient: ['#b6ff2d', '#2dd9ff'], glow: '#b6ff2d' },
-  // cyan → violet
-  { tint: '#2dd9ff', gradient: ['#2dd9ff', '#952dff'], glow: '#2dd9ff' },
-  // violet → magenta
-  { tint: '#952dff', gradient: ['#952dff', '#ff2dff'], glow: '#952dff' },
-  // magenta → pink
-  { tint: '#ff2dff', gradient: ['#ff2dff', '#ff2d95'], glow: '#ff2dff' },
-]
-
-// Psychedelic ReactionCell — barely-there background + a vibrant 2px gradient
-// rim in a per-label hue. The cell reads as a glowing colored window rather
-// than an opaque chip. Press triggers a colored ripple that matches the
-// cell's tint. Each cell breathes (scale only) at its own period.
+// Psychedelic reaction cell — a small DYE PLATE.
+//
+// Each cell now takes its own colour from the palette, walked by grid position. An
+// earlier pass made all six identical glass on the theory that per-cell colour over
+// polychrome footage reads as clutter — true when the cells were translucent and the
+// footage showed through them, false now that they're opaque printed plates. Six solid
+// colours in a grid read as a set of buttons; six dark windows read as a wall.
+//
+// Feedback is a single ink flash on send: brief, unmistakable, and legible whatever
+// frame is playing behind.
 export function PsychedelicReactionCell({
   label,
   icon,
+  index = 0,
   onPress,
   onEditPress,
   disabled,
 }: ReactionCellProps) {
   const { tokens } = useTheme()
-  const seedHash = hashKey(label)
-  const hue = CELL_HUES[seedHash % CELL_HUES.length]
+  const { transform, onPressIn, onPressOut } = useLift()
+  const dye = DYES[index % DYES.length]
+  const breathe = usePulse(5300, phaseFor(index, 5300, label))
+  const labelScale = breathe.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1.04] })
 
-  // Idle breath, staggered period per cell.
-  const breath = useOscillator(2800 + (seedHash % 13) * 200)
-  const breathScale = breath.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.96, 1.04],
-  })
-
-  // Up to 4 concurrent press ripples. Each is its own Animated.Value with
-  // a 0→1 timing on press; opacity + scale interpolate from the value.
-  const ripples = useRef<Animated.Value[]>([
-    new Animated.Value(0),
-    new Animated.Value(0),
-    new Animated.Value(0),
-    new Animated.Value(0),
-  ]).current
-  const nextSlot = useRef(0)
-
-  const triggerRipple = () => {
-    const slot = nextSlot.current
-    nextSlot.current = (slot + 1) % ripples.length
-    const v = ripples[slot]
-    v.setValue(0)
-    Animated.timing(v, {
-      toValue: 1,
-      duration: 600,
+  const flash = useRef(new Animated.Value(0)).current
+  const triggerFlash = () => {
+    flash.setValue(1)
+    Animated.timing(flash, {
+      toValue: 0,
+      duration: 480,
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start()
   }
+  const flashOpacity = flash.interpolate({ inputRange: [0, 1], outputRange: [0, 0.55] })
 
   return (
-    <Animated.View style={{ flex: 1, transform: [{ scale: breathScale }] }}>
+    <View style={{ flex: 1 }}>
       <Pressable
         onPress={() => {
-          if (!disabled) {
-            triggerRipple()
-            onPress()
-          }
+          if (disabled) return
+          triggerFlash()
+          onPress()
         }}
+        onPressIn={disabled ? undefined : onPressIn}
+        onPressOut={disabled ? undefined : onPressOut}
         disabled={disabled}
-        style={({ pressed }) => [
-          cellStyle(hue.glow),
-          pressed ? { opacity: 0.85 } : null,
-          disabled ? { opacity: 0.4 } : null,
-        ]}
+        style={{ flex: 1, opacity: disabled ? 0.4 : 1 }}
       >
-        {/* Soft inner glow tint — a single radial-ish gradient pad at very
-            low alpha so the cell reads as a glowing window in its hue,
-            without being heavy/opaque. */}
-        <LinearGradient
-          pointerEvents="none"
-          colors={[`${hue.gradient[0]}26`, 'transparent', `${hue.gradient[1]}1a`]}
-          locations={[0, 0.55, 1]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
-        />
-
-        {/* Gradient rim — drawn as a stack of two LinearGradients clipped
-            inside an absoluteFill ring. (RN can't set a gradient border
-            directly; we fake it by laying a gradient on top with a
-            transparent center that lets the inner background show through.) */}
-        <View
-          pointerEvents="none"
-          style={[
-            StyleSheet.absoluteFill,
-            {
-              borderRadius: 22,
-              borderWidth: 2,
-              borderColor: hue.tint,
-              opacity: 0.85,
-            },
-          ]}
-        />
-
-        <View
-          style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+        <Plate
+          dye={dye}
+          seed={label}
+          phaseIndex={index}
+          period={6700}
+          bigDisc={104}
+          smallDisc={68}
+          radii={pouredRadii(label, 20, 8)}
+          fill
+          style={{ flex: 1, transform }}
+          contentStyle={{
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingVertical: 14,
+            paddingHorizontal: 10,
+          }}
         >
-          <View style={cellIconAreaStyle}>{icon}</View>
-          <Text style={cellLabelStyle(tokens, hue.tint)} numberOfLines={1}>
-            {label}
-          </Text>
-        </View>
-
-        {/* Press ripple in the cell's hue. */}
-        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-          {ripples.map((v, i) => (
-            <RippleCircle key={i} value={v} color={hue.gradient[0]} />
-          ))}
-        </View>
-
-        {onEditPress ? (
-          <Pressable
-            onPress={onEditPress}
-            hitSlop={6}
-            style={cellEditStyle(tokens, hue.tint)}
+          <Animated.View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: INK,
+              opacity: flashOpacity,
+            }}
+          />
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>{icon}</View>
+          <Animated.Text
+            numberOfLines={1}
+            style={{
+              textAlign: 'center',
+              fontFamily: tokens.fontDisplay,
+              fontSize: 16,
+              color: INK,
+              marginTop: 4,
+              transform: [{ scale: labelScale }],
+            }}
           >
-            <Ionicons name="create-outline" size={12} color={hue.tint} />
-          </Pressable>
-        ) : null}
+            {label}
+          </Animated.Text>
+        </Plate>
       </Pressable>
-    </Animated.View>
-  )
-}
 
-function RippleCircle({ value, color }: { value: Animated.Value; color: string }) {
-  const scale = value.interpolate({ inputRange: [0, 1], outputRange: [0.1, 2.4] })
-  const opacity = value.interpolate({
-    inputRange: [0, 0.15, 1],
-    outputRange: [0, 0.65, 0],
-  })
-  return (
-    <Animated.View
-      style={{
-        position: 'absolute',
-        left: '50%',
-        top: '50%',
-        width: 120,
-        height: 120,
-        marginLeft: -60,
-        marginTop: -60,
-        transform: [{ scale }],
-        opacity,
-      }}
-    >
-      <Svg width={120} height={120} viewBox="0 0 120 120">
-        <Circle cx={60} cy={60} r={58} fill={color} fillOpacity={0.22} />
-        <Circle cx={60} cy={60} r={56} fill="none" stroke={color} strokeWidth={1.5} opacity={0.65} />
-      </Svg>
-    </Animated.View>
+      {onEditPress ? (
+        <Pressable
+          onPress={onEditPress}
+          hitSlop={8}
+          style={{ position: 'absolute', top: 9, right: 10 }}
+        >
+          <View
+            style={{
+              width: 27,
+              height: 27,
+              borderRadius: 14,
+              backgroundColor: INK,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Ionicons name="create-outline" size={14} color="#FFFFFF" />
+          </View>
+        </Pressable>
+      ) : null}
+    </View>
   )
-}
-
-function cellStyle(glowColor: string): ViewStyle {
-  return {
-    flex: 1,
-    // Nearly transparent — lets the backdrop blobs read through, so the cell
-    // feels like a colored lens rather than a heavy panel. Per request, the
-    // background should not be opaque.
-    backgroundColor: 'rgba(26,10,46,0.32)',
-    borderRadius: 22,
-    padding: 12,
-    overflow: 'hidden',
-    shadowColor: glowColor,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 12,
-  }
-}
-const cellIconAreaStyle: ViewStyle = {
-  flex: 1,
-  alignItems: 'center',
-  justifyContent: 'center',
-}
-function cellLabelStyle(t: ReturnType<typeof useTheme>['tokens'], glowColor: string): TextStyle {
-  return {
-    textAlign: 'center',
-    marginTop: 8,
-    fontFamily: t.fontDisplay,
-    fontSize: 14,
-    color: t.black,
-    textShadowColor: glowColor,
-    textShadowRadius: 6,
-    textShadowOffset: { width: 0, height: 0 },
-  }
-}
-function cellEditStyle(t: ReturnType<typeof useTheme>['tokens'], tint: string): ViewStyle {
-  return {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 24,
-    height: 24,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: tint,
-    backgroundColor: 'rgba(26,10,46,0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  }
 }

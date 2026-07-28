@@ -1,16 +1,28 @@
 import React from 'react'
-import { View, Text, Pressable, ScrollView, Animated, StyleSheet } from 'react-native'
-import { LinearGradient } from 'expo-linear-gradient'
+import { Animated, Pressable, ScrollView, Text } from 'react-native'
 import { useTheme } from '../../../ThemeContext'
-import { blobCornerRadii, hashKey } from '../../../helpers'
-import { useOscillator } from '../_shared'
 import type { GenreTabsProps } from '../../../types'
+import {
+  DYES,
+  GlassPanel,
+  HAIRLINE_SOFT,
+  INK,
+  TEXT,
+  TEXT_FAINT,
+  phaseFor,
+  useLift,
+  usePulse,
+} from './_glass'
 
-// Psychedelic genre tabs — each pill is asymmetrically blob-cornered so the
-// row reads as a string of unique wax bubbles rather than uniform chips.
-// Inactive: dim purple bg, lavender text, 1px hot-pink rim. Active pills get
-// a flowing pink→tangerine→lime gradient fill, hot-pink halo, and a count
-// badge bobbing on the right.
+// Psychedelic genre selector.
+//
+// The selected tab goes OPAQUE, with ink lettering on a saturated dye — the same
+// inversion the song tiles use, so the filter row reads as part of the same printed
+// set rather than as chrome sitting above it. Opacity is the mechanism: against
+// footage that is itself saturated, a translucent "selected" chip competes and gets
+// lost, while a solid plate is unmissable on any frame and carries its own contrast.
+//
+// It also BREATHES, gently, so the live selection is the one moving thing in the row.
 export function PsychedelicGenreTabs({ list, counts, value, onChange }: GenreTabsProps) {
   if (list.length <= 1) return null
 
@@ -19,139 +31,96 @@ export function PsychedelicGenreTabs({ list, counts, value, onChange }: GenreTab
       horizontal
       showsHorizontalScrollIndicator={false}
       style={{ flexGrow: 0 }}
-      contentContainerStyle={{ paddingHorizontal: 24, paddingVertical: 14, gap: 10 }}
+      contentContainerStyle={{
+        paddingHorizontal: 20,
+        paddingVertical: 14,
+        gap: 9,
+        alignItems: 'center',
+      }}
     >
-      {list.map((g) => (
-        <GenrePill
-          key={g}
-          label={g}
-          count={counts[g] ?? 0}
-          active={g === value}
-          onPress={() => onChange(g)}
+      {list.map((genre, index) => (
+        <GenreTab
+          key={genre}
+          label={genre}
+          count={counts[genre] ?? 0}
+          // Colour by position, matching the song grid, so the row is a spectrum and
+          // no two neighbouring chips can draw the same hue.
+          dye={DYES[index % DYES.length]}
+          // Distinct phase per chip, so the row can never breathe in unison.
+          phase={phaseFor(index, 5100)}
+          active={genre === value}
+          onPress={() => onChange(genre)}
         />
       ))}
     </ScrollView>
   )
 }
 
-function GenrePill({
+function GenreTab({
   label,
   count,
+  dye,
+  phase,
   active,
   onPress,
 }: {
   label: string
   count: number
+  dye: string
+  phase: number
   active: boolean
   onPress: () => void
 }) {
   const { tokens } = useTheme()
-  const shape = blobCornerRadii(hashKey(label))
-  // Per-pill breath. Period spread is wide (2400-5800ms) and seeded by the
-  // label hash so neighboring pills never pulse in sync. NO translateY on
-  // anything — psychedelic foreground elements grow/shrink only.
-  const breath = useOscillator(2400 + (hashKey(label) % 17) * 200)
-  const breathScale = breath.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.96, 1.04],
-  })
-  // Count badge gets its own faster, smaller breath so it pulses inside the
-  // pill at a different rate — replaces the previous vertical bob.
-  const badgeBreath = useOscillator(1700 + (hashKey(label) % 19) * 140)
-  const badgeScale = badgeBreath.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.92, 1.08],
-  })
-
-  // Each pill gets a deterministic gradient direction so the row doesn't
-  // homogenize into a single flow direction.
-  const seed = hashKey(label) % 4
-  const dirs: { start: { x: number; y: number }; end: { x: number; y: number } }[] = [
-    { start: { x: 0, y: 0 }, end: { x: 1, y: 1 } },
-    { start: { x: 0, y: 1 }, end: { x: 1, y: 0 } },
-    { start: { x: 0, y: 0.5 }, end: { x: 1, y: 0.5 } },
-    { start: { x: 0.5, y: 0 }, end: { x: 0.5, y: 1 } },
-  ]
-  const { start, end } = dirs[seed]
+  // Composed from `press` rather than useLift's ready-made transform, because the
+  // selected chip needs the press scale AND the breathe scale multiplied together.
+  const { press, onPressIn, onPressOut } = useLift(0.7)
+  const breathe = usePulse(5100, phase)
+  const pressScale = press.interpolate({ inputRange: [0, 1], outputRange: [1, 0.985] })
+  const swell = breathe.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1.075] })
+  const scale = active ? Animated.multiply(pressScale, swell) : pressScale
 
   return (
-    <Animated.View style={{ transform: [{ scale: breathScale }] }}>
-    <Pressable
-      onPress={onPress}
-      hitSlop={6}
-      style={[
-        shape,
-        {
+    <Pressable onPress={onPress} onPressIn={onPressIn} onPressOut={onPressOut} hitSlop={6}>
+      <GlassPanel
+        radius={999}
+        fill={active ? 'none' : 'glass'}
+        edgeColor={active ? INK : HAIRLINE_SOFT}
+        lift={active}
+        style={[{ transform: [{ scale }] }, active ? { backgroundColor: dye } : null]}
+        contentStyle={{
           flexDirection: 'row',
           alignItems: 'center',
           paddingHorizontal: 16,
-          paddingVertical: 10,
-          minHeight: 42,
-          borderWidth: 1,
-          borderColor: active ? tokens.accentA : 'rgba(255,45,149,0.25)',
-          backgroundColor: active ? 'transparent' : 'rgba(42,20,80,0.55)',
-          overflow: 'hidden',
-          ...(active
-            ? {
-                shadowColor: tokens.accentGlowColor,
-                shadowOffset: { width: 0, height: 0 },
-                shadowOpacity: 0.7,
-                shadowRadius: 12,
-              }
-            : {}),
-        },
-      ]}
-    >
-      {active ? (
-        <LinearGradient
-          colors={['#ff2d95', '#ff8c2d', '#b6ff2d']}
-          start={start}
-          end={end}
-          style={[StyleSheet.absoluteFill, shape, { opacity: 0.9 }]}
-        />
-      ) : null}
-      <Text
-        style={{
-          fontFamily: tokens.fontDisplay,
-          fontSize: 15,
-          lineHeight: 22,
-          color: active ? '#fff' : tokens.muted,
-          textShadowColor: active ? 'rgba(0,0,0,0.45)' : 'transparent',
-          textShadowRadius: active ? 4 : 0,
-          textShadowOffset: { width: 0, height: 1 },
-          includeFontPadding: false,
-        }}
-        numberOfLines={1}
-      >
-        {label}
-      </Text>
-      <Animated.View
-        style={{
-          marginLeft: 8,
-          paddingHorizontal: 8,
-          paddingVertical: 1,
-          borderRadius: 999,
-          backgroundColor: active ? 'rgba(0,0,0,0.25)' : 'rgba(182,255,45,0.15)',
-          minWidth: 24,
-          alignItems: 'center',
-          justifyContent: 'center',
-          transform: [{ scale: badgeScale }],
+          paddingVertical: 9,
+          minHeight: 40,
         }}
       >
         <Text
+          numberOfLines={1}
           style={{
             fontFamily: tokens.fontDisplay,
-            fontSize: 12,
-            lineHeight: 18,
-            color: active ? '#fff' : tokens.accentB,
+            fontSize: 16,
+            color: active ? INK : TEXT,
+            fontWeight: active ? '700' : 'normal',
             includeFontPadding: false,
           }}
-          numberOfLines={1}
+        >
+          {label}
+        </Text>
+        <Text
+          style={{
+            marginLeft: 7,
+            fontFamily: tokens.fontBody,
+            fontSize: 12,
+            fontWeight: '700',
+            color: active ? 'rgba(8,6,12,0.55)' : TEXT_FAINT,
+            includeFontPadding: false,
+          }}
         >
           {count}
         </Text>
-      </Animated.View>
+      </GlassPanel>
     </Pressable>
-    </Animated.View>
   )
 }

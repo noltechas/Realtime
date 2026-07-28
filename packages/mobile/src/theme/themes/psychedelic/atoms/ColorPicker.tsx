@@ -1,15 +1,16 @@
-import React, { useEffect, useRef } from 'react'
-import { View, Text, Pressable, ScrollView, Animated, Easing } from 'react-native'
-import Svg, { Defs, RadialGradient, Stop, Circle } from 'react-native-svg'
+import React from 'react'
+import { Animated, Pressable, ScrollView, Text, View } from 'react-native'
 import { UNIVERSAL_SINGER_COLORS } from '@karaoke/shared'
 import { useTheme } from '../../../ThemeContext'
-import { hashKey } from '../../../helpers'
 import type { ColorPickerProps } from '../../../types'
+import { HAIRLINE, ON_FOOTAGE_SHADOW, TEXT_DIM, useLift } from './_glass'
 
-// Psychedelic ColorPicker — each swatch is a glassy bubble (RadialGradient
-// with a white highlight to fake "lit-from-above" glass). Bubbles drift gently
-// on independent X/Y oscillators so they look suspended in liquid. Selected
-// bubble gets a 2px hot-pink rim and scales up slightly.
+// Psychedelic colour picker.
+//
+// Swatches are plain discs. The singer colours are arbitrary and saturated, and
+// the footage behind is too, so the only reliable way to show selection is
+// STRUCTURE, not colour: the selected disc grows and gains a white ring with a gap
+// around it. That reads at a glance whatever is playing underneath.
 export function PsychedelicColorPicker({
   value,
   onChange,
@@ -18,33 +19,42 @@ export function PsychedelicColorPicker({
   const { tokens } = useTheme()
   return (
     <View>
-      <Text
+      <View
         style={{
-          fontFamily: tokens.fontDisplay,
-          fontSize: 13,
-          letterSpacing: 1,
-          color: tokens.accentA,
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: 20,
           marginBottom: 10,
-          paddingHorizontal: 24,
-          textShadowColor: 'rgba(255,45,149,0.4)',
-          textShadowRadius: 6,
-          textShadowOffset: { width: 0, height: 0 },
+          gap: 10,
         }}
       >
-        {label}
-      </Text>
+        <Text
+          style={{
+            fontFamily: tokens.fontDisplay,
+            fontSize: 17,
+            color: tokens.black,
+            ...ON_FOOTAGE_SHADOW,
+          }}
+        >
+          {label}
+        </Text>
+        <View style={{ flex: 1, height: 1, backgroundColor: HAIRLINE }} />
+        <Text style={{ fontFamily: tokens.fontBody, fontSize: 12, color: TEXT_DIM }}>
+          {value + 1}/{UNIVERSAL_SINGER_COLORS.length}
+        </Text>
+      </View>
+
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 24, gap: 14, paddingVertical: 4 }}
+        contentContainerStyle={{ paddingHorizontal: 20, gap: 12, paddingVertical: 6 }}
       >
-        {UNIVERSAL_SINGER_COLORS.map((c, i) => (
-          <Bubble
-            key={c.color}
-            color={c.color}
-            selected={i === value}
-            seed={i}
-            onPress={() => onChange(i)}
+        {UNIVERSAL_SINGER_COLORS.map((entry, index) => (
+          <Swatch
+            key={entry.color}
+            color={entry.color}
+            selected={index === value}
+            onPress={() => onChange(index)}
           />
         ))}
       </ScrollView>
@@ -52,107 +62,50 @@ export function PsychedelicColorPicker({
   )
 }
 
-function Bubble({
+function Swatch({
   color,
   selected,
-  seed,
   onPress,
 }: {
   color: string
   selected: boolean
-  seed: number
   onPress: () => void
 }) {
-  const { tokens } = useTheme()
-  // Continuous scale breath — no translation. Per project rule, psychedelic
-  // elements grow/shrink only; no floating up-down. Periods spread per-bubble
-  // by seed so neighboring bubbles don't pulse in sync.
-  const breath = useRef(new Animated.Value(0)).current
-  const id = `psyBubble-${hashKey(`${color}-${seed}`)}`
-
-  useEffect(() => {
-    const startDelay = (seed % 7) * 200
-    const period = 2600 + (seed % 11) * 280 // 2.6s..5.4s spread
-    const t = setTimeout(() => {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(breath, {
-            toValue: 1,
-            duration: period / 2,
-            easing: Easing.inOut(Easing.sin),
-            useNativeDriver: true,
-          }),
-          Animated.timing(breath, {
-            toValue: 0,
-            duration: period / 2,
-            easing: Easing.inOut(Easing.sin),
-            useNativeDriver: true,
-          }),
-        ]),
-      ).start()
-    }, startDelay)
-    return () => clearTimeout(t)
-  }, [breath, seed])
-
-  const breathScale = breath.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.95, 1.08],
-  })
-
-  const size = selected ? 44 : 38
+  const { transform, onPressIn, onPressOut } = useLift(0.9)
+  const size = selected ? 44 : 34
 
   return (
-    <Pressable onPress={onPress} hitSlop={6}>
+    <Pressable onPress={onPress} onPressIn={onPressIn} onPressOut={onPressOut} hitSlop={8}>
       <Animated.View
-        style={{
-          width: size,
-          height: size,
-          transform: [{ scale: breathScale }],
-          alignItems: 'center',
-          justifyContent: 'center',
-          ...(selected
-            ? {
-                shadowColor: color,
-                shadowOffset: { width: 0, height: 0 },
-                shadowOpacity: 0.9,
-                shadowRadius: 12,
-              }
-            : {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.4,
-                shadowRadius: 4,
-              }),
-        }}
+        style={[
+          { width: 52, height: 52, alignItems: 'center', justifyContent: 'center' },
+          { transform },
+        ]}
       >
-        <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-          <Defs>
-            <RadialGradient
-              id={id}
-              cx="30%"
-              cy="28%"
-              rx="70%"
-              ry="70%"
-              fx="30%"
-              fy="28%"
-            >
-              <Stop offset="0%" stopColor="#ffffff" stopOpacity={0.85} />
-              <Stop offset="30%" stopColor={color} stopOpacity={1} />
-              <Stop offset="100%" stopColor={color} stopOpacity={0.6} />
-            </RadialGradient>
-          </Defs>
-          <Circle cx={size / 2} cy={size / 2} r={size / 2 - 2} fill={`url(#${id})`} />
-          {selected ? (
-            <Circle
-              cx={size / 2}
-              cy={size / 2}
-              r={size / 2 - 2}
-              fill="none"
-              stroke={tokens.accentA}
-              strokeWidth={2}
-            />
-          ) : null}
-        </Svg>
+        {/* The selection ring sits OUTSIDE the disc with a gap, so it stays legible
+            even when the swatch colour is close to white. */}
+        {selected ? (
+          <View
+            style={{
+              position: 'absolute',
+              width: 52,
+              height: 52,
+              borderRadius: 26,
+              borderWidth: 2,
+              borderColor: '#FFFFFF',
+            }}
+          />
+        ) : null}
+        <View
+          style={{
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+            backgroundColor: color,
+            borderWidth: 1,
+            borderColor: 'rgba(0,0,0,0.28)',
+          }}
+        />
       </Animated.View>
     </Pressable>
   )

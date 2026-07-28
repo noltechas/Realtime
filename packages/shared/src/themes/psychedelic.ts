@@ -1,77 +1,102 @@
 import type { ThemeTokens } from './tokens'
 
-// Psychedelic / Lava Lamp — 1960s acid-trip palette: deep-purple void with a
-// hot-pink / electric-lime / tangerine triad. Mirrors the desktop psychedelic
-// theme (packages/desktop/src/renderer/src/styles/psychedelic.ts) so per-song
-// stage-theme overrides feel consistent across platforms.
+// Psychedelic — "LIQUID LIGHT", backed by real footage.
+//
+// The background is a genuine 1960s-style liquid light show: oil, water and
+// aniline dyes on an overhead projector, filmed. Nothing about the colour is
+// simulated, which is the whole point — two attempts at generating it procedurally
+// (a lobed-plate vocabulary, then a domain-warped shader) both read as computer
+// graphics rather than as photographed liquid.
+//
+// THAT CHANGES WHAT THE CHROME HAS TO BE. The video is saturated, high-contrast,
+// polychrome and moving. Any UI that also brings colour and organic shape competes
+// with it and loses — that was the failure of the earlier passes, which put wobbly
+// dye-coloured outlines on every panel. So:
+//
+//   1. THE FOOTAGE OWNS THE COLOUR. Chrome is near-monochrome: frosted glass,
+//      white type, white hairlines. One hot accent (magenta) marks state and
+//      nothing else is saturated.
+//   2. GLASS, NOT FILL. Panels are blurred, low-alpha dark glass so the liquid
+//      reads through them while type keeps guaranteed contrast. This is the
+//      standard solution for interfaces over video, and it is what makes it look
+//      premium rather than pasted on.
+//   3. CALM GEOMETRY. Consistent generous radii, no organic silhouettes. The
+//      background is doing the moving; the interface holds still.
 export const PSYCHEDELIC_TOKENS: ThemeTokens = {
   name: 'psychedelic',
   displayName: 'Psychedelic',
   nextThemeName: 'zen',
 
-  // Raw colors — high contrast: lavender-white text on deep purple
-  black: '#f5ecff',                  // primary text (light on dark)
-  white: '#1a0a2e',                  // inverted for "light" blocks
-  cream: '#241040',
-  creamDark: '#2a1450',              // panel/card surface
-  hotRed: '#ff2d95',                 // hot pink (accentA twin)
-  vividYellow: '#ff8c2d',            // tangerine (used by NOW PLAYING banner)
-  softViolet: '#952dff',
-  mintGreen: '#b6ff2d',              // electric lime
-  muted: '#c8a8e8',                  // mid-contrast lavender body text
-  faint: 'rgba(200,168,232,0.35)',
+  // `black` / `white` are semantic: on this dark theme `black` is the light
+  // foreground.
+  black: '#FFFFFF',
+  white: '#08060C',
+  cream: 'rgba(20,16,28,0.62)',      // glass panel base
+  creamDark: 'rgba(28,22,40,0.72)',  // raised glass
+  hotRed: '#FF4D6A',
+  vividYellow: '#FFF2E8',            // NOW PLAYING banner bg — warm white, dark text reads
+  softViolet: '#B78CFF',
+  mintGreen: '#5AF0D0',
+  muted: '#C6BFD4',
+  faint: 'rgba(255,255,255,0.16)',
 
-  accentA: '#ff2d95',                // primary — hot pink
-  accentB: '#b6ff2d',                // secondary — electric lime (bright; safe for banners with dark text)
-  accentC: '#ff8c2d',                // tertiary — tangerine (lava-orb color)
+  accentA: '#FF2E88',                // the single hot accent — active state only
+  accentB: '#FFF2E8',                // warm white, bright enough for dark text
+  accentC: '#5AF0D0',                // secondary state
 
-  appBg: '#1a0a2e',                  // deep purple void
-  titlebarBg: '#1a0a2e',
-  titlebarText: '#c8a8e8',
+  // The video covers this; it only shows for the instant before playback starts.
+  appBg: '#08060C',
+  titlebarBg: '#08060C',
+  titlebarText: '#C6BFD4',
 
-  navBg: 'rgba(26,10,46,0.95)',
-  navBorderBottom: '1px solid rgba(255,45,149,0.15)',
-  navLink: '#c8a8e8',
-  navLinkActive: '#ff2d95',
-  navLinkActiveBg: 'rgba(255,45,149,0.1)',
-  navLinkHoverBg: 'rgba(255,45,149,0.06)',
+  navBg: 'rgba(8,6,12,0.55)',
+  navBorderBottom: '1px solid rgba(255,255,255,0.14)',
+  navLink: '#C6BFD4',
+  navLinkActive: '#FFFFFF',
+  navLinkActiveBg: 'rgba(255,255,255,0.12)',
+  navLinkHoverBg: 'rgba(255,255,255,0.07)',
 
-  border: '1px solid rgba(255,45,149,0.15)',
-  borderThin: '1px solid rgba(255,45,149,0.10)',
-  borderLight: '1px solid rgba(255,45,149,0.06)',
-  shadow: '0 0 8px rgba(255,45,149,0.1), 0 0 6px rgba(182,255,45,0.06)',
-  shadowLift: '0 0 16px rgba(255,45,149,0.2), 0 0 12px rgba(182,255,45,0.12)',
-  shadowPressed: '0 0 4px rgba(255,45,149,0.08)',
-  shadowColor: (color: string) => `0 0 14px ${color}, 0 0 28px ${color}`,
+  // Glass edges catch light, so borders are white at low alpha rather than tinted.
+  border: '1px solid rgba(255,255,255,0.18)',
+  borderThin: '1px solid rgba(255,255,255,0.12)',
+  borderLight: '1px solid rgba(255,255,255,0.07)',
+  // Depth comes from a real shadow: glass has to sit ABOVE the footage, and a
+  // coloured glow would just add to the colour the video is already supplying.
+  shadow: '0 4px 18px rgba(0,0,0,0.45)',
+  shadowLift: '0 12px 34px rgba(0,0,0,0.55)',
+  shadowPressed: '0 2px 6px rgba(0,0,0,0.5)',
+  shadowColor: (color: string) => `0 0 16px ${color}`,
 
-  radius: 16,
-  radiusSmall: 10,
+  radius: 20,
+  radiusSmall: 13,
 
   fontDisplay: 'var(--font-display)',
   fontBody: 'var(--font-body)',
 
-  spinnerBorder: 'rgba(255,45,149,0.15)',
-  spinnerBorderTop: '#ff2d95',
+  spinnerBorder: 'rgba(255,255,255,0.18)',
+  spinnerBorderTop: '#FFFFFF',
 
   // ── Mobile flags ────────────────────────────────────────────────────────────
   isDark: true,
-  cornerStyle: 'rounded',            // organic, not sharp
-  cardShape: 'blob',                 // asymmetric corners via blobCornerRadii
-  shadowStyle: 'glow',               // neon glow, not offset
+  cornerStyle: 'rounded',
+  cardShape: 'box',
+  // 'offset', not a glow: the legacy helpers read this to pick a shadow style,
+  // and a neon glow would only add to the colour the footage already supplies.
+  shadowStyle: 'offset',
   cardBorderWidth: 1,
-  displayUppercase: false,           // Chicle is already chunky/bubbly; caps would ruin it
+  displayUppercase: false,
   displayLetterSpacing: 0,
-  accentGlowColor: '#ff2d95',        // hot pink halo
+  accentGlowColor: '#FF2E88',
   statusBarStyle: 'light',
 
-  tabBarBg: '#1a0a2e',
+  tabBarBg: 'rgba(10,8,16,0.5)',
   tabBarBlurTint: 'dark',
-  tabBarOverlay: 'rgba(26,10,46,0.7)',
-  tabBarBorder: 'rgba(255,45,149,0.18)',
-  tabBarPill: '#ff8c2d',             // tangerine — base color of the lava orb
-  tabBarPillFg: '#1a0a2e',           // deep purple text on the orb
-  tabBarFg: '#c8a8e8',               // muted lavender for inactive tabs
+  tabBarOverlay: 'rgba(8,6,12,0.42)',
+  tabBarBorder: 'rgba(255,255,255,0.16)',
+  tabBarPill: '#FFFFFF',             // white glass pill behind the active tab
+  tabBarPillFg: '#0B0812',           // ink-dark glyph on it
+  tabBarFg: 'rgba(255,255,255,0.62)',
 
-  dimBorder: 'rgba(255,45,149,0.18)',
-  pressedOverlay: 'rgba(255,45,149,0.08)',
+  dimBorder: 'rgba(255,255,255,0.16)',
+  pressedOverlay: 'rgba(255,255,255,0.12)',
 }

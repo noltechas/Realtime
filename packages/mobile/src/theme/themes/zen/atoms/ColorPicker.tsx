@@ -1,5 +1,5 @@
 import React from 'react'
-import { View, Text, Pressable, ScrollView } from 'react-native'
+import { View, Text, Pressable } from 'react-native'
 import Svg, { G, Ellipse, Circle } from 'react-native-svg'
 import { UNIVERSAL_SINGER_COLORS } from '@karaoke/shared'
 import { useTheme } from '../../../ThemeContext'
@@ -9,6 +9,11 @@ import type { ColorPickerProps } from '../../../types'
 // stained in the singer's color. The selected blossom gets a sumi-ink ring
 // around it and a kintsugi gold dot at the center; idle blossoms have a
 // faint stamen dot. No glows, no halos — the choice is the bloom.
+//
+// A wrapping grid rather than a horizontal scroller — a scroller cut the last
+// blossoms off at the screen edge. 44 + 6 fits seven per row, so 13 lands as a
+// clean 7 + 6, which reads as a branch in bloom rather than a cropped row. The
+// selected blossom scales via `transform`, so it never reflows the grid.
 export function ColorPicker({
   value,
   onChange,
@@ -31,10 +36,15 @@ export function ColorPicker({
       >
         {label}
       </Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 24, gap: 6, paddingVertical: 4 }}
+      <View
+        style={{
+          paddingHorizontal: 24,
+          paddingVertical: 4,
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          columnGap: 6,
+          rowGap: 8,
+        }}
       >
         {UNIVERSAL_SINGER_COLORS.map((c, i) => {
           const selected = i === value
@@ -90,7 +100,7 @@ export function ColorPicker({
             </Pressable>
           )
         })}
-      </ScrollView>
+      </View>
     </View>
   )
 }

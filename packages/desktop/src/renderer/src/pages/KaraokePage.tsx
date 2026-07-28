@@ -8,6 +8,9 @@ import { AwardsRevealAnimation } from '../awards/AwardsRevealAnimation'
 import { HiddenSongStagePanel, HiddenSongStageHeading } from '../components/HiddenSongCard'
 import TomatoSplatterLayer, { TOMATO_EMOJI } from '../components/TomatoSplatterLayer'
 import FlowerLayer, { FLOWER_EMOJI } from '../components/FlowerLayer'
+import { SpaceOutboard } from '../components/SpaceOutboard'
+import { LiquidLight } from '../components/LiquidLight'
+import { PSY, psyPoured, psyStroke } from '../styles/psychedelic'
 
 import { VoiceEffectsEngine } from '../audio/VoiceEffectsEngine'
 import OSCARS_MUSIC_URL from '../assets/oscars.mp3'
@@ -98,6 +101,27 @@ function NbNote({ size = 26, color = NB_INK }: { size?: number; color?: string }
             <path d="M9 18.5a2.6 2.6 0 1 1-1.6-2.4V6.2a1 1 0 0 1 .76-.97l8-2a1 1 0 0 1 1.24.97v11.3a2.6 2.6 0 1 1-1.6-2.4V7.28l-6.8 1.7v9.52Z" fill={color} />
         </svg>
     )
+}
+
+// ── Psychedelic stage vocabulary ────────────────────────────────────────────
+// The psychedelic stage is a printed handbill laid over real liquid-light footage:
+// plates of the projector's own footage, ink keylines, and cream type stroked in ink. It
+// shares its whole palette with the mobile app (see PSY in styles/psychedelic.ts) so the
+// phone in a guest's hand and the screen on the wall are the same design.
+//
+// The neo-brutal helpers above already solve the one hard problem this idiom has —
+// choosing ink or cream type for an arbitrary singer colour, and butting several
+// singer colours into one plate without blending — so they are reused verbatim rather
+// than reimplemented (`nbTextOn`, `nbSplitBackground`, `nbLuminance`).
+
+/** A poster plate: opaque dye, ink keyline, poured corners. */
+function psyPlate(dye: string, seed = 0, base = 22): React.CSSProperties {
+    return {
+        background: dye,
+        border: `${PSY.LINE}px solid ${PSY.INK}`,
+        borderRadius: psyPoured(seed, base),
+        boxShadow: '0 14px 40px rgba(0,0,0,0.55)',
+    }
 }
 
 // Print-registration crop mark (corner L), rotated per corner.
@@ -1595,6 +1619,186 @@ function SteamAmbient() {
 // a pipe divider, and each singer on an engraved brass nameplate with a
 // glowing enamel indicator lamp in their color. Everything rises in with a
 // mechanical stagger.
+// ── Psychedelic "Up Next" — the projector bill ──────────────────────────────
+// The song about to play, on the same plate the join screen uses: filled with the
+// liquid-light footage at its own offset, with the artwork punched into a dye-matted ink
+// window and the singers as filled dye plates.
+//
+// EVERY PIECE OF TYPE IS EITHER STROKED OR SOLID-BACKED, because the footage behind runs
+// from near-black to pure white and no flat text colour survives that. The title is cream
+// over an ink stroke; the label is an amber tab; the artist line is cream with a hard ink
+// shadow; the singers sit on their own dye plates. An earlier version of this bill was
+// cream stock with ink lettering, which read beautifully and shared nothing with the
+// projector the rest of the theme is built around.
+//
+// The generic fallback this replaced rendered from raw tokens — a `stickerLabel` chip, art
+// in `theme.radius` with `theme.border`, a `theme.card` block — which on a dark-shell theme
+// comes out as grey text on a grey panel.
+function PsyUpNext({
+    theme,
+    art,
+    track,
+    singers,
+    np,
+    roles,
+    guestsMap,
+}: {
+    theme: any
+    art: string | null
+    track: any
+    singers: any[]
+    np: any
+    roles: string[]
+    guestsMap: Map<string, any>
+}) {
+    const dur = track?.duration_ms
+        ? `${Math.floor(track.duration_ms / 60000)}:${Math.floor((track.duration_ms % 60000) / 1000).toString().padStart(2, '0')}`
+        : ''
+    const title = np?.isHidden ? 'A Secret Song' : track.name
+
+    return (
+        <div className="anim-enter" style={{
+            width: '100%', maxWidth: 1180, margin: '0 auto', padding: '0 48px',
+            display: 'flex', justifyContent: 'center',
+        }}>
+            <div style={{
+                position: 'relative', overflow: 'hidden',
+                border: `${PSY.LINE}px solid ${PSY.INK}`,
+                borderRadius: psyPoured(0, 30),
+                boxShadow: `0 0 0 6px ${PSY.CREAM}, 0 24px 64px rgba(0,0,0,0.68)`,
+                animation: 'psy-stamp-in 0.5s cubic-bezier(0.2,0.9,0.3,1) both',
+            }}>
+                {/* Three-quarters through the clip, so this bill never shows the same moment
+                    as the join screen's plate (0.5) or the count-in's (0.25). */}
+                <LiquidLight phase={0.75} filter="saturate(1.5) contrast(1.1) brightness(0.46)" />
+
+                <div style={{
+                    position: 'relative', padding: '40px 48px 44px',
+                    display: 'flex', alignItems: 'center', gap: 46,
+                }}>
+                    {/* Artwork, or the hidden-song panel for a surprise */}
+                    {np?.isHidden ? (
+                        <div style={{ flexShrink: 0 }}>
+                            <HiddenSongStagePanel theme={theme} />
+                        </div>
+                    ) : art ? (
+                        <div style={{
+                            flexShrink: 0, padding: 14,
+                            background: PSY.DYES[2],
+                            border: `${PSY.LINE}px solid ${PSY.INK}`,
+                            borderRadius: psyPoured(1, 24),
+                        }}>
+                            <img src={art} alt="" style={{
+                                width: 296, height: 296, display: 'block', objectFit: 'cover',
+                                border: `${PSY.LINE}px solid ${PSY.INK}`, borderRadius: 10,
+                            }} />
+                        </div>
+                    ) : null}
+
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                        {/* The label is a dye tab, not a bordered chip — it has to read as
+                            printed onto the paper. */}
+                        <span style={{
+                            display: 'inline-block',
+                            background: PSY.DYES[1], color: PSY.INK,
+                            border: `${PSY.LINE}px solid ${PSY.INK}`, borderRadius: 999,
+                            fontFamily: PSY.FONT_BODY, fontWeight: 800,
+                            fontSize: stageFont(13), letterSpacing: '0.2em',
+                            textTransform: 'uppercase', padding: '4px 18px 5px',
+                        }}>
+                            Up Next
+                        </span>
+
+                        <h1 style={{
+                            fontFamily: PSY.FONT_DISPLAY, fontWeight: 400,
+                            fontSize: nbFitFont(58, title, 30), lineHeight: 1.02,
+                            margin: '16px 0 0', letterSpacing: '0.01em',
+                            ...psyStroke(0.045),
+                        } as React.CSSProperties}>
+                            {title}
+                        </h1>
+
+                        {!np?.isHidden && (
+                            <p style={{
+                                fontFamily: PSY.FONT_BODY, fontWeight: 800,
+                                fontSize: stageFont(19), color: PSY.CREAM, margin: '10px 0 0',
+                                // Hard ink shadow: at 19px a stroke would clog the letterforms,
+                                // but bare cream vanishes the moment a pale frame drifts past.
+                                textShadow: '0 2px 0 rgba(8,6,12,0.95), 0 0 16px rgba(8,6,12,0.9)',
+                            }}>
+                                {track.artists.map((a: any) => a.name).join(', ')}{dur ? '  ·  ' + dur : ''}
+                            </p>
+                        )}
+
+                        {np?.isHidden && (
+                            <div style={{ marginTop: 10 }}>
+                                <HiddenSongStageHeading theme={theme} />
+                            </div>
+                        )}
+
+                        {/* Singers as dye plates. Each walks the palette by position so no
+                            two adjacent nameplates share a colour, and each carries its own
+                            singer colour as a dot — the same split the phone's chips use. */}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 24 }}>
+                            {singers.map((sg: any, i: number) => {
+                                const roleStr =
+                                    !np?.isHidden && sg.roleIndices && sg.roleIndices.length > 0 && roles.length > 0
+                                        ? sg.roleIndices.map((idx: number) => roles[idx]).filter(Boolean).join(' & ')
+                                        : ''
+                                const g = sg.guestId ? guestsMap.get(sg.guestId) : undefined
+                                const nm = g?.name ?? sg.name
+                                const pic = g?.profile_picture ?? null
+                                const dye = PSY.DYES[i % PSY.DYES.length]
+                                return (
+                                    <div key={sg.id} style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: 11,
+                                        padding: '9px 18px 10px 10px',
+                                        background: dye,
+                                        border: `${PSY.LINE}px solid ${PSY.INK}`,
+                                        borderRadius: psyPoured(i, 18, 8),
+                                        animation: `psy-stamp-in 0.42s cubic-bezier(0.2,0.9,0.3,1) ${0.12 + i * 0.07}s both`,
+                                    }}>
+                                        {pic ? (
+                                            <img src={pic} alt="" style={{
+                                                width: 38, height: 38, borderRadius: '50%', objectFit: 'cover',
+                                                border: `2.5px solid ${PSY.INK}`,
+                                            }} />
+                                        ) : (
+                                            <span style={{
+                                                width: 38, height: 38, borderRadius: '50%',
+                                                background: sg.color, border: `2.5px solid ${PSY.INK}`,
+                                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                                fontFamily: PSY.FONT_DISPLAY, fontSize: 18, color: PSY.INK,
+                                            }}>
+                                                {(nm || '?').charAt(0).toUpperCase()}
+                                            </span>
+                                        )}
+                                        <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.12 }}>
+                                            <span style={{
+                                                fontFamily: PSY.FONT_DISPLAY, fontSize: stageFont(23), color: PSY.INK,
+                                            }}>
+                                                {nm}
+                                            </span>
+                                            {roleStr && (
+                                                <span style={{
+                                                    fontFamily: PSY.FONT_BODY, fontWeight: 800, fontSize: stageFont(12),
+                                                    letterSpacing: '0.14em', textTransform: 'uppercase', color: PSY.INK_SOFT,
+                                                }}>
+                                                    {roleStr}
+                                                </span>
+                                            )}
+                                        </span>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}
+
 function SteampunkUpNext({
     theme,
     art,
@@ -2510,111 +2714,123 @@ function IdleStageScreen({ theme, qrUrl, sessionCode }: {
             </div>
         )
     }
-
-    // ---- Psychedelic idle ----
+    // ---- Psychedelic ("Liquid Light") idle ----
+    // THREE THINGS ONLY: the call to action, the QR, the room code. Earlier versions of
+    // this screen also carried a "TONIGHT ONLY" kicker and a line of instructions, and
+    // before that eight blurred gradient layers and five decorative SVGs. A join screen
+    // is read from across a room in about a second; every word that isn't one of those
+    // three is a word competing with them.
+    //
+    // ── The handbill is a SECOND PROJECTOR ──────────────────────────────────
+    // Rather than paper, the plate is filled with the same footage as the backdrop at a
+    // different point in the clip (see LiquidLight's `phase`), so the screen reads as two
+    // dishes running at once — which is exactly what a real liquid light show looked
+    // like. It also means the plate is never the same twice.
+    //
+    // That makes legibility the whole problem, because the footage runs from near-black
+    // to pure white and no fixed text colour survives it. So EVERY readable element here
+    // is its own solid object: the headline is cream with a fat ink stroke behind it, the
+    // code is a dye pill with an ink keyline, and the QR sits on solid white inside an
+    // ink frame. Nothing on this screen depends on the luminance of what's behind it.
     if (theme.name === 'psychedelic') {
         return (
             <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
-                background: 'radial-gradient(ellipse at 50% 50%, #2a1248 0%, #1a0a2e 50%, #0f0620 100%)',
-                position: 'relative', overflow: 'hidden',
+                background: PSY.INK, position: 'relative', overflow: 'hidden',
             }}>
-                {/* Lava lamp blobs */}
+                <LiquidLight />
+
+                {/* Flat veil, not a vignette: a radial one leaves the corners bright and
+                    the plate's edges dissolve into whatever frame is playing. */}
                 <div style={{
-                    position: 'absolute', inset: '-20%', opacity: 0.5,
-                    background: 'radial-gradient(ellipse 300px 300px at 25% 35%, rgba(255,45,149,0.2) 0%, transparent 70%), radial-gradient(ellipse 250px 350px at 70% 55%, rgba(182,255,45,0.15) 0%, transparent 70%), radial-gradient(ellipse 350px 250px at 50% 75%, rgba(255,140,45,0.15) 0%, transparent 70%)',
-                    filter: 'blur(60px)',
-                    animation: 'psyBlobMorph 20s ease-in-out infinite alternate',
-                }} />
-                {/* Second blob layer */}
-                <div style={{
-                    position: 'absolute', inset: '-10%', opacity: 0.4,
-                    background: 'radial-gradient(ellipse 280px 280px at 60% 25%, rgba(45,217,255,0.15) 0%, transparent 70%), radial-gradient(ellipse 320px 200px at 35% 70%, rgba(255,45,255,0.12) 0%, transparent 70%)',
-                    filter: 'blur(50px)',
-                    animation: 'psyBlobMorph2 28s ease-in-out infinite alternate',
+                    position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1,
+                    background: 'rgba(8,6,12,0.42)',
                 }} />
 
-                {/* Spinning mandala ring — top left */}
-                <svg style={{ position: 'absolute', top: 60, left: 80, width: 140, height: 140, opacity: 0.12, animation: 'psyHueShift 12s linear infinite' }} viewBox="0 0 100 100">
-                    <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,45,149,0.6)" strokeWidth="1" strokeDasharray="8 6" style={{ transformOrigin: '50px 50px', animation: 'dsCausticDrift 30s linear infinite' }} />
-                    <circle cx="50" cy="50" r="32" fill="none" stroke="rgba(182,255,45,0.5)" strokeWidth="1" strokeDasharray="5 8" style={{ transformOrigin: '50px 50px', animation: 'dsCausticDrift 22s linear infinite reverse' }} />
-                    <circle cx="50" cy="50" r="22" fill="none" stroke="rgba(255,140,45,0.5)" strokeWidth="1" strokeDasharray="4 5" style={{ transformOrigin: '50px 50px', animation: 'dsCausticDrift 18s linear infinite' }} />
-                    <circle cx="50" cy="50" r="12" fill="none" stroke="rgba(45,217,255,0.5)" strokeWidth="1.5" />
-                </svg>
+                <div style={{
+                    position: 'relative', zIndex: 2, overflow: 'hidden',
+                    border: `${PSY.LINE}px solid ${PSY.INK}`,
+                    borderRadius: psyPoured(0, 34),
+                    // Cream sticker ring outside the ink keyline, then a real shadow. The
+                    // ink line alone is invisible where the footage behind is dark.
+                    boxShadow: `0 0 0 6px ${PSY.CREAM}, 0 26px 70px rgba(0,0,0,0.7)`,
+                    animation: 'psy-stamp-in 0.5s cubic-bezier(0.2, 0.9, 0.3, 1) both',
+                }}>
+                    {/* The plate's own projector, half a clip away from the backdrop's and
+                        pushed a little darker and richer so the type stays on top of it. */}
+                    <LiquidLight phase={0.5} filter="saturate(1.5) contrast(1.1) brightness(0.5)" />
 
-                {/* Peace sign — bottom right */}
-                <svg style={{ position: 'absolute', bottom: 80, right: 100, width: 100, height: 100, opacity: 0.12, animation: 'psyWobble 8s ease-in-out infinite' }} viewBox="0 0 60 60">
-                    <circle cx="30" cy="30" r="26" fill="none" stroke="rgba(182,255,45,0.6)" strokeWidth="2" />
-                    <line x1="30" y1="4" x2="30" y2="56" stroke="rgba(182,255,45,0.6)" strokeWidth="2" />
-                    <line x1="30" y1="30" x2="12" y2="50" stroke="rgba(182,255,45,0.6)" strokeWidth="2" strokeLinecap="round" />
-                    <line x1="30" y1="30" x2="48" y2="50" stroke="rgba(182,255,45,0.6)" strokeWidth="2" strokeLinecap="round" />
-                </svg>
-
-                {/* Smaller peace sign — top right */}
-                <svg style={{ position: 'absolute', top: 180, right: 200, width: 55, height: 55, opacity: 0.08, animation: 'psyWobble 6s ease-in-out infinite reverse' }} viewBox="0 0 60 60">
-                    <circle cx="30" cy="30" r="26" fill="none" stroke="rgba(255,45,149,0.6)" strokeWidth="2" />
-                    <line x1="30" y1="4" x2="30" y2="56" stroke="rgba(255,45,149,0.6)" strokeWidth="2" />
-                    <line x1="30" y1="30" x2="12" y2="50" stroke="rgba(255,45,149,0.6)" strokeWidth="2" strokeLinecap="round" />
-                    <line x1="30" y1="30" x2="48" y2="50" stroke="rgba(255,45,149,0.6)" strokeWidth="2" strokeLinecap="round" />
-                </svg>
-
-                {/* Spinning mandala ring — bottom left */}
-                <svg style={{ position: 'absolute', bottom: 120, left: 160, width: 90, height: 90, opacity: 0.1, animation: 'psyHueShift 16s linear infinite' }} viewBox="0 0 100 100">
-                    <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(255,140,45,0.5)" strokeWidth="1" strokeDasharray="6 4" style={{ transformOrigin: '50px 50px', animation: 'dsCausticDrift 20s linear infinite reverse' }} />
-                    <circle cx="50" cy="50" r="28" fill="none" stroke="rgba(255,45,255,0.4)" strokeWidth="1" strokeDasharray="3 6" style={{ transformOrigin: '50px 50px', animation: 'dsCausticDrift 15s linear infinite' }} />
-                    <circle cx="50" cy="50" r="16" fill="none" stroke="rgba(182,255,45,0.4)" strokeWidth="1.5" />
-                </svg>
-
-                {/* Decorative flower — center right */}
-                <svg style={{ position: 'absolute', top: '40%', right: 60, width: 70, height: 70, opacity: 0.1, animation: 'dsCausticDrift 24s linear infinite' }} viewBox="0 0 60 60">
-                    {[0, 60, 120, 180, 240, 300].map(angle => (
-                        <ellipse key={angle} cx="30" cy="14" rx="8" ry="14" fill="none" stroke="rgba(255,45,149,0.5)" strokeWidth="1" transform={`rotate(${angle} 30 30)`} />
-                    ))}
-                    <circle cx="30" cy="30" r="6" fill="rgba(255,140,45,0.15)" stroke="rgba(255,140,45,0.4)" strokeWidth="1" />
-                </svg>
-
-                <div style={{ textAlign: 'center', zIndex: 1 }}>
-                    <p style={{
-                        fontFamily: 'Spicy Rice, cursive', fontSize: stageFont(16), color: '#ff2d95', opacity: 0.5,
-                        letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: 8,
+                    <div style={{
+                        position: 'relative',
+                        padding: '52px 60px',
+                        display: 'flex', alignItems: 'center', gap: 62,
                     }}>
-                        ~ far out ~
-                    </p>
-                    <h1 style={{
-                        fontFamily: 'Chicle, cursive', fontSize: stageFont(72), color: '#f5ecff',
-                        lineHeight: 1.1, marginBottom: 8,
-                        textShadow: '0 0 30px rgba(255,45,149,0.5), 0 0 60px rgba(182,255,45,0.25), 0 0 100px rgba(255,140,45,0.15)',
-                        animation: 'psyWobble 6s ease-in-out infinite',
-                    }}>
-                        Add a Song
-                    </h1>
-                    <p style={{
-                        fontFamily: 'Spicy Rice, cursive', fontSize: stageFont(22), color: '#c8a8e8',
-                        marginBottom: 44,
-                    }}>
-                        Scan to join the groove
-                    </p>
-                    {qrUrl && (
-                        <div style={{
-                            display: 'inline-block', padding: 16, position: 'relative',
-                            border: '2px solid rgba(255,45,149,0.3)',
-                            borderRadius: 20,
-                            boxShadow: '0 0 25px rgba(255,45,149,0.18), 0 0 50px rgba(182,255,45,0.1), inset 0 0 30px rgba(255,45,149,0.04)',
-                            background: 'rgba(26,10,46,0.65)',
-                            backdropFilter: 'blur(12px)',
-                        }}>
-                            <img src={qrUrl} alt="QR" style={{ width: 210, height: 210, display: 'block', borderRadius: 10 }} />
+                        <div>
+                            {/* Cream fill over an ink stroke — see psyStroke, which also
+                                explains why the width is in em rather than px. */}
+                            <h1 style={{
+                                fontFamily: PSY.FONT_DISPLAY, fontWeight: 400,
+                                fontSize: stageFont(96), lineHeight: 0.92, margin: 0,
+                                ...psyStroke(0.042),
+                            } as React.CSSProperties}>
+                                Add<br />a Song
+                            </h1>
+
+                            {/* Footlights — each on its own period AND phase, so the row
+                                ripples instead of blinking as one. */}
+                            <div style={{ display: 'flex', gap: 13, margin: '26px 0 0' }}>
+                                {PSY.DYES.map((dye, i) => (
+                                    <span key={dye} style={{
+                                        width: 22, height: 22, borderRadius: 999,
+                                        background: dye, border: `${PSY.LINE}px solid ${PSY.INK}`,
+                                        display: 'inline-block',
+                                        animation: `psy-drift ${5.2 + i * 0.7}s ease-in-out ${i * 0.62}s infinite`,
+                                    }} />
+                                ))}
+                            </div>
+
+                            {sessionCode && (
+                                <div style={{
+                                    display: 'inline-block', marginTop: 26,
+                                    background: PSY.DYES[0],
+                                    border: `${PSY.LINE}px solid ${PSY.INK}`,
+                                    borderRadius: 999,
+                                    boxShadow: `0 0 0 4px ${PSY.CREAM}, 0 10px 26px rgba(0,0,0,0.5)`,
+                                    padding: '4px 30px 8px',
+                                }}>
+                                    <span style={{
+                                        fontFamily: PSY.FONT_DISPLAY, fontSize: stageFont(44),
+                                        color: PSY.INK, letterSpacing: '0.12em',
+                                    }}>
+                                        {sessionCode}
+                                    </span>
+                                </div>
+                            )}
                         </div>
-                    )}
-                    {sessionCode && (
-                        <p style={{
-                            fontFamily: 'Chicle, cursive', fontSize: stageFont(28), color: '#ff2d95',
-                            letterSpacing: '0.2em', textTransform: 'uppercase', marginTop: 24,
-                            textShadow: '0 0 15px rgba(255,45,149,0.5), 0 0 30px rgba(182,255,45,0.2)',
-                        }}>
-                            {sessionCode}
-                        </p>
-                    )}
+
+                        {/* The QR must be solid white to scan reliably, so it gets a cream
+                            mat and an ink frame rather than sitting on the footage. */}
+                        {qrUrl && (
+                            <div style={{
+                                background: PSY.CREAM,
+                                border: `${PSY.LINE}px solid ${PSY.INK}`,
+                                borderRadius: psyPoured(1, 24),
+                                boxShadow: '0 14px 34px rgba(0,0,0,0.5)',
+                                padding: 16,
+                            }}>
+                                <img
+                                    src={qrUrl}
+                                    alt="QR"
+                                    style={{
+                                        width: 262, height: 262, display: 'block',
+                                        borderRadius: 8,
+                                        border: `${PSY.LINE}px solid ${PSY.INK}`,
+                                        background: '#FFFFFF',
+                                    }}
+                                />
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         )
@@ -2801,145 +3017,130 @@ function IdleStageScreen({ theme, qrUrl, sessionCode }: {
         )
     }
 
-    // ---- Space (Cosmic) idle ----
+    // ---- Space ("Flight Deck") idle ----
+    // A cockpit console floating in front of a real 3D outboard view. The old
+    // version stacked eight decorative SVG layers here — warp trails, two
+    // galaxies, a Saturn, orbiting particles, a blurred nebula. All of that is
+    // now actual geometry in <SpaceOutboard>, which both looks better and costs
+    // less than a 50px blur filter over a fixed full-screen element.
     if (theme.name === 'space') {
+        const CUT = 24
+        const clip = (cut: number) =>
+            `polygon(${cut}px 0, 100% 0, 100% calc(100% - ${cut}px), calc(100% - ${cut}px) 100%, 0 100%, 0 ${cut}px)`
         return (
             <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
-                background: 'linear-gradient(180deg, #04040A 0%, #08080F 40%, #0A0A18 100%)',
-                position: 'relative', overflow: 'hidden',
+                background: '#04060B', position: 'relative', overflow: 'hidden',
             }}>
-                {/* Nebula cloud overlay */}
+                <SpaceOutboard />
+
+                {/* Vignette — pulls the eye to the console without hiding the
+                    station in the upper right or the planet's limb below. */}
                 <div style={{
-                    position: 'absolute', inset: '-20%', opacity: 0.05,
-                    background: 'radial-gradient(ellipse 55% 45% at 20% 35%, rgba(224,64,251,0.6) 0%, transparent 70%), radial-gradient(ellipse 45% 55% at 75% 55%, rgba(64,224,208,0.5) 0%, transparent 70%)',
-                    filter: 'blur(50px)', animation: 'spaceNebulaDrift 35s ease-in-out infinite',
+                    position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1,
+                    background: 'radial-gradient(ellipse 58% 52% at 50% 52%, rgba(4,6,11,0.80) 0%, rgba(4,6,11,0.34) 58%, transparent 100%)',
                 }} />
 
-                {/* Starfield — scattered dots */}
-                {[
-                    { x: '5%', y: '8%', s: 2, o: 0.7 }, { x: '12%', y: '22%', s: 1.5, o: 0.4 },
-                    { x: '20%', y: '5%', s: 1, o: 0.6 }, { x: '28%', y: '35%', s: 2, o: 0.3 },
-                    { x: '35%', y: '12%', s: 1.5, o: 0.5 }, { x: '42%', y: '28%', s: 1, o: 0.7 },
-                    { x: '55%', y: '8%', s: 2, o: 0.4 }, { x: '62%', y: '18%', s: 1.5, o: 0.6 },
-                    { x: '70%', y: '32%', s: 1, o: 0.5 }, { x: '78%', y: '6%', s: 2, o: 0.3 },
-                    { x: '85%', y: '25%', s: 1.5, o: 0.7 }, { x: '92%', y: '15%', s: 1, o: 0.4 },
-                    { x: '8%', y: '70%', s: 1.5, o: 0.5 }, { x: '18%', y: '85%', s: 2, o: 0.3 },
-                    { x: '75%', y: '75%', s: 1, o: 0.6 }, { x: '88%', y: '65%', s: 1.5, o: 0.4 },
-                    { x: '50%', y: '90%', s: 2, o: 0.35 }, { x: '30%', y: '60%', s: 1, o: 0.5 },
-                ].map((star, i) => (
-                    <div key={`star-${i}`} style={{
-                        position: 'absolute', left: star.x, top: star.y,
-                        width: star.s, height: star.s, borderRadius: '50%',
-                        background: i % 5 === 0 ? 'rgba(224,64,251,0.8)' : i % 7 === 0 ? 'rgba(64,224,208,0.7)' : 'rgba(232,230,240,0.8)',
-                        opacity: star.o,
-                        animation: `spaceTwinkle${i % 2 === 0 ? '' : '2'} ${3 + (i % 4)}s ease-in-out ${(i * 0.7) % 4}s infinite`,
-                    }} />
-                ))}
-
-                {/* Warp star trails — radial lines from center */}
-                <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.06 }} viewBox="0 0 1200 800">
-                    {Array.from({ length: 16 }).map((_, i) => {
-                        const angle = (i / 16) * Math.PI * 2
-                        const cx = 600, cy = 400
-                        const innerR = 80, outerR = 600
-                        const x1 = cx + Math.cos(angle) * innerR
-                        const y1 = cy + Math.sin(angle) * innerR
-                        const x2 = cx + Math.cos(angle) * outerR
-                        const y2 = cy + Math.sin(angle) * outerR
-                        return <line key={`warp-${i}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(232,230,240,0.5)" strokeWidth={0.8 + (i % 3) * 0.4} />
-                    })}
-                </svg>
-
-                {/* Planet (Saturn-like) silhouette — lower right */}
-                <svg style={{ position: 'absolute', bottom: '10%', right: '15%', width: 220, height: 180, opacity: 0.15 }} viewBox="0 0 220 180">
-                    {/* Planet body */}
-                    <circle cx="110" cy="95" r="55" fill="#0A0A18" stroke="rgba(224,64,251,0.3)" strokeWidth="1.5" />
-                    {/* Edge glow */}
-                    <circle cx="110" cy="95" r="55" fill="none" stroke="rgba(64,224,208,0.15)" strokeWidth="3" />
-                    {/* Ring — elliptical arc */}
-                    <ellipse cx="110" cy="95" rx="95" ry="20" fill="none" stroke="rgba(255,183,64,0.25)" strokeWidth="2" strokeDasharray="4 3" />
-                    <ellipse cx="110" cy="95" rx="85" ry="16" fill="none" stroke="rgba(224,64,251,0.15)" strokeWidth="1" />
-                </svg>
-
-                {/* Orbiting particles around planet */}
-                {[0, 1, 2].map(i => (
-                    <div key={`orbit-${i}`} style={{
-                        position: 'absolute', bottom: `calc(10% + 85px)`, right: `calc(15% + 100px)`,
-                        width: 4, height: 4, borderRadius: '50%',
-                        background: i === 0 ? '#E040FB' : i === 1 ? '#40E0D0' : '#FFB740',
-                        opacity: 0.6,
-                        animation: `spaceOrbit ${4 + i * 1.5}s linear ${i * 1.2}s infinite`,
-                    }} />
-                ))}
-
-                {/* Distant galaxy — top left */}
-                <svg style={{ position: 'absolute', top: '12%', left: '10%', width: 60, height: 60, opacity: 0.06 }} viewBox="0 0 60 60">
-                    <ellipse cx="30" cy="30" rx="25" ry="8" fill="none" stroke="rgba(224,64,251,0.5)" strokeWidth="0.8" transform="rotate(-30 30 30)" />
-                    <ellipse cx="30" cy="30" rx="18" ry="6" fill="none" stroke="rgba(64,224,208,0.4)" strokeWidth="0.6" transform="rotate(-30 30 30)" />
-                    <circle cx="30" cy="30" r="3" fill="rgba(232,230,240,0.3)" />
-                </svg>
-
-                {/* Distant galaxy — bottom left */}
-                <svg style={{ position: 'absolute', bottom: '20%', left: '20%', width: 45, height: 45, opacity: 0.04 }} viewBox="0 0 60 60">
-                    <ellipse cx="30" cy="30" rx="22" ry="7" fill="none" stroke="rgba(255,183,64,0.5)" strokeWidth="0.7" transform="rotate(20 30 30)" />
-                    <ellipse cx="30" cy="30" rx="15" ry="5" fill="none" stroke="rgba(224,64,251,0.3)" strokeWidth="0.5" transform="rotate(20 30 30)" />
-                    <circle cx="30" cy="30" r="2.5" fill="rgba(232,230,240,0.25)" />
-                </svg>
-
-                {/* Shooting star */}
+                {/* ── The console plate ──────────────────────────────────────
+                    Outer element's background is the 1px hairline; the fill sits
+                    on an inset child. A plain CSS border would be sliced off at
+                    the 45° cuts by clip-path. */}
                 <div style={{
-                    position: 'absolute', top: '15%', left: '25%', width: 80, height: 1,
-                    background: 'linear-gradient(90deg, transparent 0%, rgba(232,230,240,0.6) 40%, rgba(64,224,208,0.4) 100%)',
-                    transform: 'rotate(-25deg)',
-                    animation: 'spaceShootingStar 12s linear infinite',
-                    borderRadius: 1,
-                }} />
-                <div style={{
-                    position: 'absolute', top: '40%', right: '20%', width: 60, height: 1,
-                    background: 'linear-gradient(90deg, transparent 0%, rgba(232,230,240,0.5) 40%, rgba(224,64,251,0.3) 100%)',
-                    transform: 'rotate(-30deg)',
-                    animation: 'spaceShootingStar 18s linear 6s infinite',
-                    borderRadius: 1,
-                }} />
-
-                {/* Content */}
-                <div style={{ textAlign: 'center', zIndex: 2 }}>
-                    <h1 style={{
-                        fontFamily: "'Orbitron', sans-serif", fontSize: stageFont(64), color: '#E8E6F0',
-                        fontWeight: 700, lineHeight: 1.1, marginBottom: 8,
-                        textShadow: '0 0 30px rgba(224,64,251,0.35), 0 0 60px rgba(64,224,208,0.15), 0 0 100px rgba(224,64,251,0.1)',
-                        letterSpacing: '0.08em', textTransform: 'uppercase',
+                    position: 'relative', zIndex: 2,
+                    background: 'rgba(91,233,255,0.26)',
+                    clipPath: clip(CUT),
+                    boxShadow: '0 18px 60px rgba(0,0,0,0.7)',
+                }}>
+                    <div style={{
+                        clipPath: clip(CUT - 1),
+                        margin: 1,
+                        background: 'linear-gradient(158deg, rgba(19,28,39,0.96) 0%, rgba(6,10,17,0.97) 100%)',
+                        backdropFilter: 'blur(14px)',
+                        padding: '38px 46px',
+                        display: 'flex', alignItems: 'center', gap: 52,
                     }}>
-                        Launch a Song
-                    </h1>
-                    <p style={{
-                        fontFamily: "'Exo 2', sans-serif", fontSize: stageFont(16), color: '#9896A8',
-                        letterSpacing: '0.4em', textTransform: 'uppercase', marginBottom: 48,
-                    }}>
-                        Scan to queue from orbit
-                    </p>
-                    {qrUrl && (
-                        <div style={{
-                            display: 'inline-block', padding: 14,
-                            border: '1px solid rgba(64,224,208,0.3)',
-                            boxShadow: '0 0 20px rgba(64,224,208,0.1), 0 0 40px rgba(224,64,251,0.05), inset 0 0 20px rgba(64,224,208,0.03)',
-                            background: 'rgba(8,8,15,0.75)',
-                            backdropFilter: 'blur(12px)',
-                            borderRadius: 6,
-                        }}>
-                            <img src={qrUrl} alt="QR" style={{ width: 210, height: 210, display: 'block', borderRadius: 3 }} />
+                        {/* Left: the legend and the session readout */}
+                        <div style={{ position: 'relative', paddingLeft: 20 }}>
+                            {/* System bar — the theme's one-lamp state cue */}
+                            <div style={{
+                                position: 'absolute', left: 0, top: 4, bottom: 4, width: 3,
+                                background: '#5BE9FF', boxShadow: '0 0 12px rgba(91,233,255,0.7)',
+                            }} />
+                            <p style={{
+                                fontFamily: "'Share Tech Mono', monospace", fontSize: stageFont(13),
+                                letterSpacing: '0.26em', color: '#4E5C6D', margin: '0 0 10px',
+                            }}>
+                                SYS/LAUNCH — STANDING BY
+                            </p>
+                            <h1 style={{
+                                fontFamily: "'Chakra Petch', sans-serif", fontSize: stageFont(58), color: '#DCE6F2',
+                                fontWeight: 600, lineHeight: 1.02, margin: 0,
+                                textShadow: '0 0 28px rgba(91,233,255,0.30)',
+                                letterSpacing: '0.1em', textTransform: 'uppercase',
+                            }}>
+                                Launch<br />a Song
+                            </h1>
+
+                            {/* Machined rule: lit segment, then an engraved ladder */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 5, margin: '18px 0 16px' }}>
+                                <div style={{ width: 54, height: 2, background: '#5BE9FF' }} />
+                                <div style={{
+                                    flex: 1, height: 4,
+                                    background: 'repeating-linear-gradient(90deg, rgba(90,107,125,0.5) 0 1px, transparent 1px 12px)',
+                                }} />
+                            </div>
+
+                            <p style={{
+                                fontFamily: "'Exo 2', sans-serif", fontSize: stageFont(15), color: '#7B8A9C',
+                                letterSpacing: '0.2em', textTransform: 'uppercase', margin: '0 0 20px',
+                            }}>
+                                Scan to queue from orbit
+                            </p>
+
+                            {sessionCode && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                    <span style={{
+                                        fontFamily: "'Share Tech Mono', monospace", fontSize: stageFont(12),
+                                        letterSpacing: '0.24em', color: '#4E5C6D',
+                                    }}>
+                                        DECK
+                                    </span>
+                                    <span style={{
+                                        fontFamily: "'Share Tech Mono', monospace", fontSize: stageFont(34),
+                                        color: '#5BE9FF', letterSpacing: '0.2em',
+                                        textShadow: '0 0 18px rgba(91,233,255,0.5)',
+                                    }}>
+                                        {sessionCode}
+                                    </span>
+                                </div>
+                            )}
                         </div>
-                    )}
-                    {sessionCode && (
-                        <p style={{
-                            fontFamily: "'Orbitron', sans-serif", fontSize: stageFont(24), fontWeight: 600,
-                            color: '#E040FB', letterSpacing: '0.35em', textTransform: 'uppercase', marginTop: 20,
-                            textShadow: '0 0 15px rgba(224,64,251,0.4), 0 0 30px rgba(224,64,251,0.15)',
-                        }}>
-                            {sessionCode}
-                        </p>
-                    )}
+
+                        {/* Right: the QR in a recessed bay with registration marks */}
+                        {qrUrl && (
+                            <div style={{ position: 'relative', padding: 14, background: '#070C13' }}>
+                                <img src={qrUrl} alt="QR" style={{ width: 228, height: 228, display: 'block' }} />
+                                {/* Bay rim + corner registration marks — the same
+                                    detail the mobile song cards use on album art. */}
+                                <div style={{
+                                    position: 'absolute', inset: 0, pointerEvents: 'none',
+                                    boxShadow: 'inset 0 0 0 1px rgba(91,233,255,0.4)',
+                                }} />
+                                {[
+                                    { top: -1, left: -1, bx: '2px 0 0 2px' },
+                                    { top: -1, right: -1, bx: '2px 2px 0 0' },
+                                    { bottom: -1, left: -1, bx: '0 0 2px 2px' },
+                                    { bottom: -1, right: -1, bx: '0 2px 2px 0' },
+                                ].map((corner, index) => (
+                                    <div key={index} style={{
+                                        position: 'absolute', width: 14, height: 14,
+                                        borderStyle: 'solid', borderColor: '#5A6B7D', borderWidth: corner.bx,
+                                        ...corner,
+                                    } as React.CSSProperties} />
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         )
@@ -4633,6 +4834,38 @@ export default function KaraokePage() {
                 </span>
             </div>
         </div>
+        ) : theme.name === 'psychedelic' ? (
+        // A printed join card: cream stock, ink keyline, and a dye tab across the
+        // bottom carrying the word. The shared fallback below puts a pink accentA
+        // "JOIN" on a black translucent box, which at 9px is unreadable from a room
+        // away and is the opposite of what this theme's chrome looks like everywhere
+        // else.
+        <div style={{ position: 'fixed', top: 'calc(100vh - 176px)', left: 80, zIndex: 9999 }}>
+            <div className="k-qr-card" style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'stretch',
+                background: PSY.CREAM,
+                border: `${PSY.LINE}px solid ${PSY.INK}`,
+                borderRadius: psyPoured(1, 16, 6),
+                boxShadow: '0 14px 34px rgba(0,0,0,0.6)',
+                padding: 9,
+                animation: 'psy-stamp-in 0.45s cubic-bezier(0.2,0.9,0.3,1) both',
+            }}>
+                <img src={state.karaokeQrDataUrl} alt="QR" style={{
+                    width: 92, height: 92, display: 'block', borderRadius: 5,
+                    border: `2px solid ${PSY.INK}`, background: '#FFFFFF',
+                }} />
+                <span style={{
+                    marginTop: 7, textAlign: 'center',
+                    background: PSY.DYES[0], color: PSY.INK,
+                    border: `2px solid ${PSY.INK}`, borderRadius: 999,
+                    fontFamily: PSY.FONT_BODY, fontWeight: 800, fontSize: 11,
+                    letterSpacing: '0.18em', textTransform: 'uppercase',
+                    padding: '2px 0 3px',
+                }}>
+                    Join
+                </span>
+            </div>
+        </div>
         ) : theme.name === 'urban' ? (
         <div style={{ position: 'fixed', top: 'calc(100vh - 176px)', left: 80, zIndex: 9999, transform: 'rotate(-1.8deg)' }}>
             <div className="k-qr-card" style={{
@@ -4707,7 +4940,7 @@ export default function KaraokePage() {
                 ...(theme.name === 'space' ? {
                     background: 'rgba(8,8,15,0.85)',
                     border: '1px solid rgba(64,224,208,0.25)',
-                    boxShadow: '0 0 15px rgba(64,224,208,0.1), 0 0 30px rgba(224,64,251,0.05), inset 0 0 20px rgba(64,224,208,0.03)',
+                    boxShadow: '0 8px 26px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(91,233,255,0.22)',
                     borderRadius: 6,
                 } : theme.name === 'retrowave' ? {
                     background: 'rgba(10,6,20,0.88)',
@@ -4720,7 +4953,7 @@ export default function KaraokePage() {
                     width: 80, height: 80,
                     borderRadius: theme.radiusSmall,
                     display: 'block',
-                    ...(theme.name === 'space' ? { boxShadow: '0 0 10px rgba(64,224,208,0.15)' } : theme.name === 'retrowave' ? { boxShadow: '0 0 8px rgba(255,45,149,0.15)' } : {}),
+                    ...(theme.name === 'space' ? { boxShadow: '0 0 10px rgba(91,233,255,0.18)' } : theme.name === 'retrowave' ? { boxShadow: '0 0 8px rgba(255,45,149,0.15)' } : {}),
                 }} />
                 <span style={{
                     fontFamily: theme.fontDisplay,
@@ -4733,7 +4966,7 @@ export default function KaraokePage() {
                     display: 'block',
                     width: '100%',
                     ...(theme.name === 'space' ? {
-                        color: '#40E0D0',
+                        color: '#5BE9FF',
                         textShadow: '0 0 8px rgba(64,224,208,0.5)',
                     } : theme.name === 'retrowave' ? {
                         color: '#FF2D95',
@@ -4844,28 +5077,62 @@ export default function KaraokePage() {
             )
         }
 
-        // ── Psychedelic: TUNE IN — groovy blob plate with a breathing rainbow
-        // wash, Chicle glyphs haloed in pink. ──
+        // ── Psychedelic: TUNE IN — the projector plate ──────────────────────
+        // Filled with the footage rather than paper, so the count-in matches the join
+        // screen's handbill. That makes contrast the whole problem, because the video runs
+        // from near-black to pure white: the numerals are cream over an ink stroke, and the
+        // label and the progress channel are solid objects. Nothing here reads through a
+        // colour that depends on the frame behind it.
         if (theme.name === 'psychedelic') {
-            const psBig = (label: string, key: string | number, size = 72) => (
-                <div key={key} style={{ fontFamily: theme.fontDisplay, fontWeight: 400, fontSize: stageFont(size), lineHeight: 1.02, color: '#fff', textShadow: '0 0 22px rgba(255,45,149,0.6), 3px 3px 0 rgba(26,10,46,0.5)', marginTop: 6 }}>{label}</div>
+            const psBig = (label: string, key: string | number, size = 78) => (
+                <div key={key} style={{
+                    fontFamily: PSY.FONT_DISPLAY, fontWeight: 400, fontSize: stageFont(size),
+                    lineHeight: 1.0, marginTop: 4, ...psyStroke(0.05),
+                } as React.CSSProperties}>{label}</div>
             )
             let psCenter: React.ReactNode
-            if (remaining <= 0) psCenter = psBig('FAR OUT!', 'go', 46)
+            if (remaining <= 0) psCenter = psBig('FAR OUT!', 'go', 50)
             else if (count <= 3) psCenter = psBig(String(count), count)
             else psCenter = (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginTop: 12, color: '#f5ecff' }}>
-                    <NbNote size={22} color="#b6ff2d" />
-                    <span style={{ fontFamily: theme.fontDisplay, fontWeight: 400, fontSize: stageFont(24), maxWidth: 520, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.name}</span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 13, marginTop: 12 }}>
+                    <NbNote size={24} color={PSY.CREAM} />
+                    <span style={{
+                        fontFamily: PSY.FONT_DISPLAY, fontWeight: 400, fontSize: stageFont(26),
+                        maxWidth: 520, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        ...psyStroke(0.05),
+                    } as React.CSSProperties}>{track.name}</span>
                 </div>
             )
             return (
                 <div ref={countInRef} className={exitCls} style={{ display: 'flex', justifyContent: 'center', width: '100%', margin: '11vh 0 5vh' }}>
-                    <div style={{ position: 'relative', minWidth: 360, textAlign: 'center', padding: '26px 48px', borderRadius: '46% 54% 60% 40% / 52% 44% 56% 48%', background: 'linear-gradient(135deg, rgba(255,45,149,0.28), rgba(182,255,45,0.22), rgba(255,140,45,0.28))', boxShadow: '0 0 40px rgba(255,45,149,0.3), inset 0 0 0 2px rgba(245,236,255,0.35)', backdropFilter: 'blur(8px)', animation: 'psyBreathe 5s ease-in-out infinite' }}>
-                        <p style={{ margin: 0, fontFamily: theme.fontBody, fontWeight: 400, fontSize: stageFont(14), letterSpacing: '0.3em', textTransform: 'uppercase', color: '#b6ff2d', textShadow: '0 0 10px rgba(182,255,45,0.5)' }}>Tune In</p>
-                        {psCenter}
-                        <div style={{ marginTop: 16, height: 7, borderRadius: 999, background: 'rgba(245,236,255,0.16)', position: 'relative', overflow: 'hidden' }}>
-                            <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, borderRadius: 999, width: `${barPct}%`, background: 'linear-gradient(90deg, #ff2d95, #b6ff2d, #ff8c2d)', transition: 'width 0.28s linear' }} />
+                    <div style={{
+                        position: 'relative', minWidth: 380, textAlign: 'center', overflow: 'hidden',
+                        border: `${PSY.LINE}px solid ${PSY.INK}`,
+                        borderRadius: psyPoured(0, 26),
+                        boxShadow: `0 0 0 5px ${PSY.CREAM}, 0 20px 54px rgba(0,0,0,0.65)`,
+                        animation: 'psy-stamp-in 0.42s cubic-bezier(0.2, 0.9, 0.3, 1) both',
+                    }}>
+                        {/* A quarter-clip offset keeps this plate from ever matching the join
+                            screen's or the up-next bill's moment. */}
+                        <LiquidLight phase={0.25} filter="saturate(1.5) contrast(1.1) brightness(0.48)" />
+
+                        <div style={{ position: 'relative', padding: '22px 52px 26px' }}>
+                            {/* Solid ink tab — a 14px letterspaced label has no chance as bare
+                                type over moving footage. */}
+                            <span style={{
+                                display: 'inline-block',
+                                background: PSY.INK, color: PSY.CREAM,
+                                border: `2px solid ${PSY.INK}`, borderRadius: 999,
+                                fontFamily: PSY.FONT_BODY, fontWeight: 800,
+                                fontSize: stageFont(13), letterSpacing: '0.26em',
+                                textTransform: 'uppercase', padding: '3px 18px 4px',
+                            }}>
+                                Tune In
+                            </span>
+                            {psCenter}
+                            <div style={{ marginTop: 18, height: 9, borderRadius: 999, background: PSY.INK, position: 'relative', overflow: 'hidden' }}>
+                                <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, borderRadius: 999, width: `${barPct}%`, background: PSY.DYES[0], transition: 'width 0.28s linear' }} />
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -4876,24 +5143,24 @@ export default function KaraokePage() {
         // magenta→cyan glow; a T-minus countdown, then LIFTOFF. ──
         if (theme.name === 'space') {
             const spBig = (label: string, key: string | number, size = 68) => (
-                <div key={key} style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(size), lineHeight: 1.05, color: '#E8E6F0', letterSpacing: '0.06em', textShadow: '0 0 20px rgba(224,64,251,0.7), 0 0 50px rgba(64,224,208,0.4)', marginTop: 6 }}>{label}</div>
+                <div key={key} style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(size), lineHeight: 1.05, color: '#DCE6F2', letterSpacing: '0.06em', textShadow: '0 0 20px rgba(91,233,255,0.6), 0 0 50px rgba(91,233,255,0.28)', marginTop: 6 }}>{label}</div>
             )
             let spCenter: React.ReactNode
             if (remaining <= 0) spCenter = spBig('LIFTOFF!', 'go', 44)
             else if (count <= 3) spCenter = spBig('T-' + count, count)
             else spCenter = (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginTop: 12, color: '#E8E6F0' }}>
-                    <NbEq color="#40E0D0" fontSize={stageFont(22)} />
+                    <NbEq color="#5BE9FF" fontSize={stageFont(22)} />
                     <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(21), letterSpacing: '0.04em', maxWidth: 520, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.name}</span>
                 </div>
             )
             return (
                 <div ref={countInRef} className={exitCls} style={{ display: 'flex', justifyContent: 'center', width: '100%', margin: '11vh 0 5vh' }}>
-                    <div style={{ position: 'relative', minWidth: 360, textAlign: 'center', padding: '24px 48px', borderRadius: 10, background: 'rgba(10,10,20,0.86)', backdropFilter: 'blur(10px)', boxShadow: '0 0 30px rgba(224,64,251,0.22), inset 0 0 0 1px rgba(224,64,251,0.3), inset 0 0 24px rgba(64,224,208,0.06)', animation: 'urban-spray-in 0.45s ease-out both' }}>
-                        <p style={{ margin: 0, fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(13), letterSpacing: '0.5em', marginRight: '-0.5em', textTransform: 'uppercase', color: '#40E0D0', textShadow: '0 0 10px rgba(64,224,208,0.5)' }}>Launch In</p>
+                    <div style={{ position: 'relative', minWidth: 360, textAlign: 'center', padding: '24px 48px', borderRadius: 10, background: 'rgba(10,10,20,0.86)', backdropFilter: 'blur(10px)', boxShadow: '0 14px 44px rgba(0,0,0,0.66), inset 0 0 0 1px rgba(91,233,255,0.32)', animation: 'urban-spray-in 0.45s ease-out both' }}>
+                        <p style={{ margin: 0, fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(13), letterSpacing: '0.5em', marginRight: '-0.5em', textTransform: 'uppercase', color: '#5BE9FF', textShadow: '0 0 10px rgba(91,233,255,0.5)' }}>Launch In</p>
                         {spCenter}
-                        <div style={{ marginTop: 16, height: 6, borderRadius: 999, background: 'rgba(224,64,251,0.14)', position: 'relative', overflow: 'hidden' }}>
-                            <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, borderRadius: 999, width: `${barPct}%`, background: 'linear-gradient(90deg, #E040FB, #40E0D0)', boxShadow: '0 0 10px rgba(64,224,208,0.6)', transition: 'width 0.28s linear' }} />
+                        <div style={{ marginTop: 16, height: 6, borderRadius: 999, background: 'rgba(91,233,255,0.14)', position: 'relative', overflow: 'hidden' }}>
+                            <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, borderRadius: 999, width: `${barPct}%`, background: 'linear-gradient(90deg, #5BE9FF, #BFF4FF)', boxShadow: '0 0 10px rgba(91,233,255,0.55)', transition: 'width 0.28s linear' }} />
                         </div>
                     </div>
                 </div>
@@ -5227,6 +5494,22 @@ export default function KaraokePage() {
                         <div className="k-bg__yt-mask" aria-hidden="true" />
                     </div>
                 )}
+                {/* Space: a song with neither video nor album art would leave the
+                    backdrop bare, so the outboard view fills in — dimmed and
+                    slowed via `performing` so the lyrics keep the screen. When
+                    art or video IS present that art is the backdrop, and a
+                    second moving layer would only compete with the words; the
+                    theme's identity during playback comes from the panel chrome
+                    instead. Keeping 3D off the playing path also protects the
+                    frame budget at exactly the moment it matters most, with
+                    audio decoding and per-syllable lyrics already running. */}
+                {theme.name === 'space' && !art && !ytId && <SpaceOutboard performing />}
+                {/* Psychedelic: same reasoning as space above. A song with neither video
+                    nor album art would leave the backdrop bare, so the projector fills in
+                    — dimmed and slowed via `performing` so the lyric plates keep the
+                    screen. When art or video IS present that art is the backdrop and a
+                    second moving colour field would only fight the words. */}
+                {theme.name === 'psychedelic' && !art && !ytId && <LiquidLight performing />}
                 <div className="k-bg__scrim" style={{ opacity: state.stageMode === 'playing' ? 1 : 0 }} />
             </div>
 
@@ -5267,6 +5550,23 @@ export default function KaraokePage() {
             {!(np?.isHidden && state.stageMode === 'ready') && (
             <div className="k-song-chip" style={{
                 background: theme.appBg, ...theme.stickerLabel, position: 'absolute', opacity: 1,
+                ...(theme.name === 'psychedelic' ? {
+                    // A cream tag with an ink keyline and a dye spine — the same object
+                    // as a queue row on the phone. The shared `stickerLabel` puts amber
+                    // behind ink at 10px here, which at stage distance is a smudge.
+                    background: PSY.CREAM,
+                    border: `${PSY.LINE}px solid ${PSY.INK}`,
+                    borderLeft: `10px solid ${PSY.DYES[0]}`,
+                    borderRadius: psyPoured(0, 16, 7),
+                    boxShadow: '0 12px 30px rgba(0,0,0,0.55)',
+                    color: PSY.INK,
+                    padding: '8px 18px 9px 12px',
+                    maxWidth: 'min(38vw, 520px)',
+                    letterSpacing: 'normal',
+                    textTransform: 'none',
+                    textShadow: 'none',
+                    animation: 'psy-stamp-in 0.42s cubic-bezier(0.2,0.9,0.3,1) both',
+                } as React.CSSProperties : {}),
                 ...(theme.name === 'neo-brutal' ? {
                     background: '#FFFFFF',
                     border: `3px solid ${NB_INK}`,
@@ -5310,7 +5610,7 @@ export default function KaraokePage() {
                 ...(theme.name === 'space' ? {
                     background: 'rgba(8,8,15,0.85)',
                     border: '1px solid rgba(64,224,208,0.2)',
-                    boxShadow: '0 0 12px rgba(64,224,208,0.08), 0 0 25px rgba(224,64,251,0.04)',
+                    boxShadow: '0 6px 20px rgba(0,0,0,0.55), 0 0 10px rgba(91,233,255,0.08)',
                     borderRadius: 8,
                     backdropFilter: 'blur(16px)',
                     color: '#E8E6F0',
@@ -5336,11 +5636,11 @@ export default function KaraokePage() {
                 } : {}),
             }}>
                 {art && <img className="k-song-chip__art" src={art} alt="" style={
-                    theme.name === 'neo-brutal' ? { borderRadius: 0, border: `2.5px solid ${NB_INK}`, boxShadow: 'none' } : theme.name === 'urban' ? { borderRadius: 0, clipPath: 'polygon(8% 0, 100% 0, 92% 100%, 0 100%)', boxShadow: 'none' } : theme.name === 'zen' ? { borderRadius: 8, border: '1px solid rgba(201,168,76,0.35)', boxShadow: '0 4px 14px rgba(0,0,0,0.5)' } : theme.name === 'space' ? { boxShadow: '0 0 15px rgba(224,64,251,0.2), 0 6px 20px rgba(0,0,0,0.5)', borderRadius: 8, border: '1px solid rgba(224,64,251,0.15)' } : theme.name === 'steampunk' ? { boxShadow: '0 0 10px rgba(200,151,62,0.15), 0 6px 20px rgba(0,0,0,0.5)', borderRadius: 3, border: '1px solid rgba(200,151,62,0.2)' } : theme.name === 'retrowave' ? { boxShadow: '0 0 10px rgba(255,45,149,0.15), 0 6px 20px rgba(0,0,0,0.5)', borderRadius: 4, border: '1px solid rgba(255,45,149,0.15)' } : {}
+                    theme.name === 'neo-brutal' ? { borderRadius: 0, border: `2.5px solid ${NB_INK}`, boxShadow: 'none' } : theme.name === 'urban' ? { borderRadius: 0, clipPath: 'polygon(8% 0, 100% 0, 92% 100%, 0 100%)', boxShadow: 'none' } : theme.name === 'zen' ? { borderRadius: 8, border: '1px solid rgba(201,168,76,0.35)', boxShadow: '0 4px 14px rgba(0,0,0,0.5)' } : theme.name === 'space' ? { boxShadow: '0 8px 26px rgba(0,0,0,0.6), 0 0 14px rgba(91,233,255,0.12)', borderRadius: 0, border: '1px solid rgba(91,233,255,0.22)' } : theme.name === 'steampunk' ? { boxShadow: '0 0 10px rgba(200,151,62,0.15), 0 6px 20px rgba(0,0,0,0.5)', borderRadius: 3, border: '1px solid rgba(200,151,62,0.2)' } : theme.name === 'retrowave' ? { boxShadow: '0 0 10px rgba(255,45,149,0.15), 0 6px 20px rgba(0,0,0,0.5)', borderRadius: 4, border: '1px solid rgba(255,45,149,0.15)' } : {}
                 } />}
                 <div className="k-song-chip__text" style={theme.name === 'neo-brutal' || theme.name === 'urban' || theme.name === 'zen' || theme.name === 'steampunk' ? { minWidth: 0 } : {}}>
-                    <h3 style={{ fontFamily: theme.fontDisplay, ...(theme.name === 'neo-brutal' ? { color: NB_INK, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'urban' ? { color: '#FFFFFF', fontFamily: URB_STENCIL, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'zen' ? { color: '#F5EBD8', fontFamily: ZEN_SERIF, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'space' ? { color: '#E8E6F0', textShadow: '0 0 10px rgba(64,224,208,0.3)' } : theme.name === 'steampunk' ? { color: '#E8DCC8', fontFamily: "'Cinzel', serif", fontWeight: 600, textShadow: '0 0 10px rgba(200,151,62,0.25), 0 1px 0 rgba(0,0,0,0.5)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'retrowave' ? { color: '#F0E6FF', textShadow: '0 0 10px rgba(255,45,149,0.25)' } : {}) }}>{track.name}</h3>
-                    <p style={{ color: theme.muted, ...(theme.name === 'neo-brutal' ? { color: '#555555', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'urban' ? { color: URB_ASH, fontFamily: URB_STENCIL, fontWeight: 300, letterSpacing: '0.18em', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'zen' ? { color: ZEN_WASHI_DIM, fontFamily: ZEN_SANS, fontWeight: 500, letterSpacing: '0.14em', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'space' ? { color: '#9896A8' } : theme.name === 'steampunk' ? { color: '#A89878', fontStyle: 'italic', letterSpacing: '0.12em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'retrowave' ? { color: '#9B8CBF' } : {}) }}>{track.artists.map((a: any) => a.name).join(', ')}</p>
+                    <h3 style={{ fontFamily: theme.fontDisplay, ...(theme.name === 'neo-brutal' ? { color: NB_INK, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'urban' ? { color: '#FFFFFF', fontFamily: URB_STENCIL, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'zen' ? { color: '#F5EBD8', fontFamily: ZEN_SERIF, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'space' ? { color: '#DCE6F2', textShadow: '0 0 10px rgba(91,233,255,0.3)' } : theme.name === 'steampunk' ? { color: '#E8DCC8', fontFamily: "'Cinzel', serif", fontWeight: 600, textShadow: '0 0 10px rgba(200,151,62,0.25), 0 1px 0 rgba(0,0,0,0.5)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'retrowave' ? { color: '#F0E6FF', textShadow: '0 0 10px rgba(255,45,149,0.25)' } : {}) }}>{track.name}</h3>
+                    <p style={{ color: theme.muted, ...(theme.name === 'neo-brutal' ? { color: '#555555', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'urban' ? { color: URB_ASH, fontFamily: URB_STENCIL, fontWeight: 300, letterSpacing: '0.18em', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'zen' ? { color: ZEN_WASHI_DIM, fontFamily: ZEN_SANS, fontWeight: 500, letterSpacing: '0.14em', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'space' ? { color: '#7B8A9C' } : theme.name === 'steampunk' ? { color: '#A89878', fontStyle: 'italic', letterSpacing: '0.12em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'retrowave' ? { color: '#9B8CBF' } : {}) }}>{track.artists.map((a: any) => a.name).join(', ')}</p>
                 </div>
             </div>
             )}
@@ -5349,7 +5649,22 @@ export default function KaraokePage() {
             {singers.length > 0 && (
                 <div className="k-singers" style={{ opacity: 1, flexDirection: 'column', alignItems: 'flex-end' }}>
                     {singers.map((s: any, singerIdx: number) => {
-                        const spaceSingerStyle = theme.name === 'neo-brutal' ? {
+                        const spaceSingerStyle = theme.name === 'psychedelic' ? {
+                            // Ink-filled with the singer's colour as a fat spine. Ink fill
+                            // rather than the singer's own colour, because singer colours are
+                            // user-picked and one of them will eventually match the plate it
+                            // lands on — the phone's chips solve it the same way.
+                            background: PSY.INK,
+                            border: `${PSY.LINE}px solid ${PSY.INK}`,
+                            borderRight: `9px solid ${s.color}`,
+                            borderRadius: psyPoured(singerIdx, 15, 6),
+                            boxShadow: '0 10px 24px rgba(0,0,0,0.5)',
+                            color: PSY.CREAM,
+                            letterSpacing: 'normal',
+                            textTransform: 'none',
+                            textShadow: 'none',
+                            animation: `psy-stamp-in 0.4s cubic-bezier(0.2,0.9,0.3,1) ${singerIdx * 0.07}s both`,
+                        } as React.CSSProperties : theme.name === 'neo-brutal' ? {
                             background: '#FFFFFF',
                             border: `2.5px solid ${NB_INK}`,
                             borderLeft: `10px solid ${s.color}`,
@@ -5474,6 +5789,8 @@ export default function KaraokePage() {
                     <ZenUpNext theme={theme} art={art} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} showVideo={showVideoBehindArt} />
                   ) : theme.name === 'steampunk' ? (
                     <SteampunkUpNext theme={theme} art={art} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} showVideo={showVideoBehindArt} />
+                  ) : theme.name === 'psychedelic' ? (
+                    <PsyUpNext theme={theme} art={art} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} />
                   ) : (
                     <div className="anim-enter k-upnext" style={{ width: '100%', maxWidth: 1100, margin: '0 auto', padding: '0 48px' }}>
                         <div style={{
@@ -5641,6 +5958,9 @@ export default function KaraokePage() {
                             <div key={i} style={{ display: 'flex', gap: 24, justifyContent: 'center', flexWrap: 'wrap', isolation: 'isolate' }}>
                                 {group.map((line: any, j: number) => {
                                     let cls = 'k-line k-line--lg'
+                                    // Psychedelic only: the active plate gets a faint layer of the
+                                    // projector footage over its colour, behind the words.
+                                    let psyFilm = false
                                     let inlineStyle: React.CSSProperties = {
                                         fontFamily: theme.fontDisplay
                                     }
@@ -5756,18 +6076,80 @@ export default function KaraokePage() {
                                             inlineStyle.borderRadius = '999px'
                                             inlineStyle.boxShadow = `0 0 28px ${activeSingerColor}, 0 0 60px rgba(0,255,200,0.35), inset 0 1px 0 rgba(255,255,255,0.4)`
                                         } else if (theme.name === 'psychedelic') {
+                                            // ── A printed handbill line ──────────────────
+                                            // An opaque plate of the singer's colour with a
+                                            // heavy ink keyline and poured corners — the same
+                                            // construction as every card in the mobile app.
+                                            //
+                                            // Type colour is chosen by LUMINANCE, not fixed:
+                                            // singer colours are user-picked, so a fixed ink
+                                            // fill vanishes on a dark pick and a fixed cream
+                                            // fill vanishes on a bright one. `nbTextOn` already
+                                            // solves this for the neo-brutal poster stage, and
+                                            // multi-singer lines reuse `nbSplitBackground`,
+                                            // which butts one hard band per singer with ink
+                                            // seams instead of blending them into sludge.
+                                            //
+                                            // The previous version filled this line with a
+                                            // 300%-scaled animated gradient inside a morphing
+                                            // organic border-radius, ringed in two coloured
+                                            // glows. Over footage that is itself saturated and
+                                            // moving, none of that separated the words from the
+                                            // background — it just added more colour to colour.
                                             cls += ' k-line--psychedelic k-line--psychedelic-active'
-                                            inlineStyle.padding = '0.22em 1em'
-                                            inlineStyle.backgroundColor = activeSingerColor
-                                            if (activeColors.length > 1) {
-                                                const flow = [...activeColors, activeColors[0]].join(', ')
-                                                inlineStyle.backgroundImage = `linear-gradient(120deg, ${flow})`
-                                                inlineStyle.backgroundSize = '300% 300%'
-                                            } else {
-                                                inlineStyle.backgroundImage = 'linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.08) 28%, transparent 50%, rgba(0,0,0,0.18) 72%, rgba(0,0,0,0.4) 100%)'
-                                                inlineStyle.backgroundSize = '220% 220%'
-                                            }
-                                            inlineStyle.boxShadow = `0 0 28px ${activeSingerColor}, 0 0 60px ${activeSingerColor}80`
+                                            const pColors = activeColors.length > 1 ? activeColors : [activeSingerColor]
+                                            const pInk = nbTextOn(pColors)
+                                            // The active word is the INVERSE of its line: on a
+                                            // bright plate an ink patch with cream letters, on a
+                                            // dark plate a cream patch with ink letters. Always
+                                            // maximum contrast, and it reads as a word knocked
+                                            // out of the print rather than as a glow.
+                                            const pStamp = pInk === NB_CREAM ? PSY.CREAM : PSY.INK
+                                            const pStampInk = pInk === NB_CREAM ? PSY.INK : PSY.CREAM
+                                            inlineStyle['--psy-stamp'] = pStamp
+                                            inlineStyle['--psy-stamp-ink'] = pStampInk
+                                            inlineStyle['--highlight-color'] = activeHighlight
+                                            // ONE assignment, to the `background` shorthand, and
+                                            // nothing else. The generic code above already put a
+                                            // `background` key on this object, and React writes
+                                            // inline styles in KEY-INSERTION order — so adding a
+                                            // `backgroundColor: transparent` reset here (which the
+                                            // first version did, copying the urban branch) appends
+                                            // a NEW key *after* `background` and wipes the fill
+                                            // right back out. The plate rendered with no colour at
+                                            // all. Reassigning the existing shorthand keeps its
+                                            // original position and resets colour and image
+                                            // together, which is exactly what's wanted.
+                                            inlineStyle.background = pColors.length > 1
+                                                ? nbSplitBackground(pColors)
+                                                : pColors[0]
+                                            inlineStyle.color = pInk
+                                            inlineStyle.textShadow = 'none'
+                                            // Asymmetric vertically, and measured rather than
+                                            // guessed: the line box leaves 0.161em between the
+                                            // content-box top and the chip but only 0.100em below
+                                            // it, so the extra 0.06em on the bottom is what centres
+                                            // the chip inside the plate rather than just inside its
+                                            // own line box.
+                                            inlineStyle.padding = '0.2em 0.85em 0.26em'
+                                            inlineStyle.borderRadius = psyPoured(i, 22, 11)
+                                            inlineStyle.border = `${PSY.LINE}px solid ${PSY.INK}`
+                                            // Stable per-line tilt, alternating sign: a poster
+                                            // pasted up by hand, not laid out on a grid. Small,
+                                            // because big rotations wreck the reading rhythm of a
+                                            // stack of lines. box-shadow is deliberately NOT set
+                                            // here — the class owns the cream sticker ring, and an
+                                            // inline shadow would replace it.
+                                            inlineStyle['--psy-rot'] = `${i % 2 === 0 ? -0.7 : 0.7}deg`
+                                            // The plate takes a faint layer of the projector's own
+                                            // footage over its colour, injected as the line's first
+                                            // child so it paints under the words. This replaced two
+                                            // hard dye discs crossing the plate: those matched the
+                                            // mobile app's cards, but on a stage that is already
+                                            // standing in front of the projector, borrowing the
+                                            // real footage ties the plate to the room in a way
+                                            // invented accent colours never did.
+                                            psyFilm = true
                                         } else if (theme.name === 'zen') {
                                             // An unrolled strip of washi: warm paper, deep sumi ink, and the
                                             // singer's color as a vertical ink band on the left edge — shared
@@ -5804,16 +6186,43 @@ export default function KaraokePage() {
                                             inlineStyle.textShadow = 'none'
                                             inlineStyle['--zen-glow'] = `color-mix(in srgb, ${zColors[0]}, transparent 62%)`
                                         } else if (theme.name === 'space') {
+                                            // The active line is a READOUT PLATE: a chamfered black-glass
+                                            // panel with an ice hairline and a system bar down its left
+                                            // edge in the singer's colour — the same grammar as every
+                                            // other surface in the theme, so the stage and the phone are
+                                            // recognisably one product.
+                                            //
+                                            // The chamfer is a clip-path, which means no CSS border can
+                                            // survive on the diagonals; the plate is drawn instead from
+                                            // stacked background layers (hairline, fill, system bar) in
+                                            // karaoke.css. Everything time-based — the per-syllable sweep
+                                            // and the line's duration vein — is CSS driven off
+                                            // --syl-dur / --nb-line-dur so it stays frame-accurate
+                                            // without React re-rendering mid-line.
                                             cls += ' k-line--space k-line--space-active'
-                                            inlineStyle.padding = '0.18em 0.75em'
-                                            inlineStyle.borderRadius = '8px'
-                                            const reversedSpaceColors = activeColors.length > 1 ? [...activeColors].reverse() : []
-                                            const spaceGlow = reversedSpaceColors.length > 1
-                                                ? `linear-gradient(90deg, ${reversedSpaceColors.join(', ')})`
-                                                : activeSingerColor
+                                            const spColors = activeColors.length > 1 ? activeColors : [activeSingerColor]
+                                            // Shared lines get one hard-split band per singer, butted like
+                                            // machined enamel rather than blended into a gradient mush.
+                                            const spBand = spColors.length > 1
+                                                ? spColors
+                                                      .map((c: string, k: number) =>
+                                                          `${c} ${(k / spColors.length) * 100}% ${((k + 1) / spColors.length) * 100}%`,
+                                                      )
+                                                      .join(', ')
+                                                : `${spColors[0]}, ${spColors[0]}`
                                             // @ts-ignore (CSS variables)
-                                            inlineStyle['--space-glow'] = spaceGlow
-                                            inlineStyle.boxShadow = 'inset 0 0 14px rgba(255,255,255,0.18)'
+                                            inlineStyle['--space-bar'] = `linear-gradient(180deg, ${spBand})`
+                                            // @ts-ignore (CSS variables)
+                                            inlineStyle['--space-glow'] = spColors[0]
+                                            const spHasSyls = !!(line.syllables && line.syllables.length > 0)
+                                            if (!spHasSyls) {
+                                                // No syllable timings, so the WHOLE LINE ignites as one
+                                                // unit. Deliberately not a progress indicator creeping
+                                                // along the plate — a highlight that slides through the
+                                                // words is hard to sing to, because the thing you need to
+                                                // read is only half-lit at any moment.
+                                                cls += ' k-line--space-full'
+                                            }
                                         } else if (theme.name === 'steampunk') {
                                             // Illuminated engine nameplate: the riveted brass frame stays
                                             // (plate classes in steampunk.ts), but the face is dark iron —
@@ -6001,15 +6410,38 @@ export default function KaraokePage() {
                                             const trailMatch = sylText.match(/\s+$/)
                                             const trail = trailMatch ? trailMatch[0] : ''
                                             const word = trail ? sylText.slice(0, -trail.length) : sylText
+                                            // Expose the syllable's REAL duration to CSS. Themes can
+                                            // then run a continuous sweep across the syllable for the
+                                            // exact time it is sung, instead of the discrete
+                                            // past/now/future class flip being the only signal — which
+                                            // is what makes a highlight look stepped. Additive: a theme
+                                            // that ignores --syl-dur is unaffected.
                                             return (
-                                                <span key={k} className={sylCls}>
+                                                <span
+                                                    key={k}
+                                                    className={sylCls}
+                                                    style={{ ['--syl-dur' as string]: `${Math.max(80, syl.durMs)}ms` } as React.CSSProperties}
+                                                >
                                                     <span className="k-syl__word">{word}</span>{trail}
                                                 </span>
                                             )
                                         })
                                     }
 
-                                    return <div key={j} className={cls} style={inlineStyle}>{content}</div>
+                                    return (
+                                        <div key={j} className={cls} style={inlineStyle}>
+                                            {/* FIRST child, so it paints under the line's inline
+                                                content (see .psy-film). Keyed so React reuses the
+                                                same <video> as long as the same line stays active,
+                                                rather than tearing down a decoder mid-line. */}
+                                            {psyFilm && (
+                                                <span key="psy-film" className="psy-film" aria-hidden="true">
+                                                    <LiquidLight filter="saturate(1.35) contrast(1.05)" />
+                                                </span>
+                                            )}
+                                            {content}
+                                        </div>
+                                    )
                                 })}
                             </div>
                         )
@@ -6055,22 +6487,22 @@ export default function KaraokePage() {
                         </div>
                     </div>
                 ) : theme.name === 'psychedelic' ? (
-                    <div style={{ animation: 'psyBreathe 5s ease-in-out infinite' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '10px 26px', borderRadius: '46% 54% 60% 40% / 52% 44% 56% 48%', background: 'linear-gradient(135deg, rgba(255,45,149,0.32), rgba(182,255,45,0.26), rgba(255,140,45,0.32))', backdropFilter: 'blur(8px)', boxShadow: '0 0 26px rgba(255,45,149,0.3), inset 0 0 0 2px rgba(245,236,255,0.35)' }}>
-                            <NbNote size={20} color="#b6ff2d" />
-                            <span style={{ fontFamily: theme.fontBody, fontWeight: 400, fontSize: 15, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#f5ecff', textShadow: '0 0 8px rgba(255,45,149,0.5)' }}>Groove Break</span>
-                            <div style={{ width: 120, height: 7, borderRadius: 999, background: 'rgba(245,236,255,0.16)', position: 'relative', overflow: 'hidden' }}>
-                                <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, borderRadius: 999, width: `${Math.min(100, Math.max(0, ((elapsed - nbBreak.start) / (nbBreak.end - nbBreak.start)) * 100))}%`, background: 'linear-gradient(90deg,#ff2d95,#b6ff2d,#ff8c2d)', transition: 'width 0.3s linear' }} />
+                    <div style={{ animation: 'psy-stamp-in 0.4s cubic-bezier(0.2,0.9,0.3,1) both' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '9px 24px', ...psyPlate(PSY.DYES[1], 1, 18) }}>
+                            <NbNote size={20} color={PSY.INK} />
+                            <span style={{ fontFamily: PSY.FONT_BODY, fontWeight: 800, fontSize: 14, letterSpacing: '0.2em', textTransform: 'uppercase', color: PSY.INK }}>Groove Break</span>
+                            <div style={{ width: 124, height: 8, borderRadius: 999, background: PSY.INK, position: 'relative', overflow: 'hidden' }}>
+                                <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, borderRadius: 999, width: `${Math.min(100, Math.max(0, ((elapsed - nbBreak.start) / (nbBreak.end - nbBreak.start)) * 100))}%`, background: PSY.CREAM, transition: 'width 0.3s linear' }} />
                             </div>
                         </div>
                     </div>
                 ) : theme.name === 'space' ? (
                     <div style={{ animation: 'urban-spray-in 0.35s ease-out both' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '10px 24px', borderRadius: 10, background: 'rgba(10,10,20,0.86)', backdropFilter: 'blur(10px)', boxShadow: '0 0 22px rgba(224,64,251,0.22), inset 0 0 0 1px rgba(224,64,251,0.3)' }}>
-                            <NbEq color="#40E0D0" fontSize={18} />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '10px 24px', borderRadius: 10, background: 'rgba(10,15,23,0.92)', backdropFilter: 'blur(10px)', boxShadow: '0 10px 30px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(91,233,255,0.3)' }}>
+                            <NbEq color="#5BE9FF" fontSize={18} />
                             <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 13, letterSpacing: '0.44em', marginRight: '-0.44em', textTransform: 'uppercase', color: '#E8E6F0' }}>In Orbit</span>
-                            <div style={{ width: 130, height: 6, borderRadius: 999, background: 'rgba(224,64,251,0.14)', position: 'relative', overflow: 'hidden' }}>
-                                <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, borderRadius: 999, width: `${Math.min(100, Math.max(0, ((elapsed - nbBreak.start) / (nbBreak.end - nbBreak.start)) * 100))}%`, background: 'linear-gradient(90deg,#E040FB,#40E0D0)', boxShadow: '0 0 8px rgba(64,224,208,0.6)', transition: 'width 0.3s linear' }} />
+                            <div style={{ width: 130, height: 6, borderRadius: 999, background: 'rgba(91,233,255,0.14)', position: 'relative', overflow: 'hidden' }}>
+                                <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, borderRadius: 999, width: `${Math.min(100, Math.max(0, ((elapsed - nbBreak.start) / (nbBreak.end - nbBreak.start)) * 100))}%`, background: 'linear-gradient(90deg,#5BE9FF,#BFF4FF)', boxShadow: '0 0 8px rgba(91,233,255,0.55)', transition: 'width 0.3s linear' }} />
                             </div>
                         </div>
                     </div>
@@ -6211,15 +6643,15 @@ export default function KaraokePage() {
                         </div>
                     </div>
                 ) : theme.name === 'psychedelic' ? (
-                    <div style={{ animation: 'psyBreathe 5s ease-in-out infinite' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 32px', borderRadius: '46% 54% 60% 40% / 52% 44% 56% 48%', background: 'linear-gradient(135deg, rgba(255,45,149,0.36), rgba(182,255,45,0.28), rgba(255,140,45,0.36))', backdropFilter: 'blur(8px)', boxShadow: '0 0 30px rgba(255,45,149,0.32), inset 0 0 0 2px rgba(245,236,255,0.4)' }}>
-                            <span style={{ fontFamily: theme.fontDisplay, fontWeight: 400, fontSize: stageFont(28), letterSpacing: '0.06em', textTransform: 'uppercase', color: '#fff', textShadow: '3px 3px 0 rgba(26,10,46,0.5)' }}>Paused</span>
+                    <div style={{ animation: 'psy-stamp-in 0.4s cubic-bezier(0.2,0.9,0.3,1) both' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '11px 34px', ...psyPlate(PSY.CREAM, 0, 20) }}>
+                            <span style={{ fontFamily: PSY.FONT_DISPLAY, fontWeight: 400, fontSize: stageFont(30), color: PSY.INK, letterSpacing: '0.02em' }}>Paused</span>
                         </div>
                     </div>
                 ) : theme.name === 'space' ? (
                     <div style={{ animation: 'urban-spray-in 0.35s ease-out both' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 30px', borderRadius: 10, background: 'rgba(10,10,20,0.88)', backdropFilter: 'blur(10px)', boxShadow: '0 0 26px rgba(224,64,251,0.24), inset 0 0 0 1px rgba(224,64,251,0.35)' }}>
-                            <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(26), letterSpacing: '0.3em', marginRight: '-0.3em', textTransform: 'uppercase', color: '#E8E6F0', textShadow: '0 0 16px rgba(224,64,251,0.7), 0 0 40px rgba(64,224,208,0.4)' }}>Paused</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 30px', borderRadius: 10, background: 'rgba(10,15,23,0.94)', backdropFilter: 'blur(10px)', boxShadow: '0 10px 30px rgba(0,0,0,0.62), inset 0 0 0 1px rgba(91,233,255,0.34)' }}>
+                            <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(26), letterSpacing: '0.3em', marginRight: '-0.3em', textTransform: 'uppercase', color: '#E8E6F0', textShadow: '0 0 16px rgba(91,233,255,0.6), 0 0 40px rgba(91,233,255,0.26)' }}>Paused</span>
                         </div>
                     </div>
                 ) : theme.name === 'retrowave' ? (

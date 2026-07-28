@@ -55,3 +55,17 @@ scripts/
 # don't need to be in git. manifest.js + awards-reveal.css ARE checked in.
 docs/awards-icons/*__*.svg
 src/renderer/public/awards-icons
+
+# ── Desktop stage backdrop footage (54 MB) ───────────────────────────────────
+# The liquid-light clip the psychedelic stage plays. Kept OUT of git because it is
+# a large binary that never changes; it stays on disk locally, and Vite bundles it
+# from there for both `npm run dev` and `npm run build`.
+#
+# A FRESH CLONE WILL NOT BUILD THE DESKTOP APP WITHOUT IT — the import in
+# components/LiquidLight.tsx fails to resolve. Regenerate it with the ffmpeg recipe
+# in packages/desktop/src/renderer/src/assets/README.md.
+#
+# Note the mobile copy (packages/mobile/assets/video/) is deliberately NOT ignored:
+# EAS Build uploads the project through git, so ignoring it there would ship a store
+# binary with a black background.
+packages/desktop/src/renderer/src/assets/liquid-light.mp4

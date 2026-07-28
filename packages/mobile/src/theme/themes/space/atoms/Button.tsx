@@ -1,27 +1,46 @@
-import React, { useRef } from 'react'
+import React from 'react'
 import {
-  Pressable,
-  Text,
   ActivityIndicator,
   Animated,
-  View,
+  Pressable,
   StyleSheet,
-  type ViewStyle,
+  Text,
+  View,
   type TextStyle,
 } from 'react-native'
-import { LinearGradient } from 'expo-linear-gradient'
-import Svg, { Defs, RadialGradient, Stop, Circle } from 'react-native-svg'
+import Svg, {
+  Defs,
+  LinearGradient as SvgLinearGradient,
+  Path,
+  Stop,
+} from 'react-native-svg'
 import { useTheme } from '../../../ThemeContext'
-import { useLinearLoop } from '../_shared'
 import type { ButtonProps } from '../../../types'
+import {
+  CUT_CHIP,
+  ICE,
+  ICE_DEEP,
+  MILLED,
+  STEEL_HI,
+  TEXT,
+  VOID,
+  chamferPath,
+  useMeasuredSize,
+  usePressTravel,
+  useSvgId,
+} from './_ship'
 
-// Space Button — HUD console button:
-//   primary   → magenta gradient fill, void-dark Orbitron caps label
-//   secondary → cyan-tinted translucent fill, plasma-cyan label
-//   outline   → bare void with magenta rim and label
-// Every variant gets four HUD corner brackets so the silhouette always reads
-// as part of the space HUD language. Press triggers a quick white ripple from
-// the center, then a fast 0.95 scale snap.
+// Space Button — a machined key with real travel.
+//
+//   primary   → ice-lit face, hull-dark legend. The one "armed" control.
+//   secondary → black glass with a powered ice hairline and ice legend.
+//   outline   → bare steel hairline, instrument-white legend.
+//
+// The press is physical, not a fade: the key tips away from the finger on a
+// perspective transform and settles on a spring (`usePressTravel`), while the
+// status lamp on its leading edge comes up to full. Both run off the same
+// native-driver value, so one gesture drives one animation and the JS thread
+// never sees a frame of it.
 export function SpaceButton({
   label,
   onPress,
@@ -30,202 +49,146 @@ export function SpaceButton({
   disabled,
 }: ButtonProps) {
   const { tokens } = useTheme()
-  const press = useRef(new Animated.Value(0)).current
-
-  // Scan-line travels left→right on a 6s loop — only on primary.
-  const scan = useLinearLoop(6000)
-  const scanX = scan.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['-40%', '140%'],
-  })
-
-  const triggerPress = () => {
-    press.setValue(0)
-    Animated.timing(press, {
-      toValue: 1,
-      duration: 380,
-      useNativeDriver: true,
-    }).start()
-  }
+  const { size, onLayout } = useMeasuredSize()
+  const { depth, transform, onPressIn, onPressOut } = usePressTravel()
+  const faceId = useSvgId('btnFace')
 
   const isPrimary = variant === 'primary'
   const isSecondary = variant === 'secondary'
+  const inert = disabled || loading
 
-  const border = isPrimary
-    ? tokens.accentA
-    : isSecondary
-      ? tokens.accentB
-      : tokens.accentA
-  const glow = isPrimary
-    ? tokens.accentGlowColor
-    : isSecondary
-      ? tokens.accentB
-      : tokens.accentA
-  const labelColor = isPrimary
-    ? '#08080F'
-    : isSecondary
-      ? tokens.accentB
-      : tokens.black
-  const bracketColor = isPrimary ? '#08080F' : isSecondary ? tokens.accentB : tokens.accentA
+  const legendColor = isPrimary ? VOID : isSecondary ? ICE : TEXT
+  const edgeColor = isPrimary ? '#BFF4FF' : isSecondary ? ICE : STEEL_HI
+  const lampColor = isPrimary ? VOID : ICE
 
-  const rippleScale = press.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1.8] })
-  const rippleOpacity = press.interpolate({
-    inputRange: [0, 0.15, 1],
-    outputRange: [0, 0.55, 0],
-  })
+  // Face gradient. Primary is a lit ice face; the other two are glass at
+  // different strengths, so only the alpha changes between them.
+  const faceStops = isPrimary
+    ? [
+        { offset: '0', color: '#8FF2FF' },
+        { offset: '0.45', color: ICE },
+        { offset: '1', color: ICE_DEEP },
+      ]
+    : isSecondary
+      ? [
+          { offset: '0', color: 'rgba(19,28,39,0.95)' },
+          { offset: '1', color: 'rgba(6,10,17,0.95)' },
+        ]
+      : [
+          { offset: '0', color: 'rgba(19,28,39,0.55)' },
+          { offset: '1', color: 'rgba(6,10,17,0.60)' },
+        ]
+
+  // Lamp on the leading edge: dim at rest, full under the finger.
+  const lampOpacity = depth.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] })
 
   return (
     <Pressable
       onPress={() => {
-        if (disabled || loading) return
-        triggerPress()
+        if (inert) return
         onPress()
       }}
-      disabled={disabled || loading}
-      style={({ pressed }) => [
-        boxStyle(border, isPrimary, isSecondary, glow),
-        disabled || loading ? { opacity: 0.5 } : null,
-        pressed ? { transform: [{ scale: 0.97 }] } : null,
-      ]}
+      onPressIn={inert ? undefined : onPressIn}
+      onPressOut={inert ? undefined : onPressOut}
+      disabled={inert}
+      onLayout={onLayout}
+      style={{ opacity: inert ? 0.45 : 1 }}
     >
-      {/* Primary fill — magenta gradient */}
-      {isPrimary ? (
-        <LinearGradient
-          colors={['#E040FB', '#9532D6']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[StyleSheet.absoluteFill, { borderRadius: 6 }]}
-        />
-      ) : null}
-      {isSecondary ? (
-        <LinearGradient
-          colors={['rgba(64,224,208,0.12)', 'rgba(64,224,208,0.04)']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={[StyleSheet.absoluteFill, { borderRadius: 6 }]}
-        />
-      ) : null}
+      <Animated.View
+        style={{
+          minHeight: 48,
+          paddingVertical: 14,
+          paddingHorizontal: 22,
+          alignItems: 'center',
+          justifyContent: 'center',
+          transform,
+        }}
+      >
+        {size && size.width > 1 && size.height > 1 ? (
+          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+            <Svg width={size.width} height={size.height}>
+              <Defs>
+                {/* Stops are mapped from a plain array rather than branched as
+                    JSX fragments — react-native-svg types gradient children as
+                    an element array, and a Fragment there fails to typecheck. */}
+                <SvgLinearGradient id={faceId} x1="0" y1="0" x2="0.2" y2="1">
+                  {faceStops.map((stop) => (
+                    <Stop key={stop.offset} offset={stop.offset} stopColor={stop.color} />
+                  ))}
+                </SvgLinearGradient>
+              </Defs>
+              <Path
+                d={chamferPath(size.width, size.height, CUT_CHIP)}
+                fill={`url(#${faceId})`}
+              />
+              <Path
+                d={chamferPath(size.width, size.height, CUT_CHIP, 0.75)}
+                fill="none"
+                stroke={edgeColor}
+                strokeOpacity={isPrimary ? 0.85 : 0.42}
+                strokeWidth={1.5}
+              />
+              {/* Bevel: a bright milled top edge and a dark underside. This
+                  pair is what sells a flat fill as a raised key. */}
+              <Path
+                d={`M ${(CUT_CHIP.tl ?? 0) + 2} 2 L ${size.width - 3} 2`}
+                stroke={isPrimary ? '#DFFAFF' : MILLED}
+                strokeOpacity={isPrimary ? 0.9 : 0.7}
+                strokeWidth={1.2}
+              />
+              <Path
+                d={`M 3 ${size.height - 2} L ${
+                  size.width - (CUT_CHIP.br ?? 0) - 2
+                } ${size.height - 2}`}
+                stroke={VOID}
+                strokeOpacity={isPrimary ? 0.32 : 0.6}
+                strokeWidth={1.2}
+              />
+            </Svg>
+          </View>
+        ) : null}
 
-      {/* Scan line — primary only */}
-      {isPrimary ? (
+        {/* Status lamp — a 3px bar hugging the leading chamfer. */}
         <Animated.View
           pointerEvents="none"
           style={{
             position: 'absolute',
-            top: 0,
-            bottom: 0,
-            width: '30%',
-            transform: [{ translateX: scanX }],
+            left: 7,
+            top: '36%',
+            bottom: '36%',
+            width: 3,
+            backgroundColor: lampColor,
+            opacity: lampOpacity,
           }}
-        >
-          <LinearGradient
-            colors={[
-              'rgba(255,255,255,0)',
-              'rgba(255,255,255,0.18)',
-              'rgba(255,255,255,0)',
-            ]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={{ width: '100%', height: '100%' }}
-          />
-        </Animated.View>
-      ) : null}
+        />
 
-      {/* HUD corner brackets — only top-left and bottom-right for a quieter look */}
-      <View
-        pointerEvents="none"
-        style={{ position: 'absolute', top: 4, left: 4, width: 8, height: 8 }}
-      >
-        <View style={{ width: 8, height: 1.5, backgroundColor: bracketColor }} />
-        <View style={{ width: 1.5, height: 6, backgroundColor: bracketColor }} />
-      </View>
-      <View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          bottom: 4,
-          right: 4,
-          width: 8,
-          height: 8,
-          alignItems: 'flex-end',
-          justifyContent: 'flex-end',
-        }}
-      >
-        <View style={{ width: 1.5, height: 6, backgroundColor: bracketColor }} />
-        <View style={{ width: 8, height: 1.5, backgroundColor: bracketColor }} />
-      </View>
-
-      {/* Press ripple */}
-      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-        <Animated.View
-          style={{
-            position: 'absolute',
-            left: '50%',
-            top: '50%',
-            width: 160,
-            height: 160,
-            marginLeft: -80,
-            marginTop: -80,
-            transform: [{ scale: rippleScale }],
-            opacity: rippleOpacity,
-          }}
-        >
-          <Svg width={160} height={160} viewBox="0 0 160 160">
-            <Defs>
-              <RadialGradient id="spaceBtnRipple" cx="50%" cy="50%" r="50%">
-                <Stop offset="0%" stopColor="#fff" stopOpacity={0.55} />
-                <Stop offset="100%" stopColor="#fff" stopOpacity={0} />
-              </RadialGradient>
-            </Defs>
-            <Circle cx={80} cy={80} r={80} fill="url(#spaceBtnRipple)" />
-          </Svg>
-        </Animated.View>
-      </View>
-
-      {loading ? (
-        <ActivityIndicator color={labelColor} />
-      ) : (
-        <Text style={labelStyle(tokens, labelColor)}>{label}</Text>
-      )}
+        {loading ? (
+          <ActivityIndicator color={legendColor} />
+        ) : (
+          <Text
+            numberOfLines={1}
+            style={legendStyle(tokens.fontDisplay, legendColor, isPrimary)}
+          >
+            {label}
+          </Text>
+        )}
+      </Animated.View>
     </Pressable>
   )
 }
 
-function boxStyle(
-  borderColor: string,
-  isPrimary: boolean,
-  isSecondary: boolean,
-  glow: string,
-): ViewStyle {
-  return {
-    paddingVertical: 14,
-    paddingHorizontal: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderRadius: 6,
-    borderColor,
-    backgroundColor: isPrimary
-      ? 'transparent'
-      : isSecondary
-        ? 'transparent'
-        : 'rgba(14,14,26,0.7)',
-    shadowColor: glow,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.7,
-    shadowRadius: 12,
-    overflow: 'hidden',
-  }
-}
-function labelStyle(t: ReturnType<typeof useTheme>['tokens'], color: string): TextStyle {
+function legendStyle(fontFamily: string, color: string, isPrimary: boolean): TextStyle {
   return {
     color,
-    fontFamily: t.fontDisplay,
-    fontSize: 14,
-    letterSpacing: 1.5,
+    fontFamily,
+    fontSize: 13,
+    letterSpacing: 2.4,
     textTransform: 'uppercase',
-    textShadowColor: 'rgba(0,0,0,0.4)',
-    textShadowRadius: 4,
+    // Only the dark-on-light primary gets a lift shadow; on the glass variants
+    // it would just muddy an already lower-contrast legend.
+    textShadowColor: isPrimary ? 'rgba(255,255,255,0.30)' : 'transparent',
+    textShadowRadius: isPrimary ? 3 : 0,
     textShadowOffset: { width: 0, height: 1 },
+    marginLeft: 8,
   }
 }

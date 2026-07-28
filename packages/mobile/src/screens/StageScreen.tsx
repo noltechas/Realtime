@@ -251,12 +251,14 @@ function ReactGrid({
       <View style={[gridStyle, { paddingBottom: bottomPadding }]}>
         <View style={gridRowStyle}>
           <ui.ReactionCell
+            index={0}
             label="Flowers"
             icon={<Text style={cellEmojiStyle}>💐</Text>}
             onPress={() => sendReaction('emoji', '💐')}
             disabled={cooldownActive}
           />
           <ui.ReactionCell
+            index={1}
             label="Tomato"
             icon={<Text style={cellEmojiStyle}>🍅</Text>}
             onPress={() => sendReaction('emoji', '🍅')}
@@ -266,6 +268,7 @@ function ReactGrid({
         <View style={gridRowStyle}>
           {customEmoji ? (
             <ui.ReactionCell
+              index={2}
               label="Custom"
               icon={<Text style={cellEmojiStyle}>{customEmoji}</Text>}
               onPress={() => sendReaction('emoji', customEmoji)}
@@ -274,12 +277,14 @@ function ReactGrid({
             />
           ) : (
             <ui.ReactionCell
+              index={2}
               label="Custom Emoji"
               icon={<Text style={cellPlusStyle(tokens, plusIconColor)}>+</Text>}
               onPress={() => setEmojiOpen(true)}
             />
           )}
           <ui.ReactionCell
+            index={3}
             label="Say Something"
             icon={<Ionicons name="chatbubble-outline" size={64} color={iconColor} />}
             onPress={() => setTextOpen(true)}
@@ -287,11 +292,13 @@ function ReactGrid({
         </View>
         <View style={gridRowStyle}>
           <ui.ReactionCell
+            index={4}
             label="Memes"
             icon={<Ionicons name="image-outline" size={64} color={iconColor} />}
             onPress={() => setMemeOpen(true)}
           />
           <ui.ReactionCell
+            index={5}
             label="Photo"
             icon={<Ionicons name="camera-outline" size={64} color={iconColor} />}
             onPress={onPickPhoto}

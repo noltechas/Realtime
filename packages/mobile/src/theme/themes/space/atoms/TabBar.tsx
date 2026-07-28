@@ -1,20 +1,85 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { View, Pressable, Animated, StyleSheet } from 'react-native'
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native'
 import { BlurView } from 'expo-blur'
-import { LinearGradient } from 'expo-linear-gradient'
-import Svg, {
-  Circle,
-  Defs,
-  RadialGradient,
-  Stop,
-} from 'react-native-svg'
+import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Stop } from 'react-native-svg'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useSharedValue } from 'react-native-worklets-core'
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs'
+import {
+  Camera,
+  FilamentScene,
+  FilamentView,
+  Light,
+  ModelRenderer,
+  RenderCallbackContext,
+  getAssetFromModel,
+  useFilamentContext,
+  useModel,
+  type Entity,
+} from 'react-native-filament'
 import { TAB_ICONS } from '../../../../navigation/TabIcons'
 import { useTheme } from '../../../ThemeContext'
-import { useOscillator, useLinearLoop } from '../_shared'
 import { useSession } from '../../../../hooks/useSession'
 import { useSessionRow, guestIsUp } from '../../../../hooks/useSessionRow'
+import {
+  CUT_PLATE,
+  GlowHalo,
+  HexBolt,
+  ICE,
+  MILLED,
+  STEEL_HI,
+  TickLadder,
+  VOID,
+  chamferPath,
+  pxPerWorldUnit,
+  useIsForeground,
+  useSvgId,
+} from './_ship'
+
+// ── The nav console ─────────────────────────────────────────────────────────
+//
+// A machined rail across the bottom of the deck. The selected tab is marked by a
+// REAL 3D object: a milled KEY PLATE, cut to the exact chamfered outline every
+// card in this theme uses, with a lit ice face, a polished 45° bevel, and dark
+// titanium side walls. It travels the rail on a spring, and the specular
+// crawling across that bevel as it moves is the entire reason this is 3D.
+//
+// It started out as a hex collar with a glowing iris and read as an
+// unidentifiable blob — the shape said nothing, and a continuous roll plus a
+// steep pitch and a big velocity yaw turned it to mush at 44px. Three rules came
+// out of that, and they are why the numbers below are as small as they are:
+//   1. The silhouette must be the theme's own panel outline. Recognition comes
+//      from matching the cards, not from being interesting.
+//   2. NO idle rotation. The plate holds a fixed, deliberate orientation; the
+//      only thing that moves it is the user selecting a tab.
+//   3. Bank is a hint, not a stunt. Long travel to an outer tab used to swing it
+//      violently; the yaw is now clamped to a few degrees.
+//
+// This is the second and last Filament scene in the theme (the first is the
+// outboard viewport behind every screen). The view is only ~68px tall, so even
+// at the full display refresh rate it is close to free — see the budget note in
+// _ship.tsx for why the count stops at two.
+//
+// The pod's motion runs entirely on Filament's render thread: React writes a
+// target position into a shared value exactly once per tab change, and a spring
+// integrator inside the render callback does the rest. Tab switches therefore
+// cost the JS thread one assignment, no matter how much is animating.
+
+const NAVPOD_MODEL = require('../../../../../assets/models/space-navpod.glb')
+
+const BAR_HEIGHT = 68
+const BAR_INSET = 14
+/** Plate width on screen (the model is 1.0 units wide), and the y of its centre
+ *  inside the rail. The plate is 0.8 units tall, so at 46px wide it stands 37px
+ *  and clears the cell's label beneath it. */
+const POD_PIXELS = 44
+const POD_CENTER_Y = 24
+const POD_FOCAL_MM = 30
+const POD_CAMERA_Z = 1.9
+
+// The pod scene is small enough to run at full refresh, and it should: the
+// travel spring is a foreground interaction and half-rate makes it look cheap.
+const POD_FRAME_RATE = { interval: 1, headRoomRatio: 0.1, scaleRate: 0.3, history: 6 }
 
 function useStageLabel(): string {
   const { session } = useSession()
@@ -22,153 +87,43 @@ function useStageLabel(): string {
   return guestIsUp(row, session?.guestName, session?.guestId) ? 'Stage' : 'React'
 }
 
-// ─── Per-tab planet presets ─────────────────────────────────────────────────
-// Each tab gets its own planet identity: a 3-stop radial gradient (highlight
-// → mid → shadow) plus a moon color that orbits with it. Cross-fading
-// between them on tab change reads as a single planet morphing through the
-// solar system. No surface textures — the gradient + moon-color pairing
-// alone gives each tab a distinct identity.
-interface PlanetPreset {
-  highlight: string
-  main: string
-  shadow: string
-  moon: string
-}
-
-const TAB_PLANETS: Record<string, PlanetPreset> = {
-  // Sun-amber giant — golden body, plasma-cyan moon.
-  Songs: {
-    highlight: '#FFE9B0',
-    main: '#FFC34D',
-    shadow: '#7A4400',
-    moon: '#40E0D0',
-  },
-  // Neptune-blue — cool blue body, pale-violet moon.
-  Queue: {
-    highlight: '#B4DEFF',
-    main: '#3C8CD8',
-    shadow: '#0E2E58',
-    moon: '#E8D4FF',
-  },
-  // Mars-red — fiery body, warm amber moon.
-  Stage: {
-    highlight: '#FFC4A0',
-    main: '#FF6040',
-    shadow: '#7A1A0A',
-    moon: '#FFC34D',
-  },
-  // Violet ice giant — purple body, pearl-white moon.
-  Awards: {
-    highlight: '#E9D8FF',
-    main: '#A88EFF',
-    shadow: '#3A1E70',
-    moon: '#FFFFFF',
-  },
-  // Verdant body — emerald world, magenta moon.
-  Profile: {
-    highlight: '#D2FFE2',
-    main: '#40D096',
-    shadow: '#0A4830',
-    moon: '#E040FB',
-  },
-}
-
-const FALLBACK_PLANET: PlanetPreset = {
-  highlight: '#FFC9FF',
-  main: '#E040FB',
-  shadow: '#5A1480',
-  moon: '#40E0D0',
-}
-
-// Layered HUD console with these structural rules:
-//   1. Clipped bar shell (rounded rectangle) holds the void background,
-//      aurora top stripe, BlurView, and tab cells.
-//   2. The planet sits ABOVE the BlurView and BEHIND the active tab's
-//      icon/label. It does NOT pulse — staying still keeps the focus clean.
-//   3. The orbit ring + satellite render as siblings of the clipped shell so
-//      they can extend slightly above and below the bar.
-//   4. The active planet is the only one at full opacity; all sibling planets
-//      cross-fade in/out via Animated.timing on opacity (native driver).
-const PLANET_DIAMETER = 52
-const ORBIT_DIAMETER = 72 // small gap beyond the planet edge — tight orbit
-const SATELLITE_SIZE = 8
-const BAR_HEIGHT = 68
-
 export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets()
   const { tokens } = useTheme()
   const stageLabel = useStageLabel()
   const [trackWidth, setTrackWidth] = useState(0)
+  const railId = useSvgId('navRail')
 
   const tabCount = state.routes.length
   const tabWidth = trackWidth > 0 ? trackWidth / tabCount : 0
   const activeIndex = state.index
+  const activeCenter = tabWidth * (activeIndex + 0.5)
 
-  // Planet position — springs to the active tab's center on tab change.
-  const planetX = useRef(new Animated.Value(0)).current
-  const positioned = useRef(false)
-  // One Animated.Value per route for opacity cross-fade. Created once; the
-  // bottom-tab navigator never adds/removes routes at runtime.
-  const planetOpacities = useRef(
-    state.routes.map((_, i) =>
-      new Animated.Value(i === activeIndex ? 1 : 0),
-    ),
-  ).current
-
-  // Aurora wash position — gradient that travels along the top stripe.
-  const aurora = useLinearLoop(9000)
-  // Satellite — rotates a container around the planet center.
-  const orbit = useLinearLoop(4200)
-
-  // Cross-fade the planets when the active tab changes.
-  useEffect(() => {
-    planetOpacities.forEach((val, i) => {
-      Animated.timing(val, {
-        toValue: i === activeIndex ? 1 : 0,
-        duration: 360,
-        useNativeDriver: true,
-      }).start()
-    })
-  }, [activeIndex, planetOpacities])
-
+  // The 2D halo is sprung on the JS side rather than read back from the render
+  // thread. A soft glow a frame or two behind crisp geometry is invisible, and
+  // reading a shared value back into React every frame would undo the whole
+  // point of animating the pod off-thread.
+  const haloX = useRef(new Animated.Value(0)).current
+  const haloPositioned = useRef(false)
   useEffect(() => {
     if (tabWidth <= 0) return
-    const center = tabWidth * (activeIndex + 0.5)
-    // Snap on first measure (avoids springing in from the bar's left edge,
-    // half a tab left of tab 0); spring only on later tab changes.
-    if (!positioned.current) {
-      positioned.current = true
-      planetX.setValue(center)
+    if (!haloPositioned.current) {
+      haloPositioned.current = true
+      haloX.setValue(activeCenter)
       return
     }
-    Animated.spring(planetX, {
-      toValue: center,
-      tension: 80,
-      friction: 11,
+    Animated.spring(haloX, {
+      toValue: activeCenter,
+      stiffness: 200,
+      damping: 22,
+      mass: 1,
       useNativeDriver: true,
     }).start()
-  }, [activeIndex, tabWidth, planetX])
+  }, [activeCenter, haloX, tabWidth])
 
-  // Aurora flow along the top edge — continuous left→right slide.
-  const auroraX = aurora.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['-50%', '50%'],
-  })
-
-  // Continuous rotation that drives the satellite container.
-  const orbitRot = orbit.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  })
-
-  const orbitCenterY = BAR_HEIGHT / 2
-
-  // Resolve each route to its planet preset once per render.
-  const planets = useMemo(
-    () =>
-      state.routes.map((r) => TAB_PLANETS[r.name] ?? FALLBACK_PLANET),
-    [state.routes],
-  )
+  // Kept tight and low-intensity. A wide, bright halo bled across the whole
+  // rail and read as a smudge under the pod rather than light coming off it.
+  const haloSize = POD_PIXELS * 1.7
 
   return (
     <View
@@ -178,317 +133,382 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         left: 0,
         right: 0,
         bottom: 0,
-        paddingBottom: Math.max(insets.bottom, 12),
-        paddingHorizontal: 16,
+        paddingBottom: Math.max(insets.bottom, 10),
+        paddingHorizontal: BAR_INSET,
       }}
     >
-      {/* Outer relative wrapper — `overflow: 'visible'` so the satellite can
-          escape the bar's silhouette without being clipped. */}
-      <View style={{ position: 'relative', overflow: 'visible' }}>
-        {/* Clipped bar shell — everything painted onto the void rectangle
-            (tint, aurora stripe, dots, blur, tab cells) lives here. */}
-        <View
-          onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}
-          style={{
-            height: BAR_HEIGHT,
-            backgroundColor: tokens.tabBarBg,
-            borderRadius: 14,
-            overflow: 'hidden',
-            shadowColor: tokens.accentGlowColor,
-            shadowOffset: { width: 0, height: 0 },
-            shadowOpacity: 0.55,
-            shadowRadius: 18,
-            elevation: 14,
-          }}
-        >
-          {/* Subtle inner glow gradient — magenta tint on the bottom edge. */}
-          <LinearGradient
-            pointerEvents="none"
-            colors={[
-              'rgba(224,64,251,0.08)',
-              'rgba(8,8,15,0.0)',
-              'rgba(64,224,208,0.06)',
-            ]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
+      <View
+        onLayout={(event) => setTrackWidth(event.nativeEvent.layout.width)}
+        style={{
+          height: BAR_HEIGHT,
+          overflow: 'hidden',
+          shadowColor: '#000000',
+          shadowOffset: { width: 0, height: 6 },
+          shadowOpacity: 0.55,
+          shadowRadius: 14,
+          elevation: 16,
+        }}
+      >
+        <BlurView
+          pointerEvents="none"
+          intensity={22}
+          tint="dark"
+          style={StyleSheet.absoluteFill}
+        />
 
-          {/* Aurora stripe — drifts along the top edge. */}
-          <View
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              height: 2.5,
-              overflow: 'hidden',
-            }}
-          >
-            <Animated.View
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '200%',
-                height: '100%',
-                transform: [{ translateX: auroraX }],
-              }}
-            >
-              <LinearGradient
-                colors={[
-                  'rgba(224,64,251,0.5)',
-                  'rgba(64,224,208,0.7)',
-                  'rgba(168,194,255,0.45)',
-                  'rgba(224,64,251,0.7)',
-                  'rgba(64,224,208,0.5)',
-                ]}
-                start={{ x: 0, y: 0.5 }}
-                end={{ x: 1, y: 0.5 }}
-                style={{ width: '100%', height: '100%' }}
+        {/* Rail plate. Drawn as a chamfered silhouette so the bar belongs to
+            the same milled family as every panel above it. */}
+        {trackWidth > 0 ? (
+          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+            <Svg width={trackWidth} height={BAR_HEIGHT}>
+              <Defs>
+                <SvgLinearGradient id={railId} x1="0" y1="0" x2="0" y2="1">
+                  <Stop offset="0" stopColor="rgba(19,28,39,0.95)" />
+                  <Stop offset="0.55" stopColor="rgba(9,14,22,0.96)" />
+                  <Stop offset="1" stopColor="rgba(4,6,11,0.98)" />
+                </SvgLinearGradient>
+              </Defs>
+              <Path
+                d={chamferPath(trackWidth, BAR_HEIGHT, CUT_PLATE)}
+                fill={`url(#${railId})`}
               />
-            </Animated.View>
+              <Path
+                d={chamferPath(trackWidth, BAR_HEIGHT, CUT_PLATE, 0.5)}
+                fill="none"
+                stroke={ICE}
+                strokeOpacity={0.3}
+                strokeWidth={1}
+              />
+              {/* Milled top edge — the rail's brightest line. */}
+              <Path
+                d={`M ${(CUT_PLATE.tl ?? 0) + 3} 1.5 L ${trackWidth - 3} 1.5`}
+                stroke={MILLED}
+                strokeWidth={1}
+              />
+              {/* Engraved index ladder along the rail's top face. */}
+              <TickLadder
+                x={18}
+                y={5}
+                length={trackWidth - 36}
+                count={Math.max(8, Math.round(trackWidth / 13))}
+                color={STEEL_HI}
+                opacity={0.22}
+                majorEvery={5}
+              />
+              <HexBolt cx={trackWidth - 9} cy={9} />
+              <HexBolt cx={9} cy={BAR_HEIGHT - 9} />
+            </Svg>
           </View>
+        ) : null}
 
-          {/* Sparse constellation dots behind the tabs. */}
-          <Svg
-            width="100%"
-            height={BAR_HEIGHT}
-            style={StyleSheet.absoluteFill}
-            pointerEvents="none"
-          >
-            <Circle cx={20} cy={14} r={0.9} fill="#E8E6F0" opacity={0.35} />
-            <Circle cx={55} cy={48} r={0.7} fill="#A8C2FF" opacity={0.3} />
-            <Circle cx={140} cy={20} r={1.0} fill="#E8E6F0" opacity={0.4} />
-            <Circle cx={210} cy={52} r={0.8} fill="#40E0D0" opacity={0.5} />
-            <Circle cx={290} cy={16} r={0.7} fill="#E8E6F0" opacity={0.35} />
-            <Circle cx={335} cy={50} r={0.9} fill="#A8C2FF" opacity={0.3} />
-          </Svg>
-
-          {/* BlurView — under the planet so the planet stays crisp. */}
-          <BlurView
-            pointerEvents="none"
-            intensity={18}
-            tint="dark"
-            style={StyleSheet.absoluteFill}
-          />
-
-          {/* Stacked planets — one per route, cross-faded via opacity. All
-              share the same translateX so they stay pinned to the active
-              tab's center. */}
-          {trackWidth > 0 &&
-            planets.map((preset, i) => (
-              <Animated.View
-                key={state.routes[i].key}
-                pointerEvents="none"
-                style={{
-                  position: 'absolute',
-                  width: PLANET_DIAMETER,
-                  height: PLANET_DIAMETER,
-                  left: -PLANET_DIAMETER / 2,
-                  top: BAR_HEIGHT / 2 - PLANET_DIAMETER / 2,
-                  opacity: planetOpacities[i],
-                  transform: [{ translateX: planetX }],
-                }}
-              >
-                <PlanetSphere
-                  preset={preset}
-                  size={PLANET_DIAMETER}
-                  id={`tabPlanet-${i}`}
-                />
-              </Animated.View>
-            ))}
-
-          {/* HUD frame ring */}
-          <View
-            pointerEvents="none"
-            style={[
-              StyleSheet.absoluteFill,
-              {
-                borderRadius: 14,
-                borderWidth: 1,
-                borderColor: 'rgba(224,64,251,0.4)',
-              },
-            ]}
-          />
-
-          {/* Tab cells (icons + labels) */}
-          <View style={{ flexDirection: 'row', flex: 1 }}>
-            {state.routes.map((route, i) => {
-              const Icon = TAB_ICONS[route.name]
-              const options = descriptors[route.key]?.options
-              const overrideIcon = options?.tabBarIcon as
-                | ((p: { color: string; size?: number; focused: boolean }) => React.ReactNode)
-                | undefined
-              const focused = state.index === i
-              const baseLabel = route.name === 'Stage' ? stageLabel : route.name
-
-              return (
-                <SpaceTab
-                  key={route.key}
-                  label={baseLabel}
-                  focused={focused}
-                  Icon={Icon}
-                  overrideIcon={overrideIcon}
-                  onPress={() => {
-                    const event = navigation.emit({
-                      type: 'tabPress',
-                      target: route.key,
-                      canPreventDefault: true,
-                    })
-                    if (!focused && !event.defaultPrevented) {
-                      navigation.navigate(route.name)
-                    }
-                  }}
-                  onLongPress={() => {
-                    navigation.emit({ type: 'tabLongPress', target: route.key })
-                  }}
-                />
-              )
-            })}
-          </View>
-        </View>
-
-        {/* ─── Moon (rendered OUTSIDE the clipped bar, no visible orbit
-            ring) ─── Single rotating container pinned to the active tab's
-            X. Inside it, one moon dot per route is stacked at the top of
-            the container — only the active route's moon has opacity 1, the
-            others cross-fade out. Rotating the container drags whichever
-            moon is currently visible around a perfect circular path. */}
-        {trackWidth > 0 && (
+        {/* 2D halo — sits UNDER the Filament view so the pod's metal stays
+            crisp and only the light around it blooms. */}
+        {trackWidth > 0 ? (
           <Animated.View
             pointerEvents="none"
             style={{
               position: 'absolute',
-              width: ORBIT_DIAMETER,
-              height: ORBIT_DIAMETER,
-              left: -ORBIT_DIAMETER / 2,
-              top: orbitCenterY - ORBIT_DIAMETER / 2,
-              alignItems: 'center',
-              transform: [{ translateX: planetX }, { rotate: orbitRot }],
+              left: -haloSize / 2,
+              top: POD_CENTER_Y - haloSize / 2,
+              width: haloSize,
+              height: haloSize,
+              transform: [{ translateX: haloX }],
             }}
           >
-            {planets.map((preset, i) => (
-              <Animated.View
-                key={state.routes[i].key}
-                style={{
-                  position: 'absolute',
-                  top: -SATELLITE_SIZE / 2,
-                  width: SATELLITE_SIZE,
-                  height: SATELLITE_SIZE,
-                  borderRadius: SATELLITE_SIZE / 2,
-                  backgroundColor: preset.moon,
-                  opacity: planetOpacities[i],
-                  shadowColor: preset.moon,
-                  shadowOffset: { width: 0, height: 0 },
-                  shadowOpacity: 1,
-                  shadowRadius: 6,
+            <GlowHalo size={haloSize} color={ICE} intensity={0.26} />
+          </Animated.View>
+        ) : null}
+
+        {/* The pod. Mounted once the rail's width is known, because that width
+            is what converts a tab centre into a world coordinate. */}
+        {trackWidth > 0 ? (
+          <NavPodScene viewWidth={trackWidth} targetPx={activeCenter} />
+        ) : null}
+
+        {/* Tab cells sit above the 3D — the active glyph reads against the
+            pod's matte centre disc. */}
+        <View style={{ flexDirection: 'row', flex: 1 }}>
+          {state.routes.map((route, index) => {
+            const Icon = TAB_ICONS[route.name]
+            const options = descriptors[route.key]?.options
+            const overrideIcon = options?.tabBarIcon as
+              | ((props: { color: string; size?: number; focused: boolean }) => React.ReactNode)
+              | undefined
+            const focused = state.index === index
+            const label = route.name === 'Stage' ? stageLabel : route.name
+
+            return (
+              <NavCell
+                key={route.key}
+                label={label}
+                focused={focused}
+                Icon={Icon}
+                overrideIcon={overrideIcon}
+                inactiveColor={tokens.tabBarFg}
+                onPress={() => {
+                  const event = navigation.emit({
+                    type: 'tabPress',
+                    target: route.key,
+                    canPreventDefault: true,
+                  })
+                  if (!focused && !event.defaultPrevented) {
+                    navigation.navigate(route.name)
+                  }
+                }}
+                onLongPress={() => {
+                  navigation.emit({ type: 'tabLongPress', target: route.key })
                 }}
               />
-            ))}
-          </Animated.View>
-        )}
+            )
+          })}
+        </View>
       </View>
     </View>
   )
 }
 
-// ── Planet sphere ───────────────────────────────────────────────────────────
-// Smooth gradient ball — highlight → mid → shadow. No surface texture; each
-// tab's identity comes from its gradient palette and the matching moon
-// color, not from busy bands/craters.
-function PlanetSphere({
-  preset,
-  size,
-  id,
-}: {
-  preset: PlanetPreset
-  size: number
-  id: string
-}) {
-  const r = size / 2 - 2
-  return (
-    <Svg width={size} height={size}>
-      <Defs>
-        <RadialGradient id={`${id}-grad`} cx="38%" cy="32%" rx="62%" ry="62%">
-          <Stop offset="0%" stopColor={preset.highlight} stopOpacity={1} />
-          <Stop offset="55%" stopColor={preset.main} stopOpacity={1} />
-          <Stop offset="100%" stopColor={preset.shadow} stopOpacity={0.95} />
-        </RadialGradient>
-      </Defs>
-      <Circle cx={size / 2} cy={size / 2} r={r} fill={`url(#${id}-grad)`} />
-    </Svg>
-  )
-}
-
-function SpaceTab({
+function NavCell({
   label,
   focused,
   Icon,
   overrideIcon,
+  inactiveColor,
   onPress,
   onLongPress,
 }: {
   label: string
   focused: boolean
-  Icon: ((p: { color: string; size?: number }) => React.ReactElement) | undefined
+  Icon: ((props: { color: string; size?: number }) => React.ReactElement) | undefined
   overrideIcon:
-    | ((p: { color: string; size?: number; focused: boolean }) => React.ReactNode)
+    | ((props: { color: string; size?: number; focused: boolean }) => React.ReactNode)
     | undefined
+  inactiveColor: string
   onPress: () => void
   onLongPress: () => void
 }) {
   const { tokens } = useTheme()
-  // Active tab sits on top of the planet — light icon reads against the
-  // brightest planet centers (sun-amber, plasma-green) while still being
-  // legible on darker ones.
-  const iconColor = focused ? '#FFFFFF' : tokens.tabBarFg
-  const labelColor = focused ? '#FFFFFF' : tokens.tabBarFg
-
-  // Active label has a soft twinkle — opacity oscillator.
-  const twinkle = useOscillator(1900)
-  const labelOpacity = focused
-    ? twinkle.interpolate({ inputRange: [0, 1], outputRange: [0.88, 1] })
-    : 0.78
+  // Every inactive tab shares one colour; only the selected one is lit. The
+  // glyph on the lit pod goes near-white rather than ice, so it reads as a
+  // backlit legend instead of competing with the iris ring around it.
+  // The selected glyph goes hull-dark because it sits on the lit ice plate —
+  // the same relationship the theme's `tabBarPill` / `tabBarPillFg` token pair
+  // describes. Every unselected tab shares one muted colour.
+  const iconColor = focused ? tokens.tabBarPillFg : inactiveColor
+  const labelColor = focused ? ICE : inactiveColor
 
   return (
     <Pressable
       onPress={onPress}
       onLongPress={onLongPress}
-      style={{
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 2,
-      }}
+      style={{ flex: 1, alignItems: 'center', justifyContent: 'center', zIndex: 2 }}
     >
-      <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-        <View>
-          {overrideIcon
-            ? overrideIcon({ color: iconColor, size: 22, focused })
-            : Icon
-              ? Icon({ color: iconColor, size: 22 })
-              : null}
-        </View>
-        <Animated.Text
+      <View style={{ height: 26, alignItems: 'center', justifyContent: 'center' }}>
+        {overrideIcon
+          ? overrideIcon({ color: iconColor, size: 18, focused })
+          : Icon
+            ? Icon({ color: iconColor, size: 18 })
+            : null}
+      </View>
+      <Text
+        style={{
+          marginTop: 3,
+          color: labelColor,
+          fontFamily: tokens.fontDisplay,
+          fontSize: 9,
+          letterSpacing: 1.7,
+          textTransform: 'uppercase',
+          opacity: focused ? 1 : 0.82,
+          textShadowColor: focused ? 'rgba(91,233,255,0.45)' : 'transparent',
+          textShadowRadius: focused ? 7 : 0,
+          textShadowOffset: { width: 0, height: 0 },
+        }}
+      >
+        {label}
+      </Text>
+      {/* Index mark under the inactive tabs — the rail's engraved detent. */}
+      {!focused ? (
+        <View
           style={{
             marginTop: 3,
-            color: labelColor,
-            fontFamily: tokens.fontDisplay,
-            fontSize: 10,
-            letterSpacing: focused ? 1.6 : 1.2,
-            textTransform: 'uppercase',
-            fontWeight: focused ? '700' : '500',
-            opacity: labelOpacity,
-            textShadowColor: focused ? 'rgba(8,8,15,0.85)' : 'transparent',
-            textShadowRadius: focused ? 4 : 0,
-            textShadowOffset: { width: 0, height: 1 },
+            width: 10,
+            height: 1,
+            backgroundColor: inactiveColor,
+            opacity: 0.35,
           }}
-        >
-          {label}
-        </Animated.Text>
-      </View>
+        />
+      ) : (
+        <View style={{ marginTop: 3, height: 1 }} />
+      )}
     </Pressable>
+  )
+}
+
+function NavPodScene({
+  viewWidth,
+  targetPx,
+}: {
+  viewWidth: number
+  targetPx: number
+}): React.ReactElement {
+  const foreground = useIsForeground()
+  return (
+    <FilamentScene
+      antiAliasing="FXAA"
+      dithering="none"
+      shadowing={false}
+      screenSpaceRefraction={false}
+      frameRateOptions={POD_FRAME_RATE}
+      fallback={<View />}
+    >
+      <NavPodBody viewWidth={viewWidth} targetPx={targetPx} paused={!foreground} />
+    </FilamentScene>
+  )
+}
+
+function NavPodBody({
+  viewWidth,
+  targetPx,
+  paused,
+}: {
+  viewWidth: number
+  targetPx: number
+  paused: boolean
+}): React.ReactElement | null {
+  const model = useModel(NAVPOD_MODEL)
+  const asset = getAssetFromModel(model)
+  const { transformManager, nameComponentManager, choreographer } = useFilamentContext()
+
+  const pixelsPerUnit = pxPerWorldUnit(BAR_HEIGHT, POD_FOCAL_MM, POD_CAMERA_Z)
+  // The model is 1.0 units across, so the scale factor is the desired pixel
+  // diameter in world units.
+  const podScale = POD_PIXELS / pixelsPerUnit
+  const podY = (BAR_HEIGHT / 2 - POD_CENTER_Y) / pixelsPerUnit
+  const targetWorld = (targetPx - viewWidth / 2) / pixelsPerUnit
+
+  // Spring state lives on the render thread. `position` starts already at the
+  // target so the pod is simply *there* on first paint instead of flying in
+  // from the middle of the bar.
+  const target = useSharedValue(targetWorld)
+  const position = useSharedValue(targetWorld)
+  const velocity = useSharedValue(0)
+  const flare = useSharedValue(0)
+
+  const previousTarget = useRef(targetWorld)
+  useEffect(() => {
+    target.value = targetWorld
+    if (previousTarget.current !== targetWorld) {
+      // Selection actually moved — fire the flare ring.
+      flare.value = 1
+      previousTarget.current = targetWorld
+    }
+  }, [flare, target, targetWorld])
+
+  const parts = useMemo(() => {
+    if (asset == null) return null
+    const instance = asset.getAssetInstances()[0]
+    if (instance == null) return null
+    const entities = instance.getEntities()
+    const byName = (name: string): Entity | undefined =>
+      entities.find((entity) => nameComponentManager.getEntityName(entity) === name)
+    const plate = byName('PodPlate')
+    const flareRing = byName('PodFlare')
+    if (!plate || !flareRing) return null
+    return { plate, flareRing }
+  }, [asset, nameComponentManager])
+
+  RenderCallbackContext.useRenderCallback(
+    ({ timeSinceLastFrame }) => {
+      'worklet'
+      if (parts == null) return
+
+      // Clamp dt so a dropped frame (or a resume from background) can't launch
+      // the spring across the bar in one step.
+      const dt = Math.min(Math.max(timeSinceLastFrame, 0.001), 0.05)
+      const stiffness = 210
+      const damping = 2 * Math.sqrt(stiffness) * 0.82
+      const acceleration =
+        -stiffness * (position.value - target.value) - damping * velocity.value
+      velocity.value += acceleration * dt
+      position.value += velocity.value * dt
+      flare.value *= Math.exp(-5.5 * dt)
+
+      // Bank INTO the direction of travel, as a hint only. Clamped to ±0.11 rad
+      // (~6°): the plate has a recognisable outline and swinging it hard
+      // destroys that, which is exactly what the first version did on a long
+      // jump to an outer tab. There is deliberately no idle rotation at all.
+      const yaw = Math.max(-0.11, Math.min(0.11, -velocity.value * 0.045))
+      // A fixed, shallow tip so the bevel and rim read as thickness rather than
+      // as a drawn outline. Constant, so the plate never appears to wobble.
+      const pitch = -0.075
+      const x = position.value
+
+      transformManager.openLocalTransformTransaction()
+
+      // Transform order — `updateTransform` pre-multiplies, so the last call
+      // applied is the outermost. See the equivalent note in SceneLayer.tsx.
+      transformManager.setEntityScale(parts.plate, [podScale, podScale, podScale], false)
+      transformManager.setEntityRotation(parts.plate, yaw, [0, 1, 0], true)
+      transformManager.setEntityRotation(parts.plate, pitch, [1, 0, 0], true)
+      transformManager.setEntityPosition(parts.plate, [x, podY, 0], true)
+
+      // Flare: expands outward as it fades, then collapses to nothing. Scale is
+      // the only channel available without reaching into the material, and for
+      // an expanding shock ring it happens to be the right one.
+      const flareVisible = flare.value > 0.04
+      const flareScale = flareVisible ? podScale * (1 + (1 - flare.value) * 0.8) : 0.0001
+      transformManager.setEntityScale(
+        parts.flareRing,
+        [flareScale, flareScale, flareScale],
+        false,
+      )
+      if (flareVisible) {
+        transformManager.setEntityRotation(parts.flareRing, yaw, [0, 1, 0], true)
+        transformManager.setEntityRotation(parts.flareRing, pitch, [1, 0, 0], true)
+        transformManager.setEntityPosition(parts.flareRing, [x, podY, 0], true)
+      }
+
+      transformManager.commitLocalTransformTransaction()
+    },
+    [parts, transformManager, podScale, podY],
+  )
+
+  useEffect(() => {
+    if (paused) choreographer.stop()
+    else choreographer.start()
+  }, [choreographer, paused])
+
+  if (model.state !== 'loaded') return null
+
+  return (
+    <FilamentView
+      pointerEvents="none"
+      enableTransparentRendering
+      style={StyleSheet.absoluteFill}
+    >
+      <Camera
+        cameraPosition={[0, 0, POD_CAMERA_Z]}
+        cameraTarget={[0, 0, 0]}
+        focalLengthInMillimeters={POD_FOCAL_MM}
+        near={0.1}
+        far={12}
+      />
+      {/* Key light from the upper left so the collar's top facets stay bright
+          against the rail, which is darkest at its bottom edge. Kept well below
+          the outboard scene's exposure — at 62k the titanium blew out to near
+          white and the lit iris ring stopped reading against it. */}
+      <Light
+        type="directional"
+        direction={[0.34, -0.6, -0.72]}
+        intensity={17_000}
+        colorKelvin={6_400}
+      />
+      <Light
+        type="directional"
+        direction={[-0.5, 0.35, -0.79]}
+        intensity={6_000}
+        colorKelvin={9_200}
+      />
+      <ModelRenderer model={model} />
+    </FilamentView>
   )
 }

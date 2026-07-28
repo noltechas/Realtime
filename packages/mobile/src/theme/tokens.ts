@@ -74,13 +74,17 @@ export const DEEP_SEA_MOBILE: ThemeTokens = withMobileFonts(
 )
 
 // Psychedelic-Mobile — Remalos (groovy custom display face shipped under
-// assets/fonts/Remalos-Regular.ttf) for headings, Spicy Rice for body. The
-// desktop equivalent uses Chicle, but mobile swaps to Remalos per request to
-// give the on-device theme a more distinctive psychedelic-poster identity.
+// assets/fonts/Remalos-Regular.ttf) for headings, kept per request as the
+// theme's poster voice; the desktop equivalent uses Chicle.
+//
+// Body is Nunito, NOT Spicy Rice. Spicy Rice is a display face and it was
+// carrying every paragraph, singer name and placeholder in the theme — a display
+// face at 13px over MOVING footage is illegible twice over. Nunito sits happily
+// next to Remalos and holds up at body sizes on glass.
 export const PSYCHEDELIC_MOBILE: ThemeTokens = withMobileFonts(
   PSYCHEDELIC_TOKENS,
   'Remalos',
-  'SpicyRice_400Regular',
+  'Nunito_400Regular',
 )
 
 // Zen-Mobile — Japanese aesthetic typography. Noto Serif JP (Mincho-style
@@ -93,13 +97,23 @@ export const ZEN_MOBILE: ThemeTokens = withMobileFonts(
   'ZenKakuGothicNew_400Regular',
 )
 
-// Space-Mobile — sci-fi HUD typography. Orbitron (geometric futuristic sans,
-// the universal "spaceship UI" typeface) for headings and buttons, Exo 2 (its
-// sister face — slightly humanist, much more readable at body sizes) for the
-// content body. Matches the desktop space theme font stack exactly.
+// Space-Mobile — "FLIGHT DECK". The whole palette now lives in the shared
+// SPACE_TOKENS (see packages/shared/src/themes/space.ts), so desktop, stage,
+// mobile and the companion site are one theme rather than three that drifted.
+// Only the typography is mobile-specific here.
+//
+// Chakra Petch — an angular technical face whose chamfered terminals echo the
+// theme's cut-corner panel geometry — carries display text and control legends.
+// Body stays on Exo 2, which is readable at 15-16px where Chakra Petch is not.
+// Every telemetry numeral (durations, scores, positions, channel codes) is set
+// in Share Tech Mono, which atoms reference directly as `MONO` from
+// themes/space/atoms/_ship.tsx rather than through a token.
+//
+// Deliberately NOT Orbitron: it is the single most over-used sci-fi typeface and
+// instantly reads as generic.
 export const SPACE_MOBILE: ThemeTokens = withMobileFonts(
   SPACE_TOKENS,
-  'Orbitron_700Bold',
+  'ChakraPetch_600SemiBold',
   'Exo2_400Regular',
 )
 

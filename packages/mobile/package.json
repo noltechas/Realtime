@@ -7,12 +7,14 @@
     "start": "expo start",
     "android": "expo run:android",
     "generate:pass-model": "node scripts/generate-nword-pass-glb.js",
+    "generate:space-models": "node scripts/generate-space-models.js",
     "ios": "expo run:ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@expo-google-fonts/audiowide": "^0.4.1",
+    "@expo-google-fonts/chakra-petch": "^0.4.1",
     "@expo-google-fonts/chicle": "^0.4.1",
     "@expo-google-fonts/cinzel": "^0.4.2",
     "@expo-google-fonts/exo-2": "^0.4.1",
@@ -28,6 +30,7 @@
     "@expo-google-fonts/pacifico": "^0.4.1",
     "@expo-google-fonts/permanent-marker": "^0.4.0",
     "@expo-google-fonts/quicksand": "^0.4.1",
+    "@expo-google-fonts/share-tech-mono": "^0.4.1",
     "@expo-google-fonts/special-elite": "^0.4.1",
     "@expo-google-fonts/spicy-rice": "^0.4.1",
     "@expo-google-fonts/sriracha": "^0.4.1",

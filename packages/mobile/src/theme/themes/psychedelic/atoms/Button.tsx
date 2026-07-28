@@ -1,28 +1,21 @@
-import React, { useRef } from 'react'
-import {
-  Pressable,
-  Text,
-  ActivityIndicator,
-  Animated,
-  View,
-  StyleSheet,
-  type ViewStyle,
-  type TextStyle,
-} from 'react-native'
-import Svg, { Defs, RadialGradient, Stop, Circle } from 'react-native-svg'
+import React from 'react'
+import { ActivityIndicator, Pressable, Text, type TextStyle } from 'react-native'
 import { useTheme } from '../../../ThemeContext'
-import { blobCornerRadii, hashKey } from '../../../helpers'
-import { useOscillator } from '../_shared'
 import type { ButtonProps } from '../../../types'
+import { GlassPanel, HAIRLINE_STRONG, INK, INK_LINE, TEXT, WARM, useLift } from './_glass'
 
-// Psychedelic Button — blob-cornered, with a continuous hot-pink halo for
-// primary, a lime halo for secondary, and a tangerine outline for outline.
-// Press triggers a quick scale-down + a soft ripple from the pressed point at
-// the button center.
+// Psychedelic Button — printed keys, matching the plates.
 //
-//   primary   → hot-pink fill, lavender-white Chicle label
-//   secondary → translucent dark fill, lime border + label
-//   outline   → transparent fill, tangerine border + label
+//   primary   → a cream plate with ink lettering and the theme's heavy ink keyline. It
+//               is the same surface as the on-deck queue row and the search bay, which
+//               is the point: a flat white pill with a thin white edge (what this was)
+//               read as a system button dropped onto a poster.
+//   secondary → an INK plate with white lettering — the inverse, so the pair reads as
+//               two weights of the same printing rather than as solid vs. translucent.
+//   outline   → transparent with a heavy white keyline, for the genuinely quiet action.
+//
+// All three are opaque or fully transparent; none is frosted glass. Nothing on a
+// screen of printed plates should look like a window.
 export function PsychedelicButton({
   label,
   onPress,
@@ -31,132 +24,64 @@ export function PsychedelicButton({
   disabled,
 }: ButtonProps) {
   const { tokens } = useTheme()
-  const shape = blobCornerRadii(hashKey(label))
-  const press = useRef(new Animated.Value(0)).current
-  // Continuous breath — every interactive surface in the psychedelic theme
-  // pulses (no Y translation). Period spread is wide (2600-5400ms) and seeded
-  // by the label hash so adjacent buttons never share a phase.
-  const breath = useOscillator(2600 + (hashKey(label) % 14) * 200)
-  const breathScale = breath.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.97, 1.035],
-  })
+  const { transform, onPressIn, onPressOut } = useLift()
 
-  const triggerPress = () => {
-    press.setValue(0)
-    Animated.timing(press, {
-      toValue: 1,
-      duration: 360,
-      useNativeDriver: true,
-    }).start()
-  }
-
-  const bg =
-    variant === 'primary'
-      ? 'rgba(255,45,149,0.85)'
-      : variant === 'secondary'
-      ? 'rgba(182,255,45,0.12)'
-      : 'transparent'
-  const border =
-    variant === 'primary'
-      ? tokens.accentA
-      : variant === 'secondary'
-      ? tokens.accentB
-      : tokens.accentC
-  const glow =
-    variant === 'primary'
-      ? tokens.accentGlowColor
-      : variant === 'secondary'
-      ? tokens.accentB
-      : tokens.accentC
-  const labelColor =
-    variant === 'primary'
-      ? '#fff'
-      : variant === 'secondary'
-      ? tokens.accentB
-      : tokens.accentC
-
-  const rippleScale = press.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1.8] })
-  const rippleOpacity = press.interpolate({
-    inputRange: [0, 0.15, 1],
-    outputRange: [0, 0.55, 0],
-  })
+  const isPrimary = variant === 'primary'
+  const isSecondary = variant === 'secondary'
+  const inert = disabled || loading
+  const lettering = isPrimary ? INK : TEXT
 
   return (
-    <Animated.View style={{ transform: [{ scale: breathScale }] }}>
     <Pressable
       onPress={() => {
-        if (disabled || loading) return
-        triggerPress()
+        if (inert) return
         onPress()
       }}
-      disabled={disabled || loading}
-      style={({ pressed }) => [
-        shape,
-        boxStyle(border, bg, glow),
-        disabled || loading ? { opacity: 0.5 } : null,
-        pressed ? { transform: [{ scale: 0.97 }] } : null,
-      ]}
+      onPressIn={inert ? undefined : onPressIn}
+      onPressOut={inert ? undefined : onPressOut}
+      disabled={inert}
+      style={{ opacity: inert ? 0.45 : 1 }}
     >
-      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-        <Animated.View
-          style={{
-            position: 'absolute',
-            left: '50%',
-            top: '50%',
-            width: 160,
-            height: 160,
-            marginLeft: -80,
-            marginTop: -80,
-            transform: [{ scale: rippleScale }],
-            opacity: rippleOpacity,
-          }}
-        >
-          <Svg width={160} height={160} viewBox="0 0 160 160">
-            <Defs>
-              <RadialGradient id="psyBtnRipple" cx="50%" cy="50%" rx="50%" ry="50%" fx="50%" fy="50%">
-                <Stop offset="0%" stopColor="#fff" stopOpacity={0.55} />
-                <Stop offset="100%" stopColor="#fff" stopOpacity={0} />
-              </RadialGradient>
-            </Defs>
-            <Circle cx={80} cy={80} r={80} fill="url(#psyBtnRipple)" />
-          </Svg>
-        </Animated.View>
-      </View>
-
-      {loading ? (
-        <ActivityIndicator color={labelColor} />
-      ) : (
-        <Text style={labelStyle(tokens, labelColor)}>{label}</Text>
-      )}
+      <GlassPanel
+        radius={18}
+        fill="none"
+        edgeColor={isPrimary || isSecondary ? INK : HAIRLINE_STRONG}
+        edgeWidth={isPrimary || isSecondary ? INK_LINE : 2}
+        style={[
+          { transform },
+          isPrimary
+            ? { backgroundColor: WARM }
+            : isSecondary
+              ? { backgroundColor: INK }
+              : null,
+        ]}
+        contentStyle={{
+          minHeight: 52,
+          paddingVertical: 15,
+          paddingHorizontal: 24,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {loading ? (
+          <ActivityIndicator color={lettering} />
+        ) : (
+          <Text numberOfLines={1} style={letteringStyle(tokens.fontDisplay, lettering)}>
+            {label}
+          </Text>
+        )}
+      </GlassPanel>
     </Pressable>
-    </Animated.View>
   )
 }
 
-function boxStyle(borderColor: string, bg: string, glow: string): ViewStyle {
-  return {
-    paddingVertical: 14,
-    paddingHorizontal: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor,
-    backgroundColor: bg,
-    shadowColor: glow,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.7,
-    shadowRadius: 12,
-    overflow: 'hidden',
-  }
-}
-function labelStyle(t: ReturnType<typeof useTheme>['tokens'], color: string): TextStyle {
+function letteringStyle(fontFamily: string, color: string): TextStyle {
   return {
     color,
-    fontFamily: t.fontDisplay,
+    fontFamily,
     fontSize: 18,
-    textShadowColor: 'rgba(0,0,0,0.4)',
-    textShadowRadius: 4,
-    textShadowOffset: { width: 0, height: 1 },
+    // Remalos is already chunky; letter-spacing would open it up and lose the
+    // hand-lettered density that makes poster type work.
+    letterSpacing: 0.3,
   }
 }

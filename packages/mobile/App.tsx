@@ -20,6 +20,15 @@ import { SpicyRice_400Regular } from '@expo-google-fonts/spicy-rice'
 import { NotoSerifJP_700Bold } from '@expo-google-fonts/noto-serif-jp'
 import { ZenKakuGothicNew_400Regular } from '@expo-google-fonts/zen-kaku-gothic-new'
 import { Orbitron_700Bold, Orbitron_900Black } from '@expo-google-fonts/orbitron'
+// Space theme (mobile) — Chakra Petch is the angular technical display face and
+// Share Tech Mono carries every telemetry numeral. Orbitron above is retained
+// for the desktop-matching stage themes only.
+import {
+  ChakraPetch_500Medium,
+  ChakraPetch_600SemiBold,
+  ChakraPetch_700Bold,
+} from '@expo-google-fonts/chakra-petch'
+import { ShareTechMono_400Regular } from '@expo-google-fonts/share-tech-mono'
 import { Exo2_400Regular, Exo2_700Bold } from '@expo-google-fonts/exo-2'
 import { Cinzel_400Regular, Cinzel_700Bold, Cinzel_900Black } from '@expo-google-fonts/cinzel'
 import { IMFellEnglish_400Regular } from '@expo-google-fonts/im-fell-english'
@@ -77,6 +86,10 @@ export default function App() {
     ZenKakuGothicNew_400Regular,
     Orbitron_700Bold,
     Orbitron_900Black,
+    ChakraPetch_500Medium,
+    ChakraPetch_600SemiBold,
+    ChakraPetch_700Bold,
+    ShareTechMono_400Regular,
     Exo2_400Regular,
     Exo2_700Bold,
     Cinzel_400Regular,

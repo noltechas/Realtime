@@ -1,15 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-} from 'react-native'
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { Alert } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
@@ -23,16 +13,16 @@ import type { RootStackParamList } from '../navigation/types'
 import { useTheme } from '../theme/ThemeContext'
 import { useProfile } from '../hooks/useProfile'
 import { useSession } from '../hooks/useSession'
-import { AvatarPicker } from '../components/AvatarPicker'
 import { supabase } from '../supabase/client'
 import { useSessionGuests } from '../hooks/useSessionGuests'
 import { useNwordPasses } from '../hooks/useNwordPasses'
-import { NwordPassCard } from '../components/NwordPassCard'
 import { NwordPassGiftModal } from '../components/NwordPassGiftModal'
+import { ProfileView } from './profile/ProfileView'
 
+// Data container for the Profile page — hooks, autosave and navigation only.
+// Everything visual lives in ./profile/ProfileView.
 export function ProfileScreen() {
-  const { tokens, ui } = useTheme()
-  const insets = useSafeAreaInsets()
+  const { tokens } = useTheme()
   const navigation = useNavigation()
   const { profile, saveProfile } = useProfile()
   const { session, clearSession } = useSession()
@@ -90,8 +80,8 @@ export function ProfileScreen() {
   // Leaving a session is the ONLY supported exit — the swipe-back gesture is
   // disabled on the Session screen. Clear the cached session (so the next app
   // launch lands on the join screen, not back in here) then reset the root
-  // stack to Main. This button only renders while a session is active, so on
-  // the pre-session MainTabs Profile tab it's absent.
+  // stack to Main. ProfileView only renders the button when this is passed, so
+  // on the pre-session MainTabs Profile tab it's absent.
   const handleLeaveSession = useCallback(() => {
     Alert.alert(
       'Leave session?',
@@ -113,14 +103,6 @@ export function ProfileScreen() {
     )
   }, [clearSession, navigation])
 
-  const selectedColor = UNIVERSAL_SINGER_COLORS[colorIndex]?.color ?? tokens.hotRed
-  const initial = (name.trim()[0] ?? '').toUpperCase()
-  const ownGuest = session?.guestId
-    ? guestsById.get(session.guestId)
-    : undefined
-  const hasNwordPass = guestHasNwordPass(ownGuest)
-  const lobbyGuests = Array.from(guestsById.values())
-
   const handleGift = useCallback(
     async (recipient: KaraokeGuestRow): Promise<void> => {
       await sharePass(recipient.id)
@@ -133,148 +115,42 @@ export function ProfileScreen() {
     [sharePass],
   )
 
-  // Floating tab bar lives ~96px above the screen bottom (plus the home
-  // indicator inset). Reserve that space so centering happens within the
-  // visible non-bar area instead of the full screen height.
-  const tabBarReserve = insets.bottom + 96
+  const selectedColor = UNIVERSAL_SINGER_COLORS[colorIndex]?.color ?? tokens.hotRed
+  const ownGuest = session?.guestId ? guestsById.get(session.guestId) : undefined
+  const hasNwordPass = guestHasNwordPass(ownGuest)
+  const passVariant = hasNwordPass && ownGuest
+    ? 'permanent'
+    : pendingGift
+      ? 'one-time'
+      : null
 
   return (
-    <SafeAreaView style={ui.styles.screen} edges={['top', 'left', 'right']}>
-      {session ? (
-        <Pressable
-          onPress={handleLeaveSession}
-          style={({ pressed }) => ({
-            position: 'absolute',
-            top: insets.top + 12,
-            left: 16,
-            zIndex: 10,
-            paddingHorizontal: 14,
-            paddingVertical: 8,
-            borderRadius: 999,
-            borderWidth: 2,
-            borderColor: tokens.hotRed,
-            backgroundColor: 'transparent',
-            opacity: pressed ? 0.55 : 1,
-          })}
-        >
-          <Text
-            style={{
-              fontFamily: tokens.fontDisplay,
-              fontWeight: '900',
-              fontSize: 10,
-              letterSpacing: 1,
-              color: tokens.hotRed,
-              textTransform: 'uppercase',
-            }}
-          >
-            Leave Session
-          </Text>
-        </Pressable>
-      ) : null}
-
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-      >
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{
-            flexGrow: 1,
-            alignItems: 'center',
-            justifyContent: 'center',
-            paddingHorizontal: 24,
-            paddingTop: session ? 74 : 28,
-            paddingBottom: tabBarReserve + 28,
-          }}
-        >
-          <AvatarPicker
-            picture={picture}
-            initial={initial}
-            ringColor={selectedColor}
-            onChange={setPicture}
-          />
-          <Text
-            style={{
-              fontFamily: tokens.fontBody,
-              fontSize: 13,
-              color: tokens.muted,
-              marginTop: 14,
-            }}
-          >
-            {picture ? 'Tap to change photo' : 'Tap to add a photo'}
-          </Text>
-
-          <View style={{ marginTop: 36, alignItems: 'center' }}>
-            <Text
-              style={{
-                fontFamily: tokens.fontDisplay,
-                fontWeight: '800',
-                fontSize: 11,
-                letterSpacing: 2,
-                color: tokens.muted,
-                textTransform: 'uppercase',
-                marginBottom: 8,
-              }}
-            >
-              Your Name
-            </Text>
-            <TextInput
-              value={name}
-              onChangeText={setName}
-              placeholder="What should we call you?"
-              placeholderTextColor={tokens.faint}
-              style={[
-                ui.styles.input,
-                { fontSize: 22, textAlign: 'center', minWidth: 240 },
-              ]}
-              autoCorrect={false}
-              returnKeyType="done"
-              maxLength={32}
-            />
-          </View>
-
-          <View style={{ marginTop: 28, width: '100%', maxWidth: 430 }}>
-            <ui.ColorPicker value={colorIndex} onChange={setColorIndex} />
-          </View>
-
-          {hasNwordPass && ownGuest ? (
-            <NwordPassCard
-              holderName={ownGuest.name}
-              variant="permanent"
-              interactive
-              onShare={() => setShareOpen(true)}
-              style={{
-                width: '95%',
-                maxWidth: 328,
-                marginTop: 30,
-                alignSelf: 'center',
-              }}
-            />
-          ) : pendingGift ? (
-            <NwordPassCard
-              holderName={ownGuest?.name || name.trim() || 'Guest'}
-              variant="one-time"
-              interactive
-              style={{
-                width: '95%',
-                maxWidth: 328,
-                marginTop: 30,
-                alignSelf: 'center',
-              }}
-            />
-          ) : null}
-        </ScrollView>
-      </KeyboardAvoidingView>
+    <>
+      <ProfileView
+        name={name}
+        onNameChange={setName}
+        colorIndex={colorIndex}
+        onColorIndexChange={setColorIndex}
+        color={selectedColor}
+        picture={picture}
+        onPictureChange={setPicture}
+        passVariant={passVariant}
+        passHolderName={ownGuest?.name || name.trim() || 'Guest'}
+        onSharePass={
+          passVariant === 'permanent' ? () => setShareOpen(true) : undefined
+        }
+        onLeaveSession={session ? handleLeaveSession : undefined}
+      />
 
       {session ? (
         <NwordPassGiftModal
           visible={shareOpen}
-          guests={lobbyGuests}
+          guests={Array.from(guestsById.values())}
           ownGuestId={session.guestId}
           onClose={() => setShareOpen(false)}
           onGift={handleGift}
         />
       ) : null}
-    </SafeAreaView>
+    </>
   )
 }

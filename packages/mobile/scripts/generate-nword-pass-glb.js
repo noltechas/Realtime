@@ -1110,6 +1110,29 @@ const holderNamePrimitives = [
     4,
   ),
 ]
+const oneTimeUseLabel = 'ONE-TIME USE'
+const oneTimeUseScale = 0.000084
+const oneTimeUseTracking = 13
+const oneTimeUseRightEdge = 0.48
+const oneTimeUsePrimitives = [
+  makePrimitive(
+    createDelauneyText(oneTimeUseLabel, {
+      x:
+        oneTimeUseRightEdge -
+        measureDelauneyText(
+          oneTimeUseLabel,
+          oneTimeUseScale,
+          oneTimeUseTracking,
+        ),
+      y: -0.758,
+      scale: oneTimeUseScale,
+      tracking: oneTimeUseTracking,
+      zA: FRONT_INLAY_DEPTH_Z,
+      zB: FRONT_INLAY_FACE_Z,
+    }),
+    3,
+  ),
+]
 const backLetteringPrimitives = [
   ...backPortraitLabelPrimitives,
   makePrimitive(backSelectionRule, 3),
@@ -1145,7 +1168,7 @@ const gltf = {
   nodes: [
     {
       name: 'NwordPass',
-      children: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+      children: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
     },
     { mesh: 0, name: 'NwordPassBody' },
     { mesh: 1, name: 'FrontLettering' },
@@ -1161,6 +1184,11 @@ const gltf = {
       name: `FrontPortrait${entitySuffix}`,
       scale: entitySuffix === 'Obama' ? [1, 1, 1] : [0.0001, 0.0001, 0.0001],
     })),
+    {
+      mesh: 13,
+      name: 'OneTimeUse',
+      scale: [0.0001, 0.0001, 0.0001],
+    },
   ],
   meshes: [
     { name: 'CarbonPass', primitives: bodyPrimitives },
@@ -1170,6 +1198,7 @@ const gltf = {
     { name: 'PortraitSelector', primitives: backPortraitPrimitives },
     ...backPortraitFrameMeshes,
     ...frontPortraitMeshes,
+    { name: 'InlaidOneTimeUse', primitives: oneTimeUsePrimitives },
   ],
   accessors,
   bufferViews,

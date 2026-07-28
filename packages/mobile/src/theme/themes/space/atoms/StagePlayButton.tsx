@@ -1,260 +1,249 @@
-import React, { useEffect, useRef } from 'react'
-import { Pressable, View, Animated, StyleSheet } from 'react-native'
+import React from 'react'
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native'
 import Svg, {
+  Circle,
   Defs,
+  Path,
   RadialGradient,
   Stop,
-  Circle,
-  Ellipse,
 } from 'react-native-svg'
-import { useTheme } from '../../../ThemeContext'
-import { useLinearLoop, useOscillator } from '../_shared'
 import type { PlayButtonProps } from '../../../types'
+import {
+  GlowHalo,
+  HULL_HI,
+  ICE,
+  MONO,
+  STEEL,
+  STEEL_HI,
+  TEXT_FAINT,
+  VOID,
+  polygonPath,
+  useLinearLoop,
+  useOscillator,
+  usePressTravel,
+  useSvgId,
+} from './_ship'
 
-// Space StagePlayButton — a pulsar with accretion-disk geometry:
-//   1. Three concentric orbit rings — slim ellipses on different tilt angles
-//      that all rotate continuously on independent loops.
-//   2. A pulsing nebula halo (magenta→cyan radial gradient) that scales
-//      between 1.0 and 1.08.
-//   3. Three sonar pulse rings expanding outward on staggered loops.
-//   4. Inner singer-color disc with the play/pause glyph painted void-dark
-//      so it reads against the bright singer color.
+// Space stage control — the drive throttle.
+//
+// This is the app's hero moment (it only appears when it is your turn to sing),
+// and it is deliberately 2D. The theme holds a hard ceiling of two Filament
+// engines — the outboard viewport and the nav pod — and this screen is reached
+// while both are already live. A third engine here would be the one place the
+// theme could stutter on a low-end device, in exchange for an effect that
+// layered SVG and a perspective press already sell: a hex throttle collar, a
+// machined index ring whose lit arc sweeps while playing, and a singer-coloured
+// core that physically depresses.
+//
+// If a third engine is ever acceptable, this is the atom to promote — the
+// geometry is already modelled as `PodCollar` in space-navpod.glb.
+const SIZE = 240
+const COLLAR_RADIUS = 104
+const INDEX_RADIUS = 86
+const CORE_RADIUS = 62
+const INDEX_TICKS = 36
+
 export function SpaceStagePlayButton({ isPlaying, singerColor, onPress }: PlayButtonProps) {
-  const { tokens } = useTheme()
-  const haloBreath = useOscillator(3200)
-  const haloScale = haloBreath.interpolate({
+  const { depth, transform, onPressIn, onPressOut } = usePressTravel(1.4)
+  const gradientId = useSvgId('throttleCore')
+
+  // Slow breath on the halo whenever the drive is running. Held still when
+  // paused, so the button's state is legible without reading the glyph.
+  const breath = useOscillator(3000)
+  const haloScale = isPlaying
+    ? breath.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] })
+    : 1
+  const haloOpacity = isPlaying
+    ? breath.interpolate({ inputRange: [0, 1], outputRange: [0.55, 0.85] })
+    : 0.3
+
+  // The index ring's lit arc sweeps continuously while playing. A linear loop,
+  // not an oscillator — an oscillator would run the arc forward and then back.
+  const sweep = useLinearLoop(5200)
+  const sweepRotate = sweep.interpolate({
     inputRange: [0, 1],
-    outputRange: [1.0, 1.08],
-  })
-  const haloOpacity = haloBreath.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.6, 0.95],
+    outputRange: ['0deg', '360deg'],
   })
 
-  // Three rotating orbit rings at different tilt angles + speeds.
-  const ring1 = useLinearLoop(15000)
-  const ring2 = useLinearLoop(11000)
-  const ring3 = useLinearLoop(19000)
-  const ring1Rot = ring1.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] })
-  const ring2Rot = ring2.interpolate({ inputRange: [0, 1], outputRange: ['360deg', '0deg'] })
-  const ring3Rot = ring3.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] })
-
-  // Three sonar pulse rings — same staggered cadence as the desktop pulsar.
-  const sonar1 = useRef(new Animated.Value(0)).current
-  const sonar2 = useRef(new Animated.Value(0)).current
-  const sonar3 = useRef(new Animated.Value(0)).current
-  useEffect(() => {
-    const mk = (val: Animated.Value, delay: number) =>
-      Animated.sequence([
-        Animated.delay(delay),
-        Animated.loop(
-          Animated.timing(val, {
-            toValue: 1,
-            duration: 2600,
-            useNativeDriver: true,
-          }),
-        ),
-      ])
-    const a = mk(sonar1, 0)
-    const b = mk(sonar2, 870)
-    const c = mk(sonar3, 1740)
-    a.start()
-    b.start()
-    c.start()
-    return () => {
-      a.stop()
-      b.stop()
-      c.stop()
-    }
-  }, [sonar1, sonar2, sonar3])
+  // Core seats deeper into the collar under the finger.
+  const coreDepth = depth.interpolate({ inputRange: [0, 1], outputRange: [1, 0.94] })
 
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => ({
-        width: 240,
-        height: 240,
-        alignItems: 'center',
-        justifyContent: 'center',
-        transform: [{ scale: pressed ? 0.95 : 1 }],
-      })}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={{ width: SIZE, height: SIZE, alignItems: 'center', justifyContent: 'center' }}
     >
-      {/* Sonar rings — behind everything */}
-      <SonarRing value={sonar1} color="#E040FB" />
-      <SonarRing value={sonar2} color="#40E0D0" />
-      <SonarRing value={sonar3} color="#A8C2FF" />
-
-      {/* Nebula halo */}
       <Animated.View
         style={{
-          position: 'absolute',
-          width: 220,
-          height: 220,
-          opacity: haloOpacity,
-          transform: [{ scale: haloScale }],
-        }}
-      >
-        <Svg width={220} height={220}>
-          <Defs>
-            <RadialGradient id="spaceHalo" cx="50%" cy="50%" r="50%">
-              <Stop offset="0%" stopColor="#E040FB" stopOpacity={0.55} />
-              <Stop offset="55%" stopColor="#7818A0" stopOpacity={0.3} />
-              <Stop offset="85%" stopColor="#40E0D0" stopOpacity={0.18} />
-              <Stop offset="100%" stopColor="#40E0D0" stopOpacity={0} />
-            </RadialGradient>
-          </Defs>
-          <Circle cx={110} cy={110} r={108} fill="url(#spaceHalo)" />
-        </Svg>
-      </Animated.View>
-
-      {/* Three rotating orbit ellipses at different tilt angles */}
-      <Animated.View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          width: 200,
-          height: 200,
-          transform: [{ rotate: ring1Rot }],
-        }}
-      >
-        <Svg width={200} height={200}>
-          <Ellipse
-            cx={100}
-            cy={100}
-            rx={94}
-            ry={32}
-            fill="none"
-            stroke="#E040FB"
-            strokeWidth={1.5}
-            opacity={0.6}
-          />
-        </Svg>
-      </Animated.View>
-      <Animated.View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          width: 200,
-          height: 200,
-          transform: [{ rotate: ring2Rot }],
-        }}
-      >
-        <Svg width={200} height={200}>
-          <Ellipse
-            cx={100}
-            cy={100}
-            rx={88}
-            ry={26}
-            fill="none"
-            stroke="#40E0D0"
-            strokeWidth={1.4}
-            opacity={0.7}
-          />
-        </Svg>
-      </Animated.View>
-      <Animated.View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          width: 200,
-          height: 200,
-          transform: [{ rotate: ring3Rot }],
-        }}
-      >
-        <Svg width={200} height={200}>
-          <Ellipse
-            cx={100}
-            cy={100}
-            rx={98}
-            ry={20}
-            fill="none"
-            stroke="#A8C2FF"
-            strokeWidth={1.2}
-            opacity={0.5}
-          />
-        </Svg>
-      </Animated.View>
-
-      {/* Inner singer-color disc — pulsar core */}
-      <View
-        style={{
-          position: 'absolute',
-          width: 124,
-          height: 124,
-          borderRadius: 62,
-          backgroundColor: singerColor,
+          width: SIZE,
+          height: SIZE,
           alignItems: 'center',
           justifyContent: 'center',
-          borderWidth: 2,
-          borderColor: 'rgba(232,230,240,0.9)',
-          shadowColor: singerColor,
-          shadowOffset: { width: 0, height: 0 },
-          shadowOpacity: 0.95,
-          shadowRadius: 22,
+          transform,
         }}
       >
+        {/* Halo — the drive's light, under the hardware. */}
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            width: SIZE,
+            height: SIZE,
+            opacity: haloOpacity,
+            transform: [{ scale: haloScale }],
+          }}
+        >
+          <GlowHalo size={SIZE} color={singerColor} intensity={0.5} />
+        </Animated.View>
+
+        {/* Hex throttle collar + machined index ring. */}
+        <Svg width={SIZE} height={SIZE} style={StyleSheet.absoluteFill}>
+          {/* Collar: a hex plate, matching the nav pod's silhouette so the
+              hero control is unmistakably from the same machine. */}
+          <Path
+            d={polygonPath(6, COLLAR_RADIUS, SIZE / 2, SIZE / 2, Math.PI / 6)}
+            fill={HULL_HI}
+            fillOpacity={0.92}
+            stroke={STEEL_HI}
+            strokeOpacity={0.5}
+            strokeWidth={1.5}
+          />
+          <Path
+            d={polygonPath(6, COLLAR_RADIUS - 7, SIZE / 2, SIZE / 2, Math.PI / 6)}
+            fill="none"
+            stroke={ICE}
+            strokeOpacity={0.18}
+            strokeWidth={1}
+          />
+
+          {/* Index ring — engraved graduations around the core. */}
+          {Array.from({ length: INDEX_TICKS }, (_, index) => {
+            const angle = (index / INDEX_TICKS) * Math.PI * 2 - Math.PI / 2
+            const major = index % 6 === 0
+            const inner = INDEX_RADIUS - (major ? 11 : 6)
+            return (
+              <Path
+                key={index}
+                d={`M ${SIZE / 2 + Math.cos(angle) * inner} ${
+                  SIZE / 2 + Math.sin(angle) * inner
+                } L ${SIZE / 2 + Math.cos(angle) * INDEX_RADIUS} ${
+                  SIZE / 2 + Math.sin(angle) * INDEX_RADIUS
+                }`}
+                stroke={major ? STEEL_HI : STEEL}
+                strokeOpacity={major ? 0.75 : 0.55}
+                strokeWidth={major ? 2 : 1.2}
+                strokeLinecap="round"
+              />
+            )
+          })}
+        </Svg>
+
+        {/* Lit sweep arc — only while the drive is running. Rotated as a whole
+            view so the arc geometry itself never re-renders. */}
         {isPlaying ? (
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <View style={pauseBar} />
-            <View style={pauseBar} />
-          </View>
-        ) : (
-          <View style={playTri} />
-        )}
-      </View>
+          <Animated.View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              width: SIZE,
+              height: SIZE,
+              transform: [{ rotate: sweepRotate }],
+            }}
+          >
+            <Svg width={SIZE} height={SIZE}>
+              <Circle
+                cx={SIZE / 2}
+                cy={SIZE / 2}
+                r={INDEX_RADIUS}
+                fill="none"
+                stroke={ICE}
+                strokeWidth={2.5}
+                strokeLinecap="round"
+                // A 70°-of-circumference lit segment with the remainder dark.
+                strokeDasharray={`${2 * Math.PI * INDEX_RADIUS * 0.19} ${
+                  2 * Math.PI * INDEX_RADIUS
+                }`}
+                strokeOpacity={0.9}
+              />
+            </Svg>
+          </Animated.View>
+        ) : null}
+
+        {/* Core — the singer's colour, and the surface that takes the press. */}
+        <Animated.View
+          style={{
+            position: 'absolute',
+            width: CORE_RADIUS * 2,
+            height: CORE_RADIUS * 2,
+            alignItems: 'center',
+            justifyContent: 'center',
+            transform: [{ scale: coreDepth }],
+          }}
+        >
+          <Svg width={CORE_RADIUS * 2} height={CORE_RADIUS * 2} style={StyleSheet.absoluteFill}>
+            {/* Defs must live in the same <Svg> that references them —
+                react-native-svg treats each root as its own document, so a
+                gradient declared in the collar's Svg above would resolve to
+                nothing here. */}
+            <Defs>
+              <RadialGradient id={gradientId} cx="36%" cy="30%" r="72%">
+                <Stop offset="0" stopColor="#FFFFFF" stopOpacity={0.85} />
+                <Stop offset="0.36" stopColor={singerColor} stopOpacity={1} />
+                <Stop offset="1" stopColor={singerColor} stopOpacity={0.6} />
+              </RadialGradient>
+            </Defs>
+            <Path
+              d={polygonPath(6, CORE_RADIUS - 2, CORE_RADIUS, CORE_RADIUS, Math.PI / 6)}
+              fill={`url(#${gradientId})`}
+              stroke="#FFFFFF"
+              strokeOpacity={0.75}
+              strokeWidth={2}
+            />
+          </Svg>
+          {isPlaying ? (
+            <View style={{ flexDirection: 'row', gap: 11 }}>
+              <View style={pauseBar} />
+              <View style={pauseBar} />
+            </View>
+          ) : (
+            <View style={playGlyph} />
+          )}
+        </Animated.View>
+
+        {/* Throttle legend. */}
+        <Text
+          style={{
+            position: 'absolute',
+            bottom: 6,
+            fontFamily: MONO,
+            fontSize: 9,
+            letterSpacing: 2.4,
+            color: isPlaying ? ICE : TEXT_FAINT,
+          }}
+        >
+          {isPlaying ? 'DRIVE ONLINE' : 'DRIVE HOLD'}
+        </Text>
+      </Animated.View>
     </Pressable>
   )
 }
 
-function SonarRing({ value, color }: { value: Animated.Value; color: string }) {
-  const scale = value.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.55, 1.5],
-  })
-  const opacity = value.interpolate({
-    inputRange: [0, 0.1, 1],
-    outputRange: [0, 0.6, 0],
-  })
-  return (
-    <Animated.View
-      pointerEvents="none"
-      style={[
-        StyleSheet.absoluteFill,
-        {
-          alignItems: 'center',
-          justifyContent: 'center',
-          transform: [{ scale }],
-          opacity,
-        },
-      ]}
-    >
-      <View
-        style={{
-          width: 220,
-          height: 220,
-          borderRadius: 110,
-          borderWidth: 2,
-          borderColor: color,
-        }}
-      />
-    </Animated.View>
-  )
-}
-
-const playTri = {
+const playGlyph = {
   width: 0,
   height: 0,
-  borderTopWidth: 22,
-  borderBottomWidth: 22,
-  borderLeftWidth: 38,
+  borderTopWidth: 21,
+  borderBottomWidth: 21,
+  borderLeftWidth: 34,
   borderTopColor: 'transparent' as const,
   borderBottomColor: 'transparent' as const,
-  borderLeftColor: '#08080F',
-  marginLeft: 10,
+  borderLeftColor: VOID,
+  marginLeft: 12,
 }
+
 const pauseBar = {
-  width: 12,
-  height: 44,
-  backgroundColor: '#08080F',
-  borderRadius: 2,
+  width: 11,
+  height: 42,
+  backgroundColor: VOID,
 }

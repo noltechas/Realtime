@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { Animated } from 'react-native'
+import { Animated, StyleSheet, View } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import type { ThemeTokens } from '@karaoke/shared'
 import { resolveMobileTheme, NEO_BRUTAL_MOBILE } from './tokens'
@@ -143,10 +143,25 @@ function ThemeCrossfade({
       inputRange: [0, 1],
       outputRange: [fromAppBg, toAppBg],
     })
+    // A theme's optional SceneLayer sits between the animated backdrop color
+    // and the screens: one instance for the whole subtree, never re-mounted on
+    // tab change. It swaps with `renderedThemeName` (not `desiredThemeName`) so
+    // it appears at the crossfade midpoint along with the rest of the theme.
+    //
+    // Deliberately outside the opacity wrapper: this layer may host a native
+    // surface view, and animating opacity over one of those doesn't blend
+    // reliably on Android. The content crossfade above it reads as the theme
+    // change on its own.
+    const SceneLayer = value.ui.SceneLayer
     return (
       <ThemeContext.Provider value={value}>
         <StatusBar style={value.tokens.statusBarStyle} />
         <Animated.View style={{ flex: 1, backgroundColor: backdropColor }}>
+          {SceneLayer ? (
+            <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+              <SceneLayer />
+            </View>
+          ) : null}
           <Animated.View style={{ flex: 1, opacity }}>{children}</Animated.View>
         </Animated.View>
       </ThemeContext.Provider>
@@ -187,7 +202,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 export function SessionThemeProvider({ children }: { children: React.ReactNode }) {
   const { session } = useSession()
   const row = useSessionRow(session?.sessionId)
-  const themeName = row?.now_playing_stage_theme || row?.theme_name || _lastKnownSessionTheme || 'neo-brutal'
+  const themeName =
+    row?.now_playing_stage_theme || row?.theme_name || _lastKnownSessionTheme || 'neo-brutal'
 
   useEffect(() => {
     if (row) _lastKnownSessionTheme = themeName

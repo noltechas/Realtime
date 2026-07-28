@@ -1,142 +1,99 @@
 import React, { useEffect, useRef } from 'react'
-import {
-  Pressable,
-  View,
-  Text,
-  Animated,
-  type ViewStyle,
-  type TextStyle,
-} from 'react-native'
-import Svg, { Defs, RadialGradient, Stop, Circle } from 'react-native-svg'
+import { Animated, Pressable, Text, View } from 'react-native'
 import { useTheme } from '../../../ThemeContext'
-import { hashKey } from '../../../helpers'
-import { useOscillator } from '../_shared'
 import type { ToggleBoxProps } from '../../../types'
+import { GLASS_WELL, HAIRLINE_STRONG, INK, INK_LINE, INK_SOFT, MINT, TEXT, WARM } from './_glass'
 
-// Psychedelic toggle — a translucent pill track with a mini lava orb thumb.
-// When `on`, the orb glides to the right with a viscous spring; off pushes it
-// back. The label has a hot-pink glow when the toggle is active so it visually
-// echoes the orb's color.
+// Psychedelic toggle — a printed switch.
+//
+// ON is an opaque MINT plate with ink lettering; OFF is a dark well with a heavy white
+// keyline. So the two states differ in surface, not merely in a hairline's colour —
+// which is what the glass version relied on, and what got lost against footage that is
+// itself full of colour. State is still carried three ways: the plate, the thumb's
+// position, and the word beside it.
 export function PsychedelicStageToggleBox({ label, on, onPress }: ToggleBoxProps) {
   const { tokens } = useTheme()
   const slide = useRef(new Animated.Value(on ? 1 : 0)).current
-  // Continuous scale breath only (no Y translation). Period seeded per label.
-  const breath = useOscillator(2600 + (hashKey(label) % 17) * 180)
-  const breathScale = breath.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.97, 1.035],
-  })
 
   useEffect(() => {
-    Animated.spring(slide, {
+    Animated.timing(slide, {
       toValue: on ? 1 : 0,
-      tension: 75,
-      friction: 8,
+      duration: 180,
       useNativeDriver: true,
     }).start()
   }, [on, slide])
 
-  const thumbX = slide.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 22], // track inner width minus thumb width
-  })
+  const thumbX = slide.interpolate({ inputRange: [0, 1], outputRange: [0, 22] })
 
   return (
-    <Animated.View style={{ flex: 1, transform: [{ scale: breathScale }] }}>
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        wrapStyle(tokens, on),
-        pressed ? { opacity: 0.9 } : null,
-      ]}
-    >
-      <View style={trackStyle(tokens, on)}>
-        <Animated.View
+    <Pressable onPress={onPress} style={{ flex: 1 }}>
+      <View
+        style={{
+          borderRadius: 16,
+          backgroundColor: on ? MINT : GLASS_WELL,
+          borderWidth: on ? INK_LINE : 2,
+          borderColor: on ? INK : HAIRLINE_STRONG,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 10,
+          paddingLeft: 14,
+          paddingRight: 14,
+          paddingVertical: 12,
+          minHeight: 50,
+          shadowColor: '#000000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.38,
+          shadowRadius: 12,
+          elevation: 6,
+        }}
+      >
+        <View
           style={{
-            position: 'absolute',
-            left: 2,
-            top: 2,
-            width: 22,
-            height: 22,
-            transform: [{ translateX: thumbX }],
+            width: 46,
+            height: 24,
+            borderRadius: 12,
+            backgroundColor: on ? 'rgba(8,6,12,0.22)' : 'rgba(0,0,0,0.5)',
+            borderWidth: 2,
+            borderColor: on ? INK : HAIRLINE_STRONG,
+            justifyContent: 'center',
           }}
         >
-          {on ? (
-            <Svg width={22} height={22} viewBox="0 0 22 22">
-              <Defs>
-                <RadialGradient id="psyToggleThumb" cx="38%" cy="32%" rx="62%" ry="62%" fx="38%" fy="32%">
-                  <Stop offset="0%" stopColor="#ffe98a" stopOpacity={1} />
-                  <Stop offset="60%" stopColor="#ff8c2d" stopOpacity={1} />
-                  <Stop offset="100%" stopColor="#ff2d95" stopOpacity={0.85} />
-                </RadialGradient>
-              </Defs>
-              <Circle cx={11} cy={11} r={10} fill="url(#psyToggleThumb)" />
-            </Svg>
-          ) : (
-            <View
-              style={{
-                width: 22,
-                height: 22,
-                borderRadius: 11,
-                backgroundColor: tokens.muted,
-                opacity: 0.7,
-              }}
-            />
-          )}
-        </Animated.View>
-      </View>
-      <Text style={labelStyle(tokens, on)} numberOfLines={1}>{label}</Text>
-    </Pressable>
-    </Animated.View>
-  )
-}
+          <Animated.View
+            style={{
+              position: 'absolute',
+              left: 2,
+              width: 18,
+              height: 18,
+              borderRadius: 9,
+              backgroundColor: on ? INK : 'rgba(255,255,255,0.6)',
+              transform: [{ translateX: thumbX }],
+            }}
+          />
+        </View>
 
-function wrapStyle(t: ReturnType<typeof useTheme>['tokens'], on: boolean): ViewStyle {
-  return {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: on ? t.accentA : 'rgba(255,45,149,0.25)',
-    backgroundColor: on ? 'rgba(255,45,149,0.12)' : 'rgba(42,20,80,0.5)',
-    borderRadius: 22,
-    ...(on
-      ? {
-          shadowColor: t.accentGlowColor,
-          shadowOffset: { width: 0, height: 0 },
-          shadowOpacity: 0.6,
-          shadowRadius: 10,
-        }
-      : {}),
-  }
-}
-function trackStyle(t: ReturnType<typeof useTheme>['tokens'], on: boolean): ViewStyle {
-  return {
-    width: 50,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: on ? 'rgba(255,140,45,0.25)' : 'rgba(26,10,46,0.6)',
-    borderWidth: 1,
-    borderColor: on ? t.accentC : 'rgba(255,45,149,0.3)',
-  }
-}
-function labelStyle(t: ReturnType<typeof useTheme>['tokens'], on: boolean): TextStyle {
-  return {
-    // Take the remaining row width so a long label can't be hidden behind
-    // the track / pushed off-cell.
-    flex: 1,
-    fontFamily: t.fontDisplay,
-    fontSize: 17,
-    fontWeight: '700',
-    // Bright lavender-white in both states — translucent purple background
-    // means muted/colored text gets lost in low-contrast comparisons.
-    color: t.black,
-    opacity: on ? 1 : 0.92,
-    textShadowColor: on ? 'rgba(255,45,149,0.7)' : 'rgba(0,0,0,0.5)',
-    textShadowRadius: on ? 6 : 3,
-    textShadowOffset: { width: 0, height: 0 },
-  }
+        <Text
+          numberOfLines={1}
+          style={{
+            flex: 1,
+            fontFamily: tokens.fontDisplay,
+            fontSize: 17,
+            color: on ? INK : TEXT,
+          }}
+        >
+          {label}
+        </Text>
+
+        <Text
+          style={{
+            fontFamily: tokens.fontBody,
+            fontSize: 13,
+            fontWeight: '800',
+            color: on ? INK_SOFT : WARM,
+          }}
+        >
+          {on ? 'On' : 'Off'}
+        </Text>
+      </View>
+    </Pressable>
+  )
 }

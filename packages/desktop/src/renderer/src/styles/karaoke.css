@@ -1039,60 +1039,155 @@
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
 }
 
-/* ── Psychedelic — Chromatic Vibration ─────────────────────────────────────
-   The active word reads at the SAME WEIGHT and color as past words —
-   no bold-up, no thicker letters, no heavier outline (those felt like
-   "the active word got fat" rather than "the active word got psychedelic").
+/* ── Psychedelic — the lines around the active one ─────────────────────────
+   Past and upcoming lines sit DIRECTLY ON THE FOOTAGE, not on a plate, so they get
+   the one rule that governs everything unplated in this theme: a hard ink shadow.
+   The video runs from near-black to pure white, and cream type with no shadow
+   disappears completely for the seconds a bright frame is on screen.
 
-   What makes it pop is a pair of sharp 2px chromatic offset echoes
-   (magenta left, cyan right) plus a couple of soft rainbow halos, all
-   smoothly cycling through the full hue circle via filter: hue-rotate.
-   The text fill stays dark — it's immune to hue-rotate since black has
-   no hue — so only the colored shadows shift. The result is the
-   LSD-afterimage / chroma-aberration look from real psychedelic visual
-   design: the word itself is steady but appears to vibrate with
-   continuous rainbow color around its edges.
+   The shared defaults are unusable here for a different reason — `.k-line--past` is
+   18% white at 50% opacity, which is about 9% effective and simply gone. Past lines
+   still want to be READABLE, just clearly finished. */
 
-   Why this is different from cyberpunk: cyberpunk uses a stepped jitter
-   in fixed red/cyan channels (a glitch). This is smooth continuous
-   hue rotation through ALL colors (a trip). */
+[data-theme="psychedelic"] .k-line--future {
+    color: #FFF2E8;
+    opacity: 0.82;
+    text-shadow: 0 2px 0 rgba(8,6,12,0.9), 0 0 18px rgba(8,6,12,0.85);
+}
 
-@keyframes psy-hue-cycle {
-    0%   { filter: hue-rotate(0deg); }
-    100% { filter: hue-rotate(360deg); }
+[data-theme="psychedelic"] .k-line--past {
+    color: #FFF2E8;
+    opacity: 0.34;
+    text-shadow: 0 2px 0 rgba(8,6,12,0.85), 0 0 16px rgba(8,6,12,0.8);
+}
+
+/* ── Psychedelic — the knocked-out word ────────────────────────────────────
+   The active line is an opaque plate of the singer's colour with ink (or cream)
+   lettering — see the `psychedelic` branch in KaraokePage. Within it, the active
+   word is KNOCKED OUT: a solid patch in the plate's inverse, with the letters
+   flipped to match. On a bright plate that is an ink patch with cream letters; on
+   a dark one, cream with ink. Either way it is the highest-contrast pairing
+   available, and it is the same move a letterpress poster makes.
+
+   It replaced a chromatic-aberration treatment — 2px magenta/cyan echoes plus
+   three soft rainbow halos on a continuous hue-rotate. That looked right on the
+   old dark-purple stage, but this line now sits on a saturated plate, and coloured
+   shadows on a coloured field just smear; the word never separated.
+
+   THE PATCH MUST NOT MOVE THE TEXT. It is painted with a background plus a
+   box-shadow spread rather than padding, because padding on an inline-block
+   syllable reflows the whole line every time the active word advances — visible
+   as the lyric jittering left and right, once per word.
+
+   The advance is DISCRETE: a single 190ms stamp per syllable, not a sweep. */
+
+@keyframes psy-stamp {
+    0%   { transform: translateY(-0.18em) scale(1.22); }
+    55%  { transform: translateY(0) scale(0.975); }
+    /* Settles slightly PROUD of the plate rather than flush, so the chip keeps reading
+       as a raised object once the pop is over. `both` holds this last frame. */
+    100% { transform: translateY(-0.04em) scale(1); }
+}
+
+[data-theme="psychedelic"] .k-line--now .k-syl--past .k-syl__word,
+[data-theme="psychedelic"] .k-line--now .k-syl--future .k-syl__word {
+    /* inline-block so the breathe transform below applies — an inline box ignores it. */
+    display: inline-block;
+    color: inherit;
+    background: none;
+    box-shadow: none;
+    -webkit-background-clip: border-box;
+            background-clip: border-box;
+    -webkit-text-fill-color: currentColor;
+    filter: none;
+    /* Every word on the plate breathes, not just the active one. Staggered below, so the
+       line ripples along its length instead of swelling as a single block. Scale only —
+       transforms don't reflow, so the words never shift the line's layout. */
+    animation: psy-word-breathe 4.4s ease-in-out infinite;
 }
 
 [data-theme="psychedelic"] .k-line--now .k-syl--past {
     opacity: 1;
-    color: #0a0a0a;
     text-shadow: none;
-    background: none;
-    -webkit-background-clip: border-box;
-            background-clip: border-box;
-    -webkit-text-fill-color: currentColor;
-    animation: none;
-    filter: none;
 }
-[data-theme="psychedelic"] .k-line--now .k-syl--now {
-    color: #0a0a0a;
-    text-shadow:
-        -2px 0 0 #ff1493,
-         2px 0 0 #00d4d4,
-         0 0 14px #ff7700,
-         0 0 32px rgba(204, 68, 255, 0.55),
-         0 0 56px rgba(0, 238, 102, 0.32);
-    animation: psy-hue-cycle 4.5s linear infinite;
-}
+
 [data-theme="psychedelic"] .k-line--now .k-syl--future {
-    opacity: 1;
-    color: rgba(10, 10, 10, 0.45);
-    text-shadow: none;
+    /* Not yet sung, but still on the plate — so it dims rather than disappearing. 0.42 was
+       too far: on a mid-tone plate the upcoming words washed into the fill, and reading
+       ahead is the entire reason they are shown. 0.6 with a soft ink shadow holds them
+       legible over any plate colour while still clearly reading as "not yet". */
+    opacity: 0.6;
+    text-shadow: 0 1px 2px rgba(8, 6, 12, 0.35);
+}
+
+@keyframes psy-word-breathe {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.045); }
+}
+
+/* Five phase buckets across the 4.4s period, by position in the line. NEGATIVE delays, so
+   every word is already mid-cycle on the first frame — a positive delay would leave part
+   of the line sitting dead still for up to 3.5s after it appears, which looks broken
+   rather than staggered. */
+[data-theme="psychedelic"] .k-line--now .k-syl:nth-child(5n + 1) .k-syl__word { animation-delay: 0s; }
+[data-theme="psychedelic"] .k-line--now .k-syl:nth-child(5n + 2) .k-syl__word { animation-delay: -0.88s; }
+[data-theme="psychedelic"] .k-line--now .k-syl:nth-child(5n + 3) .k-syl__word { animation-delay: -1.76s; }
+[data-theme="psychedelic"] .k-line--now .k-syl:nth-child(5n + 4) .k-syl__word { animation-delay: -2.64s; }
+[data-theme="psychedelic"] .k-line--now .k-syl:nth-child(5n + 5) .k-syl__word { animation-delay: -3.52s; }
+
+/* THE CHIP IS ON `.k-syl__word`, NOT ON `.k-syl`, and that is the whole point of the inner
+   span. Syllable timings ship with the trailing space inside the syllable's own text
+   ("nine "), so anything drawn on `.k-syl` extends across the gap to the next word — the
+   chip looked lopsided, running off to the right of whatever it highlighted. The lyric
+   renderer already splits the glyphs into `.k-syl__word` and leaves the whitespace in the
+   outer span for exactly this. */
+[data-theme="psychedelic"] .k-line--now .k-syl--now .k-syl__word {
+    position: relative;
+    display: inline-block;
+    color: #08060C;
+    -webkit-text-fill-color: #08060C;
     background: none;
-    -webkit-background-clip: border-box;
-            background-clip: border-box;
-    -webkit-text-fill-color: currentColor;
-    animation: none;
+    box-shadow: none;
+    text-shadow: none;
     filter: none;
+    animation: psy-stamp 200ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+
+/* ── The chip, and why its insets are asymmetric ────────────────────────────
+   Drawn as a positioned pseudo-element rather than as a box-shadow spread on the word,
+   because an inline-block's box is NOT visually centred on its glyphs. Measured for Chicle
+   at the line's 1.35 line-height: the box carries 0.26em of empty space above the cap
+   height but only 0.13em below the descender — nearly twice as much slack on top. A
+   uniform ring around that box therefore sits high, with its top edge crowding the plate's
+   border while its bottom floats, which is exactly how the first version looked.
+
+   So the insets are derived, not eyeballed: top = 0.26 - P, bottom = 0.13 - P, where P is
+   the padding around the ink. P = 0.085em — tight, so the chip hugs the word rather than
+   floating in a slab, but with the 0.05em border still leaving a 0.035em gap to the glyphs
+   at any size. (P started at 0.11em, which read as too generous.) To re-derive after any
+   font or line-height change, measure `fontBoundingBoxAscent/Descent` and
+   `actualBoundingBoxAscent` of a capital against the element's own box height.
+
+   Anchoring to the FONT's cap/descender rather than to each word's own ink also means every
+   chip is the same height whether or not its word happens to have a descender — a printed
+   chip that changed height word to word would read as a bug. */
+[data-theme="psychedelic"] .k-line--now .k-syl--now .k-syl__word::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    top: 0.175em;
+    bottom: 0.045em;
+    left: -0.13em;
+    right: -0.13em;
+    background: #FFF2E8;
+    /* The border is in em for the same reason the insets are: a fixed 3px border against
+       em padding means the two hold a DIFFERENT relationship at every font size. At the
+       preview's 36px it swallowed the padding entirely and the ink line sat across the cap
+       and the descender; at stage size the same numbers had room to spare. In em the
+       0.035em gap between the border's inner edge and the glyphs is the same everywhere. */
+    border: 0.05em solid #08060C;
+    border-radius: 0.3em;
+    box-shadow: 0 0.14em 0.3em rgba(0, 0, 0, 0.45);
 }
 
 /* ── Zen — ink & washi (the calligrapher's brush) ─────────────────────────
@@ -1171,34 +1266,116 @@
     100% { opacity: 1; transform: scale(1); }
 }
 
-/* ── Space — pulsar burst (in the singer's color) ───────────────────────── */
-@keyframes space-syl-twinkle {
-    0%, 100% { text-shadow:
-        0 0 4px color-mix(in srgb, var(--syl-singer, #fff), white 60%),
-        0 0 14px var(--syl-singer, #fff),
-        0 0 28px color-mix(in srgb, var(--syl-singer, #fff), transparent 50%); }
-    50%      { text-shadow:
-        0 0 6px color-mix(in srgb, var(--syl-singer, #fff), white 75%),
-        0 0 22px var(--syl-singer, #fff),
-        0 0 42px color-mix(in srgb, var(--syl-singer, #fff), transparent 25%),
-        0 0 70px color-mix(in srgb, var(--syl-singer, #fff), transparent 65%); }
+/* ── Space — syllable IGNITION ───────────────────────────────────────────────
+   A syllable lights AS A WHOLE UNIT and stays lit. It does not wipe.
+
+   The earlier version slid a lit/unlit boundary through the glyphs over the
+   syllable's duration. It was smooth, and it was wrong: at any given instant the
+   word you are being asked to sing is only half legible, and the eye tracks the
+   moving edge instead of reading ahead. Karaoke wants a discrete cue.
+
+   So each syllable fires a one-shot 300ms IGNITION — the word punches toward the
+   viewer in real perspective (translateZ inside the plate's preserve-3d space),
+   overshoots to a hot white core with a wide bloom, then settles back and holds
+   at full singer colour until it becomes past. Fixed 300ms on purpose: a spike
+   scaled to --syl-dur would be an 18ms flicker on a short syllable and a lazy
+   63ms swell on a long one.
+
+   --syl-dur still earns its keep on the second animation: the bloom sustains for
+   exactly as long as the note is held, so long notes visibly ring out. */
+@keyframes space-syl-ignite {
+    0% {
+        transform: translateZ(22px) scale(1);
+        color: #66788C;
+        text-shadow: none;
+    }
+    /* The strike — forward, bright, blown out. */
+    22% {
+        transform: translateZ(58px) scale(1.085);
+        color: #FFFFFF;
+        text-shadow:
+            0 0 6px #FFFFFF,
+            0 0 18px var(--syl-singer, #5BE9FF),
+            0 0 44px color-mix(in srgb, var(--syl-singer, #5BE9FF), transparent 35%),
+            0 0 90px color-mix(in srgb, var(--syl-singer, #5BE9FF), transparent 65%);
+    }
+    /* Recoil. */
+    52% {
+        transform: translateZ(30px) scale(1.012);
+    }
+    /* Held lit, in the singer's colour, waiting to become past. */
+    100% {
+        transform: translateZ(22px) scale(1);
+        color: color-mix(in srgb, var(--syl-singer, #5BE9FF), white 55%);
+        text-shadow:
+            0 0 4px color-mix(in srgb, var(--syl-singer, #5BE9FF), white 40%),
+            0 0 16px color-mix(in srgb, var(--syl-singer, #5BE9FF), transparent 40%);
+    }
 }
+
+/* Sustain: the bloom breathes for the length of the held note, so a long vowel
+   reads as ringing rather than as a word that already finished. */
+@keyframes space-syl-sustain {
+    0%   { filter: brightness(1.12); }
+    100% { filter: brightness(1); }
+}
+
+[data-theme="space"] .k-syl {
+    /* Transformable, and sharing the plate's 3D space so translateZ is a real
+       perspective push rather than a no-op. */
+    display: inline-block;
+    transform-style: preserve-3d;
+    transform: translateZ(22px);
+}
+
 [data-theme="space"] .k-line--now .k-syl--past {
     opacity: 1;
-    color: rgba(245, 245, 255, 0.55);
-    text-shadow: 0 0 4px rgba(255, 255, 255, 0.3);
+    /* Already sung: holds the singer's hue but steps back in Z and dims, so the
+       lit syllable is unambiguously the current one. */
+    transform: translateZ(14px);
+    color: color-mix(in srgb, var(--syl-singer, #DCE6F2), #97A6B8 58%);
+    text-shadow: 0 0 10px color-mix(in srgb, var(--syl-singer, #5BE9FF), transparent 78%);
+    transition: transform 0.3s var(--ease), color 0.3s var(--ease);
 }
-[data-theme="space"] .k-line--now .k-syl--now {
-    /* The "active star" twinkles in the singer's own color — like each
-       singer's line is their constellation. Fill is a starlight-bright
-       tint of the singer color; the pulsar burst halo uses the singer's
-       hue directly. */
-    color: color-mix(in srgb, var(--syl-singer, #fff), white 70%);
-    animation: space-syl-twinkle 1.8s ease-in-out infinite;
+
+[data-theme="space"] .k-line--now .k-syl--now .k-syl__word {
+    display: inline-block;
+    animation:
+        space-syl-ignite 300ms cubic-bezier(0.16, 1, 0.3, 1) forwards,
+        space-syl-sustain var(--syl-dur, 320ms) ease-out forwards;
 }
+
 [data-theme="space"] .k-line--now .k-syl--future {
     opacity: 1;
-    color: rgba(190, 200, 235, 0.45);
+    /* Not yet sung: engraved steel, sitting flat on the plate. Legible so the
+       singer can read ahead, clearly inert so it isn't mistaken for the cue. */
+    transform: translateZ(10px);
+    color: #66788C;
+    transition: transform 0.3s var(--ease), color 0.3s var(--ease);
+}
+
+/* LRC-only lines have no syllables, so the entire line ignites as one unit. */
+@keyframes space-line-ignite {
+    0% {
+        transform: translateZ(18px) scale(0.985);
+        color: #66788C;
+        text-shadow: none;
+    }
+    26% {
+        transform: translateZ(56px) scale(1.02);
+        color: #FFFFFF;
+        text-shadow:
+            0 0 8px #FFFFFF,
+            0 0 24px var(--space-glow, #5BE9FF),
+            0 0 60px color-mix(in srgb, var(--space-glow, #5BE9FF), transparent 45%);
+    }
+    100% {
+        transform: translateZ(22px) scale(1);
+        color: color-mix(in srgb, var(--space-glow, #5BE9FF), white 62%);
+        text-shadow:
+            0 0 5px color-mix(in srgb, var(--space-glow, #5BE9FF), white 40%),
+            0 0 20px color-mix(in srgb, var(--space-glow, #5BE9FF), transparent 45%);
+    }
 }
 
 /* ── Steampunk — Edison filament ignition (in the singer's color) ─────────
@@ -1350,88 +1527,95 @@
     animation: none;
 }
 
-@keyframes cyber-glitch {
-    0%, 10%, 100% { transform: translate(0); text-shadow: inherit; }
-    2% { transform: translate(-2px, 1px); text-shadow: -2px 0 red, 2px 0 cyan; }
-    4% { transform: translate(2px, -2px); text-shadow: 2px 0 red, -2px 0 cyan; }
-    6% { transform: translate(-1px, 2px); text-shadow: inherit; }
-    8% { transform: translate(2px, -1px); text-shadow: -2px 0 red, 2px 0 cyan; }
+/* ── Psychedelic: the line plate ───────────────────────────────────────────
+   The active line is built exactly like a card in the mobile app: the singer's colour
+   as the base field, a hard-edged disc of a palette mate crossing it, a heavy ink
+   keyline, poured corners, and one deliberately off-square rotation. Fill, keyline,
+   radius, rotation and mate colour all come from JSX (they depend on who is singing);
+   everything structural lives here.
+
+   THE STICKER EDGE IS LOAD-BEARING. The ink keyline alone is invisible over dark
+   footage — dark on dark — so the plate also carries a CREAM RING outside it. Between
+   the two, the plate's silhouette reads on any frame the projector throws, from
+   near-black to pure white. The first version had only the ink keyline and the plate
+   looked like a floating colour swatch with no edge at all.
+
+   Deliberately NOT here any more: a 6s rainbow text-shadow cycle and a 3s per-word
+   1.06x breathe. The shadow cycle fought the plate it sat on, and a breathe on every
+   word made the line look like it was chewing. */
+
+@keyframes psy-line-in {
+    0%   { transform: rotate(0deg) scale(0.97) translateY(7px); opacity: 0; }
+    60%  { transform: rotate(var(--psy-rot, 0deg)) scale(1.008) translateY(0); opacity: 1; }
+    100% { transform: rotate(var(--psy-rot, 0deg)) scale(1) translateY(0); opacity: 1; }
 }
 
-.k-line--cyber {
-    animation: cyber-glitch 4s infinite linear;
-}
-
-/* ── Deep Sea: pulsing bioluminescent aura ─────────────────────────────── */
-@keyframes deep-sea-pulse {
-    0%, 100% {
-        text-shadow: inherit;
-        transform: scale(1);
-    }
-    50% {
-        filter: brightness(1.2);
-        transform: scale(1.02);
-    }
-}
-
-.k-line--deep-sea {
-    animation: deep-sea-pulse 3s ease-in-out infinite;
-    border-radius: 12px;
-    padding: 6px 20px;
-    background: radial-gradient(ellipse at center, rgba(0,255,200,0.06) 0%, transparent 70%);
-}
-
-/* ── Tropical: carved tiki plank with a warm sun-pulse ─────────────────────
-   The active lyric line is a wooden plank framed in bamboo, washed by the
-   singer's color as a sunset glow rising from below, with a soft brightness
-   pulse like sun rippling off the lagoon. */
-.k-line--tropical {
-    border-radius: 14px;
-}
-
-/* The active line is a plain carved-wood plank (no singer tint) — just timber
-   grain + a sheen. No animation, no blur. Bamboo-tan keyline + a soft drop
-   sells the hanging-plank look. */
-[data-theme="tropical"] .k-line--tropical-active {
-    color: #FFF8E6;
-    background-color: #6E4423;
-    background-image:
-        linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(0,0,0,0.22) 100%),
-        repeating-linear-gradient(180deg, rgba(0,0,0,0.12) 0 2px, transparent 2px 13px);
-    border: 3px solid #C99A54;
-    box-shadow: 0 10px 26px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.25);
-}
-
-/* ── Psychedelic: per-word shroom breathing + rainbow shadow ────────────── */
-@keyframes psy-word-breathe {
-    0%, 100% { transform: scale(1); }
-    50%      { transform: scale(1.06); }
-}
-
-@keyframes psychedelic-shadow-shift {
-    0%   { text-shadow: 0 0 15px rgba(255,45,149,0.4),  0 0 40px rgba(255,45,149,0.15);  }
-    33%  { text-shadow: 0 0 15px rgba(182,255,45,0.4),   0 0 40px rgba(182,255,45,0.15);  }
-    66%  { text-shadow: 0 0 15px rgba(255,140,45,0.4),   0 0 40px rgba(45,217,255,0.15);  }
-    100% { text-shadow: 0 0 15px rgba(255,45,149,0.4),  0 0 40px rgba(255,45,149,0.15);  }
+@keyframes psy-line-drift {
+    0%, 100% { transform: rotate(var(--psy-rot, 0deg)) scale(1); }
+    50%      { transform: rotate(calc(var(--psy-rot, 0deg) * 0.4)) scale(1.014); }
 }
 
 .k-line--psychedelic {
-    animation: psychedelic-shadow-shift 6s linear infinite;
-    border-radius: 16px;
-    padding: 6px 20px;
-    background: radial-gradient(ellipse at center, rgba(255,45,149,0.06) 0%, rgba(182,255,45,0.03) 50%, transparent 70%);
+    position: relative;
+    /* `isolation` gives the negative-z disc below a stacking context to sit in, so it
+       can paint behind the line's own text without escaping behind its background. */
+    isolation: isolate;
+    overflow: hidden;
+    /* Cream ring outside the inline ink keyline, then the drop shadow. */
+    box-shadow:
+        0 0 0 4px #FFF2E8,
+        0 18px 44px rgba(0, 0, 0, 0.6);
+    /* The entrance runs once, then the drift takes over for the rest of the line. */
+    animation:
+        psy-line-in 260ms cubic-bezier(0.2, 0.9, 0.3, 1) both,
+        psy-line-drift 9s ease-in-out 260ms infinite;
 }
 
-.psy-word {
-    display: inline-block;
-    animation: psy-word-breathe 3s ease-in-out infinite;
+/* THE FILM LAYER. A negative z-index child paints AFTER the element's background and
+   BEFORE its inline content, which is the one ordering that puts a texture between the
+   plate's colour and its words with no extra wrapper around the text. The layer itself
+   is a <video> injected by the lyric renderer — see `psy-film` there.
+
+   It replaced two hard-edged dye discs crossing the plate. Those matched the mobile
+   app's cards, but on the stage the plate already sits in front of the projector, and
+   borrowing the projector's own footage as the plate's texture ties the two together in
+   a way that inventing separate accent colours never did. */
+.k-line--psychedelic .psy-film {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+    /* Faint: the singer's colour has to stay the thing you read the plate as, and the
+       film is texture on top of it. Much past this and the words start competing with
+       moving dye instead of sitting on a coloured card. */
+    opacity: 0.26;
 }
+
+/* Paused freezes both — a plate still drifting under a PAUSED chip reads as a bug. */
+[data-theme="psychedelic"] .k-stage--paused .k-line--psychedelic { animation-play-state: paused; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    ZEN STAGE — the tokonoma alcove at dusk
    Warm stone dark, washi paper, kintsugi gold; the singer's color is used
    like a hanko seal — a vivid accent on quiet paper, never the text fill.
    ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Psychedelic backdrop ──────────────────────────────────────────────────
+   When a song HAS album art, that art is the backdrop and the liquid-light footage
+   stays off: two moving colour fields behind the lyrics would compete, and the
+   theme's identity during playback comes from the plates instead. The art is pushed
+   well down in brightness so ink-on-dye plates keep their contrast, and left
+   saturated because desaturating it here would only make it look like a different
+   theme's backdrop. */
+[data-theme="psychedelic"] .k-bg__img,
+[data-theme="psychedelic"] .k-bg__img--prev {
+    filter: blur(58px) saturate(1.15) brightness(0.34);
+}
+
+[data-theme="psychedelic"] .k-bg__scrim {
+    background: radial-gradient(ellipse 78% 68% at 50% 50%, rgba(8,6,12,0.42) 0%, rgba(8,6,12,0.72) 100%);
+}
 
 /* ---- Backdrop: candlelit dusk — warm, desaturated, gently vignetted ---- */
 [data-theme="zen"] .k-bg__img,
@@ -1577,38 +1761,156 @@
     100% { stroke-dashoffset: 15; }
 }
 
-/* ── Space: pulsar glow burst ────────────────────────────────────────────── */
-@keyframes space-pulsar {
-    0%, 100% { text-shadow: 0 0 6px currentColor, 0 0 15px rgba(224,64,251,0.1); }
-    50%      { text-shadow: 0 0 20px currentColor, 0 0 45px currentColor, 0 0 80px rgba(224,64,251,0.15); }
-}
+/* ── Space: the active-line readout plate ────────────────────────────────────
+   A GENUINE 3D OBJECT, not a card with a gradient.
 
+   The line establishes its own perspective and a preserve-3d space, then stacks
+   three surfaces at different depths inside it:
+
+     ::after    z = -26px   ambient glow slab, in the lead singer's colour
+     ::before   z =   0     the machined plate, laid back on rotateX(6deg)
+     .k-syl     z = +22px   the text, floating flat above the tilted plate
+
+   Because those depths are real, the plate's top edge recedes under perspective
+   while the words stay square to the viewer, and a syllable's ignition can punch
+   forward THROUGH that space. It is the same trick the mobile theme's press
+   travel uses, at a larger scale.
+
+   Two things are deliberately absent:
+     • `filter` on this element. drop-shadow was the obvious way to make the
+       chamfered plate glow, and it silently forces transform-style back to flat,
+       collapsing every depth above into one plane. The glow lives on ::after at
+       negative Z instead.
+     • `clip-path` on the line itself. It would chamfer the plate nicely and clip
+       the syllables' bloom off at the same edge. The chamfer goes on ::before,
+       which has no text in it. */
 .k-line--space {
-    animation: space-pulsar 3s ease-in-out infinite;
-    border-radius: 6px;
-    padding: 6px 20px;
-    background: radial-gradient(ellipse at center, rgba(224,64,251,0.04) 0%, transparent 70%);
+    --space-cut: 0.40em;
+    position: relative;
+    border-radius: 0;
+    background: none;
+    padding: 0.3em 1.1em 0.34em 1.25em;
+    isolation: isolate;
+    /* `perspective` WITHOUT `transform-style: preserve-3d`, on purpose.
+       preserve-3d looks like the right tool — it lets the plate, the glow slab
+       and the words mutually depth-sort — but it sorts only TRANSFORMED
+       DESCENDANTS. An element's own text node is not one: it paints in the
+       content layer, which comes before positioned descendants, so a plate on
+       ::before covered the words of any line without .k-syl spans (i.e. every
+       LRC-timed song) no matter how far back its Z was pushed.
+       Plain z-index layering does exactly what's needed instead — negative
+       z-index children paint above this element's background and BELOW its text
+       — while each layer below carries its OWN `perspective()` transform
+       function.
+
+       PER-ELEMENT PERSPECTIVE IS THE POINT. A single `perspective` property here
+       would put one vanishing point at the line's centre, so a syllable pushed
+       toward the viewer also slides radially away from that centre — words on the
+       left threw out to the left, words on the right to the right. Moving
+       perspective into each element's own transform list puts its vanishing point
+       at its own transform-origin, so a highlighted word extrudes STRAIGHT OUT of
+       the plate. */
 }
 
-/* ── Space: solar flare per-word burst ───────────────────────────────────── */
-@keyframes space-flare {
-    0%, 100% { opacity: 1; text-shadow: inherit; }
-    15%      { opacity: 1; text-shadow: 0 0 12px currentColor, 0 0 25px currentColor; }
+/* The plate. All of its detail is background layers on one element:
+   the singer system bar, a milled top edge, a specular sheen, and the glass. */
+.k-line--space::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    /* translateZ(-10px) is load-bearing: the plate has to stay behind the text
+       plane. Syllable spans sit at +22px, but an LRC line's bare text node sits
+       at Z=0, and rotateX alone swings part of a plate at Z=0 in FRONT of it —
+       which rendered those lines with their words occluded by their own panel. */
+    transform: perspective(1200px) translateZ(-10px) rotateX(6deg);
+    transform-origin: center bottom;
+    clip-path: polygon(
+        var(--space-cut) 0,
+        100% 0,
+        100% calc(100% - var(--space-cut)),
+        calc(100% - var(--space-cut)) 100%,
+        0 100%,
+        0 var(--space-cut)
+    );
+    background-color: rgba(91, 233, 255, 0.32);
+    background-image:
+        /* system bar — hard-split per singer on shared lines */
+        var(--space-bar, linear-gradient(180deg, #5BE9FF, #5BE9FF)),
+        /* milled top edge */
+        linear-gradient(180deg, rgba(200, 224, 242, 0.42) 0%, rgba(200, 224, 242, 0) 100%),
+        /* specular sheen — a raking highlight across the glass */
+        linear-gradient(
+            104deg,
+            rgba(255, 255, 255, 0) 18%,
+            rgba(190, 226, 245, 0.10) 38%,
+            rgba(255, 255, 255, 0.16) 46%,
+            rgba(190, 226, 245, 0.06) 54%,
+            rgba(255, 255, 255, 0) 74%
+        ),
+        /* glass fill */
+        linear-gradient(163deg, rgba(22, 33, 46, 0.97) 0%, rgba(7, 12, 20, 0.98) 100%);
+    background-size:
+        0.15em 100%,
+        calc(100% - 2px) 1.4em,
+        calc(100% - 2px) calc(100% - 2px),
+        calc(100% - 2px) calc(100% - 2px);
+    background-position:
+        left top,
+        1px 1px,
+        1px 1px,
+        1px 1px;
+    background-repeat: no-repeat;
 }
 
-.space-flare-word {
-    display: inline-block;
-    animation: space-flare 2.5s ease-out infinite;
+/* Ambient glow slab, well behind the plate. Scaled up and blurred so it reads as
+   light spilling off a lit panel rather than as an outline. */
+.k-line--space::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+    transform: scale(1.03);
+    background: radial-gradient(
+        ellipse 68% 130% at 50% 58%,
+        color-mix(in srgb, var(--space-glow, #5BE9FF), transparent 72%) 0%,
+        color-mix(in srgb, var(--space-glow, #5BE9FF), transparent 90%) 48%,
+        transparent 76%
+    );
+    filter: blur(22px);
 }
 
-/* ── Space: idle screen keyframes ────────────────────────────────────────── */
-@keyframes spaceOrbit {
-    0%   { transform: translate(0, 0) rotate(0deg); }
-    25%  { transform: translate(40px, -15px) rotate(90deg); }
-    50%  { transform: translate(0, -30px) rotate(180deg); }
-    75%  { transform: translate(-40px, -15px) rotate(270deg); }
-    100% { transform: translate(0, 0) rotate(360deg); }
+/* Plate entrance — it rises into place as the line becomes active, which is
+   what makes a line change read as hardware seating rather than text swapping. */
+@keyframes space-plate-seat {
+    from {
+        opacity: 0;
+        transform: perspective(1200px) translateZ(-10px) rotateX(16deg) translateY(0.14em) scale(0.985);
+    }
+    to {
+        opacity: 1;
+        transform: perspective(1200px) translateZ(-10px) rotateX(6deg) translateY(0) scale(1);
+    }
 }
+
+.k-line--space-active::before {
+    animation: space-plate-seat 340ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* No syllable timings — the whole line ignites at once. */
+.k-line--space-full {
+    animation: space-line-ignite 420ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.k-stage--paused .k-line--space-full,
+.k-stage--paused [data-theme="space"] .k-syl--now .k-syl__word,
+.k-stage--paused .k-line--space-active::before {
+    animation-play-state: paused;
+}
+
+/* The space idle screen's decoration is real geometry now (SpaceOutboard), so
+   the old `spaceOrbit` particle keyframe and the `space-flare` per-word burst
+   that went with it have been removed rather than left as dead CSS. */
 
 /* ═══════════════════════════════════════════════════════════════════════════
    STEAMPUNK STAGE — the music-hall engine room

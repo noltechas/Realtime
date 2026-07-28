@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react'
-import { Animated, ScrollView, Text, View } from 'react-native'
+import { Animated, Text, View } from 'react-native'
 import Svg from 'react-native-svg'
-import { UNIVERSAL_SINGER_COLORS } from '@karaoke/shared'
+import { UNIVERSAL_SINGER_COLORS, type SingerColor } from '@karaoke/shared'
 import type { ColorPickerProps } from '../../../types'
 import { Bead3D, Hibiscus3D, MUTE, Press, RopeSeg, sans, useSize } from './_tropical'
 
@@ -10,10 +10,21 @@ import { Bead3D, Hibiscus3D, MUTE, Press, RopeSeg, sans, useSize } from './_trop
 // springs open into a full dimensional hibiscus in that color (petal shading,
 // stamen and all). Deselect and it closes back into a bead. One spring, one
 // metaphor, zero checkmarks.
+//
+// The lei is strung as TWO strands rather than one sideways-scrolling row. A
+// scroller cut the last beads off at the screen edge — and a lei you can only
+// see half of isn't a lei. Each strand measures itself and hangs its own cord,
+// so the second (shorter) strand sags on its own arc instead of borrowing the
+// first one's width.
 
-const CELL = 58
-const BEAD = 36
-const BLOOM = 54
+const CELL = 44
+const BEAD = 30
+const BLOOM = 42
+const PAD = 18
+const ROW_H = CELL + 6
+// Seven beads per strand fits a phone with room to spare; 13 colors then hang as
+// 7 + 6.
+const PER_STRAND = 7
 
 function Swatch({ color, selected, onPress }: { color: string; selected: boolean; onPress: () => void }) {
   const v = useRef(new Animated.Value(selected ? 1 : 0)).current
@@ -36,7 +47,7 @@ function Swatch({ color, selected, onPress }: { color: string; selected: boolean
       hitSlop={7}
       scaleTo={0.88}
       accessibilityLabel={`Pick color ${color}`}
-      style={{ width: CELL, height: CELL + 6, alignItems: 'center', justifyContent: 'center' }}
+      style={{ width: CELL, height: ROW_H, alignItems: 'center', justifyContent: 'center' }}
     >
       {/* the bead — shrinks away as the bloom opens */}
       <Animated.View
@@ -66,38 +77,71 @@ function Swatch({ color, selected, onPress }: { color: string; selected: boolean
   )
 }
 
-export function ColorPicker({ value, onChange, label = 'Your Color' }: ColorPickerProps) {
+// One strand of the lei: a measured cord with its own shallow catenary sag, and
+// the beads threaded onto it.
+function Strand({
+  colors,
+  offset,
+  value,
+  onChange,
+}: {
+  colors: SingerColor[]
+  offset: number
+  value: number
+  onChange: (index: number) => void
+}) {
   const [size, onLayout] = useSize()
 
   return (
-    <View onLayout={onLayout}>
+    <View style={{ alignSelf: 'flex-start' }} onLayout={onLayout}>
+      {size ? (
+        <Svg
+          pointerEvents="none"
+          width={size.w}
+          height={26}
+          style={{ position: 'absolute', top: ROW_H / 2 - 13 }}
+        >
+          <RopeSeg x1={8} y1={9} x2={size.w / 2} y2={17} width={2.6} />
+          <RopeSeg x1={size.w / 2} y1={17} x2={size.w - 8} y2={9} width={2.6} />
+        </Svg>
+      ) : null}
+
+      <View style={{ flexDirection: 'row', columnGap: 2, alignItems: 'center' }}>
+        {colors.map((c, i) => (
+          <Swatch
+            key={c.color}
+            color={c.color}
+            selected={offset + i === value}
+            onPress={() => onChange(offset + i)}
+          />
+        ))}
+      </View>
+    </View>
+  )
+}
+
+export function ColorPicker({ value, onChange, label = 'Your Color' }: ColorPickerProps) {
+  const strands: SingerColor[][] = []
+  for (let i = 0; i < UNIVERSAL_SINGER_COLORS.length; i += PER_STRAND) {
+    strands.push(UNIVERSAL_SINGER_COLORS.slice(i, i + PER_STRAND))
+  }
+
+  return (
+    <View>
       <Text style={[sans(12, 'bold', MUTE), { paddingHorizontal: 24, marginBottom: 0, letterSpacing: 1.3, textTransform: 'uppercase' }]}>
         {label}
       </Text>
 
-      <View>
-        {/* the cord the beads are strung on — a shallow catenary sag */}
-        {size ? (
-          <Svg
-            pointerEvents="none"
-            width={size.w}
-            height={26}
-            style={{ position: 'absolute', top: 8 + (CELL + 6) / 2 - 13 }}
-          >
-            <RopeSeg x1={10} y1={9} x2={size.w / 2} y2={17} width={2.6} />
-            <RopeSeg x1={size.w / 2} y1={17} x2={size.w - 10} y2={9} width={2.6} />
-          </Svg>
-        ) : null}
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 18, gap: 2, paddingVertical: 8, alignItems: 'center' }}
-        >
-          {UNIVERSAL_SINGER_COLORS.map((c, i) => (
-            <Swatch key={c.color} color={c.color} selected={i === value} onPress={() => onChange(i)} />
-          ))}
-        </ScrollView>
+      <View style={{ paddingHorizontal: PAD, paddingVertical: 8, rowGap: 4 }}>
+        {strands.map((colors, strandIndex) => (
+          <Strand
+            key={strandIndex}
+            colors={colors}
+            offset={strandIndex * PER_STRAND}
+            value={value}
+            onChange={onChange}
+          />
+        ))}
       </View>
     </View>
   )

@@ -1,31 +1,63 @@
-// Psychedelic / Lava Lamp Design System
-// 1960s acid-trip meets lava lamp — morphing color blobs, rainbow hue-rotation,
-// breathing elements, trippy gradient backgrounds, groovy typography.
+// Psychedelic — "LIQUID LIGHT", the same theme the mobile app runs.
+//
+// The stage's backdrop is real footage of a 1960s-style liquid light show: oil, water
+// and aniline dyes on an overhead projector (see components/LiquidLight.tsx). Nothing
+// about that colour is simulated, which is the whole point — two attempts at generating
+// it procedurally, a lobed-plate vocabulary and then a domain-warped shader, both read
+// as computer graphics rather than as photographed liquid.
+//
+// EVERYTHING ELSE IS PRINTED. Chrome is built from opaque plates of saturated dye with
+// ink lettering and heavy ink keylines — Fillmore poster construction. That is not a
+// stylistic flourish, it's the only thing that survives the backdrop: the footage is
+// saturated, polychrome, high-contrast and moving, so any UI that also brings colour AND
+// translucency competes with it and loses. Earlier passes used dark purple glass with
+// rainbow glows and hue-rotation; against real dye footage they read as mud.
+//
+// Three rules, each one the lesson of a rejected attempt:
+//
+//   1. PLATES, NOT GLASS. Opaque saturated fills, hard edges, no gradients doing the
+//      work of a shape. A crisp colour boundary reads as printed; a gradient reads as
+//      generated.
+//   2. INK ON BRIGHT, or cream on ink — never a dyed glyph. Every entry in DYES is
+//      constrained to carry ink at body sizes, which is why the violet here is lifted
+//      from the footage's true #8A3BFF to #A96BFF (ink on #8A3BFF is 3.7:1 and fails).
+//   3. THE SHELL STAYS DARK. This app is the operator's control surface, usually running
+//      in a dim room next to the stage output; the poster treatment belongs on the stage
+//      and on the buttons, not on the admin panels.
+//
+// Kept in sync with packages/shared/src/themes/psychedelic.ts and the mobile theme's
+// shared vocabulary at packages/mobile/src/theme/themes/psychedelic/atoms/_glass.tsx.
 
 import type { Theme } from './theme'
 
 // ── Palette ──────────────────────────────────────────────────────────────────
-const DEEP_PURPLE  = '#1a0a2e'
-const PURPLE_PANEL = '#241040'
-const PURPLE_CARD  = '#2a1450'
-const HOT_PINK     = '#ff2d95'   // primary
-const ELEC_LIME    = '#b6ff2d'   // secondary
-const TANGERINE    = '#ff8c2d'   // tertiary
-const LAVENDER_WHT = '#f5ecff'   // high-contrast light text
-const TEXT_MID     = '#c8a8e8'   // muted text — readable on purple bg
+const INK        = '#08060C'   // the darkest thing in the theme; all keylines and type
+const INK_PANEL  = '#120E1C'   // shell panels
+const INK_CARD   = '#1A1428'   // raised shell cards
+const CREAM      = '#FFF2E8'   // paper — plates, big type on dark, the primary button
+const CREAM_DIM  = '#C9BFD2'   // muted body copy on the dark shell
 
-const pinkGlow  = (spread = 8, a = 0.35) => `0 0 ${spread}px rgba(255,45,149,${a})`
-const limeGlow  = (spread = 8, a = 0.3)  => `0 0 ${spread}px rgba(182,255,45,${a})`
-const tanGlow   = (spread = 6, a = 0.25) => `0 0 ${spread}px rgba(255,140,45,${a})`
+// The dye palette, walked by position wherever a list needs colour.
+const DYE_PINK   = '#FF2E88'
+const DYE_AMBER  = '#FFB020'
+const DYE_MINT   = '#5AF0D0'
+const DYE_VIOLET = '#A96BFF'
+const DYE_GREEN  = '#39D353'
+const DYE_ORANGE = '#FF5A3C'
 
+// Chicle is the Google face closest to the mobile app's Remalos: a fat, warm, 60s
+// groove display. Nunito carries every piece of body copy — the previous theme set body
+// text in Spicy Rice, a display face, which is illegible at 13px and was fixed on mobile
+// for the same reason.
 const FONT_DISPLAY = "'Chicle', 'Spicy Rice', cursive"
-const FONT_BODY    = "'Spicy Rice', 'Comfortaa', cursive"
+const FONT_BODY    = "'Nunito', 'Quicksand', system-ui, sans-serif"
 
-// ── Singer colors — psychedelic palette ──────────────────────────────────────
-// ── Global CSS injected when psychedelic theme is active ─────────────────────
+/** Poster line work is heavy — a 1px hairline reads timid next to a dye plate. */
+const KEYLINE = '2px'
+
 const GLOBAL_CSS = `
-/* ── Custom fonts ────────────────────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Chicle&family=Spicy+Rice&display=swap');
+/* ── Fonts ───────────────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Chicle&family=Nunito:wght@400;700;800&display=swap');
 
 [data-theme="psychedelic"] * {
   font-family: ${FONT_BODY};
@@ -34,314 +66,318 @@ const GLOBAL_CSS = `
 [data-theme="psychedelic"] h2,
 [data-theme="psychedelic"] h3 {
   font-family: ${FONT_DISPLAY};
+  letter-spacing: 0.01em;
 }
 
-/* ── Lava lamp blobs (behind content) ────────────────────────────────────── */
-[data-theme="psychedelic"] .main {
-  position: relative;
-}
+/* ── Shared motion ───────────────────────────────────────────────────────────
+   Two loops, and they are slow on purpose. An earlier version of this theme ran a
+   3s breathe and a continuous hue-rotate on top of a 20s blob morph; on a screen
+   the audience stares at for three minutes that reads as agitation. A full cycle
+   here takes 6-40 seconds, so the motion registers as drift. */
 
-[data-theme="psychedelic"] .main::before {
-  content: '';
-  position: fixed;
-  inset: -20%;
-  pointer-events: none;
-  z-index: 0;
-  background:
-    radial-gradient(ellipse 300px 300px at 20% 30%, rgba(255,45,149,0.15) 0%, transparent 70%),
-    radial-gradient(ellipse 250px 350px at 75% 60%, rgba(182,255,45,0.12) 0%, transparent 70%),
-    radial-gradient(ellipse 350px 250px at 50% 80%, rgba(255,140,45,0.12) 0%, transparent 70%),
-    radial-gradient(ellipse 200px 300px at 85% 20%, rgba(149,45,255,0.10) 0%, transparent 70%);
-  animation: psyBlobMorph 20s ease-in-out infinite alternate;
-  filter: blur(60px);
-}
-
-@keyframes psyBlobMorph {
-  0%   { transform: scale(1) rotate(0deg) translate(0, 0); }
-  25%  { transform: scale(1.1) rotate(3deg) translate(30px, -20px); }
-  50%  { transform: scale(0.95) rotate(-2deg) translate(-20px, 30px); }
-  75%  { transform: scale(1.15) rotate(4deg) translate(15px, 15px); }
-  100% { transform: scale(1) rotate(-3deg) translate(-10px, -25px); }
-}
-
-/* ── Second blob layer (different timing) ────────────────────────────────── */
-[data-theme="psychedelic"] .main::after {
-  content: '';
-  position: fixed;
-  inset: -10%;
-  pointer-events: none;
-  z-index: 0;
-  background:
-    radial-gradient(ellipse 280px 280px at 60% 25%, rgba(45,217,255,0.10) 0%, transparent 70%),
-    radial-gradient(ellipse 320px 200px at 30% 70%, rgba(255,45,255,0.10) 0%, transparent 70%),
-    radial-gradient(ellipse 200px 280px at 80% 80%, rgba(255,255,45,0.08) 0%, transparent 70%);
-  animation: psyBlobMorph2 28s ease-in-out infinite alternate;
-  filter: blur(50px);
-}
-
-@keyframes psyBlobMorph2 {
-  0%   { transform: scale(1) rotate(0deg) translate(0, 0); }
-  33%  { transform: scale(1.08) rotate(-4deg) translate(-25px, 20px); }
-  66%  { transform: scale(0.92) rotate(3deg) translate(20px, -15px); }
-  100% { transform: scale(1.05) rotate(-2deg) translate(10px, 25px); }
-}
-
-/* ── Hue-rotation cycling on accent elements ─────────────────────────────── */
-@keyframes psyHueShift {
-  0%   { filter: hue-rotate(0deg); }
-  100% { filter: hue-rotate(360deg); }
-}
-
-[data-theme="psychedelic"] .topnav a[aria-current="page"] {
-  animation: psyHueShift 8s linear infinite;
-  text-shadow: 0 0 12px rgba(255,45,149,0.6), 0 0 24px rgba(182,255,45,0.3);
-}
-
-/* ── Breathing / pulsing cards ───────────────────────────────────────────── */
-@keyframes psyBreathe {
+@keyframes psy-drift {
   0%, 100% { transform: scale(1); }
-  50%      { transform: scale(1.003); }
+  50%      { transform: scale(1.035); }
 }
 
-/* ── Groovy heading wobble ───────────────────────────────────────────────── */
-@keyframes psyWobble {
-  0%, 100% { transform: skewX(0deg); }
-  25%      { transform: skewX(-0.5deg); }
-  75%      { transform: skewX(0.5deg); }
+/* A quick, discrete arrival for plates — a stamp, not a fade. */
+@keyframes psy-stamp-in {
+  0%   { transform: scale(0.94) rotate(-0.6deg); opacity: 0; }
+  60%  { transform: scale(1.015) rotate(0.2deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
 }
 
-[data-theme="psychedelic"] h1 {
-  animation: psyWobble 6s ease-in-out infinite;
-  text-shadow: 0 0 20px rgba(255,45,149,0.3), 0 0 40px rgba(182,255,45,0.15);
+/* ── Stage lyrics take the DISPLAY face ──────────────────────────────────────
+   The universal rule above sets body type for everything, which is right for
+   paragraphs and wrong for the one piece of type an entire room reads from across it.
+   Without this the lyrics render in Nunito and the stage loses the theme's whole
+   voice. The previous version of this theme got the groovy look here only by accident,
+   because its BODY font happened to be a display face (Spicy Rice) — which in turn
+   made every 13px paragraph in the app illegible.
+
+   The descendant selector is load-bearing. Naming only .k-line and .k-syl was not
+   enough: the actual glyphs live in an inner .k-syl__word span (the lyric renderer
+   splits each syllable's trailing space out so a highlight can hug the letters), and the
+   universal rule above MATCHES that span directly — a matching declaration always beats
+   an inherited one, so the words kept rendering in Nunito while .k-line's computed
+   font-family still read "Chicle" and looked correct under inspection. Measuring the
+   rendered text width against a canvas prediction is what actually caught it.
+
+   NOTE: no backticks anywhere in this string. It is a template literal, and a stray
+   backtick in a CSS comment silently terminates it — the rest of the sheet then parses
+   as arithmetic and globalCss lands as the NUMBER NaN, so the stage renders with no
+   theme CSS at all and nothing warns you. This has now happened twice in this
+   codebase, once here and once in space.ts. */
+[data-theme="psychedelic"] .k-line,
+[data-theme="psychedelic"] .k-line * {
+  font-family: ${FONT_DISPLAY};
+  /* Chicle ships one weight; asking for 700 makes the browser synthesise a smeared
+     faux-bold, which at stage size is very visible. */
+  font-weight: 400;
 }
 
-/* ── Rainbow glow on nav border ──────────────────────────────────────────── */
-[data-theme="psychedelic"] .topnav {
-  box-shadow: 0 1px 0 rgba(255,45,149,0.2), 0 2px 12px rgba(182,255,45,0.06);
+/* ── Shell accents ───────────────────────────────────────────────────────── */
+[data-theme="psychedelic"] .topnav a[aria-current="page"] {
+  box-shadow: inset 0 -3px 0 ${DYE_PINK};
 }
 
-/* ── Trippy scrollbar ────────────────────────────────────────────────────── */
 [data-theme="psychedelic"] ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, rgba(255,45,149,0.3), rgba(182,255,45,0.3), rgba(255,140,45,0.3));
-  border-radius: 10px;
+  background: ${DYE_PINK};
+  border-radius: 999px;
 }
 [data-theme="psychedelic"] ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, rgba(255,45,149,0.5), rgba(182,255,45,0.5), rgba(255,140,45,0.5));
+  background: ${DYE_AMBER};
 }
 [data-theme="psychedelic"] ::-webkit-scrollbar-track {
-  background: rgba(255,45,149,0.03);
+  background: rgba(255,255,255,0.04);
 }
 
-/* ── Input / select focus rings — rainbow ────────────────────────────────── */
+/* Focus is a solid dye ring, not a glow — glows are what the old theme used
+   everywhere and they are indistinguishable from each other at a glance. */
 [data-theme="psychedelic"] input:focus,
 [data-theme="psychedelic"] select:focus,
 [data-theme="psychedelic"] textarea:focus {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(255,45,149,0.4), 0 0 14px rgba(182,255,45,0.2), 0 0 20px rgba(255,140,45,0.1) !important;
-  border-color: ${HOT_PINK} !important;
+  border-color: ${DYE_PINK} !important;
+  box-shadow: 0 0 0 3px rgba(255,46,136,0.28) !important;
 }
 
-/* ── Button hover — multicolor glow ──────────────────────────────────────── */
-[data-theme="psychedelic"] button:hover {
-  text-shadow: 0 0 8px rgba(255,45,149,0.5), 0 0 16px rgba(182,255,45,0.3);
-}
-
-/* ── Active lyric line: lava-lamp morphing blob (singer color only) ──────── */
-@keyframes psyLyricBlob {
-  0%, 100% { border-radius: 58% 32% 60% 40% / 40% 62% 30% 52%; }
-  25%      { border-radius: 32% 62% 40% 54% / 62% 30% 52% 40%; }
-  50%      { border-radius: 44% 50% 30% 62% / 50% 40% 62% 32%; }
-  75%      { border-radius: 62% 40% 52% 30% / 32% 50% 40% 62%; }
-}
-
-@keyframes psyLyricFlow {
-  0%, 100% { background-position: 0% 0%; }
-  50%      { background-position: 100% 100%; }
-}
-
-[data-theme="psychedelic"] .k-line--psychedelic-active {
-  animation:
-    psyLyricBlob 9s ease-in-out infinite,
-    psyLyricFlow 7s ease-in-out infinite alternate,
-    psyWobble 6s ease-in-out infinite;
+/* Buttons are dye plates: a press pushes them into the page rather than fading
+   them, which is the physical read a printed object wants. */
+[data-theme="psychedelic"] button:active {
+  transform: translateY(1px);
 }
 `
 
 // ── Theme export ─────────────────────────────────────────────────────────────
 export const PSYCHEDELIC: Theme = {
-  name: 'psychedelic',
-  nextThemeName: 'zen',
-  displayName: 'Psychedelic',
-  globalCss: GLOBAL_CSS,
+    name: 'psychedelic',
+    nextThemeName: 'zen',
+    displayName: 'Psychedelic',
+    globalCss: GLOBAL_CSS,
 
-  // ── Raw colors (high contrast: light lavender text on deep purple) ─────────
-  black:       LAVENDER_WHT,     // primary text — very light on purple bg
-  white:       DEEP_PURPLE,      // inverted for "light" blocks
-  cream:       PURPLE_PANEL,
-  creamDark:   PURPLE_CARD,
-  hotRed:      HOT_PINK,
-  vividYellow: TANGERINE,
-  softViolet:  '#952dff',
-  mintGreen:   ELEC_LIME,
-  muted:       TEXT_MID,         // readable mid-contrast text
-  faint:       'rgba(200,168,232,0.35)',
+    // `black` / `white` are SEMANTIC, not literal: on this dark shell `black` is the
+    // light foreground and `white` is the dark backdrop.
+    black:       CREAM,
+    white:       INK,
+    cream:       INK_PANEL,
+    creamDark:   INK_CARD,
+    hotRed:      DYE_PINK,
+    // The NOW PLAYING banner uses accentB as a background with hardcoded dark text, so
+    // this must stay bright. Cream is the brightest surface in the theme.
+    vividYellow: CREAM,
+    softViolet:  DYE_VIOLET,
+    mintGreen:   DYE_MINT,
+    muted:       CREAM_DIM,
+    faint:       'rgba(255,255,255,0.16)',
 
-  accentA: HOT_PINK,
-  accentB: ELEC_LIME,
-  accentC: TANGERINE,
+    accentA: DYE_PINK,
+    accentB: CREAM,
+    accentC: DYE_MINT,
 
-  // ── Shell ──────────────────────────────────────────────────────────────────
-  appBg:         DEEP_PURPLE,
-  titlebarBg:    DEEP_PURPLE,
-  titlebarText:  TEXT_MID,
+    // ── Shell ──────────────────────────────────────────────────────────────────
+    appBg:         INK,
+    titlebarBg:    INK,
+    titlebarText:  CREAM_DIM,
 
-  navBg:           'rgba(26,10,46,0.95)',
-  navBorderBottom: '1px solid rgba(255,45,149,0.15)',
-  navLink:         TEXT_MID,
-  navLinkActive:   HOT_PINK,
-  navLinkActiveBg: 'rgba(255,45,149,0.1)',
-  navLinkHoverBg:  'rgba(255,45,149,0.06)',
+    navBg:           'rgba(8,6,12,0.96)',
+    navBorderBottom: `${KEYLINE} solid rgba(255,255,255,0.10)`,
+    navLink:         CREAM_DIM,
+    navLinkActive:   CREAM,
+    navLinkActiveBg: 'rgba(255,255,255,0.07)',
+    navLinkHoverBg:  'rgba(255,255,255,0.04)',
 
-  // ── Borders & Shadows ──────────────────────────────────────────────────────
-  border:       '1px solid rgba(255,45,149,0.15)',
-  borderThin:   '1px solid rgba(255,45,149,0.10)',
-  borderLight:  '1px solid rgba(255,45,149,0.06)',
-  shadow:        `${pinkGlow(8, 0.1)}, ${limeGlow(6, 0.06)}`,
-  shadowLift:    `${pinkGlow(16, 0.2)}, ${limeGlow(12, 0.12)}, ${tanGlow(8, 0.08)}`,
-  shadowPressed: `${pinkGlow(4, 0.08)}`,
-  shadowColor:   (color: string) => `0 0 14px ${color}, 0 0 28px ${color}`,
+    // ── Borders & shadows ──────────────────────────────────────────────────────
+    // Depth comes from real black shadow, never a coloured glow: the stage backdrop
+    // already supplies all the colour there is, and a glow on top of it just adds haze.
+    border:       `${KEYLINE} solid rgba(255,255,255,0.14)`,
+    borderThin:   '1px solid rgba(255,255,255,0.10)',
+    borderLight:  '1px solid rgba(255,255,255,0.06)',
+    shadow:        '0 4px 16px rgba(0,0,0,0.5)',
+    shadowLift:    '0 12px 34px rgba(0,0,0,0.6)',
+    shadowPressed: '0 2px 6px rgba(0,0,0,0.55)',
+    shadowColor:   (color: string) => `0 0 0 ${KEYLINE} ${color}, 0 6px 20px rgba(0,0,0,0.5)`,
 
-  // ── Radius — very rounded, groovy ─────────────────────────────────────────
-  radius:      16,
-  radiusSmall: 10,
+    // Generous, and asymmetric where a component opts in — poured, not drawn.
+    radius:      18,
+    radiusSmall: 11,
 
-  // ── Typography ─────────────────────────────────────────────────────────────
-  fontDisplay: FONT_DISPLAY,
-  fontBody:    FONT_BODY,
+    fontDisplay: FONT_DISPLAY,
+    fontBody:    FONT_BODY,
 
-  // ── Spinner ────────────────────────────────────────────────────────────────
-  spinnerBorder:    'rgba(255,45,149,0.15)',
-  spinnerBorderTop: HOT_PINK,
+    spinnerBorder:    'rgba(255,255,255,0.14)',
+    spinnerBorderTop: DYE_PINK,
 
-  // ── Component styles ───────────────────────────────────────────────────────
-  page: {
-    background:  'transparent',
-    color:       LAVENDER_WHT,
-    minHeight:   '100%',
-    padding:     '32px 40px 64px',
-    maxWidth:    960,
-    margin:      '0 auto',
-    fontFamily:  FONT_BODY,
-    position:    'relative',
-    zIndex:      2,
-  },
+    // ── Component styles ───────────────────────────────────────────────────────
+    page: {
+        background:  'transparent',
+        color:       CREAM,
+        minHeight:   '100%',
+        padding:     '32px 40px 64px',
+        maxWidth:    960,
+        margin:      '0 auto',
+        fontFamily:  FONT_BODY,
+        position:    'relative',
+        zIndex:      2,
+    },
 
-  card: {
-    background:     'rgba(42,20,80,0.7)',
-    border:         '1px solid rgba(255,45,149,0.12)',
-    borderRadius:   16,
-    backdropFilter:  'blur(8px)',
-    animation:      'psyBreathe 5s ease-in-out infinite',
-  },
+    card: {
+        background:   INK_PANEL,
+        border:       `${KEYLINE} solid rgba(255,255,255,0.12)`,
+        borderRadius: 18,
+        boxShadow:    '0 4px 16px rgba(0,0,0,0.45)',
+    },
 
-  cardHover: {
-    border:    '1px solid rgba(255,45,149,0.3)',
-    boxShadow: `${pinkGlow(14, 0.18)}, ${limeGlow(8, 0.1)}, ${tanGlow(6, 0.08)}`,
-  },
+    cardHover: {
+        border:    `${KEYLINE} solid ${DYE_PINK}`,
+        boxShadow: '0 10px 26px rgba(0,0,0,0.55)',
+    },
 
-  input: {
-    background:   'rgba(255,45,149,0.04)',
-    border:       '1px solid rgba(255,45,149,0.15)',
-    borderRadius: 10,
-    color:        LAVENDER_WHT,
-    fontFamily:   FONT_BODY,
-    outline:      'none',
-    caretColor:   HOT_PINK,
-  },
+    input: {
+        background:   'rgba(255,255,255,0.05)',
+        border:       `${KEYLINE} solid rgba(255,255,255,0.14)`,
+        borderRadius: 11,
+        color:        CREAM,
+        fontFamily:   FONT_BODY,
+        fontWeight:   700,
+        outline:      'none',
+        caretColor:   DYE_PINK,
+    },
 
-  select: {
-    background:   'rgba(255,45,149,0.04)',
-    border:       '1px solid rgba(255,45,149,0.12)',
-    borderRadius: 10,
-    color:        LAVENDER_WHT,
-    fontFamily:   FONT_BODY,
-    outline:      'none',
-    cursor:       'pointer',
-    appearance:   'none' as const,
-  },
+    select: {
+        background:   'rgba(255,255,255,0.05)',
+        border:       `${KEYLINE} solid rgba(255,255,255,0.12)`,
+        borderRadius: 11,
+        color:        CREAM,
+        fontFamily:   FONT_BODY,
+        fontWeight:   700,
+        outline:      'none',
+        cursor:       'pointer',
+        appearance:   'none' as const,
+    },
 
-  btnPrimary: {
-    background:     'rgba(255,45,149,0.15)',
-    color:          LAVENDER_WHT,
-    border:         '1px solid rgba(255,45,149,0.45)',
-    boxShadow:      `${pinkGlow(10, 0.25)}, inset 0 0 20px rgba(255,45,149,0.05)`,
-    borderRadius:   10,
-    fontFamily:     FONT_DISPLAY,
-    fontWeight:     700,
-    cursor:         'pointer',
-    transition:     'all 0.25s ease',
-    letterSpacing:  '1px',
-    textShadow:     '0 0 10px rgba(255,45,149,0.5)',
-  },
+    // The three buttons are three weights of the same printing: paper, ink, and a
+    // keyline on nothing. None of them is frosted glass.
+    btnPrimary: {
+        background:    CREAM,
+        color:         INK,
+        border:        `${KEYLINE} solid ${INK}`,
+        boxShadow:     '0 4px 14px rgba(0,0,0,0.45)',
+        borderRadius:  12,
+        fontFamily:    FONT_DISPLAY,
+        fontWeight:    400,
+        cursor:        'pointer',
+        transition:    'transform 0.12s ease, box-shadow 0.2s ease',
+        letterSpacing: '0.02em',
+    },
 
-  btnSecondary: {
-    background:    'rgba(182,255,45,0.08)',
-    color:         '#d8ff9e',
-    border:        '1px solid rgba(182,255,45,0.35)',
-    boxShadow:     `${limeGlow(8, 0.2)}`,
-    borderRadius:  10,
-    fontFamily:    FONT_DISPLAY,
-    fontWeight:    700,
-    cursor:        'pointer',
-    transition:    'all 0.25s ease',
-  },
+    btnSecondary: {
+        background:   DYE_PINK,
+        color:        INK,
+        border:       `${KEYLINE} solid ${INK}`,
+        boxShadow:    '0 4px 14px rgba(0,0,0,0.45)',
+        borderRadius: 12,
+        fontFamily:   FONT_DISPLAY,
+        fontWeight:   400,
+        cursor:       'pointer',
+        transition:   'transform 0.12s ease, box-shadow 0.2s ease',
+    },
 
-  btnOutline: {
-    background:    'transparent',
-    color:         '#ffc08a',
-    border:        '1px solid rgba(255,140,45,0.35)',
-    boxShadow:     `${tanGlow(6, 0.15)}`,
-    borderRadius:  10,
-    fontFamily:    FONT_DISPLAY,
-    fontWeight:    700,
-    cursor:        'pointer',
-    transition:    'all 0.25s ease',
-  },
+    btnOutline: {
+        background:   'transparent',
+        color:        CREAM,
+        border:       `${KEYLINE} solid rgba(255,255,255,0.42)`,
+        boxShadow:    'none',
+        borderRadius: 12,
+        fontFamily:   FONT_DISPLAY,
+        fontWeight:   400,
+        cursor:       'pointer',
+        transition:   'all 0.2s ease',
+    },
 
-  iconBtn: {
-    width:           40,
-    height:          40,
-    borderRadius:    12,
-    border:          '1px solid rgba(255,45,149,0.15)',
-    background:      'rgba(255,45,149,0.04)',
-    color:           TEXT_MID,
-    cursor:          'pointer',
-    display:         'flex',
-    alignItems:      'center',
-    justifyContent:  'center',
-    transition:      'all 0.25s ease',
-    boxShadow:       'none',
-  },
+    iconBtn: {
+        width:          40,
+        height:         40,
+        borderRadius:   12,
+        border:         `${KEYLINE} solid rgba(255,255,255,0.14)`,
+        background:     'rgba(255,255,255,0.05)',
+        color:          CREAM_DIM,
+        cursor:         'pointer',
+        display:        'flex',
+        alignItems:     'center',
+        justifyContent: 'center',
+        transition:     'all 0.2s ease',
+        boxShadow:      'none',
+    },
 
-  iconBtnHover: {
-    background: 'rgba(255,45,149,0.12)',
-    color:      HOT_PINK,
-    boxShadow:  `${pinkGlow(10, 0.25)}, ${limeGlow(6, 0.1)}`,
-  },
+    iconBtnHover: {
+        background: DYE_PINK,
+        color:      INK,
+        border:     `${KEYLINE} solid ${INK}`,
+        boxShadow:  '0 4px 12px rgba(0,0,0,0.5)',
+    },
 
-  stickerLabel: {
-    position:      'absolute',
-    fontFamily:    FONT_DISPLAY,
-    fontWeight:    700,
-    fontSize:      10,
-    letterSpacing: '1.5px',
-    textTransform: 'uppercase',
-    padding:       '3px 12px',
-    border:        '1px solid rgba(255,45,149,0.25)',
-    boxShadow:     pinkGlow(4, 0.2),
-    color:         HOT_PINK,
-    background:    'rgba(255,45,149,0.08)',
-    borderRadius:  8,
-  },
+    stickerLabel: {
+        position:      'absolute',
+        fontFamily:    FONT_BODY,
+        fontWeight:    800,
+        fontSize:      10,
+        letterSpacing: '0.14em',
+        textTransform: 'uppercase',
+        padding:       '3px 11px',
+        border:        `${KEYLINE} solid ${INK}`,
+        boxShadow:     '0 2px 8px rgba(0,0,0,0.5)',
+        color:         INK,
+        background:    DYE_AMBER,
+        borderRadius:  999,
+    },
+}
 
+// ── Stage vocabulary ─────────────────────────────────────────────────────────
+// Exported for the stage's poster chrome in KaraokePage — the plates, the sunburst,
+// the count-in and the lyric line all draw from exactly these values, so the stage and
+// the theme can't drift apart.
+export const PSY = {
+    INK,
+    CREAM,
+    /** Secondary ink, for supporting type on a bright plate. */
+    INK_SOFT: 'rgba(8,6,12,0.68)',
+    INK_FAINT: 'rgba(8,6,12,0.42)',
+    /** Poster keyline width in px, as a number so callers can compute with it. */
+    LINE: 3,
+    DYES: [DYE_PINK, DYE_AMBER, DYE_MINT, DYE_VIOLET, DYE_GREEN, DYE_ORANGE] as const,
+    FONT_DISPLAY,
+    FONT_BODY,
+} as const
+
+/**
+ * Cream display type with an ink stroke behind it — the one treatment that survives being
+ * laid directly over the projector footage, which runs from near-black to pure white.
+ *
+ * The stroke width is in `em`, NOT pixels. A fixed pixel stroke looks completely different
+ * on a laptop preview and on a 4K stage output: 11px read as a tasteful outline at one size
+ * and as a heavy blob welded around the letters at another, closing up Chicle's counters.
+ * In em it holds the same ratio to the letterform everywhere.
+ *
+ * `paintOrder: 'stroke'` puts the stroke UNDER the fill. Without it, -webkit-text-stroke is
+ * centred on the glyph outline and eats half the letterform from the inside.
+ */
+export function psyStroke(em = 0.045): Record<string, string> {
+    return {
+        color: CREAM,
+        WebkitTextStroke: `${em}em ${INK}`,
+        paintOrder: 'stroke',
+    }
+}
+
+/**
+ * Corner radii for a plate that looks POURED rather than drawn — one diagonal pair fat,
+ * the other tight, flipping with `seed` so adjacent plates aren't identical.
+ */
+export function psyPoured(seed: number, base = 22, swing = 10): string {
+    const fat = base + swing
+    const tight = base - swing
+    return seed % 2 === 0
+        ? `${fat}px ${tight}px ${fat}px ${tight}px`
+        : `${tight}px ${fat}px ${tight}px ${fat}px`
 }

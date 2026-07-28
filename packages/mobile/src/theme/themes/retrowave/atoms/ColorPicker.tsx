@@ -1,5 +1,5 @@
 import React from 'react'
-import { View, Text, Pressable, ScrollView, Animated } from 'react-native'
+import { View, Text, Pressable, Animated } from 'react-native'
 import Svg, { Defs, RadialGradient, Stop, Circle, G, Line } from 'react-native-svg'
 import { UNIVERSAL_SINGER_COLORS } from '@karaoke/shared'
 import { useTheme } from '../../../ThemeContext'
@@ -12,6 +12,12 @@ import type { ColorPickerProps } from '../../../types'
 // aberration ring (cyan + magenta hairlines around the orb), and rotate
 // their crosshair backplate continuously. Inactive orbs sit still with a
 // faint outline.
+//
+// A wrapping grid rather than a horizontal scroller — a scroller cut the last
+// orbs off at the screen edge. CELL + gap fits seven per row, so 13 lands as a
+// clean 7 + 6. Each orb lives in a fixed CELL and only its contents grow on
+// selection, so picking a colour can't reflow the grid.
+const CELL = 44
 export function RetrowaveColorPicker({
   value,
   onChange,
@@ -29,17 +35,25 @@ export function RetrowaveColorPicker({
           color: '#FF2D95',
           marginBottom: 10,
           paddingHorizontal: 24,
-          textShadowColor: 'rgba(255,45,149,0.65)',
-          textShadowRadius: 5,
-          textShadowOffset: { width: 0, height: 0 },
+          // A dark halo, not the usual magenta bloom: this label lands directly
+          // on the theme's own magenta horizon grid, where a magenta glow made
+          // magenta type disappear into the backdrop.
+          textShadowColor: 'rgba(10,4,20,0.95)',
+          textShadowRadius: 6,
+          textShadowOffset: { width: 0, height: 1 },
         }}
       >
         {label}
       </Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 24, gap: 14, paddingVertical: 6 }}
+      <View
+        style={{
+          paddingHorizontal: 24,
+          paddingVertical: 6,
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          columnGap: 6,
+          rowGap: 10,
+        }}
       >
         {UNIVERSAL_SINGER_COLORS.map((c, i) => (
           <NeonOrb
@@ -50,7 +64,7 @@ export function RetrowaveColorPicker({
             onPress={() => onChange(i)}
           />
         ))}
-      </ScrollView>
+      </View>
     </View>
   )
 }
@@ -74,10 +88,14 @@ function NeonOrb({
   const breath = useOscillator(2200 + (seed % 7) * 180)
   const breathOpacity = breath.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] })
 
-  const size = selected ? 52 : 40
+  const size = selected ? CELL : 36
 
   return (
-    <Pressable onPress={onPress} hitSlop={6}>
+    <Pressable
+      onPress={onPress}
+      hitSlop={6}
+      style={{ width: CELL, height: CELL, alignItems: 'center', justifyContent: 'center' }}
+    >
       <View
         style={{
           width: size,

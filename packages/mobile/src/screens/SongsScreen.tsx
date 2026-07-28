@@ -69,9 +69,9 @@ export function SongsScreen() {
   // chrome (steampunk gears, space orbits) repaints in lockstep.
   const keyExtractor = useCallback((item: KaraokeCatalogRow) => item.track_id, [])
   const renderItem = useCallback(
-    ({ item }: { item: KaraokeCatalogRow }) => (
+    ({ item, index }: { item: KaraokeCatalogRow; index: number }) => (
       <ui.ItemFloater style={{ flex: 1, maxWidth: '50%' }}>
-        <ui.SongCard track={item} onPress={() => onTapSong(item)} />
+        <ui.SongCard track={item} index={index} onPress={() => onTapSong(item)} />
       </ui.ItemFloater>
     ),
     [ui, onTapSong],
