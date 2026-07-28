@@ -5747,9 +5747,15 @@ export default function KaraokePage() {
                                 </div>
                             )
                         } else {
+                            // Resolve live identity exactly as MicMeter does: a
+                            // guest-linked singer stores only a guestId, so the
+                            // `Singer N` placeholder baked in by resolveRemoteRow
+                            // must never reach the stage — read their current name
+                            // off the roster instead.
+                            const tagGuest = s.guestId ? guestsMap.get(s.guestId) : undefined
                             return (
                                 <div key={s.id} className="k-singer-tag" style={{ background: theme.appBg, ...theme.stickerLabel, position: 'relative', padding: '4px 12px', ...spaceSingerStyle }}>
-                                    <span style={{ color: 'inherit', fontFamily: theme.fontDisplay }}>{s.name}</span>
+                                    <span style={{ color: 'inherit', fontFamily: theme.fontDisplay }}>{tagGuest?.name ?? s.name}</span>
                                     <div className="k-singer-tag__dot" style={{ background: s.color, ...(theme.name === 'space' ? { boxShadow: '0 0 6px ' + s.color } : {}) }} />
                                 </div>
                             )
