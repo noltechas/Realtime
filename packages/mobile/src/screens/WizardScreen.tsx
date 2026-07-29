@@ -1141,9 +1141,26 @@ function SingersStep({
                   {s.name || `Singer ${i + 1}`}
                 </Text>
                 {i === 0 ? (
+                  // Chip fill and ink follow the same pair the avatar's camera badge
+                  // uses (components/AvatarPicker): `accentA` + the app background on
+                  // dark themes, `vividYellow` + ink on light ones.
+                  //
+                  // NOT `vividYellow` + `tokens.black` on both, which is what this was.
+                  // `black`/`white` are semantic, so on a dark theme `black` IS the
+                  // light foreground — and on themes where vividYellow is a bright
+                  // opaque colour (psychedelic's warm white, space/retrowave/steampunk's
+                  // ambers) that put light type on a light chip. Psychedelic was
+                  // literally cream on cream: the tag rendered blank.
+                  //
+                  // Going the other way — forcing dark type — breaks the two themes
+                  // whose vividYellow is a 10-15% translucent tint over a dark
+                  // background (deep-sea, urban), where the chip is effectively dark.
+                  // Swapping the FILL for `accentA` on dark themes sidesteps that
+                  // entirely: every theme's accentA is a vivid colour constrained to
+                  // carry dark type.
                   <View
                     style={{
-                      backgroundColor: tokens.vividYellow,
+                      backgroundColor: tokens.isDark ? tokens.accentA : tokens.vividYellow,
                       borderWidth: 1,
                       borderColor: tokens.isDark ? tokens.accentA : tokens.black,
                       borderRadius: 999,
@@ -1158,7 +1175,7 @@ function SingersStep({
                         fontWeight: '900',
                         fontSize: 10,
                         letterSpacing: 0.5,
-                        color: tokens.black,
+                        color: tokens.isDark ? tokens.appBg : tokens.black,
                       }}
                     >
                       YOU

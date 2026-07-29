@@ -102,15 +102,27 @@ export function ProfileView({
             )}
           </View>
 
+          {/* A theme may replace the portrait wholesale (see `ProfilePortrait` in
+              theme/types.ts). PortraitSpotlight is the shared token-driven
+              staging every other theme keeps. */}
           <View style={{ marginTop: 10 }}>
             <ui.ItemFloater>
-              <PortraitSpotlight
-                tokens={tokens}
-                picture={picture}
-                initial={initial}
-                color={color}
-                onChange={onPictureChange}
-              />
+              {ui.ProfilePortrait ? (
+                <ui.ProfilePortrait
+                  picture={picture}
+                  initial={initial}
+                  color={color}
+                  onChange={onPictureChange}
+                />
+              ) : (
+                <PortraitSpotlight
+                  tokens={tokens}
+                  picture={picture}
+                  initial={initial}
+                  color={color}
+                  onChange={onPictureChange}
+                />
+              )}
             </ui.ItemFloater>
           </View>
 

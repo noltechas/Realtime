@@ -88,7 +88,7 @@ export function StageScreen() {
 
   if (!session) {
     return (
-      <SafeAreaView style={[safeStyle(tokens)]}>
+      <SafeAreaView style={ui.styles.screen}>
         <View style={emptyStyle}>
           <Text style={emptyTitleStyle(tokens)}>No active session.</Text>
         </View>
@@ -98,8 +98,14 @@ export function StageScreen() {
 
   const bottomPadding = insets.bottom + 96
 
+  // `ui.styles.screen`, NOT a local appBg fill. Themes whose atmosphere is a
+  // native layer mounted once behind the whole navigator (`ui.SceneLayer` —
+  // psychedelic's liquid-light footage, space's 3D deck) deliberately ship a
+  // TRANSPARENT screen so it shows through; every other screen already reads
+  // this style. This one painted `tokens.appBg` instead, which covered the
+  // video and left the Stage tab flat black on those two themes.
   return (
-    <SafeAreaView style={safeStyle(tokens)} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={ui.styles.screen} edges={['top', 'left', 'right']}>
       <ui.Backdrop />
       {isUp ? (
         <YoureUp
@@ -688,9 +694,6 @@ export function StageTabIcon({ color, size = 22 }: { color: string; size?: numbe
 // cardShape) rather than theme-name branching. Per-theme structural decisions
 // live in the atom files; these are the modal-only fallbacks.
 // ============================================================================
-function safeStyle(t: ThemeTokens): ViewStyle {
-  return { flex: 1, backgroundColor: t.appBg }
-}
 const emptyStyle: ViewStyle = { flex: 1, alignItems: 'center', justifyContent: 'center' }
 function emptyTitleStyle(t: ThemeTokens): TextStyle {
   return { fontFamily: t.fontBody, fontSize: 16, color: t.black }

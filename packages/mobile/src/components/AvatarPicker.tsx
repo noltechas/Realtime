@@ -11,19 +11,23 @@ interface AvatarPickerProps {
   size?: number
 }
 
-// Big tappable avatar used on both the Lobby (when joining) and the Profile
-// editor (standalone profile setup). Offers Take Photo / Choose from Library /
-// Remove via an action sheet and converts the result to a base64 data URL so
-// the karaoke_guests row stays self-contained (no external image hosting).
-export function AvatarPicker({
+// ── The photo action sheet ──────────────────────────────────────────────────
+// Take Photo / Choose from Library / Remove, converting whatever comes back to a
+// base64 data URL so the karaoke_guests row stays self-contained (no external
+// image hosting).
+//
+// Split out of the component because a theme may replace the whole portrait with
+// its own object (see `ProfilePortrait` in theme/types.ts) and must not have to
+// reimplement permission prompts, the Settings deep-link, or the data-URL
+// encoding to do it. This is the one definition of "let the user change their
+// photo"; the view around it is a per-theme decision.
+export function useAvatarActionSheet({
   picture,
-  initial,
-  ringColor,
   onChange,
-  size = 140,
-}: AvatarPickerProps) {
-  const { tokens } = useTheme()
-
+}: {
+  picture: string | null
+  onChange: (next: string | null) => void
+}): () => void {
   const takePhoto = useCallback(async () => {
     try {
       const perm = await ImagePicker.requestCameraPermissionsAsync()
@@ -104,6 +108,23 @@ export function AvatarPicker({
     buttons.push({ text: 'Cancel', style: 'cancel' })
     Alert.alert('Profile photo', undefined, buttons)
   }, [picture, takePhoto, pickFromLibrary, onChange])
+
+  return onPress
+}
+
+// Big tappable avatar used on the Lobby (when joining) and as the Profile page's
+// default portrait — a ring-and-badge treatment driven by token flags. A theme
+// that wants something structurally different provides `ui.ProfilePortrait`
+// instead of restyling this.
+export function AvatarPicker({
+  picture,
+  initial,
+  ringColor,
+  onChange,
+  size = 140,
+}: AvatarPickerProps) {
+  const { tokens } = useTheme()
+  const onPress = useAvatarActionSheet({ picture, onChange })
 
   const ringWidth = Math.max(4, Math.round(size * 0.045))
   const badgeSize = Math.round(size * 0.31)
@@ -226,7 +247,9 @@ export function AvatarPicker({
   )
 }
 
-function CameraGlyph({ color }: { color: string }) {
+// Exported so a theme's own portrait draws the SAME camera mark as the default
+// one — the affordance stays recognisable even when its plate doesn't.
+export function CameraGlyph({ color }: { color: string }) {
   return (
     <View style={{ alignItems: 'center', justifyContent: 'center' }}>
       <View

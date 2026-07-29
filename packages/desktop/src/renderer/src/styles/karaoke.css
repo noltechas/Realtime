@@ -1061,6 +1061,43 @@
     text-shadow: 0 2px 0 rgba(8,6,12,0.85), 0 0 16px rgba(8,6,12,0.8);
 }
 
+/* ── Psychedelic — the dyed ladder ─────────────────────────────────────────
+   An upcoming line whose singer is known is printed in that singer's dye (a shared
+   line in all of them, bled together — see `psyDyeBleed`). The fill arrives as a
+   gradient clipped to the glyphs, which means the FILL ITSELF IS TRANSPARENT, and
+   that rules out the theme's usual text-shadow: a shadow behind transparent letters
+   is visible through them, which turned every shared line into near-black glyphs
+   with a colour wash on top. That was the bug this section replaces.
+
+   So legibility is drawn, not cast. An ink keyline around each glyph
+   (`-webkit-text-stroke`, pushed BEHIND the fill by paint-order so it doesn't eat
+   half the letterform from the inside — the same construction as `psyStroke`) holds
+   the dye against a white projector frame, and one soft silhouette shadow via
+   `filter` lifts the whole line off the footage. `filter` and not `text-shadow`
+   because a filter operates on the composited result, so it follows the glyph
+   outlines instead of painting inside them.
+
+   Widths are in em for the reason everything in this theme is: the stage font is
+   viewport-relative, and a pixel stroke that looks like a keyline at 40px looks
+   welded shut at 96px. */
+[data-theme="psychedelic"] .k-line--future.k-line--psy-dyed {
+    -webkit-text-stroke: 0.032em #08060C;
+    paint-order: stroke;
+    text-shadow: none;
+    filter: drop-shadow(0 0.045em 0.05em rgba(8, 6, 12, 0.85));
+}
+
+/* ONE dim per line, not two. The base .k-syl--future rule drops every unsung
+   syllable to 55%, which is meant for words inside the ACTIVE plate; on the lines
+   around it that multiplies with the line's own dim (0.34 x 0.55 on a past line is
+   19% — gone). Upcoming dye lines stay at full strength: the plate, its cream ring
+   and the film layer are what mark the current line here, so the ladder doesn't
+   need to fade to say "not yet". */
+[data-theme="psychedelic"] .k-line--future .k-syl,
+[data-theme="psychedelic"] .k-line--past .k-syl {
+    opacity: 1;
+}
+
 /* ── Psychedelic — the knocked-out word ────────────────────────────────────
    The active line is an opaque plate of the singer's colour with ink (or cream)
    lettering — see the `psychedelic` branch in KaraokePage. Within it, the active

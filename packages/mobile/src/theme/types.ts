@@ -100,6 +100,17 @@ export interface ToggleBoxProps {
   onPress: () => void
 }
 
+export interface ProfilePortraitProps {
+  /** Base64 data URL, or null when the guest has no photo yet. */
+  picture: string | null
+  /** First letter of their name, for the no-photo state. */
+  initial: string
+  /** Their singer colour — the portrait's staging is lit/matted with it. */
+  color: string
+  /** Passed a new data URL, or null when the photo is removed. */
+  onChange: (next: string | null) => void
+}
+
 export interface ReactionGridIconColorProps {
   // Color used by Stage screen's emoji + chat + camera + image icons inside
   // reaction cells. Themes that draw cells on a dark surface return a light
@@ -180,6 +191,14 @@ export interface ThemeUIModule {
   // (see `yupHeroStyle`). Lets a theme do things a single Text can't —
   // chromatic-aberration glitch, animation, HUD framing, etc.
   YoureUpHero?: React.ComponentType<{}>
+  // Optional bespoke Profile-page portrait. The shared staging
+  // (screens/profile/PortraitSpotlight + components/AvatarPicker) is driven by
+  // token FLAGS — `cornerStyle`, `cardShape`, `isDark` — which is enough for a
+  // ring or a HUD reticle around a photo but can't express a theme whose whole
+  // idiom is built objects: psychedelic mounts the portrait as a printed poster
+  // plate with a turning dye wheel for a mat. Themes without one keep the shared
+  // staging.
+  ProfilePortrait?: React.ComponentType<ProfilePortraitProps>
   // Optional decorative overlay layered over the Stage now-playing album art
   // (rendered as the last child of the clipped art well). Cyberpunk uses it to
   // film the art as a rolling-scanline CRT. Themes without one render nothing.

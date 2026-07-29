@@ -314,9 +314,13 @@ export function SteampunkAddCrewButton({ onPress }: { onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
+      // Conditional spread (not ternary-to-undefined) — on press-out RN
+      // normalizes `transform: undefined` to null and hands it to
+      // processTransform, which throws "Cannot read property 'forEach' of
+      // null". Omitting the key entirely when not pressed avoids it.
       style={({ pressed }) => ({
         marginTop: 4,
-        transform: pressed ? [{ translateY: 1 }] : undefined,
+        ...(pressed ? { transform: [{ translateY: 1 }] } : null),
         opacity: pressed ? 0.88 : 1,
       })}
     >

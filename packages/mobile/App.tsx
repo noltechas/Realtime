@@ -13,12 +13,9 @@ import {
   Quicksand_600SemiBold,
   Quicksand_700Bold,
 } from '@expo-google-fonts/quicksand'
-import { Nunito_400Regular } from '@expo-google-fonts/nunito'
 import { LuckiestGuy_400Regular } from '@expo-google-fonts/luckiest-guy'
 import { Chicle_400Regular } from '@expo-google-fonts/chicle'
 import { SpicyRice_400Regular } from '@expo-google-fonts/spicy-rice'
-import { NotoSerifJP_700Bold } from '@expo-google-fonts/noto-serif-jp'
-import { ZenKakuGothicNew_400Regular } from '@expo-google-fonts/zen-kaku-gothic-new'
 import { Orbitron_700Bold, Orbitron_900Black } from '@expo-google-fonts/orbitron'
 // Space theme (mobile) — Chakra Petch is the angular technical display face and
 // Share Tech Mono carries every telemetry numeral. Orbitron above is retained
@@ -29,13 +26,30 @@ import {
   ChakraPetch_700Bold,
 } from '@expo-google-fonts/chakra-petch'
 import { ShareTechMono_400Regular } from '@expo-google-fonts/share-tech-mono'
-import { Exo2_400Regular, Exo2_700Bold } from '@expo-google-fonts/exo-2'
 import { Cinzel_400Regular, Cinzel_700Bold, Cinzel_900Black } from '@expo-google-fonts/cinzel'
 import { IMFellEnglish_400Regular } from '@expo-google-fonts/im-fell-english'
 import { SpecialElite_400Regular } from '@expo-google-fonts/special-elite'
 import { Monoton_400Regular } from '@expo-google-fonts/monoton'
 import { Audiowide_400Regular } from '@expo-google-fonts/audiowide'
 import { GreatVibes_400Regular } from '@expo-google-fonts/great-vibes'
+
+// ── Font weights are required BY FILE PATH, not through the package index ────
+// Metro does not tree-shake. Every `@expo-google-fonts/*` index.js `require()`s every
+// weight the family ships, at module scope, so importing one name from the index bundles
+// them ALL. Measured on the 1.0.2 Android build: 82.4 MB of fonts across 123 files, of
+// which 65.7 MB was weights nothing renders — noto-serif-jp alone shipped 8 CJK weights
+// at 7.3 MB each in order to use exactly one.
+//
+// Deep-requiring the single .ttf bypasses the index. Only worth it where the waste is
+// large: these five files recover 64 MB, while every other family below wastes under a
+// megabyte, so those keep the more readable named import.
+//
+// These packages declare no `exports` map, so the deep paths are resolvable and stable.
+const NotoSerifJP_700Bold = require('@expo-google-fonts/noto-serif-jp/700Bold/NotoSerifJP_700Bold.ttf')
+const ZenKakuGothicNew_400Regular = require('@expo-google-fonts/zen-kaku-gothic-new/400Regular/ZenKakuGothicNew_400Regular.ttf')
+const Exo2_400Regular = require('@expo-google-fonts/exo-2/400Regular/Exo2_400Regular.ttf')
+const Exo2_700Bold = require('@expo-google-fonts/exo-2/700Bold/Exo2_700Bold.ttf')
+const Nunito_400Regular = require('@expo-google-fonts/nunito/400Regular/Nunito_400Regular.ttf')
 
 // Error boundary so a crash anywhere in the render tree shows visibly on
 // screen instead of leaving us staring at a white screen with no logs.

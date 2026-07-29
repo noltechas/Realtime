@@ -17,6 +17,7 @@ import { PsychedelicStageTabIcon } from './atoms/StageTabIcon'
 import { PsychedelicStagePlayButton } from './atoms/StagePlayButton'
 import { PsychedelicStageToggleBox } from './atoms/StageToggleBox'
 import { PsychedelicYoureUpHero } from './atoms/YoureUpHero'
+import { PsychedelicProfilePortrait } from './atoms/ProfilePortrait'
 import { INK, INK_SOFT } from './atoms/_glass'
 
 // ── PSYCHEDELIC — "LIQUID LIGHT" ─────────────────────────────────────────────
@@ -71,6 +72,8 @@ export const PSYCHEDELIC_UI: ThemeUIModule = {
   StagePlayButton: PsychedelicStagePlayButton,
   StageToggleBox: PsychedelicStageToggleBox,
   YoureUpHero: PsychedelicYoureUpHero,
+
+  ProfilePortrait: PsychedelicProfilePortrait,
 
   // Reaction cells are dark glass, so the Ionicons the Stage screen renders inside
   // them need to be white. The plus glyph on an empty slot drops to the faint tone

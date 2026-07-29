@@ -173,6 +173,15 @@ To add (or restyle) a theme on mobile:
 - **Singer count buttons** use `theme.accentA` for the selected state with dark text.
 - **Never use `theme.white` as text color on a `theme.card` background** — on light themes they're the same color. Use `theme.black` for text on card backgrounds.
 - **The theme dropdown** in `App.tsx` uses `theme.black` for text on the card-colored dropdown.
+- **`vividYellow` is NOT reliably a bright opaque color.** Most themes set an amber/yellow, but
+  deep-sea (`rgba(0,255,200,0.1)`) and urban (`rgba(212,255,0,0.15)`) use a faint translucent
+  tint that reads as the dark background behind it. So a chip filled with `vividYellow` can't
+  pick its text color from a single rule: dark text dies on those two, light text dies on the
+  opaque ones (psychedelic's `vividYellow` is a warm white, and its `black` is also cream —
+  the Wizard's "YOU" tag rendered completely blank). For a small vivid chip on mobile use the
+  pairing `backgroundColor: isDark ? accentA : vividYellow` with `color: isDark ? appBg : black`
+  (what `AvatarPicker`'s camera badge and `WizardScreen`'s YOU tag do) — every theme's
+  `accentA` is a vivid color constrained to carry dark type.
 - Test every page (Search, Queue, Stage, Admin, Wizard) with the new theme to check contrast.
 
 ### Google Fonts

@@ -602,6 +602,30 @@ export function pouredRadii(seed: string | number | undefined, base = 20, swing 
       }
 }
 
+/**
+ * Ink or cream on `fill` — whichever actually holds.
+ *
+ * Rule 2 above says type is ink on bright, and every entry in `DYES` is picked so
+ * that is always true. A SINGER'S COLOUR IS NOT ONE OF THEM: it comes from the
+ * universal 13-swatch palette, which includes picks (the rose #e11d48, the blue
+ * #3b82f6) dark enough that an ink glyph on them all but vanishes. Anything
+ * printed on a user-picked colour goes through here.
+ *
+ * The 0.22 threshold matches the stage's own ink/cream decision on desktop
+ * (`nbTextOn` in KaraokePage), so a colour flips to cream lettering at the same
+ * point on the phone and on the wall.
+ */
+export function typeOn(fill: string): string {
+  const hex = fill.replace('#', '')
+  if (hex.length < 6) return INK
+  const channel = (offset: number): number => {
+    const c = parseInt(hex.slice(offset, offset + 2), 16) / 255
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
+  }
+  const luminance = 0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4)
+  return luminance < 0.22 ? WARM : INK
+}
+
 /** A dye at partial alpha, for washes and keylines. Falls back to the raw colour. */
 export function dyeAlpha(dye: string, alpha: number): string {
   return hexToRgba(dye, alpha) ?? dye

@@ -10,7 +10,7 @@ import TomatoSplatterLayer, { TOMATO_EMOJI } from '../components/TomatoSplatterL
 import FlowerLayer, { FLOWER_EMOJI } from '../components/FlowerLayer'
 import { SpaceOutboard } from '../components/SpaceOutboard'
 import { LiquidLight } from '../components/LiquidLight'
-import { PSY, psyPoured, psyStroke } from '../styles/psychedelic'
+import { PSY, psyDyeBleed, psyPoured, psyStroke } from '../styles/psychedelic'
 
 import { VoiceEffectsEngine } from '../audio/VoiceEffectsEngine'
 import OSCARS_MUSIC_URL from '../assets/oscars.mp3'
@@ -6091,10 +6091,21 @@ export default function KaraokePage() {
                                             // singer colours are user-picked, so a fixed ink
                                             // fill vanishes on a dark pick and a fixed cream
                                             // fill vanishes on a bright one. `nbTextOn` already
-                                            // solves this for the neo-brutal poster stage, and
-                                            // multi-singer lines reuse `nbSplitBackground`,
-                                            // which butts one hard band per singer with ink
-                                            // seams instead of blending them into sludge.
+                                            // solves this for the neo-brutal poster stage, so
+                                            // it is reused here.
+                                            //
+                                            // A SHARED LINE RUNS WET. Two singers on one line
+                                            // used to get `nbSplitBackground` — one hard band
+                                            // each with an ink seam down the middle — and it
+                                            // read as a swatch cut in half rather than as two
+                                            // people singing the same words. `psyDyeBleed`
+                                            // keeps each singer's dye pure across the middle
+                                            // of their own share and lets the colours run
+                                            // together across the seam, walked through OKLCh
+                                            // so the blend stays a saturated third dye instead
+                                            // of the grey mud an sRGB fade produces. See the
+                                            // long note in styles/psychedelic.ts for why this
+                                            // is the one gradient the theme allows.
                                             //
                                             // The previous version filled this line with a
                                             // 300%-scaled animated gradient inside a morphing
@@ -6127,7 +6138,7 @@ export default function KaraokePage() {
                                             // original position and resets colour and image
                                             // together, which is exactly what's wanted.
                                             inlineStyle.background = pColors.length > 1
-                                                ? nbSplitBackground(pColors)
+                                                ? psyDyeBleed(pColors)
                                                 : pColors[0]
                                             inlineStyle.color = pInk
                                             inlineStyle.textShadow = 'none'
@@ -6330,7 +6341,45 @@ export default function KaraokePage() {
                                         cls += ' k-line--past'
                                     } else {
                                         cls += ' k-line--future'
-                                        if (activeColors.length > 1) {
+                                        // ── Psychedelic: the upcoming line is PRINTED IN DYE ──
+                                        // Every assigned line ahead of the plate carries its
+                                        // singers' colours, blended the same way the plate is
+                                        // — so a shared line announces "both of you" a few
+                                        // lines before it arrives, instead of only once it's
+                                        // your turn.
+                                        //
+                                        // It also fixes a real bug. The generic multi-singer
+                                        // path below fills the glyphs with a gradient via
+                                        // `background-clip: text` + a TRANSPARENT text fill,
+                                        // and this theme's `.k-line--future` rule puts a hard
+                                        // ink text-shadow behind every unplated line to keep
+                                        // cream type alive over near-white video frames. A
+                                        // shadow behind a transparent fill is not hidden by it
+                                        // — it shows THROUGH the letters, so every shared line
+                                        // ahead rendered as near-black glyphs with a faint
+                                        // colour wash. Legibility moves to an ink keyline
+                                        // (stroke, painted behind the fill) plus one silhouette
+                                        // drop-shadow, both on .k-line--psy-dyed.
+                                        const psyDyeColors: string[] = theme.name !== 'psychedelic'
+                                            ? []
+                                            : activeColors.length > 1
+                                                ? activeColors
+                                                : line.singerIndex !== undefined && singers[line.singerIndex]?.color
+                                                    ? [singers[line.singerIndex].color]
+                                                    : []
+                                        if (psyDyeColors.length > 0) {
+                                            cls += ' k-line--psy-dyed'
+                                            // A single singer gets a flat "gradient" so both
+                                            // cases fill through exactly the same mechanism and
+                                            // the stroke/shadow rules only have one shape to
+                                            // reason about.
+                                            inlineStyle.backgroundImage = psyDyeColors.length > 1
+                                                ? psyDyeBleed(psyDyeColors, 92)
+                                                : `linear-gradient(92deg, ${psyDyeColors[0]}, ${psyDyeColors[0]})`
+                                            inlineStyle.WebkitBackgroundClip = 'text'
+                                            inlineStyle.backgroundClip = 'text'
+                                            inlineStyle.WebkitTextFillColor = 'transparent'
+                                        } else if (activeColors.length > 1) {
                                             inlineStyle.backgroundImage = `linear-gradient(90deg, ${activeColors.join(', ')})`
                                             inlineStyle.WebkitBackgroundClip = 'text'
                                             inlineStyle.WebkitTextFillColor = 'transparent'

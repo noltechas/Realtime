@@ -370,6 +370,153 @@ export function psyStroke(em = 0.045): Record<string, string> {
     }
 }
 
+// ── Wet dye: blending two singers into one line ──────────────────────────────
+// The theme's first rule is PLATES, NOT GLASS — hard colour boundaries, no gradients.
+// A line shared by two singers is the one deliberate exception, and it earns it:
+//
+//   * A shared line isn't two panels. It is one set of words that two people sing
+//     together, and butting two hard bands against each other says the opposite —
+//     "you take the left half, I'll take the right." The first version did exactly
+//     that (it reused the neo-brutal poster's `nbSplitBackground`) and read as a
+//     colour swatch someone had cut in half.
+//   * The backdrop is real footage of dye bleeding into dye on an overhead projector.
+//     A wet seam is not a generic soft gradient here — it is the literal subject of
+//     the film the plate is sitting in front of.
+//
+// The reason hard bands were chosen in the first place still stands, though: a plain
+// `linear-gradient(pink, mint)` fades through the grey axis in sRGB and the middle of
+// the line turns to mud. So the seam is walked in OKLCh — lightness and chroma move
+// smoothly while the HUE ROTATES between the two dyes, with a small chroma bloom at
+// the centre. The mix stays a saturated third dye the whole way across, which is what
+// the two colours actually do when they run together in the tray.
+//
+// Each singer still holds a PURE plateau across most of their own share of the line,
+// so "who is singing this" survives a glance from across a room; only the seam blends.
+
+/** #rgb / #rrggbb → sRGB 0..1. Null for anything this can't read (rgb(), named colours). */
+function psyParseHex(hex: string): [number, number, number] | null {
+    const raw = (hex || '').trim().replace('#', '')
+    const full = raw.length === 3 ? raw.split('').map((c) => c + c).join('') : raw
+    if (!/^[0-9a-fA-F]{6}$/.test(full)) return null
+    const [r, g, b] = [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16) / 255)
+    return [r, g, b]
+}
+
+const psyToLinear = (v: number): number => (v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4))
+const psyToGamma = (v: number): number => (v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(v, 1 / 2.4) - 0.055)
+
+/** sRGB 0..1 → OKLCh as [L 0..1, C, H degrees]. (Ottosson's matrices.) */
+function psyToOklch([r0, g0, b0]: [number, number, number]): [number, number, number] {
+    const r = psyToLinear(r0)
+    const g = psyToLinear(g0)
+    const b = psyToLinear(b0)
+    const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b)
+    const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b)
+    const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b)
+    const L = 0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s
+    const A = 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s
+    const B = 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s
+    const h = (Math.atan2(B, A) * 180) / Math.PI
+    return [L, Math.hypot(A, B), h < 0 ? h + 360 : h]
+}
+
+function psyOklchToLinear(L: number, C: number, H: number): [number, number, number] {
+    const rad = (H * Math.PI) / 180
+    const A = Math.cos(rad) * C
+    const B = Math.sin(rad) * C
+    const l = Math.pow(L + 0.3963377774 * A + 0.2158037573 * B, 3)
+    const m = Math.pow(L - 0.1055613458 * A - 0.0638541728 * B, 3)
+    const s = Math.pow(L - 0.0894841775 * A - 1.2914855480 * B, 3)
+    return [
+        4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+        -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+        -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s,
+    ]
+}
+
+/**
+ * OKLCh → #rrggbb. Out-of-gamut mixes give up CHROMA, never lightness: clipping the
+ * channels instead would shift the hue, and a seam that changes hue as it desaturates
+ * is exactly the mud this whole detour exists to avoid.
+ */
+function psyFromOklch(L: number, C: number, H: number): string {
+    let chroma = Math.max(0, C)
+    let rgb = psyOklchToLinear(L, chroma, H)
+    const outside = (v: [number, number, number]): boolean => v.some((c) => c < -0.0015 || c > 1.0015)
+    for (let i = 0; i < 24 && chroma > 0.0004 && outside(rgb); i++) {
+        chroma *= 0.92
+        rgb = psyOklchToLinear(L, chroma, H)
+    }
+    return (
+        '#' +
+        rgb
+            .map((v) => {
+                const n = Math.round(Math.min(1, Math.max(0, psyToGamma(Math.min(1, Math.max(0, v))))) * 255)
+                return n.toString(16).padStart(2, '0')
+            })
+            .join('')
+    )
+}
+
+/**
+ * One dye stirred into another at `t` (0 = all `a`, 1 = all `b`), through OKLCh with a
+ * chroma bloom at the halfway point so the mix reads as a third dye rather than as the
+ * place where two colours cancelled out.
+ */
+export function psyDyeMix(a: string, b: string, t: number): string {
+    const ra = psyParseHex(a)
+    const rb = psyParseHex(b)
+    if (!ra || !rb) return t < 0.5 ? a : b
+    const [la, ca, ha0] = psyToOklch(ra)
+    const [lb, cb, hb0] = psyToOklch(rb)
+    // A near-grey pick has no meaningful hue of its own (atan2(0,0) is 0, i.e. red), so
+    // it borrows the other dye's hue and the seam becomes a pure tint ramp.
+    const ha = ca < 0.002 ? hb0 : ha0
+    const hb = cb < 0.002 ? ha0 : hb0
+    let dh = hb - ha
+    if (dh > 180) dh -= 360
+    if (dh < -180) dh += 360
+    const L = la + (lb - la) * t
+    const C = (ca + (cb - ca) * t) * (1 + 0.14 * Math.sin(Math.PI * t))
+    return psyFromOklch(L, C, ha + dh * t)
+}
+
+/**
+ * A shared line's fill: each singer's dye held pure across the middle of their own share
+ * of the line, running wet into the next one across the seams.
+ *
+ * `spread` is the fraction of one singer's band given over to the crossfade on each side
+ * (0.3 = a generous wet seam roughly 60% of a band wide; 0 would be the old hard cut).
+ * The seam carries three sampled mid-dyes so the browser's own sRGB interpolation only
+ * ever runs between neighbours a few degrees of hue apart — the OKLCh path is what
+ * decides the colour, not the gradient engine.
+ *
+ * Falls back to a plain browser fade if a colour isn't hex, so an unexpected `rgb()`
+ * singer colour still blends rather than dropping the fill entirely.
+ */
+export function psyDyeBleed(colors: string[], angleDeg = 96, spread = 0.3): string {
+    const uniq = colors.filter((c, i) => !!c && colors.indexOf(c) === i)
+    if (uniq.length === 0) return CREAM
+    if (uniq.length === 1) return uniq[0]
+    if (uniq.some((c) => !psyParseHex(c))) return `linear-gradient(${angleDeg}deg, ${uniq.join(', ')})`
+
+    const band = 100 / uniq.length
+    const half = band * Math.min(0.5, Math.max(0, spread))
+    const stops: string[] = []
+    uniq.forEach((c, i) => {
+        const start = i * band
+        const end = (i + 1) * band
+        stops.push(`${c} ${(i === 0 ? 0 : start + half).toFixed(2)}%`)
+        stops.push(`${c} ${(i === uniq.length - 1 ? 100 : end - half).toFixed(2)}%`)
+        if (i < uniq.length - 1) {
+            for (const t of [0.25, 0.5, 0.75]) {
+                stops.push(`${psyDyeMix(c, uniq[i + 1], t)} ${(end - half + 2 * half * t).toFixed(2)}%`)
+            }
+        }
+    })
+    return `linear-gradient(${angleDeg}deg, ${stops.join(', ')})`
+}
+
 /**
  * Corner radii for a plate that looks POURED rather than drawn — one diagonal pair fat,
  * the other tight, flipping with `seed` so adjacent plates aren't identical.
