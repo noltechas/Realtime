@@ -18,8 +18,9 @@ import {
   type ViewStyle,
 } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { File, Paths } from 'expo-file-system'
 import {
+  filamentAvailable,
+  getFileSystem,
   Camera,
   EntitySelector,
   FilamentScene,
@@ -30,7 +31,7 @@ import {
   useFilamentContext,
   useModel,
   type Float3,
-} from 'react-native-filament'
+} from '../native/optional'
 import Svg, {
   Defs,
   LinearGradient as SvgLinearGradient,
@@ -196,8 +197,13 @@ function HolderNameComposer({
         base64 => {
           if (version !== renderVersion.current) return
           try {
-            const file = new File(
-              Paths.cache,
+            // Older binaries have no expo-file-system (see src/native/optional.ts).
+            // Skipping the cache write just means the composed name texture isn't
+            // persisted — the card still renders.
+            const fs = getFileSystem()
+            if (!fs) return
+            const file = new fs.File(
+              fs.Paths.cache,
               `nword-pass-holder-${hashName(displayName)}.png`,
             )
             file.create({ intermediates: true, overwrite: true })
@@ -607,6 +613,13 @@ function CardMaterial({
   paused: boolean
   onReady?: () => void
 }) {
+    // Binaries older than 1.0.2 have no Filament native module (see
+    // src/native/optional.ts). Falling back to the card's own flat surface keeps the
+    // Profile and gift-overlay screens usable instead of taking the app down.
+    if (!filamentAvailable()) {
+        return <View style={[StyleSheet.absoluteFill, styles.loadingSurface]} />
+    }
+
   return (
     <View style={StyleSheet.absoluteFill}>
       {!interactive && !presentationTransform ? (

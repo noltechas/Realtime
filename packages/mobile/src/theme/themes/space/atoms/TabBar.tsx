@@ -3,9 +3,10 @@ import { Animated, Pressable, StyleSheet, Text, View } from 'react-native'
 import { BlurView } from 'expo-blur'
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Stop } from 'react-native-svg'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useSharedValue } from 'react-native-worklets-core'
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs'
 import {
+  filamentAvailable,
+  useSharedValue,
   Camera,
   FilamentScene,
   FilamentView,
@@ -16,7 +17,7 @@ import {
   useFilamentContext,
   useModel,
   type Entity,
-} from 'react-native-filament'
+} from '../../../../native/optional'
 import { TAB_ICONS } from '../../../../navigation/TabIcons'
 import { useTheme } from '../../../ThemeContext'
 import { useSession } from '../../../../hooks/useSession'
@@ -221,7 +222,9 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 
         {/* The pod. Mounted once the rail's width is known, because that width
             is what converts a tab centre into a world coordinate. */}
-        {trackWidth > 0 ? (
+        {/* Same Filament gate as SceneLayer. Without the native module the rail keeps
+            its cells, halo and labels and simply loses the 3D pod. */}
+        {trackWidth > 0 && filamentAvailable() ? (
           <NavPodScene viewWidth={trackWidth} targetPx={activeCenter} />
         ) : null}
 

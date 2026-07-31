@@ -7,6 +7,7 @@ import Svg, {
   Stop,
 } from 'react-native-svg'
 import {
+  filamentAvailable,
   Camera,
   FilamentScene,
   FilamentView,
@@ -17,7 +18,7 @@ import {
   useFilamentContext,
   useModel,
   type Entity,
-} from 'react-native-filament'
+} from '../../../../native/optional'
 import {
   BreathingStar,
   ICE,
@@ -168,7 +169,12 @@ export function SceneLayer(): React.ReactElement {
       {/* 4 — the 3D. Only the first SceneLayer to mount runs an engine; the
           Wizard and Request modals bring their own themed subtree and would
           otherwise stand up a second full-screen renderer on top of this one. */}
-      {isOwner ? <OutboardScene /> : null}
+      {/* Filament is native, so binaries older than 1.0.2 don't have it (see
+          src/native/optional.ts). Gated here rather than inside OutboardScene because
+          OutboardBody calls Filament's hooks, and hooks can't be skipped conditionally.
+          Without the module the SVG star field and gradient above still render, so Space
+          degrades to a flat backdrop — and those binaries never had the 3D version. */}
+      {isOwner && filamentAvailable() ? <OutboardScene /> : null}
 
       {/* 5 — viewport frame: two hairlines at the extreme edges, enough to
           suggest we are looking through structure without eating any margin. */}
