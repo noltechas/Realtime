@@ -29,19 +29,23 @@ export function renderDownloadPrompt(){
         'Download for iOS</a>';
     }else{
       primaryHtml='<button class="join-btn dl-btn-primary" id="dl-ios-soon" disabled style="opacity:0.5;cursor:not-allowed">iOS app coming soon</button>';
-      helper="iOS app isn't published yet — continue in your browser below.";
+      helper="iOS app isn't published yet — use the browser link below for now.";
     }
   }else{
-    helper="The app is mobile-only. Scan the QR code from your phone, or continue in your browser below.";
+    helper="The app is mobile-only. Scan the QR code from your phone to get it.";
   }
   return '<div class="join-screen screen download-prompt-screen">'+
     '<div class="dl-app-icon" aria-hidden="true">'+
       '<img src="app-icon.png" alt="Karaoke">'+
     '</div>'+
+    '<div class="dl-title">Lake House Karaoke</div>'+
     primaryHtml+
-    '<button class="dl-btn-secondary" id="dl-continue-web" type="button">Continue in browser</button>'+
     (helper?'<div class="dl-helper">'+esc(helper)+'</div>':'')+
-    '<div class="join-session-code">'+esc(S.sessionCode||"")+'</div>'+
+    // Pinned to the bottom of the screen by .dl-web-out — the download is the
+    // action we want people to take, this is just the escape hatch.
+    '<div class="dl-web-out">'+
+      '<button class="dl-btn-secondary" id="dl-continue-web" type="button">Continue in browser</button>'+
+    '</div>'+
   '</div>';
 }
 

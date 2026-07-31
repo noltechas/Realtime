@@ -245,17 +245,33 @@
   animation: fadeUp 0.6s var(--ease-out) both;
 }
 .dl-app-icon img { width: 96px; height: 96px; border-radius: 24px; display: block; object-fit: cover; }
-.dl-btn-primary { width: 100%; max-width: 320px; animation: fadeUp 0.6s var(--ease-out) 0.08s both; }
-.dl-btn-secondary {
-  margin-top: 14px; width: 100%; max-width: 320px;
-  padding: 14px 16px; border-radius: 16px;
-  border: 1px solid var(--hairline-strong); background: var(--surface-1);
-  color: var(--white); font-family: var(--font-display); font-weight: 700; font-size: 14px;
-  cursor: pointer; box-shadow: var(--top-light);
-  transition: transform 0.16s var(--ease-spring), background 0.2s;
-  animation: fadeUp 0.6s var(--ease-out) 0.14s both;
+.download-prompt-screen { position: relative; min-height: 100dvh; padding-bottom: 76px; }
+.dl-web-out {
+  position: absolute; left: 0; right: 0;
+  bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+  display: flex; justify-content: center;
 }
-.dl-btn-secondary:active { transform: scale(0.97); background: var(--surface-2); }
+.dl-title {
+  font-family: var(--font-display); font-weight: 800; font-size: 26px;
+  letter-spacing: -0.02em; margin-bottom: 26px;
+  animation: fadeUp 0.6s var(--ease-out) 0.04s both;
+}
+.dl-btn-primary { width: 100%; max-width: 320px; animation: fadeUp 0.6s var(--ease-out) 0.08s both; }
+/* Deliberately understated and parked at the very bottom of the screen — the
+   download is the primary action, this is the escape hatch. */
+.dl-btn-secondary {
+  width: auto; padding: 6px 2px;
+  border: 0; background: none; box-shadow: none;
+  color: var(--white-faint);
+  font-family: var(--font-body); font-weight: 500; font-size: 12px;
+  letter-spacing: 0.01em;
+  text-decoration: underline; text-underline-offset: 3px;
+  text-decoration-color: rgba(255, 255, 255, 0.22);
+  cursor: pointer;
+  transition: color 0.2s;
+  animation: fadeUp 0.6s var(--ease-out) 0.2s both;
+}
+.dl-btn-secondary:active { color: var(--white-muted); }
 .dl-helper { margin-top: 18px; font-size: 12px; color: var(--white-faint); max-width: 300px; line-height: 1.5; }
 
 /* Error */
