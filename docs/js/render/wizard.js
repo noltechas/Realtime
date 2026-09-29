@@ -70,7 +70,7 @@ export function renderWizardSingers(){
   var rows="";
   for(var i=0;i<S.singers.length;i++){
     var s=S.singers[i];
-    var av='<div class="wiz-singer-row-avatar" style="background:'+s.color+'">'+
+    var av='<div class="wiz-singer-row-avatar" style="background:'+esc(s.color)+'">'+
       (s.profilePicture?'<img src="'+esc(s.profilePicture)+'" alt="">':esc((s.name||"?").charAt(0).toUpperCase()))+
     '</div>';
     var badge=(i===0)?'<span class="wiz-singer-row-badge">You</span>':'';
@@ -106,7 +106,7 @@ export function renderWizardSingers(){
       '<div class="wiz-color-picker">'+swatches+'</div>'+
     '</div>';
     rows+='<div class="wiz-singer-slot">'+
-      '<div class="wiz-singer-row" style="border-color:'+s.color+'">'+
+      '<div class="wiz-singer-row" style="border-color:'+esc(s.color)+'">'+
         av+
         '<div class="wiz-singer-row-body">'+
           '<div class="wiz-singer-row-name-wrap"><span class="wiz-singer-row-name">'+esc(s.name||"Singer "+(i+1))+'</span>'+badge+'</div>'+
@@ -132,9 +132,9 @@ export function renderWizardRoles(){
     return S.singers.map(function(s,si){
       var active=(s.roleIndices||[]).indexOf(roleIdx)>=0;
       var avInner=s.profilePicture?'<img src="'+esc(s.profilePicture)+'" alt="">':esc((s.name||"?").charAt(0).toUpperCase());
-      var style=active?'border-color:'+s.color+';background:'+s.colorGlow+';color:var(--white);box-shadow:0 0 0 1.5px '+s.color:'';
+      var style=active?'border-color:'+esc(s.color)+';background:'+esc(s.colorGlow)+';color:var(--white);box-shadow:0 0 0 1.5px '+esc(s.color):'';
       return '<button class="role-singer-chip'+(active?" is-active":"")+'" data-role-idx="'+roleIdx+'" data-singer-idx="'+si+'" type="button" style="'+style+'">'+
-        '<span class="role-singer-chip-avatar" style="background:'+s.color+'">'+avInner+'</span>'+
+        '<span class="role-singer-chip-avatar" style="background:'+esc(s.color)+'">'+avInner+'</span>'+
         '<span class="role-singer-chip-name">'+esc(s.name||"Singer "+(si+1))+'</span>'+
       '</button>';
     }).join("");

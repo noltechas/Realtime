@@ -50,7 +50,7 @@ export function renderDownloadPrompt(){
 }
 
 export function renderJoin(){
-  var avInner=S.profilePicture?'<img src="'+S.profilePicture+'" alt="">':'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>';
+  var avInner=S.profilePicture?'<img src="'+esc(S.profilePicture)+'" alt="">':'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>';
   return '<div class="join-screen screen">'+
     '<div class="join-logo">Realtime</div>'+
     '<div class="join-title">Karaoke</div>'+
@@ -65,7 +65,7 @@ export function renderJoin(){
 }
 export function renderRejoin(){
   var rows=(S.guests||[]).map(function(g){
-    var av=g.profilePicture?'<img src="'+g.profilePicture+'" alt="">':'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/></svg>';
+    var av=g.profilePicture?'<img src="'+esc(g.profilePicture)+'" alt="">':'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/></svg>';
     return '<button class="rejoin-row guest-picker-pill" data-guest-id="'+esc(g.id)+'">'+
       '<span class="rejoin-row-avatar">'+av+'</span>'+
       '<span class="rejoin-row-name">'+esc(g.name)+'</span>'+
@@ -82,7 +82,7 @@ export function renderRejoin(){
   '</div>';
 }
 export function renderJoining(){
-  var avHtml=S.profilePicture?'<div class="joining-avatar"><img src="'+S.profilePicture+'" alt=""></div>':'';
+  var avHtml=S.profilePicture?'<div class="joining-avatar"><img src="'+esc(S.profilePicture)+'" alt=""></div>':'';
   return '<div class="join-screen screen">'+
     '<div class="join-logo">Realtime</div>'+
     '<div class="join-title">Karaoke</div>'+
@@ -94,8 +94,8 @@ export function renderJoining(){
   '</div>';
 }
 export function renderProfile(){
-  var avInner=S.profilePicture?'<img src="'+S.profilePicture+'" alt="">':'<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>';
-  var ringColor=S.defaultColor||"#a78bfa";
+  var avInner=S.profilePicture?'<img src="'+esc(S.profilePicture)+'" alt="">':'<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>';
+  var ringColor=esc(S.defaultColor||"#a78bfa");
   var swatches="";
   for(var ci=0;ci<NC.length;ci++){
     var nc=NC[ci];

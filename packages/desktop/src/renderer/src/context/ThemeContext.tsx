@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useLayoutEffect, ReactNode } from 'react'
 import type { Theme } from '../styles/theme'
 import { NEO } from '../styles/neo-brutal'
 import { CYBERPUNK } from '../styles/cyberpunk'
@@ -64,7 +64,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // STAGE WINDOW ONLY: the main window's host console has a fixed design
   // (styles/admin.css) and must never receive theme CSS — several themes
   // restyle body/button/* via [data-theme] selectors, which would override it.
-  useEffect(() => {
+  // Layout effect on purpose: passive effects run child-before-parent, so as a
+  // plain useEffect this would fire AFTER StageThemeProvider's re-assert in the
+  // same commit (global theme change mid-song, or stage opening on a themed
+  // song) and clobber the per-song override's data-theme/CSS. Layout effects
+  // all run before any passive effect, so the stage override always wins.
+  useLayoutEffect(() => {
     if (!window.electronAPI?.isStageWindow) return
     document.documentElement.dataset.theme = theme.name
 

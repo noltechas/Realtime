@@ -25,7 +25,10 @@ export class MicrophoneManager {
     }
 
     static async getDevices(): Promise<MediaDeviceInfo[]> {
-        await navigator.mediaDevices.getUserMedia({ audio: true })
+        // Permission prompt only (unlocks device labels) — release the capture
+        // immediately or the mic stays open (and the OS mic indicator lit).
+        const permStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        permStream.getTracks().forEach(t => t.stop())
         const devices = await navigator.mediaDevices.enumerateDevices()
         return devices.filter(d => d.kind === 'audioinput')
     }

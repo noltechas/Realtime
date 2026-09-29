@@ -38,7 +38,7 @@ export function renderMemePicker(){
   }else if(S.memeGifs.length===0){
     content='<div class="meme-gif-loading">No matching GIFs</div>';
   }else{
-    content=S.memeGifs.map(function(g){return '<button class="meme-pick-btn" data-gif-url="'+g.url+'"><img src="'+g.preview+'" alt="" loading="lazy"></button>';}).join("");
+    content=S.memeGifs.map(function(g){return '<button class="meme-pick-btn" data-gif-url="'+esc(g.url)+'"><img src="'+esc(g.preview)+'" alt="" loading="lazy"></button>';}).join("");
   }
   return '<div class="meme-picker-overlay" id="meme-overlay"><div class="meme-picker-sheet">'+
     '<div class="emoji-picker-title">Pick a GIF</div>'+
@@ -48,7 +48,7 @@ export function renderMemePicker(){
   '</div></div>';
 }
 export function renderBN(act){
-  var navAv=S.profilePicture?'<div class="nav-guest-avatar"><img src="'+S.profilePicture+'" alt=""></div>':'<div class="nav-guest-avatar">'+esc(S.guestName?S.guestName.charAt(0).toUpperCase():"?")+'</div>';
+  var navAv=S.profilePicture?'<div class="nav-guest-avatar"><img src="'+esc(S.profilePicture)+'" alt=""></div>':'<div class="nav-guest-avatar">'+esc(S.guestName?S.guestName.charAt(0).toUpperCase():"?")+'</div>';
   var isSinging=!!(S.matchedSinger&&S.nowPlaying);
   var middleBtn=isSinging?
     '<button class="nav-tab'+(act==="youreup"?" active":"")+'" data-nav="youreup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>Stage</button>':
@@ -68,8 +68,8 @@ export function renderYoureUp(){
   var singerGlow=ms?ms.colorGlow:"rgba(139,124,255,0.3)";
   // Singer color is functional data (each guest's chosen color) — passed to
   // CSS as custom properties so the stylesheet owns the actual design.
-  var scVars='--sc:'+singerColor+';--sc-soft:'+singerColor+'cc;--sg:'+singerGlow;
-  var artH=np.artUrl?'<img class="youreup-art" src="'+np.artUrl+'" alt="">':'';
+  var scVars='--sc:'+esc(singerColor)+';--sc-soft:'+esc(singerColor)+'cc;--sg:'+esc(singerGlow);
+  var artH=np.artUrl?'<img class="youreup-art" src="'+esc(np.artUrl)+'" alt="">':'';
   var playIcon=S.isPlaying?
     '<svg viewBox="0 0 24 24"><rect x="5" y="3" width="5" height="18" rx="1"/><rect x="14" y="3" width="5" height="18" rx="1"/></svg>':
     '<svg viewBox="0 0 24 24"><polygon points="6,3 20,12 6,21"/></svg>';

@@ -1,4 +1,4 @@
-import { S, caches } from '../state.js';
+import { S } from '../state.js';
 import { esc, avatarHTML, fmtD, resolveSingerConfig } from '../utils.js';
 import { loadVotedMap } from '../persistence.js';
 
@@ -13,8 +13,13 @@ export function hiddenArtInner(){
 }
 export function renderQueue(){
   var npH="";
-  if(S.nowPlaying){var np=S.nowPlaying;npH='<div class="now-playing-card">'+(np.artUrl?'<img src="'+np.artUrl+'" alt="">':"")+'<div style="flex:1;min-width:0"><div class="now-playing-badge">Now Playing</div><div class="now-playing-title">'+esc(np.name)+'</div><div class="now-playing-artist">'+esc(np.artist||"")+'</div></div></div>';}
-  var upNext=S.queue.filter(function(q){return !caches.playedTrackIds[q.track_id];});
+  if(S.nowPlaying){var np=S.nowPlaying;npH='<div class="now-playing-card">'+(np.artUrl?'<img src="'+esc(np.artUrl)+'" alt="">':"")+'<div style="flex:1;min-width:0"><div class="now-playing-badge">Now Playing</div><div class="now-playing-title">'+esc(np.name)+'</div><div class="now-playing-artist">'+esc(np.artist||"")+'</div></div></div>';}
+  // Hide only the song playing RIGHT NOW (the desktop retires its row to
+  // 'played' by row id a beat after it starts). Filtering on every track that
+  // has EVER played this session hid legit re-queues of that song — and a
+  // guest's same-track sibling row — from Up Next for the rest of the night.
+  var npTrackId=S.nowPlaying&&S.nowPlaying.trackId;
+  var upNext=S.queue.filter(function(q){return !(npTrackId&&q.track_id===npTrackId);});
   var votedMap=loadVotedMap();
   var ih="";
   if(upNext.length===0){ih='<div class="queue-empty">Queue is empty. Add some songs!</div>';}
@@ -41,8 +46,8 @@ export function renderQueue(){
         var s=resolveSingerConfig(raw);
         var rn=[];
         if(!hidden&&s.roleIndices&&roles.length>0){s.roleIndices.forEach(function(ri){if(roles[ri])rn.push(roles[ri]);});}
-        var dotContent=s.profilePicture?'<img src="'+s.profilePicture+'" alt="">':esc((s.name||"?").charAt(0).toUpperCase());
-        return '<div class="queue-singer-pill"><div class="queue-singer-dot" style="background:'+s.color+'">'+dotContent+'</div>'+esc(s.name||"Singer")+(rn.length>0?'<span class="queue-singer-role"> \u00B7 '+esc(rn.join(", "))+'</span>':"")+'</div>';
+        var dotContent=s.profilePicture?'<img src="'+esc(s.profilePicture)+'" alt="">':esc((s.name||"?").charAt(0).toUpperCase());
+        return '<div class="queue-singer-pill"><div class="queue-singer-dot" style="background:'+esc(s.color)+'">'+dotContent+'</div>'+esc(s.name||"Singer")+(rn.length>0?'<span class="queue-singer-role"> \u00B7 '+esc(rn.join(", "))+'</span>':"")+'</div>';
       }).join("")+'</div>';
     }
     // The guest who added a row gets an edit button instead of voting controls.
@@ -51,7 +56,7 @@ export function renderQueue(){
     var classes='queue-item'+(hidden?' queue-item--hidden':'')+(isLocked?' queue-item--locked':'');
     var artOrIcon=hidden
       ? '<div class="q-hidden-art">'+hiddenArtInner()+'</div>'
-      : (q.track_art_url?'<img src="'+q.track_art_url+'" alt="">':"");
+      : (q.track_art_url?'<img src="'+esc(q.track_art_url)+'" alt="">':"");
     var titleHtml=hidden?hiddenLabel():esc(q.track_name);
     var artistHtml=hidden?hiddenSubtitle():esc(q.track_artist);
     var voteCol="";

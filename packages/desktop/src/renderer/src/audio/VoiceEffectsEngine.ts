@@ -133,6 +133,12 @@ export class VoiceEffectsEngine {
     private playbackSourceNode: MediaElementAudioSourceNode | null = null
     private playbackBlobUrl: string | null = null
     private _onPlaybackEnded: (() => void) | null = null
+    // Bumped by stopPlayback() / stopLivePreview() so an in-flight
+    // playRecording() / startLivePreview() whose await resolves AFTER it was
+    // stopped or superseded discards its result instead of clobbering (and
+    // orphaning) the current one.
+    private playbackGen = 0
+    private liveGen = 0
 
     // Dev test harness (synthesized signals + downloaded vocal samples)
     // For vocal samples we deliberately use HTMLAudioElement +
@@ -826,6 +832,7 @@ export class VoiceEffectsEngine {
     }
 
     public async startLivePreview(deviceId: string, outputId?: string) {
+        const gen = ++this.liveGen
         if (this.ctx.state === 'suspended') await this.ctx.resume()
         try {
             if (outputId && typeof (this.ctx as any).setSinkId === 'function') {
@@ -837,13 +844,17 @@ export class VoiceEffectsEngine {
             }
             // Force stereo output — mic streams are mono and some devices
             // report mono channel count after setSinkId, causing audio to
-            // play only in the left ear.
-            this.ctx.destination.channelCount = 2
+            // play only in the left ear. Guarded: assigning more than
+            // maxChannelCount throws IndexSizeError, which would abort the
+            // whole mic start on a genuinely mono output device.
+            if (this.ctx.destination.maxChannelCount >= 2) {
+                this.ctx.destination.channelCount = 2
+            }
 
             const { realDeviceId, channelIndex } = parseDeviceId(deviceId)
             const wantMultiChannel = channelIndex !== undefined
 
-            this.stream = await navigator.mediaDevices.getUserMedia({
+            const stream = await navigator.mediaDevices.getUserMedia({
                 audio: {
                     deviceId: { exact: realDeviceId },
                     echoCancellation: false,
@@ -855,6 +866,23 @@ export class VoiceEffectsEngine {
                     ...(wantMultiChannel ? { channelCount: { ideal: 2 } } : {}),
                 }
             })
+            // stopLivePreview()/destroy() or a newer startLivePreview() ran
+            // while getUserMedia was pending (e.g. a quick mic switch). Release
+            // this capture rather than overwrite this.stream — otherwise the
+            // older track is never stopped and its source keeps feeding the
+            // chain alongside the new mic.
+            if (gen !== this.liveGen || this.ctx.state === 'closed') {
+                stream.getTracks().forEach(t => t.stop())
+                return false
+            }
+            // A previous preview that was never stopped: release it first.
+            if (this.stream) this.stream.getTracks().forEach(t => t.stop())
+            if (this.source) { try { this.source.disconnect() } catch { /* ignore */ } }
+            if (this.channelSplitter) {
+                try { this.channelSplitter.disconnect() } catch { /* ignore */ }
+                this.channelSplitter = null
+            }
+            this.stream = stream
             this.source = this.ctx.createMediaStreamSource(this.stream)
 
             if (wantMultiChannel) {
@@ -879,6 +907,7 @@ export class VoiceEffectsEngine {
     }
 
     public stopLivePreview() {
+        this.liveGen++
         if (this.stream) {
             this.stream.getTracks().forEach(t => t.stop())
             this.stream = null
@@ -943,6 +972,7 @@ export class VoiceEffectsEngine {
      */
     public async playRecording(blob: Blob, _outputDeviceId?: string, onEnded?: () => void): Promise<void> {
         this.stopPlayback()
+        const gen = this.playbackGen
         try {
             if (this.ctx.state === 'suspended') {
                 try { await this.ctx.resume() } catch (e) { console.warn('ctx.resume() failed:', e) }
@@ -981,6 +1011,16 @@ export class VoiceEffectsEngine {
                 audio.load()
             })
 
+            // Stopped (stopPlayback/destroy) or superseded by a newer
+            // playRecording() while loading: drop this element instead of
+            // wiring it in and overwriting playbackAudio, which would leave it
+            // playing with no reference that can ever stop it.
+            if (gen !== this.playbackGen) {
+                try { audio.src = '' } catch { /* ignore */ }
+                try { URL.revokeObjectURL(blobUrl) } catch { /* ignore */ }
+                return
+            }
+
             if (this.source) {
                 try { this.source.disconnect() } catch { /* ignore */ }
             }
@@ -992,6 +1032,7 @@ export class VoiceEffectsEngine {
 
             this._onPlaybackEnded = onEnded || null
             audio.addEventListener('ended', () => {
+                if (this.playbackAudio !== audio) return
                 this.stopPlayback()
                 if (this._onPlaybackEnded) this._onPlaybackEnded()
             }, { once: true })
@@ -1001,17 +1042,22 @@ export class VoiceEffectsEngine {
 
             await audio.play()
         } catch (err) {
+            // A stop/newer playback during load or play() (play() rejects with
+            // AbortError when paused mid-start) is not a failure — and its
+            // cleanup already ran; running ours would revoke the NEWER
+            // playback's blob URL and fire the caller's error path.
+            if (gen !== this.playbackGen) return
             console.error('Playback failed:', err)
-            if (this.playbackBlobUrl) {
-                try { URL.revokeObjectURL(this.playbackBlobUrl) } catch { /* ignore */ }
-                this.playbackBlobUrl = null
-            }
+            // Full teardown: also releases the element/source if play() failed
+            // after wiring, and reconnects the live mic this call disconnected.
+            this.stopPlayback()
             if (onEnded) onEnded()
             throw err
         }
     }
 
     public stopPlayback(): void {
+        this.playbackGen++
         if (this.playbackAudio) {
             try { this.playbackAudio.pause() } catch { /* ignore */ }
             try { this.playbackAudio.src = '' } catch { /* ignore */ }
@@ -1031,8 +1077,13 @@ export class VoiceEffectsEngine {
             try { this.playbackSource.disconnect() } catch { /* ignore */ }
             this.playbackSource = null
         }
+        // Reconnect the live mic to where startLivePreview() wired it: the
+        // channel splitter for a multi-channel interface input (splitter ->
+        // inputGain stays connected), otherwise inputGain directly. Connecting
+        // a multi-channel source straight to inputGain would downmix EVERY
+        // channel — i.e. the other singer's mic — into this chain.
         if (this.source && this.stream) {
-            try { this.source.connect(this.inputGain) } catch { /* ignore */ }
+            try { this.source.connect(this.channelSplitter ?? this.inputGain) } catch { /* ignore */ }
         }
     }
 
@@ -1447,6 +1498,10 @@ export class VoiceEffectsEngine {
             try { this.vocoderNode.disconnect() } catch { /* ignore */ }
             this.vocoderNode = null
         }
-        this.ctx.close()
+        // destroy() can legitimately run twice (KaraokePage's useSingerMic
+        // destroys on cancel AND in its effect cleanup); closing an already
+        // closed context rejects, so swallow that instead of surfacing an
+        // unhandled rejection.
+        this.ctx.close().catch(() => { /* already closed */ })
     }
 }

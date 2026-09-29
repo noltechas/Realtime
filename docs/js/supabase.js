@@ -271,6 +271,10 @@ export function checkYoureUp(){
       return;
     }
     if(match){S.matchedSinger=match;}
+    // Clear a stale match on ANY tab — renderBN shows the Stage (play/skip)
+    // tab while matchedSinger && nowPlaying, so a singer who wandered to
+    // Songs/Queue kept those controls for the next person's song.
+    else{S.matchedSinger=null;}
     if(!match&&(S.screen==="youreup"||S.screen==="stage")){S.screen="stage";S.matchedSinger=null;}
   }
   if(!S.nowPlaying&&(S.screen==="youreup"||S.screen==="stage")){
@@ -278,7 +282,15 @@ export function checkYoureUp(){
     S.matchedSinger=null;
   }
 }
+var rtSessionId=null;
 export function subRT(){
+  // Subscribe once per session. Every callback reads S.guestId etc. live, so
+  // the channels stay valid across "Switch user" → join/rejoin. Tearing down
+  // and re-creating them is actively harmful: removeChannel() is async, so
+  // sb.channel() with the same topic returns the still-leaving channel,
+  // subscribe() no-ops on it, and every realtime feed dies once the leave lands.
+  if(qCh&&rtSessionId===S.sessionId)return;
+  rtSessionId=S.sessionId;
   if(qCh)sb.removeChannel(qCh);
   qCh=sb.channel("cq-"+S.sessionId).on("postgres_changes",{event:"*",schema:"public",table:"karaoke_queue",filter:"session_id=eq."+S.sessionId},function(pl){
     if(pl.eventType==="INSERT")showQueueNotification(pl);

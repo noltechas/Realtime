@@ -46,7 +46,9 @@ export function resizeImage(file,maxSize,quality,cb){
   img.src=url;
 }
 export function fmtD(ms){var s=Math.floor(ms/1000);return Math.floor(s/60)+":"+String(s%60).padStart(2,"0");}
-export function esc(s){if(!s)return"";var d=document.createElement("div");d.textContent=s;return d.innerHTML;}
+// Also escapes quotes: esc() output is used inside attribute values
+// (value="…", src="…", data-*="…"), where innerHTML alone leaves a double quote intact.
+export function esc(s){if(!s)return"";var d=document.createElement("div");d.textContent=s;return d.innerHTML.replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
 // Resolve a stored singer config to its render values. Identity (name +
 // picture) comes LIVE from the canonical guest (S.guestsById) when the config
 // carries a guestId, so profile edits propagate. Name-only configs use their
@@ -62,7 +64,7 @@ export function resolveSingerConfig(c){
   };
 }
 export function avatarHTML(pic,name,size,bg){
-  if(pic){return '<img src="'+pic+'" alt="" style="width:'+size+'px;height:'+size+'px;border-radius:50%;object-fit:cover">';}
+  if(pic){return '<img src="'+esc(pic)+'" alt="" style="width:'+size+'px;height:'+size+'px;border-radius:50%;object-fit:cover">';}
   var letter=name?esc(name.charAt(0).toUpperCase()):"?";
   var bgc=bg||"linear-gradient(135deg,#a78bfa,#818cf8)";
   return '<div style="width:'+size+'px;height:'+size+'px;border-radius:50%;background:'+bgc+';display:flex;align-items:center;justify-content:center;font-size:'+Math.round(size*0.42)+'px;font-weight:700;color:#fff;flex-shrink:0">'+letter+'</div>';
@@ -85,7 +87,7 @@ export function showQueueNotification(pl){
   var avatarHtml="";
   if(pics.length>0){
     avatarHtml='<div class="notif-avatars" style="display:flex;gap:4px;flex-shrink:0">';
-    for(var a=0;a<pics.length;a++){avatarHtml+='<img src="'+pics[a]+'" alt="" style="width:36px;height:36px;border-radius:50%;object-fit:cover">';}
+    for(var a=0;a<pics.length;a++){avatarHtml+='<img src="'+esc(pics[a])+'" alt="" style="width:36px;height:36px;border-radius:50%;object-fit:cover">';}
     avatarHtml+="</div>";
   }
   var container=document.getElementById("notif-container");

@@ -13,6 +13,8 @@ import { LiquidLight } from '../components/LiquidLight'
 import { PSY, psyDyeBleed, psyPoured, psyStroke } from '../styles/psychedelic'
 
 import { VoiceEffectsEngine } from '../audio/VoiceEffectsEngine'
+import { DEFAULT_VOICE_EFFECTS } from '../audio/VoiceEffectsTypes'
+import { parseDeviceId } from '../hooks/useAudioDevices'
 import OSCARS_MUSIC_URL from '../assets/oscars.mp3'
 
 function extractYouTubeId(url: string): string | null {
@@ -1946,13 +1948,55 @@ function useSingerMic(deviceId: string, enabled: boolean, effects: any, mainOutp
     const [level, setLevel] = useState(0)
     const animRef = useRef<number>(0)
     const engineRef = useRef<VoiceEffectsEngine | null>(null)
+    // Bumped when this mic's device comes back after being unplugged, so the
+    // engine below re-acquires it (the deviceId string itself never changes).
+    const [reacquireTick, setReacquireTick] = useState(0)
 
-    // Re-apply effects smoothly when they change
+    // Re-apply effects smoothly when they change. A null/undefined entry means
+    // "no per-song effects" — fall back to the defaults rather than skipping,
+    // or an engine that outlives a song change (spare mics, a singer kept on
+    // deck) would keep the PREVIOUS song's chain (autotune key, reverb, …).
     useEffect(() => {
-        if (engineRef.current && effects) {
-            engineRef.current.apply(effects)
+        if (engineRef.current) {
+            engineRef.current.apply(effects || DEFAULT_VOICE_EFFECTS)
         }
     }, [effects])
+
+    // Mic unplugged and plugged back in mid-song: the MediaStreamTrack died
+    // with the device and nothing restarts it, because deviceId is unchanged.
+    // Watch for the device leaving and returning (or being absent when the
+    // engine started) and re-run the engine effect once it's present again.
+    useEffect(() => {
+        if (!enabled || !deviceId) return
+        const md = navigator.mediaDevices
+        if (!md?.addEventListener || !md.enumerateDevices) return
+        const { realDeviceId } = parseDeviceId(deviceId)
+        let lost = false
+        let disposed = false
+        let latest = 0
+        const check = async () => {
+            const seq = ++latest
+            let devices: MediaDeviceInfo[]
+            try { devices = await md.enumerateDevices() } catch { return }
+            // Only the newest enumeration may decide (bursts can resolve out of order).
+            if (disposed || seq !== latest) return
+            const inputs = devices.filter(d => d.kind === 'audioinput')
+            // Blank ids = enumerated without mic permission; can't judge presence.
+            if (inputs.some(d => !d.deviceId)) return
+            const present = inputs.some(d => d.deviceId === realDeviceId)
+            if (!present) lost = true
+            else if (lost) {
+                lost = false
+                setReacquireTick(n => n + 1)
+            }
+        }
+        void check()
+        md.addEventListener('devicechange', check)
+        return () => {
+            disposed = true
+            md.removeEventListener('devicechange', check)
+        }
+    }, [deviceId, enabled])
 
     useEffect(() => {
         if (!enabled || !deviceId) {
@@ -2001,7 +2045,7 @@ function useSingerMic(deviceId: string, enabled: boolean, effects: any, mainOutp
             engineRef.current = null
             setLevel(0)
         }
-    }, [deviceId, enabled, mainOutputId]) // Recreate on output device change
+    }, [deviceId, enabled, mainOutputId, reacquireTick]) // Recreate on output device change / mic replug
 
     return level
 }
@@ -2037,7 +2081,7 @@ function MicMeter({ singer, active, effects, vocalFx = true, autotune = true, ma
     // Layer the guest's per-mic FX/autotune toggle on top of the song's effects.
     // Memoized on the (stable) effects ref + the two booleans so the engine only
     // re-applies when something actually changes — not on every render.
-    const fxEffects = useMemo(() => applyFxToggles(effects, vocalFx, autotune), [effects, vocalFx, autotune])
+    const fxEffects = useMemo(() => applyFxToggles(effects || DEFAULT_VOICE_EFFECTS, vocalFx, autotune), [effects, vocalFx, autotune])
     const level = useSingerMic(singer.micDeviceId, active, fxEffects, mainOutputId)
     const guests = useGuestsMap()
     const bars = 8
@@ -2159,7 +2203,7 @@ function OpenMics({ micSlots, singers, voiceEffects, vocalFx, autotune, mainOutp
     const perMicEffects = useMemo(
         () => openMics.map(m => {
             const owner = singers[m.slotIndex] ?? singers[0]
-            const fx = applyFxToggles(resolveSingerEffects(voiceEffects, owner), vocalFx, autotune)
+            const fx = applyFxToggles(resolveSingerEffects(voiceEffects, owner) || DEFAULT_VOICE_EFFECTS, vocalFx, autotune)
             return fx ? { ...fx, micLevel: m.micLevel } : null
         }),
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2220,7 +2264,9 @@ function AwardsBgMusic({ duck, outputId }: { duck: boolean; outputId: string }) 
         return () => { a.pause(); a.src = ''; ref.current = null }
     }, [outputId])
     // Smoothly ramp the volume toward the target whenever the duck state changes
-    // (and on the initial mount, which fades up from 0).
+    // (and on the initial mount, which fades up from 0). Also re-runs on an
+    // output change: that rebuilds the element at volume 0 above, and without
+    // re-ramping it the music would stay silent for the rest of the reveal.
     useEffect(() => {
         const a = ref.current
         if (!a) return
@@ -2235,7 +2281,7 @@ function AwardsBgMusic({ duck, outputId }: { duck: boolean; outputId: string }) 
         }
         step()
         return () => cancelAnimationFrame(raf)
-    }, [duck])
+    }, [duck, outputId])
     return null
 }
 
@@ -4402,14 +4448,28 @@ export default function KaraokePage() {
 
     // When art changes, keep old art visible until new one loads
     useEffect(() => {
-        if (!art) return
+        // No art: nothing to wait for, so release the crossfade (a cancelled
+        // in-flight load below would otherwise leave the old art held up).
+        if (!art) { setArtLoaded(true); return }
         setArtLoaded(false)
+        // Ignore a superseded load: without this, the PREVIOUS song's art
+        // finishing late marks the new art "loaded" and records the old URL
+        // as prevArt, flashing the wrong backdrop on quick song changes.
+        let cancelled = false
         const img = new Image()
         img.onload = () => {
+            if (cancelled) return
             setArtLoaded(true)
             setPrevArt(art)
         }
+        // A failed load must still release the crossfade, otherwise the
+        // previous song's art stays up as the backdrop for the whole song.
+        img.onerror = () => {
+            if (cancelled) return
+            setArtLoaded(true)
+        }
         img.src = art
+        return () => { cancelled = true }
     }, [art])
 
     // Receive time updates from main window via IPC
@@ -4482,6 +4542,11 @@ export default function KaraokePage() {
                 },
                 events: {
                     onReady: () => {
+                        // Belt-and-braces with the `mute: 1` playerVar (an embed URL
+                        // param, not a documented IFrame API option): this backdrop
+                        // must NEVER be audible — its soundtrack is the original
+                        // record, which would play over the karaoke stems.
+                        ytPlayerRef.current?.mute()
                         ytReadyRef.current = true
                         setYtReady(true)
                         if (state.stageMode === 'playing' && state.isPlaying) {
@@ -4517,12 +4582,22 @@ export default function KaraokePage() {
             ytPlayerRef.current = null
             ytReadyRef.current = false
             setYtReady(false)
+            // Forget the old video's state: a stale 1 (playing) would un-hide the
+            // NEXT song's iframe while it's still loading, exposing YouTube's
+            // thumbnail + play-button overlay during the Up Next preview.
+            setYtPlayState(-1)
         }
     }, [ytId])
 
     // Sync YouTube player play/pause and handle stage mode music video previews
     useEffect(() => {
-        if (!ytReady || !ytPlayerRef.current) return
+        // ytReadyRef too, not just the ytReady state: on a video→video song change
+        // this effect runs in the SAME commit that destroyed the old player and
+        // constructed the new one, while `ytReady` still reads the old player's
+        // `true`. The new player has no seekTo/playVideo/pauseVideo until its
+        // onReady fires, so calling them throws inside the effect and trips the
+        // StageErrorBoundary ("Reloading stage...").
+        if (!ytReady || !ytReadyRef.current || !ytPlayerRef.current) return
 
         // Suppress music-video preview teasers for secret songs — they'd leak the song visually
         const canPreview = state.stageMode === 'ready' && previewSlices.length > 0 && !np?.isHidden
@@ -4531,7 +4606,7 @@ export default function KaraokePage() {
             let sliceIdx = 0
 
             const playSlice = () => {
-                if (!ytPlayerRef.current) return
+                if (!ytPlayerRef.current || !ytReadyRef.current) return
                 const startSec = previewSlices[sliceIdx % previewSlices.length]
                 ytPlayerRef.current.seekTo(startSec, true)
                 ytPlayerRef.current.playVideo()
@@ -4594,6 +4669,10 @@ export default function KaraokePage() {
         }
         if (idx !== lineIdx) {
             setLineIdx(idx)
+            // Drop the previous line's syllable index in the same render, or the
+            // new active line paints its first N syllables as already sung for a
+            // frame or two until the rAF tracker below catches up.
+            setActiveSylIdx(-1)
         }
     }, [elapsed, lyrics, lineIdx])
 
@@ -4642,7 +4721,10 @@ export default function KaraokePage() {
         if (target) {
             const scrollTo = target.offsetTop - container.clientHeight / 2 + target.offsetHeight / 2
             const jump = Math.abs(lineIdx - prevScrolledLineRef.current)
-            container.scrollTo({ top: scrollTo, behavior: jump > 2 ? 'auto' : 'smooth' })
+            // 'instant', not 'auto': 'auto' means "use the CSS scroll-behavior",
+            // and .k-lyrics sets `scroll-behavior: smooth`, so the snap never
+            // happened and catch-up jumps still sprinted through every line.
+            container.scrollTo({ top: scrollTo, behavior: jump > 2 ? 'instant' : 'smooth' })
         }
         prevScrolledLineRef.current = lineIdx
     }, [lineIdx])

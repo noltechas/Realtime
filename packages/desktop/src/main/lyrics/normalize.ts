@@ -151,7 +151,10 @@ export function parseYrc(text: string): LyricLine[] {
         const durMs = parseInt(lineMatch[2], 10)
         const endTimeMs = startTimeMs + durMs
         const body = line.slice(lineMatch[0].length)
-        const sylRe = /\((\d+),(\d+),\d+\)([^(]*)/g
+        // Syllable text runs up to the next (start,dur,flag) tag. Not `[^(]*`:
+        // that silently dropped any syllable starting with "(" — i.e. every
+        // parenthesized ad-lib like "(yeah)" vanished from words + timing.
+        const sylRe = /\((\d+),(\d+),\d+\)(.*?)(?=\(\d+,\d+,\d+\)|$)/g
         const syllables: Syllable[] = []
         const parts: string[] = []
         let sm: RegExpExecArray | null

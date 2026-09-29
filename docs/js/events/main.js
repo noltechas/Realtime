@@ -154,7 +154,7 @@ export function bindEvents(){
     if(!confirm("Switch user? You'll need to enter a new name. Songs you've added will stay queued."))return;
     localStorage.removeItem("karaoke_guest_"+S.sessionCode);
     clearDeviceProfile();
-    S.guestId=null;S.guestName="";S.profilePicture=null;S.defaultColor=null;S.joinName="";
+    S.guestId=null;S.guestName="";S.profilePicture=null;S.defaultColor=null;S.joinName="";S.matchedSinger=null;
     S.screen="join";render();
   });}
   // (The #nav-profile click handler was removed — the profile button now

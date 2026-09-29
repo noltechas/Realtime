@@ -95,15 +95,21 @@ export function useAudioDevices(): AudioDevices {
 
     useEffect(() => {
         let cancelled = false
+        // Rapid devicechange bursts (plug/unplug, Bluetooth reconnect) start
+        // overlapping refreshes; the per-device getUserMedia probes make an
+        // older one able to finish LAST and republish a stale device list.
+        // Only the most recent refresh may publish.
+        let latest = 0
 
         const refresh = async () => {
+            const seq = ++latest
             let list: MediaDeviceInfo[]
             try {
                 list = await navigator.mediaDevices.enumerateDevices()
             } catch {
                 return
             }
-            if (cancelled) return
+            if (cancelled || seq !== latest) return
 
             const rawInputs = list.filter(d => d.kind === 'audioinput' && d.deviceId)
             const outputs = list.filter(d => d.kind === 'audiooutput')
@@ -119,7 +125,7 @@ export function useAudioDevices(): AudioDevices {
             const probed = await Promise.all(
                 rawInputs.map(async d => ({ raw: d, count: await probeChannelCount(d.deviceId) }))
             )
-            if (cancelled) return
+            if (cancelled || seq !== latest) return
 
             const expanded = probed.flatMap(({ raw, count }) => expandDevice(raw, count))
             setDevices({ inputs: expanded, outputs })

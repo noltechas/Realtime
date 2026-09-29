@@ -445,7 +445,7 @@ function membersBlock(singers){
   var vis=singers.slice(0,5);
   for(var i=0;i<vis.length;i++){
     var s=vis[i];
-    var bg=s.color?'background:linear-gradient(135deg,'+s.color+','+s.color+'aa)':"";
+    var bg=s.color?'background:linear-gradient(135deg,'+esc(s.color)+','+esc(s.color)+'aa)':"";
     av+='<div class="awards-reveal__member-avatar" style="'+bg+'">'+(s.profilePicture?'<img src="'+esc(s.profilePicture)+'" alt="">':esc((s.name||"?").charAt(0).toUpperCase()))+'</div>';
   }
   return '<div class="awards-reveal__members"><div class="awards-reveal__members-avatars">'+av+'</div><div class="awards-reveal__member-names">'+esc(singers.map(function(x){return x.name;}).join(", "))+'</div></div>';
@@ -457,7 +457,7 @@ function finaleMembers(singers){
   var vis=singers.slice(0,4);
   for(var i=0;i<vis.length;i++){
     var s=vis[i];
-    var bg=s.color?'background:linear-gradient(135deg,'+s.color+','+s.color+'aa)':"";
+    var bg=s.color?'background:linear-gradient(135deg,'+esc(s.color)+','+esc(s.color)+'aa)':"";
     av+='<div class="awards-reveal__finale-member-avatar" style="'+bg+'">'+(s.profilePicture?'<img src="'+esc(s.profilePicture)+'" alt="">':esc((s.name||"?").charAt(0).toUpperCase()))+'</div>';
   }
   return '<div class="awards-reveal__finale-members"><div class="awards-reveal__finale-members-avatars">'+av+'</div><div class="awards-reveal__finale-member-names">'+esc(singers.map(function(x){return x.name;}).join(", "))+'</div></div>';

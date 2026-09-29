@@ -263,6 +263,15 @@ export default function AdminPage() {
 
     const debounceRef = useRef<NodeJS.Timeout | null>(null)
 
+    // Identity of the song the editor currently shows, readable from async
+    // continuations (file dialogs, lyric fetches, saves) that would otherwise
+    // act on a stale closure after the user switched songs.
+    const pendingTrackIdRef = useRef<string | null>(null)
+    pendingTrackIdRef.current = pending?.track?.id ?? null
+    // Bumped on every song selection so a slow, superseded selectTrack() can't
+    // land after (and overwrite) a newer selection.
+    const selectSeqRef = useRef(0)
+
     // Spotify token fetch/refresh + publish-to-session now live in
     // useKaraokeSession (the app-root session hook) so the token stays fresh on
     // EVERY page, not just while this Admin tab is mounted. Otherwise the
@@ -582,6 +591,9 @@ export default function AdminPage() {
             if (auditionAnimRef.current) cancelAnimationFrame(auditionAnimRef.current)
             if (auditionRecTimerRef.current) clearInterval(auditionRecTimerRef.current)
             if (auditionPlayTimerRef.current) clearInterval(auditionPlayTimerRef.current)
+            if (animRef.current) clearInterval(animRef.current)
+            if (recordingTimerRef.current) clearInterval(recordingTimerRef.current)
+            if (playbackTimerRef.current) clearInterval(playbackTimerRef.current)
         }
     }, [])
 
@@ -793,6 +805,7 @@ export default function AdminPage() {
     }
 
     const handleEditCatalogSong = (song: CatalogSong) => {
+        selectSeqRef.current++ // discard any in-flight selectTrack()
         const mockTrack = {
             id: song.trackId,
             name: song.name,
@@ -802,6 +815,9 @@ export default function AdminPage() {
         }
         const rawConfigs = Array.isArray(song.voiceEffects) ? song.voiceEffects : [song.voiceEffects || JSON.parse(JSON.stringify(DEFAULT_VOICE_EFFECTS))]
         const editConfigs = normalizeMicLevel(rawConfigs) as VoiceEffects[]
+        // One config per role (as selectTrack does) — otherwise clicking a role
+        // tab past the end leaves activeCfg undefined and the editor vanishes.
+        while (editConfigs.length < Math.max(1, (song.roles || []).length)) editConfigs.push(JSON.parse(JSON.stringify(editConfigs[0])))
         // Merge stored Spotify data into configs that still have default key
         if (song.spotifyData && typeof song.spotifyData.key === 'number' && song.spotifyData.key !== -1) {
             for (const cfg of editConfigs) {
@@ -823,8 +839,12 @@ export default function AdminPage() {
             genres: Array.isArray(song.genres) ? song.genres : []
         })
         setActivePresetIds(new Array(Math.max(1, editConfigs.length)).fill(null))
+        setNewRoleName('')
         setExistingInstrumental(true)
         setExistingVocals(!!song.vocalsPath)
+        // Tap-to-time in the syllable editor plays THIS song's instrumental.
+        setPendingInstrumentalPath(song.instrumentalPath || null)
+        setEditingSyllableLineIdx(null)
         setYoutubeUrl(song.youtubeUrl || '')
         setPendingAudioFile(null)
         setPendingVocalsFile(null)
@@ -857,6 +877,7 @@ export default function AdminPage() {
     }, [query, search])
 
     const selectTrack = async (track: any) => {
+        const seq = ++selectSeqRef.current
         const defaultConfig: VoiceEffects = JSON.parse(JSON.stringify(DEFAULT_VOICE_EFFECTS))
         let spotifyData: { key?: number; mode?: number; tempo?: number; releaseDate?: string; releaseYear?: number; instrumentalness?: number; popularity?: number } = {}
 
@@ -896,6 +917,11 @@ export default function AdminPage() {
                 fetchedGenres = bucketSpotifyGenres(allTags)
             }
         }
+
+        // A newer selection (another track click, or Edit on a catalog song)
+        // happened while Spotify was answering — don't swap the editor back to
+        // this older track, where the user could attach the wrong stems to it.
+        if (seq !== selectSeqRef.current) return
 
         if (isPlayingSnippet) stopSnippetPlayback()
         if (isTesting) toggleTesting()
@@ -959,6 +985,21 @@ export default function AdminPage() {
             if (animRef.current) clearInterval(animRef.current)
         } else {
             if (!selectedMic) return
+            // Stop the Audition Booth's live stream first (mirror of
+            // toggleAuditionLive): startLivePreview doesn't release a previous
+            // stream, so both mics would feed the chain and the old one leaks.
+            if (auditionLive) {
+                if (auditionRecording) {
+                    await engineRef.current.stopRecording()
+                    setAuditionRecording(false)
+                    if (auditionRecTimerRef.current) clearInterval(auditionRecTimerRef.current)
+                }
+                engineRef.current.stopLivePreview()
+                setAuditionLive(false)
+                setAuditionLevel(0)
+                if (auditionAnimRef.current) cancelAnimationFrame(auditionAnimRef.current)
+                auditionAnimRef.current = 0
+            }
             const success = await engineRef.current.startLivePreview(selectedMic, selectedSpeaker)
             if (success) {
                 setIsTesting(true)
@@ -1090,6 +1131,8 @@ export default function AdminPage() {
             // skip the copy when absent so existing presets don't force-disable
             // a vocoder block the user already configured manually.
             if (preset.effects.vocoder) draft.vocoder = { ...preset.effects.vocoder }
+            // Same for the (newer) doubler — presets like Travis ship one.
+            if (preset.effects.doubler) draft.doubler = { ...preset.effects.doubler }
             draft.micLevel = 1.0
             draft.key = savedKey
             draft.mode = savedMode
@@ -1117,8 +1160,11 @@ export default function AdminPage() {
         setLyricsError(null)
         try {
             const data = await window.electronAPI.fetchLyrics({ trackId, trackName, artistName, albumName, durationMs })
+            // The editor may have moved on to another song during the fetch —
+            // never write this track's lyrics onto it.
+            if (pendingTrackIdRef.current !== trackId) { setFetchingLyrics(false); return }
             if (data && data.lines && data.lines.length > 0) {
-                setPending(p => p ? { ...p, lyrics: data.lines.map((l: any) => ({
+                setPending(p => p && p.track.id === trackId ? { ...p, lyrics: data.lines.map((l: any) => ({
                     startTimeMs: typeof l.startTimeMs === 'string' ? parseInt(l.startTimeMs, 10) : l.startTimeMs,
                     endTimeMs: l.endTimeMs,
                     words: l.words,
@@ -1211,6 +1257,7 @@ export default function AdminPage() {
     }
 
     const pickAudioFile = (type: 'instrumental' | 'vocals') => {
+        const forTrackId = pending?.track?.id ?? null
         const input = document.createElement('input')
         input.type = 'file'
         input.accept = 'audio/*'
@@ -1219,6 +1266,9 @@ export default function AdminPage() {
             if (!file) return
             const filePath = (file as any).path
             if (!filePath) return
+            // The editor switched songs while the file dialog was open — this
+            // file was picked for a different track; never attach it here.
+            if (pendingTrackIdRef.current !== forTrackId) return
             if (type === 'instrumental') {
                 setPendingAudioFile({ name: file.name, path: filePath })
                 setPendingInstrumentalPath(filePath)
@@ -1258,7 +1308,7 @@ export default function AdminPage() {
             if (importRes.error) { console.error('Vocals import error:', importRes.error); alert(importRes.error); setUploading(false); return }
         }
 
-        await window.electronAPI.saveSongMeta({
+        const metaRes = await window.electronAPI.saveSongMeta({
             trackId: track.id,
             name: track.name,
             artist: track.artists.map((a: any) => a.name).join(', '),
@@ -1272,18 +1322,24 @@ export default function AdminPage() {
             genres: pending.genres && pending.genres.length > 0 ? pending.genres : undefined,
             spotifyData: Object.keys(pending.spotifyData || {}).length > 0 ? pending.spotifyData : undefined
         })
+        // Keep the editor (and the user's edits) open if meta.json wasn't written.
+        if (metaRes?.error) { console.error('Save meta error:', metaRes.error); alert(metaRes.error); setUploading(false); return }
 
         setUploading(false)
-        setPending(null)
-        setPendingAudioFile(null)
-        setPendingVocalsFile(null)
-        setExistingInstrumental(false)
-        setExistingVocals(false)
-        setPendingInstrumentalPath(null)
-        setEditingSyllableLineIdx(null)
-        setYoutubeUrl('')
-        setQuery('')
-        setResults([])
+        // Only tear down the editor if it still shows the song just saved — the
+        // user may have closed it and opened another song while the import ran.
+        if (pendingTrackIdRef.current === track.id) {
+            setPending(null)
+            setPendingAudioFile(null)
+            setPendingVocalsFile(null)
+            setExistingInstrumental(false)
+            setExistingVocals(false)
+            setPendingInstrumentalPath(null)
+            setEditingSyllableLineIdx(null)
+            setYoutubeUrl('')
+            setQuery('')
+            setResults([])
+        }
         await loadCatalog()
     }
 

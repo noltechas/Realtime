@@ -43,7 +43,7 @@ export function filterCatalog(){
       if(!s.genres||s.genres.indexOf(g)<0)return false;
     }
     if(q){
-      if(s.name.toLowerCase().indexOf(q)<0&&s.artist.toLowerCase().indexOf(q)<0)return false;
+      if((s.name||"").toLowerCase().indexOf(q)<0&&(s.artist||"").toLowerCase().indexOf(q)<0)return false;
     }
     return true;
   });
@@ -70,8 +70,8 @@ export var SONGS_BATCH_SIZE=30;
 // Build the HTML for a single song card. Exported so the infinite-scroll
 // handler can append batches without re-running the whole renderSongs() pipe.
 export function songCardHtml(s){
-  return '<div class="song-card" data-track="'+s.track_id+'">'+
-    (s.art_url?'<img src="'+s.art_url+'" alt="" loading="lazy">':'<div class="song-card-placeholder">&#127925;</div>')+
+  return '<div class="song-card" data-track="'+esc(s.track_id)+'">'+
+    (s.art_url?'<img src="'+esc(s.art_url)+'" alt="" loading="lazy">':'<div class="song-card-placeholder">&#127925;</div>')+
     '<div class="song-card-info">'+
       '<div class="song-card-title">'+esc(s.name)+'</div>'+
       '<div class="song-card-artist">'+esc(s.artist)+'</div>'+
