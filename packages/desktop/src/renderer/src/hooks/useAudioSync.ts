@@ -60,6 +60,12 @@ export function useAudioSync(): AudioSyncState {
     // vocal out mid-session works for the current song but the next song
     // reverts to whatever device — if any — was selected at queue time.
     const monitorDeviceIdsStr = state.monitorDeviceIds.join(',')
+    // Identity of the loaded audio = BOTH stems. Keying on the instrumental
+    // alone meant a vocals-only change (vocal stem imported / re-imported for
+    // the on-deck song) never reloaded, leaving the old vocals element state.
+    const stemsKey = np?.stemsPath?.instrumental
+        ? np.stemsPath.instrumental + '\n' + (np.stemsPath.vocals || '')
+        : null
 
     // Initialize from engine on mount (in case engine is already loaded)
     useEffect(() => {
@@ -69,7 +75,7 @@ export function useAudioSync(): AudioSyncState {
             engine.setVocalOffset(state.vocalOffsetMs)
             engine.setVolume(state.volume)
             engine.setVocalVolume(state.vocalVolume ?? 1.0)
-            loadedPathRef.current = np.stemsPath.instrumental
+            loadedPathRef.current = stemsKey
             setLoaded(true)
             setDuration(engine.durationMs || track?.duration_ms || 0)
             setPlaying(engine.isPlaying)
@@ -94,7 +100,7 @@ export function useAudioSync(): AudioSyncState {
             return
         }
 
-        if (loadedPathRef.current === instrumentalPath) {
+        if (loadedPathRef.current === stemsKey) {
             const engine = getEngine()
             if (engine.isLoaded) {
                 engine.setVocalOffset(state.vocalOffsetMs)
@@ -121,26 +127,27 @@ export function useAudioSync(): AudioSyncState {
         setLoaded(false)
         setElapsed(0)
         setPlaying(false)
-        loadedPathRef.current = instrumentalPath
+        loadedPathRef.current = stemsKey
 
         engine.setOnTimeUpdate((timeMs) => {
             setElapsed(timeMs)
             window.electronAPI?.sendPlaybackTime(timeMs)
         })
-        engine.setOnEnded(() => {
-            setPlaying(false)
-            dispatch({ type: 'NEXT_SONG' })
-            window.electronAPI?.sendPlaybackTime(0)
-        })
+        // Same idle-aware handler as the already-loaded branch above — a
+        // freshly loaded song must not auto-advance while the host is asleep.
+        engine.setOnEnded(handleSongEnded)
 
         engine.load(stemsPath || {}, monitorDeviceIds).then(() => {
+            // A newer song may have started loading since; never let a stale
+            // load mark the engine ready for the wrong song.
+            if (loadedPathRef.current !== stemsKey) return
             engine.setVocalOffset(state.vocalOffsetMs)
             engine.setVolume(state.volume)
             engine.setVocalVolume(state.vocalVolume ?? 1.0)
             setDuration(engine.durationMs || track?.duration_ms || 0)
             setLoaded(true)
         }).catch(err => console.error('[AudioSync] Audio load failed:', err))
-    }, [np?.stemsPath?.instrumental, np?.stemsPath?.vocals, monitorDeviceIdsStr, track?.duration_ms, state.vocalOffsetMs, dispatch])
+    }, [stemsKey, monitorDeviceIdsStr, track?.duration_ms, state.vocalOffsetMs, dispatch, handleSongEnded])
 
     // Keep vocal offset in sync
     useEffect(() => {

@@ -15,6 +15,14 @@ export class AudioEngine {
     // Keeping the element + its sinkId around lets the OS hold the audio
     // handle warm so latency stays much more consistent.
     private vocalAudio: HTMLAudioElement | null = null
+    // True only while the CURRENT song has a vocal stem loaded on vocalAudio.
+    // Removing the `src` attribute does NOT unload a media element (per the
+    // HTML spec only setting/changing src re-runs the load algorithm), so
+    // after a song with vocals the persistent element still holds that song's
+    // vocals. Every play/seek/resume of vocalAudio is gated on this flag —
+    // otherwise a no-vocals song (Hey Ya!, Umbrella, Gold Digger, …) played
+    // the PREVIOUS song's vocals into the Vocal Out device.
+    private _hasVocals = false
     private onTimeUpdate: ((timeMs: number) => void) | null = null
     private onEnded: (() => void) | null = null
     private _loaded = false
@@ -70,9 +78,20 @@ export class AudioEngine {
         this._loadAbort?.abort()
         this._loadAbort = new AbortController()
         const signal = this._loadAbort.signal
+        // A fresh load is always "loaded, paused" — never inherit the previous
+        // song's play intent (the pause listeners would auto-resume on it).
+        this._intendedPlayState = false
+        this._loaded = false
+        this._hasVocals = !!stems.vocals
 
         return new Promise((resolve, reject) => {
-            this.audio.src = stems.instrumental ? `file://${stems.instrumental}` : ''
+            if (stems.instrumental) {
+                this.audio.src = toFileUrl(stems.instrumental)
+            } else {
+                // `src = ''` would resolve to the page URL (and error); an
+                // absent attribute is the real "no source".
+                this.audio.removeAttribute('src')
+            }
 
             if (stems.vocals) {
                 // Create the persistent vocal element exactly once, the first
@@ -86,12 +105,12 @@ export class AudioEngine {
                     // Prevent OS device disconnections (AirPods etc.) from
                     // pausing the vocal track.
                     this.vocalAudio.addEventListener('pause', () => {
-                        if (this._intendedPlayState && this.vocalAudio) {
+                        if (this._intendedPlayState && this._hasVocals && this.vocalAudio) {
                             this.vocalAudio.play().catch(() => { })
                         }
                     })
                 }
-                this.vocalAudio.src = `file://${stems.vocals}`
+                this.vocalAudio.src = toFileUrl(stems.vocals)
 
                 const deviceId = monitorDeviceIds[0] || ''
                 if (deviceId) {
@@ -108,14 +127,17 @@ export class AudioEngine {
                 }
             } else if (this.vocalAudio) {
                 // This song has no vocals. Pause + clear src but keep the
-                // element around for whatever song comes next.
+                // element around for whatever song comes next. The element
+                // still holds the previous song's vocals (see _hasVocals), so
+                // also mute it — play()/seek() skip it while _hasVocals is off.
                 this.vocalAudio.pause()
                 this.vocalAudio.removeAttribute('src')
+                this.vocalAudio.muted = true
             }
 
             const elementsToWait: HTMLAudioElement[] = []
-            if (this.audio.src) elementsToWait.push(this.audio)
-            if (this.vocalAudio && this.vocalAudio.src) elementsToWait.push(this.vocalAudio)
+            if (stems.instrumental) elementsToWait.push(this.audio)
+            if (this.vocalAudio && this._hasVocals) elementsToWait.push(this.vocalAudio)
 
             if (elementsToWait.length === 0) {
                 this._loaded = true
@@ -143,6 +165,15 @@ export class AudioEngine {
                 audioEl.addEventListener('canplaythrough', onReady, { once: true, signal })
                 audioEl.addEventListener('error', () => {
                     if (done || signal.aborted) return
+                    if (audioEl === this.vocalAudio) {
+                        // The guide vocal is optional — a broken vocals file
+                        // must not stop the instrumental from playing.
+                        console.warn(`[AudioEngine] Vocal stem failed to load, continuing without it: ${audioEl.src}`)
+                        this._hasVocals = false
+                        audioEl.muted = true
+                        onReady()
+                        return
+                    }
                     reject(new Error(`Failed to load audio: ${audioEl.src}`))
                 }, { once: true, signal })
                 // CRITICAL: always (re)load after swapping `.src`. These <audio>
@@ -171,7 +202,7 @@ export class AudioEngine {
         this._intendedPlayState = true
         if (this._loaded) {
             this.audio.play().catch(() => { })
-            if (this.vocalAudio) {
+            if (this.vocalAudio && this._hasVocals) {
                 this._syncVocalToOffset()
                 this.vocalAudio.play().catch(() => { })
             }
@@ -187,7 +218,7 @@ export class AudioEngine {
     seek(timeMs: number) {
         const t = Math.max(0, timeMs / 1000)
         this.audio.currentTime = t
-        if (this.vocalAudio) {
+        if (this.vocalAudio && this._hasVocals) {
             const vocalT = Math.max(0, t + this._vocalOffsetMs / 1000)
             this.vocalAudio.currentTime = Math.min(vocalT, this.vocalAudio.duration || vocalT)
         }
@@ -219,7 +250,10 @@ export class AudioEngine {
             this.vocalAudio.muted = true
             return
         }
-        this.vocalAudio.muted = false
+        // Still route the sink on a no-vocals song (so the next song is on the
+        // right device), but stay muted — the element holds the previous
+        // song's vocals until the next load swaps its source.
+        this.vocalAudio.muted = !this._hasVocals
         // Skip the round trip if the element is already on the requested
         // sink — every setSinkId on Bluetooth can re-handshake the link.
         const currentSink = (this.vocalAudio as unknown as { sinkId?: string }).sinkId
@@ -261,7 +295,7 @@ export class AudioEngine {
     get vocalOffsetMs() { return this._vocalOffsetMs }
 
     private _syncVocalToOffset() {
-        if (!this.vocalAudio) return
+        if (!this.vocalAudio || !this._hasVocals) return
         const vocalT = Math.max(0, this.audio.currentTime + this._vocalOffsetMs / 1000)
         const maxT = this.vocalAudio.duration || vocalT
         this.vocalAudio.currentTime = Math.min(vocalT, maxT)
@@ -286,7 +320,16 @@ export class AudioEngine {
             // (and its sinkId) survive and the next load() just swaps src.
             this.vocalAudio.pause()
             this.vocalAudio.removeAttribute('src')
+            this.vocalAudio.muted = true
         }
+        this._hasVocals = false
         this._loaded = false
     }
+}
+
+// Build a file:// URL from an absolute path. Each segment is percent-encoded
+// so a `#`, `?` or `%` in a path can't truncate or mangle the URL (which
+// would load a different file or nothing at all).
+function toFileUrl(absPath: string): string {
+    return 'file://' + absPath.split('/').map(encodeURIComponent).join('/')
 }
