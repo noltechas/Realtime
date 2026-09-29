@@ -45,6 +45,7 @@ import {
   type KaraokeAwardVoteRow,
 } from '@karaoke/shared'
 import { useSession } from '../hooks/useSession'
+import { useForegroundEpoch } from '../hooks/useAppForeground'
 import { supabase } from '../supabase/client'
 import { AWARDS_PALETTE as P } from '../awards/palette'
 import { AwardIcon } from '../awards/AwardIcon'
@@ -101,11 +102,20 @@ export function AwardsScreen() {
   // AwardCard runs an entrance animation when this matches its id. Cleared
   // ~1.8s later so re-rendering the list later doesn't re-animate the row.
   const [recentlyCreatedAwardId, setRecentlyCreatedAwardId] = useState<string | null>(null)
+  const foregroundEpoch = useForegroundEpoch()
 
+  // Overlapping refreshes (a ballot write is a delete + insert = two vote
+  // events back-to-back) can resolve out of order; only apply a bundle newer
+  // than the last one applied so a stale fetch can't wipe a fresh ballot.
+  const requestSeqRef = useRef(0)
+  const deliveredSeqRef = useRef(0)
   const refresh = useCallback(async () => {
     if (!session) return
+    const seq = ++requestSeqRef.current
     try {
       const b = await loadAwards(supabase, session.sessionId, session.guestId)
+      if (seq < deliveredSeqRef.current) return
+      deliveredSeqRef.current = seq
       setBundle(b)
     } catch (err) {
       console.warn('[Awards] load failed:', err)
@@ -130,7 +140,8 @@ export function AwardsScreen() {
       cancelled = true
       unsub()
     }
-  }, [session, refresh])
+    // foregroundEpoch re-runs this on app resume — see useAppForeground.
+  }, [session, refresh, foregroundEpoch])
 
   if (!session) {
     return (

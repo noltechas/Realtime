@@ -155,12 +155,18 @@ export function subscribeToNwordPassGifts(
   onChange: NwordPassGiftChangeHandler,
 ): () => void {
   let cancelled = false
+  // Drop out-of-order responses — see queue.ts subscribeToQueue.
+  let requestSeq = 0
+  let deliveredSeq = 0
 
   const refresh = async (): Promise<void> => {
     if (cancelled) return
+    const seq = ++requestSeq
     try {
       const rows = await listPendingNwordPassGifts(client, recipientGuestId)
-      if (!cancelled) onChange(rows)
+      if (cancelled || seq < deliveredSeq) return
+      deliveredSeq = seq
+      onChange(rows)
     } catch {
       // A transient reconnect should not erase the last known gift state.
     }

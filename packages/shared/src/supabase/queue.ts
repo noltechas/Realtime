@@ -149,12 +149,20 @@ export function subscribeToQueue(
   onChange: QueueChangeHandler,
 ): () => void {
   let cancelled = false
+  // Bursts of changes (vote storms, host reorders) fire overlapping refreshes
+  // whose responses can land out of order. Only deliver a snapshot newer than
+  // the last one delivered, so a slow older fetch can't clobber fresher state.
+  let requestSeq = 0
+  let deliveredSeq = 0
 
   const refresh = async () => {
     if (cancelled) return
+    const seq = ++requestSeq
     try {
       const rows = await listQueue(client, sessionId)
-      if (!cancelled) onChange(rows)
+      if (cancelled || seq < deliveredSeq) return
+      deliveredSeq = seq
+      onChange(rows)
     } catch {
       // Caller can detect staleness via timestamps; we don't want to crash the
       // subscription on a transient network blip.

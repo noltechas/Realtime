@@ -533,7 +533,12 @@ function YoureUp({
   // singers). The current on/off state reads the guest's own override first,
   // then the session-wide flag, then defaults on — mirroring the desktop's
   // precedence so the switch reflects what the singer will actually hear.
-  const fxKey = singerFxKey({ guestId: matched?.guestId ?? guestId, name: matched?.name })
+  // Key off the matched config ALONE when we have one: a name-only config (no
+  // guestId) is keyed 'name:<name>' on the desktop, so falling back to the local
+  // guestId there would write an override the desktop never reads.
+  const fxKey = matched
+    ? singerFxKey({ guestId: matched.guestId, name: matched.name })
+    : singerFxKey({ guestId })
   const myOverride = fxKey ? np?.mic_fx_overrides?.[fxKey] : undefined
   const vfxOn = (myOverride?.vocal_fx ?? np?.vocal_fx_enabled ?? true) !== false
   const atOn = (myOverride?.autotune ?? np?.autotune_enabled ?? true) !== false

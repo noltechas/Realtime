@@ -45,7 +45,10 @@ export function useQueueToast() {
             trackName: r.track_name,
             trackArtist: r.track_artist,
             trackArtUrl: r.track_art_url,
-            singerConfigs: r.singer_configs,
+            // Guarded like every QueueRow atom: this overlay is mounted
+            // app-wide, so a row with null singer_configs would otherwise
+            // crash the whole session tree in QueueToastOverlay's .map().
+            singerConfigs: Array.isArray(r.singer_configs) ? r.singer_configs : [],
             addedByName: r.added_by_name,
             isHidden: r.is_hidden,
             stageTheme: r.stage_theme,

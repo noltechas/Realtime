@@ -119,12 +119,18 @@ export function subscribeToGuests(
   onChange: GuestChangeHandler,
 ): () => void {
   let cancelled = false
+  // Drop out-of-order responses — see queue.ts subscribeToQueue.
+  let requestSeq = 0
+  let deliveredSeq = 0
 
   const refresh = async () => {
     if (cancelled) return
+    const seq = ++requestSeq
     try {
       const rows = await listGuests(client, sessionId)
-      if (!cancelled) onChange(rows)
+      if (cancelled || seq < deliveredSeq) return
+      deliveredSeq = seq
+      onChange(rows)
     } catch {
       // Treat transient errors as no-ops; the subscription will retry on the
       // next change event.

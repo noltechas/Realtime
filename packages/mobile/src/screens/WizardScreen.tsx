@@ -451,6 +451,9 @@ function WizardBody() {
   const [stageTheme, setStageTheme] = useState<string | null>(edit?.stageTheme ?? null)
   const [hideSong, setHideSong] = useState<boolean>(edit?.isHidden ?? false)
   const [submitting, setSubmitting] = useState(false)
+  // Synchronous re-entry guard: `submitting` only disables the button after a
+  // re-render, so a fast double-tap could otherwise insert the song twice.
+  const submittingRef = useRef(false)
 
   const [pickerOpen, setPickerOpen] = useState(false)
   const [guests, setGuests] = useState<KaraokeGuestRow[]>([])
@@ -541,7 +544,8 @@ function WizardBody() {
   }, [step, hasRoles, onClose])
 
   const submit = useCallback(async () => {
-    if (!session) return
+    if (!session || submittingRef.current) return
+    submittingRef.current = true
     // Soft warning if singers are missing roles on a multi-role track.
     if (hasRoles) {
       const unassigned = singers.filter((s) => s.roleIndices.length === 0).length
@@ -556,7 +560,10 @@ function WizardBody() {
             ],
           )
         })
-        if (!proceed) return
+        if (!proceed) {
+          submittingRef.current = false
+          return
+        }
       }
     }
 
@@ -617,6 +624,7 @@ function WizardBody() {
     } catch (err: any) {
       Alert.alert(isEditMode ? "Couldn't save" : "Couldn't add", err?.message ?? String(err))
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
     }
   }, [
