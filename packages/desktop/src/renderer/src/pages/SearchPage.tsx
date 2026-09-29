@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { VoiceEffects, normalizeMicLevel } from '../audio/VoiceEffectsTypes'
@@ -49,6 +49,11 @@ export default function SearchPage() {
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState('')
     const [hoveredId, setHoveredId] = useState<string | null>(null)
+    // Bumped on every pick. A song without stored lyrics awaits a network
+    // fetch before navigating, so the host can click another song meanwhile —
+    // the slow fetch must not then drop song A's lyrics onto song B's setup
+    // (B's audio + A's lyrics on stage).
+    const selectSeqRef = useRef(0)
 
     useEffect(() => {
         loadCatalog()
@@ -70,7 +75,8 @@ export default function SearchPage() {
     }
 
     const selectSong = async (song: CatalogSong) => {
-        dispatch({ type: 'SET_EDITING_QUEUE_INDEX', payload: null })
+        const seq = ++selectSeqRef.current
+        dispatch({ type: 'SET_EDITING_QUEUE_ITEM', payload: null })
         dispatch({
             type: 'SET_TRACK', payload: {
                 id: song.trackId,
@@ -114,6 +120,7 @@ export default function SearchPage() {
                     const res = await fetch(`https://spotify-lyrics-api-pi.vercel.app/?trackid=${song.trackId}`)
                     lyricsData = await res.json()
                 }
+                if (seq !== selectSeqRef.current) return
                 if (lyricsData && !lyricsData.error && lyricsData.lines) {
                     const parsed = lyricsData.lines.map((l: any) => {
                         let ms = 0
@@ -132,6 +139,7 @@ export default function SearchPage() {
                     dispatch({ type: 'SET_LYRICS', payload: parsed })
                 }
             } catch (err) { console.error('Lyrics fetch error:', err) }
+            if (seq !== selectSeqRef.current) return
         }
 
         navigate('/queue')
@@ -145,7 +153,7 @@ export default function SearchPage() {
     const filteredCatalog = catalog.filter(song => {
         if (!searchQuery) return true
         const q = searchQuery.toLowerCase()
-        return song.name.toLowerCase().includes(q) || song.artist.toLowerCase().includes(q)
+        return (song.name || '').toLowerCase().includes(q) || (song.artist || '').toLowerCase().includes(q)
     })
 
     return (

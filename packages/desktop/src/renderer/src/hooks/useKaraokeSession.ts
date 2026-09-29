@@ -29,6 +29,51 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     realtime: { transport: ArrayBufferWebSocket as any }
 })
 
+// realtime-js `channel(name)` hands back an EXISTING channel with that topic —
+// including one still closing from removeChannel(), which only leaves the
+// client's list once the server acks the leave. So an effect that tore its
+// channel down and immediately re-created it under the same name (StrictMode
+// remount, effect re-run) bound its handlers to the dying channel and that
+// feed went silent. postgres_changes channels get a unique suffix per run
+// (their topic is arbitrary); broadcast channels must keep their exact topic,
+// so those wait out any in-flight removal instead (see openBroadcastChannel).
+let channelSeq = 0
+const uniqueChannelName = (base: string) => base + '-' + (++channelSeq)
+const pendingRemovals = new Map<string, Promise<unknown>>()
+
+function removeChannelTracked(ch: RealtimeChannel): void {
+    const done: Promise<unknown> = supabase.removeChannel(ch).catch(() => { }).finally(() => {
+        if (pendingRemovals.get(ch.topic) === done) pendingRemovals.delete(ch.topic)
+    })
+    pendingRemovals.set(ch.topic, done)
+}
+
+function openBroadcastChannel(topic: string, setup: (ch: RealtimeChannel) => RealtimeChannel): () => void {
+    let ch: RealtimeChannel | null = null
+    let closed = false
+    const open = () => {
+        if (closed) return
+        ch = setup(supabase.channel(topic))
+    }
+    const pending = pendingRemovals.get('realtime:' + topic)
+    if (pending) pending.then(open, open)
+    else open()
+    return () => {
+        closed = true
+        if (ch) removeChannelTracked(ch)
+    }
+}
+
+// Update a queue row's host-editable config in place. Editing a queued song
+// must not insert a second row for the same entry.
+export async function updateQueueRowConfig(rowId: string, fields: { singerConfigs: unknown[]; stageTheme: string | null }): Promise<void> {
+    const { error } = await supabase
+        .from('karaoke_queue')
+        .update({ singer_configs: fields.singerConfigs, stage_theme: fields.stageTheme })
+        .eq('id', rowId)
+    if (error) throw new Error(error.message)
+}
+
 interface CatalogSong {
     trackId: string
     name: string
@@ -80,24 +125,37 @@ export function useKaraokeSession() {
     const { state, dispatch } = useApp()
     const catalogRef = useRef<CatalogSong[]>([])
     const queueChannelRef = useRef<RealtimeChannel | null>(null)
-    const reactionChannelRef = useRef<RealtimeChannel | null>(null)
     const sessionChannelRef = useRef<RealtimeChannel | null>(null)
     const awardsChannelRef = useRef<RealtimeChannel | null>(null)
-    const awardsRevealChannelRef = useRef<RealtimeChannel | null>(null)
     const isRemotePlayRef = useRef(false)
     const lastSeenSkipAtRef = useRef<string | null>(null)
+    const lastSeenIsPlayingRef = useRef<boolean | null>(null)
     const reconcileTimerRef = useRef<NodeJS.Timeout | null>(null)
     const restoredNowPlayingForRef = useRef<string | null>(null)
+    const restoreInFlightRef = useRef(false)
     const nwordPassConsumptionKeysRef = useRef(new Set<string>())
     const currentNowPlayingIdRef = useRef<string | null>(null)
     currentNowPlayingIdRef.current = state.nowPlaying?.id ?? null
 
-    // Load catalog for resolving remote additions
+    // Load catalog for resolving remote additions. Reloaded on a miss (see
+    // resolveRemoteRowFresh): a song imported mid-session, or a queue fetched
+    // before this first load finished (cold start / resume), used to resolve
+    // as "unknown track" — the guest's song was silently dropped, and the
+    // reconcile pass below then marked its row played.
+    const catalogLoadRef = useRef<Promise<void> | null>(null)
+    const reloadCatalog = (): Promise<void> => {
+        if (!catalogLoadRef.current) {
+            catalogLoadRef.current = (window.electronAPI?.listCatalog() ?? Promise.resolve([]))
+                .then((songs: CatalogSong[]) => { if (Array.isArray(songs)) catalogRef.current = songs })
+                .catch((err: unknown) => console.warn('[Karaoke] Failed to load catalog:', err))
+                .finally(() => { catalogLoadRef.current = null })
+        }
+        return catalogLoadRef.current
+    }
     useEffect(() => {
         if (window.electronAPI?.isStageWindow) return
-        window.electronAPI?.listCatalog().then((songs) => {
-            catalogRef.current = songs
-        })
+        void reloadCatalog()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
     // Live guest roster. Singers reference guests by id, so the renderer needs
@@ -127,7 +185,7 @@ export function useKaraokeSession() {
         loadGuests()
 
         const ch = supabase
-            .channel('renderer-guests-' + sessionId + (window.electronAPI?.isStageWindow ? '-stage' : '-main'))
+            .channel(uniqueChannelName('renderer-guests-' + sessionId + (window.electronAPI?.isStageWindow ? '-stage' : '-main')))
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'karaoke_guests', filter: 'session_id=eq.' + sessionId },
@@ -135,7 +193,7 @@ export function useKaraokeSession() {
             )
             .subscribe()
 
-        return () => { supabase.removeChannel(ch) }
+        return () => { removeChannelTracked(ch) }
     }, [state.karaokeSessionId, dispatch])
 
     // Session creation is now handled explicitly by SessionPage.
@@ -157,9 +215,21 @@ export function useKaraokeSession() {
                 trackArtist: item.track.artists.map(a => a.name).join(', '),
                 trackArtUrl: item.track.album.images[0]?.url || null,
                 trackDurationMs: item.track.duration_ms,
-                singerConfigs: item.singers.map(s => ({
-                    name: s.name, color: s.color, colorGlow: s.colorGlow, roleIndices: s.roleIndices
-                })),
+                stageTheme: item.stageTheme ?? null,
+                // Same shape as QueuePage: linked guests by guestId (name and
+                // avatar resolve live), name-only singers by inline name.
+                singerConfigs: item.singers.map(s => {
+                    const cfg: Record<string, unknown> = { color: s.color, colorGlow: s.colorGlow, roleIndices: s.roleIndices }
+                    if (s.guestId) cfg.guestId = s.guestId; else cfg.name = s.name
+                    return cfg
+                }),
+            }).then((result: { id?: string; error?: string } | undefined) => {
+                // Wire the row id back, like QueuePage does — without it the
+                // item's row is only ever retired by the track_id fallback, and
+                // votes/edits on the companion never map back to this entry.
+                if (result && result.id) {
+                    dispatch({ type: 'SET_QUEUE_ITEM_REMOTE_ID', payload: { itemId: item.id, remoteQueueId: result.id } })
+                }
             }).catch(err => console.error('[Karaoke] Failed to retroactively sync queue item:', err))
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -226,6 +296,14 @@ export function useKaraokeSession() {
         }
     }
 
+    // resolveRemoteRow, reloading the catalog once if the track isn't in it.
+    async function resolveRemoteRowFresh(row: any): Promise<QueueItem | null> {
+        if (!catalogRef.current.some(s => s.trackId === row.track_id)) {
+            await reloadCatalog()
+        }
+        return resolveRemoteRow(row)
+    }
+
     // Subscribe to Realtime queue changes + fetch existing queued items
     useEffect(() => {
         if (window.electronAPI?.isStageWindow) return
@@ -233,8 +311,10 @@ export function useKaraokeSession() {
 
         // Clean up previous subscription
         if (queueChannelRef.current) {
-            supabase.removeChannel(queueChannelRef.current)
+            removeChannelTracked(queueChannelRef.current)
+            queueChannelRef.current = null
         }
+        let cancelled = false
 
         // Fetch existing remote queue items that were added before we subscribed
         supabase
@@ -244,7 +324,7 @@ export function useKaraokeSession() {
             .eq('status', 'queued')
             .eq('source', 'remote')
             .order('position')
-            .then(({ data, error }) => {
+            .then(async ({ data, error }) => {
                 if (error) {
                     console.error('[Karaoke] Failed to fetch existing queue:', error)
                     return
@@ -252,10 +332,10 @@ export function useKaraokeSession() {
                 if (!data || data.length === 0) return
 
                 for (const row of data) {
-                    // Skip if already in local queue
-                    if (state.queue.some(q => q.remoteQueueId === row.id)) continue
-
-                    const item = resolveRemoteRow(row)
+                    // Already-present rows (this fetch racing the INSERT feed)
+                    // are dropped by ENQUEUE_SONG's remoteQueueId dedupe.
+                    const item = await resolveRemoteRowFresh(row)
+                    if (cancelled) return
                     if (item) {
                         console.log('[Karaoke] Loaded existing remote queue item:', item.track.name)
                         dispatch({ type: 'ENQUEUE_SONG', payload: item })
@@ -264,7 +344,7 @@ export function useKaraokeSession() {
             })
 
         const channel = supabase
-            .channel('renderer-queue-' + state.karaokeSessionId)
+            .channel(uniqueChannelName('renderer-queue-' + state.karaokeSessionId))
             .on(
                 'postgres_changes',
                 {
@@ -278,11 +358,11 @@ export function useKaraokeSession() {
                     // Only process remote additions (ignore our own local inserts)
                     if (row.source !== 'remote') return
 
-                    const item = resolveRemoteRow(row)
-                    if (item) {
+                    void resolveRemoteRowFresh(row).then(item => {
+                        if (cancelled || !item) return
                         console.log('[Karaoke] Remote song added by', row.added_by_name, ':', item.track.name)
                         dispatch({ type: 'ENQUEUE_SONG', payload: item })
-                    }
+                    })
                 }
             )
             .on(
@@ -346,8 +426,9 @@ export function useKaraokeSession() {
         queueChannelRef.current = channel
 
         return () => {
+            cancelled = true
             if (queueChannelRef.current) {
-                supabase.removeChannel(queueChannelRef.current)
+                removeChannelTracked(queueChannelRef.current)
                 queueChannelRef.current = null
             }
         }
@@ -367,15 +448,26 @@ export function useKaraokeSession() {
         const sessionId = state.karaokeSessionId
         if (!sessionId) return
         // Only run once per session id, and never clobber a live now-playing.
-        if (restoredNowPlayingForRef.current === sessionId) return
+        if (restoredNowPlayingForRef.current === sessionId) {
+            // The same session was set again (SET_KARAOKE_SESSION re-raises
+            // the gate): nothing new to restore, but the gate must come back
+            // down or auto-pop and now-playing sync stay off for good.
+            if (state.hydratingNowPlaying && !restoreInFlightRef.current) {
+                dispatch({ type: 'RESTORE_NOW_PLAYING', payload: null })
+            }
+            return
+        }
         restoredNowPlayingForRef.current = sessionId
         if (state.nowPlaying) {
             dispatch({ type: 'RESTORE_NOW_PLAYING', payload: null })
             return
         }
 
-        const finish = (item: QueueItem | null) =>
+        restoreInFlightRef.current = true
+        const finish = (item: QueueItem | null) => {
+            restoreInFlightRef.current = false
             dispatch({ type: 'RESTORE_NOW_PLAYING', payload: item })
+        }
 
         supabase
             .from('karaoke_sessions')
@@ -440,7 +532,7 @@ export function useKaraokeSession() {
                     createdAt: new Date().toISOString()
                 })
             }, () => finish(null))
-    }, [state.karaokeSessionId, state.nowPlaying, dispatch])
+    }, [state.karaokeSessionId, state.nowPlaying, state.hydratingNowPlaying, dispatch])
 
     // Claim a borrowed pass when playback actually starts — not while a song
     // is merely on deck, because skipping that song should not waste the use.
@@ -509,25 +601,12 @@ export function useKaraokeSession() {
         if (window.electronAPI?.isStageWindow) return
         if (!state.karaokeSessionId) return
 
-        if (reactionChannelRef.current) {
-            supabase.removeChannel(reactionChannelRef.current)
-        }
-
-        const channel = supabase
-            .channel('cr-' + state.karaokeSessionId)
+        // Broadcast topic must match what the companion sends on exactly.
+        return openBroadcastChannel('cr-' + state.karaokeSessionId, ch => ch
             .on('broadcast', { event: 'reaction' }, (payload) => {
                 window.electronAPI?.sendReaction(payload.payload)
             })
-            .subscribe()
-
-        reactionChannelRef.current = channel
-
-        return () => {
-            if (reactionChannelRef.current) {
-                supabase.removeChannel(reactionChannelRef.current)
-                reactionChannelRef.current = null
-            }
-        }
+            .subscribe())
     }, [state.karaokeSessionId])
 
     // Sync now-playing changes to Supabase.
@@ -546,6 +625,11 @@ export function useKaraokeSession() {
         if (window.electronAPI?.isStageWindow) return
         const sessionId = state.karaokeSessionId
         if (!sessionId) return
+        // While a resumed session is restoring its persisted now-playing song,
+        // publishing our (still empty) now-playing would null the very
+        // now_playing_* columns the restore is reading — losing the song and
+        // auto-popping the up-next one in its place. Publish once it settles.
+        if (state.hydratingNowPlaying) return
 
         // Retire a single queue row from the companion-site queue. Prefer the
         // exact Supabase row id: marking played by track_id (as this used to do)
@@ -628,6 +712,7 @@ export function useKaraokeSession() {
         state.nowPlaying?.remoteQueueId,
         state.nowPlaying?.singers.map(s => s.oneTimeNwordPassGiftId || '').join('|'),
         state.karaokeSessionId,
+        state.hydratingNowPlaying,
     ])
 
     // When the host advances to a new song, bump bonus_points on every
@@ -709,7 +794,7 @@ export function useKaraokeSession() {
         if (!sessionId) return
 
         const ch = supabase
-            .channel('renderer-requests-' + sessionId)
+            .channel(uniqueChannelName('renderer-requests-' + sessionId))
             .on(
                 'postgres_changes',
                 { event: 'INSERT', schema: 'public', table: 'karaoke_song_requests', filter: 'session_id=eq.' + sessionId },
@@ -729,7 +814,7 @@ export function useKaraokeSession() {
             )
             .subscribe()
 
-        return () => { supabase.removeChannel(ch) }
+        return () => { removeChannelTracked(ch) }
     }, [state.karaokeSessionId])
 
     // Sync theme changes to Supabase
@@ -846,7 +931,8 @@ export function useKaraokeSession() {
         if (!state.karaokeSessionId) return
 
         if (sessionChannelRef.current) {
-            supabase.removeChannel(sessionChannelRef.current)
+            removeChannelTracked(sessionChannelRef.current)
+            sessionChannelRef.current = null
         }
 
         // Prime the skip-request ref so reconnects / late subscribes don't
@@ -855,13 +941,14 @@ export function useKaraokeSession() {
         // this window subscribed (or before a song loaded), and realtime only
         // delivers future UPDATEs — so we seed current values here.
         supabase.from('karaoke_sessions')
-            .select('skip_requested_at, mic_fx_overrides, vocal_fx_enabled, autotune_enabled')
+            .select('skip_requested_at, is_playing, mic_fx_overrides, vocal_fx_enabled, autotune_enabled')
             .eq('id', state.karaokeSessionId)
             .single()
             .then(res => {
                 if (res.error) return
                 const d = res.data as any
                 lastSeenSkipAtRef.current = d?.skip_requested_at ?? null
+                if (typeof d?.is_playing === 'boolean') lastSeenIsPlayingRef.current = d.is_playing
                 dispatch({ type: 'SET_MIC_FX_OVERRIDES', payload: normalizeMicFxOverrides(d?.mic_fx_overrides) })
                 dispatch({
                     type: 'SET_SESSION_FX',
@@ -873,7 +960,7 @@ export function useKaraokeSession() {
             })
 
         const channel = supabase
-            .channel('renderer-session-' + state.karaokeSessionId)
+            .channel(uniqueChannelName('renderer-session-' + state.karaokeSessionId))
             .on(
                 'postgres_changes',
                 {
@@ -884,11 +971,21 @@ export function useKaraokeSession() {
                 },
                 (payload) => {
                     const d = payload.new as any
-                    if (d.is_playing !== undefined && !isRemotePlayRef.current) {
-                        dispatch({
-                            type: 'SET_REMOTE_PLAY_COMMAND',
-                            payload: d.is_playing ? 'play' : 'pause'
-                        })
+                    // Edge-triggered: postgres_changes delivers the WHOLE row
+                    // on every UPDATE, so is_playing is present on unrelated
+                    // writes too (Spotify token refresh, FX toggles, now-
+                    // playing sync). Treating each as a play/pause command made
+                    // the host start or stop on its own whenever the stored
+                    // flag disagreed with local playback.
+                    if (typeof d.is_playing === 'boolean') {
+                        const changed = d.is_playing !== lastSeenIsPlayingRef.current
+                        lastSeenIsPlayingRef.current = d.is_playing
+                        if (changed && !isRemotePlayRef.current) {
+                            dispatch({
+                                type: 'SET_REMOTE_PLAY_COMMAND',
+                                payload: d.is_playing ? 'play' : 'pause'
+                            })
+                        }
                     }
                     // Remote skip from companion (edge-triggered on timestamp change)
                     if (d.skip_requested_at && d.skip_requested_at !== lastSeenSkipAtRef.current) {
@@ -924,7 +1021,7 @@ export function useKaraokeSession() {
 
         return () => {
             if (sessionChannelRef.current) {
-                supabase.removeChannel(sessionChannelRef.current)
+                removeChannelTracked(sessionChannelRef.current)
                 sessionChannelRef.current = null
             }
         }
@@ -962,10 +1059,10 @@ export function useKaraokeSession() {
         }
         loadAll()
 
-        if (awardsChannelRef.current) supabase.removeChannel(awardsChannelRef.current)
+        if (awardsChannelRef.current) removeChannelTracked(awardsChannelRef.current)
 
         const ch = supabase
-            .channel('renderer-awards-' + sessionId)
+            .channel(uniqueChannelName('renderer-awards-' + sessionId))
             .on('postgres_changes', { event: '*', schema: 'public', table: 'karaoke_awards', filter: 'session_id=eq.' + sessionId }, (payload) => {
                 if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
                     const row = payload.new as any
@@ -987,7 +1084,7 @@ export function useKaraokeSession() {
 
         return () => {
             if (awardsChannelRef.current) {
-                supabase.removeChannel(awardsChannelRef.current)
+                removeChannelTracked(awardsChannelRef.current)
                 awardsChannelRef.current = null
             }
         }
@@ -1001,23 +1098,12 @@ export function useKaraokeSession() {
         const sessionId = state.karaokeSessionId
         if (!sessionId) return
 
-        if (awardsRevealChannelRef.current) supabase.removeChannel(awardsRevealChannelRef.current)
-
-        const ch = supabase
-            .channel('ar-' + sessionId)
+        return openBroadcastChannel('ar-' + sessionId, ch => ch
             .on('broadcast', { event: 'reveal-step' }, (pl: any) => {
                 const step = pl?.payload?.step ?? null
                 dispatch({ type: 'SET_REVEAL_STEP', payload: step })
             })
-            .subscribe()
-        awardsRevealChannelRef.current = ch
-
-        return () => {
-            if (awardsRevealChannelRef.current) {
-                supabase.removeChannel(awardsRevealChannelRef.current)
-                awardsRevealChannelRef.current = null
-            }
-        }
+            .subscribe())
     }, [state.karaokeSessionId, dispatch])
 }
 

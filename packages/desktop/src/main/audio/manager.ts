@@ -157,6 +157,52 @@ export interface SongMeta {
     }
 }
 
+export type CatalogSong = SongMeta & { instrumentalPath: string, vocalsPath?: string }
+
+// The playable library: every song with a meta.json + instrumental whose stems
+// still match their verified fingerprints. The single source of truth for BOTH
+// the renderer's catalog (audio:list-catalog) and the companion catalog pushed
+// to Supabase, so a song excluded here can't be offered to guests either.
+export function listCatalogSongs(): CatalogSong[] {
+    try {
+        if (!fs.existsSync(SONGS_DIR)) return []
+        const dirs = fs.readdirSync(SONGS_DIR, { withFileTypes: true }).filter(d => d.isDirectory())
+        const catalog: CatalogSong[] = []
+        for (const dir of dirs) {
+            const songDir = path.join(SONGS_DIR, dir.name)
+            const metaPath = path.join(songDir, 'meta.json')
+            const instrumental = findStemFile(songDir, 'instrumental')
+            const vocals = findStemFile(songDir, 'vocals')
+            if (fs.existsSync(metaPath) && instrumental) {
+                try {
+                    const meta: SongMeta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'))
+                    // Never trust a meta.json that names a different track than
+                    // the folder it lives in: the renderer resolves queue rows by
+                    // trackId, so such a copy would serve THIS folder's audio
+                    // under the other song's id (and title/lyrics).
+                    if (meta.trackId !== dir.name) {
+                        console.error(`[audio:list-catalog] EXCLUDED [${dir.name}]: meta.json names trackId ${meta.trackId} ("${meta.name}") — it doesn't belong in this folder.`)
+                        continue
+                    }
+                    // A song whose on-disk audio no longer matches its
+                    // verified fingerprint must never reach the stage.
+                    // (Songs without fingerprints predate verification and
+                    // are served as-is; scripts/fingerprint-library.js
+                    // backfills them.)
+                    const instCheck = stemVerification(instrumental, meta.stems?.instrumental, meta.durationMs)
+                    const vocCheck = vocals ? stemVerification(vocals, meta.stems?.vocals, meta.durationMs) : 'ok'
+                    if (instCheck === 'mismatch' || vocCheck === 'mismatch') {
+                        console.error(`[audio:list-catalog] EXCLUDED "${meta.name} — ${meta.artist}" [${dir.name}]: ${instCheck === 'mismatch' ? 'instrumental' : 'vocals'} doesn't match its verified fingerprint. Re-import the stems or run scripts/fingerprint-library.js.`)
+                        continue
+                    }
+                    catalog.push({ ...meta, instrumentalPath: instrumental, vocalsPath: vocals || undefined })
+                } catch { /* skip corrupted */ }
+            }
+        }
+        return catalog
+    } catch { return [] }
+}
+
 export function registerAudioHandlers() {
     ipcMain.handle('audio:check-cache', async (_event, trackId: string) => {
         const songDir = getSongDir(trackId)
@@ -253,37 +299,7 @@ export function registerAudioHandlers() {
         }
     })
 
-    ipcMain.handle('audio:list-catalog', async () => {
-        try {
-            if (!fs.existsSync(SONGS_DIR)) return []
-            const dirs = fs.readdirSync(SONGS_DIR, { withFileTypes: true }).filter(d => d.isDirectory())
-            const catalog: (SongMeta & { instrumentalPath: string, vocalsPath?: string })[] = []
-            for (const dir of dirs) {
-                const songDir = path.join(SONGS_DIR, dir.name)
-                const metaPath = path.join(songDir, 'meta.json')
-                const instrumental = findStemFile(songDir, 'instrumental')
-                const vocals = findStemFile(songDir, 'vocals')
-                if (fs.existsSync(metaPath) && instrumental) {
-                    try {
-                        const meta: SongMeta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'))
-                        // A song whose on-disk audio no longer matches its
-                        // verified fingerprint must never reach the stage.
-                        // (Songs without fingerprints predate verification and
-                        // are served as-is; scripts/fingerprint-library.js
-                        // backfills them.)
-                        const instCheck = stemVerification(instrumental, meta.stems?.instrumental, meta.durationMs)
-                        const vocCheck = vocals ? stemVerification(vocals, meta.stems?.vocals, meta.durationMs) : 'ok'
-                        if (instCheck === 'mismatch' || vocCheck === 'mismatch') {
-                            console.error(`[audio:list-catalog] EXCLUDED "${meta.name} — ${meta.artist}" [${dir.name}]: ${instCheck === 'mismatch' ? 'instrumental' : 'vocals'} doesn't match its verified fingerprint. Re-import the stems or run scripts/fingerprint-library.js.`)
-                            continue
-                        }
-                        catalog.push({ ...meta, instrumentalPath: instrumental, vocalsPath: vocals || undefined })
-                    } catch { /* skip corrupted */ }
-                }
-            }
-            return catalog
-        } catch { return [] }
-    })
+    ipcMain.handle('audio:list-catalog', async () => listCatalogSongs())
 
     ipcMain.handle('audio:remove-song', async (_event, trackId: string) => {
         try {

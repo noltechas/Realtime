@@ -1,8 +1,5 @@
 import { app, shell, BrowserWindow, ipcMain, screen, powerMonitor } from 'electron'
 import { join } from 'path'
-import * as fs from 'fs'
-import * as path from 'path'
-import * as os from 'os'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { exec } from 'child_process'
 import QRCode from 'qrcode'
@@ -103,25 +100,27 @@ function createWindow(): void {
     mainWindow.on('closed', () => {
         mainWindow = null
     })
-
-    // Window control IPC
-    ipcMain.on('window:minimize', () => mainWindow?.minimize())
-    ipcMain.on('window:maximize', () => {
-        if (mainWindow?.isMaximized()) {
-            mainWindow?.unmaximize()
-        } else {
-            mainWindow?.maximize()
-        }
-    })
-    ipcMain.on('window:close', () => mainWindow?.close())
 }
+
+// Window control IPC. Registered once at module level — createWindow() runs
+// again on macOS 'activate', and registering these inside it stacked a
+// duplicate listener per reopen (maximize then toggled twice = no-op).
+ipcMain.on('window:minimize', () => mainWindow?.minimize())
+ipcMain.on('window:maximize', () => {
+    if (mainWindow?.isMaximized()) {
+        mainWindow?.unmaximize()
+    } else {
+        mainWindow?.maximize()
+    }
+})
+ipcMain.on('window:close', () => mainWindow?.close())
 
 function createStageWindow(): BrowserWindow {
     const displays = screen.getAllDisplays()
     const externalDisplay = displays.find(d => d.bounds.x !== 0 || d.bounds.y !== 0)
     const targetDisplay = externalDisplay || screen.getPrimaryDisplay()
 
-    stageWindow = new BrowserWindow({
+    const win = new BrowserWindow({
         width: targetDisplay.bounds.width,
         height: targetDisplay.bounds.height,
         x: targetDisplay.bounds.x,
@@ -144,25 +143,31 @@ function createStageWindow(): BrowserWindow {
             additionalArguments: ['--stage-window']
         }
     })
+    stageWindow = win
 
-    stageWindow.on('ready-to-show', () => {
-        stageWindow?.show()
-        stageWindow?.setFullScreen(true)
+    win.on('ready-to-show', () => {
+        win.show()
+        win.setFullScreen(true)
     })
 
     if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-        stageWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#/karaoke')
+        win.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#/karaoke')
     } else {
-        stageWindow.loadFile(join(__dirname, '../renderer/index.html'), { hash: '/karaoke' })
+        win.loadFile(join(__dirname, '../renderer/index.html'), { hash: '/karaoke' })
     }
 
-    stageWindow.on('closed', () => {
-        stageWindow = null
-        // Notify main window that stage was closed
-        mainWindow?.webContents.send('stage:closed')
+    win.on('closed', () => {
+        // stage:close / stage:request-close null the global immediately, so a
+        // quick close → reopen can already have a NEW stage window here. Only
+        // clear the global if it's still this window — otherwise the new
+        // stage is orphaned (no state/playback relays reach it) and the next
+        // stage:open spawns a second one.
+        if (stageWindow === win) stageWindow = null
+        // Notify main window that stage was closed (unless it was replaced)
+        if (!stageWindow) mainWindow?.webContents.send('stage:closed')
     })
 
-    return stageWindow
+    return win
 }
 
 // Stage window IPC handlers
@@ -357,6 +362,10 @@ function scoreNeteaseHit(song: NetEaseSong, query: { trackName: string; artistNa
     if (!sTrack || !nTrack) return -1
     if (sTrack === nTrack) score += 3
     else if (sTrack.includes(nTrack) || nTrack.includes(sTrack)) score += 1
+    // No title overlap = a different song. Without this, a same-artist hit
+    // with a similar length (3 + 2 = 5) cleared the >= 4 bar and imported
+    // another song's syllable lyrics whenever NetEase lacked the real track.
+    else return -1
     if (nArtist) {
         if (sArtists.some(a => a === nArtist)) score += 3
         else if (sArtists.some(a => a.includes(nArtist) || nArtist.includes(a))) score += 1
@@ -390,7 +399,8 @@ async function fetchLyricsNetease(query: { trackName: string; artistName: string
             const score = scoreNeteaseHit(s, query)
             if (best === null || score > best.score) best = { id: s.id, score }
         }
-        // Require at least artist OR track match plus one duration band — score >= 4
+        // Title must overlap (scoreNeteaseHit rejects otherwise); then require
+        // an artist match, or an exact title plus a duration band — score >= 4
         if (!best || best.score < 4) return null
         const lyricUrl = `https://music.163.com/api/song/lyric?id=${best.id}&lv=-1&kv=-1&tv=-1&yv=-1`
         const lRes = await fetch(lyricUrl, { headers: NETEASE_HEADERS })
@@ -514,63 +524,38 @@ ipcMain.handle('lyrics:fetch', async (_event, payload: string | { trackId: strin
     return spotifyResult ?? { error: 'Lyrics not found' }
 })
 
-import { registerAudioHandlers } from './audio/manager'
+import { registerAudioHandlers, listCatalogSongs } from './audio/manager'
 
 // ----- Karaoke Session State -----
 let activeSession: { id: string; code: string } | null = null
 
 // ----- Helper: push local catalog to Supabase -----
 async function pushLocalCatalog(sessionId: string): Promise<void> {
-    const SONGS_DIR = path.join(os.homedir(), '.realtime-karaoke', 'songs')
-    const AUDIO_EXTS = ['.mp3', '.m4a', '.wav', '.ogg', '.opus', '.flac', '.aac', '.wma', '.webm']
-
-    function findStem(dir: string, prefix: string): string | null {
-        if (!fs.existsSync(dir)) return null
-        for (const file of fs.readdirSync(dir)) {
-            const ext = path.extname(file).toLowerCase()
-            if (path.basename(file, ext).toLowerCase() === prefix && AUDIO_EXTS.includes(ext)) {
-                return path.join(dir, file)
+    // Same list the host's own catalog uses (fingerprint-verified), so guests
+    // are never offered a song the desktop would refuse to play.
+    const catalogItems: CatalogItem[] = listCatalogSongs().map(meta => {
+        const offensiveRoleIndices: number[] = []
+        if (meta.lyrics && meta.roles && meta.roles.length > 0) {
+            for (let ri = 0; ri < meta.roles.length; ri++) {
+                if (meta.lyrics.some((l: any) => l.roleIndex === ri && /nigg(?:a|er)s?/i.test(l.words))) {
+                    offensiveRoleIndices.push(ri)
+                }
             }
         }
-        return null
-    }
-
-    if (!fs.existsSync(SONGS_DIR)) return
-
-    const dirs = fs.readdirSync(SONGS_DIR, { withFileTypes: true }).filter(d => d.isDirectory())
-    const catalogItems: CatalogItem[] = []
-    for (const dir of dirs) {
-        const songDir = path.join(SONGS_DIR, dir.name)
-        const metaPath = path.join(songDir, 'meta.json')
-        const instrumental = findStem(songDir, 'instrumental')
-        const vocals = findStem(songDir, 'vocals')
-        if (fs.existsSync(metaPath) && instrumental) {
-            try {
-                const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'))
-                const offensiveRoleIndices: number[] = []
-                if (meta.lyrics && meta.roles && meta.roles.length > 0) {
-                    for (let ri = 0; ri < meta.roles.length; ri++) {
-                        if (meta.lyrics.some((l: any) => l.roleIndex === ri && /nigg(?:a|er)s?/i.test(l.words))) {
-                            offensiveRoleIndices.push(ri)
-                        }
-                    }
-                }
-                catalogItems.push({
-                    trackId: meta.trackId,
-                    name: meta.name,
-                    artist: meta.artist,
-                    artUrl: meta.artUrl,
-                    albumName: meta.albumName,
-                    durationMs: meta.durationMs,
-                    roles: meta.roles || [],
-                    hasVocals: !!vocals,
-                    spotifyData: meta.spotifyData || null,
-                    offensiveRoleIndices,
-                    genres: Array.isArray(meta.genres) ? meta.genres : []
-                })
-            } catch { /* skip corrupted */ }
+        return {
+            trackId: meta.trackId,
+            name: meta.name,
+            artist: meta.artist,
+            artUrl: meta.artUrl,
+            albumName: meta.albumName,
+            durationMs: meta.durationMs,
+            roles: meta.roles || [],
+            hasVocals: !!meta.vocalsPath,
+            spotifyData: meta.spotifyData || null,
+            offensiveRoleIndices,
+            genres: Array.isArray(meta.genres) ? meta.genres : []
         }
-    }
+    })
     if (catalogItems.length > 0) {
         await pushCatalog(sessionId, catalogItems)
     }
@@ -685,15 +670,30 @@ ipcMain.handle('karaoke:close-session', async () => {
     }
 })
 
+// now_playing_* / is_playing writes to the session row must land in the order
+// the renderer issued them. As independent concurrent requests, a rapid skip
+// could commit the older song last (a resumed session then restores the WRONG
+// now-playing track), and updateNowPlaying's is_playing:false could land after
+// a later syncIsPlaying(true) (the renderer echoes the row's is_playing back as
+// a remote play/pause command, so the host gets paused on the next row update).
+let sessionRowWrites: Promise<void> = Promise.resolve()
+function enqueueSessionRowWrite(write: () => Promise<void>): Promise<void> {
+    const run = sessionRowWrites.then(write)
+    sessionRowWrites = run.catch(() => { /* surfaced to the caller via run */ })
+    return run
+}
+
 ipcMain.handle('karaoke:sync-now-playing', async (_event, info) => {
     if (activeSession) {
-        await updateNowPlaying(activeSession.id, info)
+        const sessionId = activeSession.id
+        await enqueueSessionRowWrite(() => updateNowPlaying(sessionId, info))
     }
 })
 
 ipcMain.handle('karaoke:sync-is-playing', async (_event, isPlaying: boolean) => {
     if (activeSession) {
-        await updateIsPlaying(activeSession.id, isPlaying)
+        const sessionId = activeSession.id
+        await enqueueSessionRowWrite(() => updateIsPlaying(sessionId, isPlaying))
     }
 })
 

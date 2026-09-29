@@ -5,6 +5,7 @@ import { DEFAULT_VOICE_EFFECTS, normalizeMicLevel } from '../audio/VoiceEffectsT
 import { THEMES, THEME_LIST } from '../context/ThemeContext'
 import type { KaraokeGuestRow } from '@karaoke/shared'
 import { useAudioDevices } from '../hooks/useAudioDevices'
+import { updateQueueRowConfig } from '../hooks/useKaraokeSession'
 import { Avatar, ArtTile, Button, Card, CardHeader, Chip, EmptyState, Field, Icon, IconButton, Input, PageHeader, Select } from '../components/ui'
 import { LobbyModeBanner } from '../components/LobbyModeCard'
 
@@ -80,13 +81,16 @@ function SetupPanel() {
     const track = state.currentTrack
     const art = track?.album.images[0]?.url
     const hasInstrumental = !!state.stemsPath?.instrumental
-    const isEditing = state.editingQueueIndex !== null
+    const isEditing = state.editingQueueItemId !== null
 
     if (!track) return null
 
     const handleAddOrUpdate = () => {
-        const originalItem = isEditing && state.editingQueueIndex !== null
-            ? state.queue[state.editingQueueIndex]
+        // Resolve the edited entry by id — if it has left the queue (went on
+        // stage / was removed) this is null and the edit is added as a new
+        // entry below.
+        const originalItem = state.editingQueueItemId !== null
+            ? state.queue.find(q => q.id === state.editingQueueItemId) ?? null
             : null
         const originalId = originalItem?.id ?? null
         const item: QueueItem = {
@@ -105,6 +109,12 @@ function SetupPanel() {
             remoteQueueId: originalItem?.remoteQueueId ?? null,
             stageTheme: state.stageTheme ?? null,
             isHidden: originalItem?.isHidden ?? false,
+            // Votes / bonus / next-up lock belong to the queue entry, not to
+            // its setup — an edit must not reset them (it used to drop them,
+            // unlocking the next-up song and sinking a voted-up one).
+            score: originalItem?.score,
+            bonusPoints: originalItem?.bonusPoints,
+            locked: originalItem?.locked,
             // Stamp createdAt at the dispatch site (not in the reducer) so the
             // same value is relayed to the stage window. Generating it in the
             // reducer made each window assign its own timestamp, which is the
@@ -113,19 +123,39 @@ function SetupPanel() {
             // original timestamp across edits instead of resetting queue order.
             createdAt: originalItem?.createdAt ?? new Date().toISOString()
         }
-        if (isEditing && originalId) {
-            const index = state.queue.findIndex(q => q.id === originalId)
-            if (index >= 0) {
-                dispatch({ type: 'REPLACE_QUEUE_ITEM', payload: { index, item } })
-            } else {
-                dispatch({ type: 'ENQUEUE_SONG', payload: item })
-                dispatch({ type: 'SET_EDITING_QUEUE_INDEX', payload: null })
-            }
+        // Singer identity for the companion queue row. Reference identity by
+        // guestId when the slot is a linked guest; otherwise store the inline
+        // name (admin/host- or name-only singer). Never store a base64 avatar —
+        // it is resolved live from karaoke_guests at render time.
+        // The "white person" / lyric-sanitization flag is no longer a
+        // per-song config value — it lives on the guest record and the
+        // host toggles it on the Admin screen (resolved live on stage).
+        const singerConfigs = state.singers.map(s => {
+            var cfg: any = { color: s.color, colorGlow: s.colorGlow, roleIndices: s.roleIndices };
+            if (s.guestId) cfg.guestId = s.guestId; else cfg.name = s.name;
+            return cfg;
+        })
+
+        let replacedInPlace = false
+        if (originalItem) {
+            dispatch({ type: 'REPLACE_QUEUE_ITEM', payload: { item } })
+            replacedInPlace = true
         } else {
+            // A new song — or an edit whose entry left the queue meanwhile
+            // (it went on stage, or was removed), which is re-added as a NEW
+            // entry with its own id/row rather than colliding with the old one.
             dispatch({ type: 'ENQUEUE_SONG', payload: item })
+            if (isEditing) dispatch({ type: 'SET_EDITING_QUEUE_ITEM', payload: null })
         }
 
-        if (state.karaokeSessionId && window.electronAPI?.pushLocalQueueItem) {
+        if (replacedInPlace && item.remoteQueueId) {
+            // Editing a song that already has a companion queue row: update
+            // that row in place. Inserting (as this used to) left the old row
+            // queued too, so the song showed up twice for guests and a guest's
+            // own row was orphaned from the entry that actually plays.
+            updateQueueRowConfig(item.remoteQueueId, { singerConfigs, stageTheme: state.stageTheme ?? null })
+                .catch(err => console.error('Failed to update queue item in Supabase:', err))
+        } else if (state.karaokeSessionId && window.electronAPI?.pushLocalQueueItem) {
             window.electronAPI.pushLocalQueueItem({
                 trackId: track.id,
                 trackName: track.name,
@@ -138,18 +168,7 @@ function SetupPanel() {
                 // clobbers the in-memory theme back to null via APPLY_REMOTE_EDIT,
                 // so the stage falls back to the globally-selected theme.
                 stageTheme: state.stageTheme ?? null,
-                singerConfigs: state.singers.map(s => {
-                    // Reference identity by guestId when the slot is a linked
-                    // guest; otherwise store the inline name (admin/host- or
-                    // name-only singer). Never store a base64 avatar — it is
-                    // resolved live from karaoke_guests at render time.
-                    // The "white person" / lyric-sanitization flag is no longer a
-                    // per-song config value — it lives on the guest record and the
-                    // host toggles it on the Admin screen (resolved live on stage).
-                    var cfg: any = { color: s.color, colorGlow: s.colorGlow, roleIndices: s.roleIndices };
-                    if (s.guestId) cfg.guestId = s.guestId; else cfg.name = s.name;
-                    return cfg;
-                }),
+                singerConfigs,
             }).then(result => {
                 if (result && result.id) {
                     dispatch({ type: 'SET_QUEUE_ITEM_REMOTE_ID', payload: { itemId: item.id, remoteQueueId: result.id } })
@@ -698,17 +717,19 @@ export default function QueuePage() {
             .catch(err => console.error('Failed to adjust queue score:', err))
     }
 
-    const removeSong = (index: number) => {
-        const item = state.queue[index]
-        if (item?.remoteQueueId && window.electronAPI?.removeQueueItem) {
+    // By item id, not list index: a vote landing between render and click
+    // re-sorts the queue, and an index would then remove a different song
+    // locally than the Supabase row deleted here.
+    const removeSong = (item: QueueItem) => {
+        if (item.remoteQueueId && window.electronAPI?.removeQueueItem) {
             window.electronAPI.removeQueueItem(item.remoteQueueId)
                 .catch(err => console.error('Failed to remove queue item from Supabase:', err))
         }
-        dispatch({ type: 'REMOVE_FROM_QUEUE', payload: index })
+        dispatch({ type: 'REMOVE_FROM_QUEUE', payload: item.id })
     }
 
-    const editSong = (item: QueueItem, index: number) => {
-        dispatch({ type: 'SET_EDITING_QUEUE_INDEX', payload: index })
+    const editSong = (item: QueueItem) => {
+        dispatch({ type: 'SET_EDITING_QUEUE_ITEM', payload: item.id })
         dispatch({ type: 'SET_TRACK', payload: item.track })
         dispatch({ type: 'SET_LYRICS', payload: item.lyrics })
         dispatch({ type: 'SET_ROLES', payload: item.roles })
@@ -725,9 +746,6 @@ export default function QueuePage() {
         }
         if (item.backgroundVideoPath) {
             dispatch({ type: 'SET_BACKGROUND_VIDEO', payload: item.backgroundVideoPath })
-        }
-        if (item.monitorDeviceIds) {
-            dispatch({ type: 'SET_MONITOR_DEVICES', payload: item.monitorDeviceIds })
         }
         if (item.songPath) {
             dispatch({ type: 'SET_SONG_PATH', payload: item.songPath })
@@ -978,9 +996,9 @@ export default function QueuePage() {
                                 {/* Actions — Edit is suppressed for hidden songs so the host can't reveal them */}
                                 <div style={{ display: 'flex', gap: 6 }}>
                                     {!item.isHidden && (
-                                        <IconButton icon="pencil" title="Edit song setup" onClick={() => editSong(item, index)} />
+                                        <IconButton icon="pencil" title="Edit song setup" onClick={() => editSong(item)} />
                                     )}
-                                    <IconButton icon="trash" danger title="Remove from queue" onClick={() => removeSong(index)} />
+                                    <IconButton icon="trash" danger title="Remove from queue" onClick={() => removeSong(item)} />
                                 </div>
                             </div>
                         )

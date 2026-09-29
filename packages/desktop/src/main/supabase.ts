@@ -1,3 +1,4 @@
+/// <reference types="electron-vite/node" />
 import { createClient, RealtimeChannel } from '@supabase/supabase-js'
 
 const SUPABASE_URL = 'https://hnnbxwitjkeijvoldfuv.supabase.co'
@@ -35,6 +36,12 @@ export async function createSession(name: string, themeName: string): Promise<Se
         sessionId: data.id,
         sessionCode: data.code,
         sessionName: data.name
+    }
+}
+
+declare global {
+    interface ImportMetaEnv {
+        readonly MAIN_VITE_GIPHY_API_KEY?: string
     }
 }
 
@@ -146,6 +153,7 @@ export interface CatalogItem {
 
 export async function pushCatalog(sessionId: string, songs: CatalogItem[]): Promise<void> {
     const CHUNK = 100
+    let allChunksOk = true
     for (let i = 0; i < songs.length; i += CHUNK) {
         const chunk = songs.slice(i, i + CHUNK).map(s => ({
             session_id: sessionId,
@@ -164,7 +172,45 @@ export async function pushCatalog(sessionId: string, songs: CatalogItem[]): Prom
         const { error } = await supabase
             .from('karaoke_catalog')
             .upsert(chunk, { onConflict: 'session_id,track_id' })
-        if (error) console.error('Failed to push catalog chunk:', error.message)
+        if (error) {
+            console.error('Failed to push catalog chunk:', error.message)
+            allChunksOk = false
+        }
+    }
+
+    // `songs` is the full local library (pushLocalCatalog scans every song
+    // dir), so any other row for this session is a song since removed or
+    // quarantined locally. Upsert alone left those listed on a resumed
+    // session's companion, where guests could queue a track the desktop then
+    // silently drops as "unknown track". Only prune after a fully successful
+    // push, so a partial failure can never strip songs that do exist.
+    if (!allChunksOk || songs.length === 0) return
+    const keep = new Set(songs.map(s => s.trackId))
+    const stale: string[] = []
+    const PAGE = 1000
+    for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+            .from('karaoke_catalog')
+            .select('track_id')
+            .eq('session_id', sessionId)
+            .order('track_id', { ascending: true })
+            .range(from, from + PAGE - 1)
+        if (error) {
+            console.error('Failed to read catalog for pruning:', error.message)
+            return
+        }
+        for (const r of data || []) {
+            if (!keep.has(r.track_id)) stale.push(r.track_id)
+        }
+        if (!data || data.length < PAGE) break
+    }
+    for (let i = 0; i < stale.length; i += CHUNK) {
+        const { error } = await supabase
+            .from('karaoke_catalog')
+            .delete()
+            .eq('session_id', sessionId)
+            .in('track_id', stale.slice(i, i + CHUNK))
+        if (error) console.error('Failed to prune stale catalog rows:', error.message)
     }
 }
 
@@ -212,12 +258,23 @@ export function subscribeToQueue(sessionId: string, callbacks: QueueCallbacks): 
 // what collapses them back into a single push instead of a duplicate.
 const lastNotifiedTurnIdBySession = new Map<string, string>()
 
+// Last turn written to now_playing_*, per session. A re-sync of the SAME turn
+// (remoteQueueId landing, a one-time pass stamped once playback starts) must
+// not reset is_playing: the renderer mirrors every karaoke_sessions UPDATE's
+// is_playing back as a remote play/pause command, so writing false mid-song
+// pauses the host (immediately, or on the next unrelated session-row update).
+const lastSyncedTurnIdBySession = new Map<string, string>()
+
 export async function updateNowPlaying(sessionId: string, info: {
     trackId: string; name: string; artist: string; artUrl: string | null;
     singerConfigs?: any[];
     stageTheme?: string | null;
     turnId?: string;
 } | null): Promise<void> {
+    const sameTurn = info?.turnId !== undefined
+        && lastSyncedTurnIdBySession.get(sessionId) === info.turnId
+    if (info?.turnId !== undefined) lastSyncedTurnIdBySession.set(sessionId, info.turnId)
+    else lastSyncedTurnIdBySession.delete(sessionId)
     const { error } = await supabase
         .from('karaoke_sessions')
         .update({
@@ -225,7 +282,7 @@ export async function updateNowPlaying(sessionId: string, info: {
             now_playing_name: info?.name || null,
             now_playing_artist: info?.artist || null,
             now_playing_art_url: info?.artUrl || null,
-            is_playing: false,
+            ...(sameTurn ? {} : { is_playing: false }),
             now_playing_singer_configs: info?.singerConfigs ?? null,
             now_playing_stage_theme: info?.stageTheme ?? null,
             updated_at: new Date().toISOString()
@@ -480,6 +537,7 @@ export async function closeSession(sessionId: string): Promise<void> {
         .eq('id', sessionId)
 
     lastNotifiedTurnIdBySession.delete(sessionId)
+    lastSyncedTurnIdBySession.delete(sessionId)
 }
 
 export async function deleteSession(sessionId: string): Promise<void> {
@@ -504,6 +562,7 @@ export async function deleteSession(sessionId: string): Promise<void> {
     if (error) console.error('Failed to delete session:', error.message)
 
     lastNotifiedTurnIdBySession.delete(sessionId)
+    lastSyncedTurnIdBySession.delete(sessionId)
 }
 
 // ============================================================================

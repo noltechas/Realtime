@@ -188,8 +188,11 @@ export interface AppState {
     // Spotify Auth
     spotifyClientId: string | null
     spotifyClientSecret: string | null
-    // Edit flow: when editing a queue item in place
-    editingQueueIndex: number | null
+    // Edit flow: id of the queue item being edited in place. An id, not an
+    // index — the queue re-sorts on every vote / enqueue / bonus bump, so an
+    // index captured when the host clicked Edit could point at a DIFFERENT
+    // song by the time they saved (overwriting that song).
+    editingQueueItemId: string | null
     // Karaoke session
     karaokeSessionId: string | null
     karaokeSessionCode: string | null
@@ -342,7 +345,7 @@ const initialState: AppState = {
     micSlots: savedDevicePrefs.micSlots,
     spotifyClientId: import.meta.env.VITE_SPOTIFY_CLIENT_ID || null,
     spotifyClientSecret: import.meta.env.VITE_SPOTIFY_CLIENT_SECRET || null,
-    editingQueueIndex: null,
+    editingQueueItemId: null,
     karaokeSessionId: null,
     karaokeSessionCode: null,
     karaokeSessionName: null,
@@ -401,15 +404,16 @@ type Action =
     // NEXT_SONG it does NOT pop the queue — the up-next song stays put.
     | { type: 'RESTORE_NOW_PLAYING'; payload: QueueItem | null }
     | { type: 'CLEAR_QUEUE' }
-    | { type: 'REMOVE_FROM_QUEUE'; payload: number }
-    | { type: 'REPLACE_QUEUE_ITEM'; payload: { index: number; item: QueueItem } }
+    // Both keyed by queue-item id (see editingQueueItemId).
+    | { type: 'REMOVE_FROM_QUEUE'; payload: string }
+    | { type: 'REPLACE_QUEUE_ITEM'; payload: { item: QueueItem } }
     | { type: 'SET_QUEUE_ITEM_REMOTE_ID'; payload: { itemId: string; remoteQueueId: string } }
     | { type: 'REORDER_QUEUE'; payload: QueueItem[] }
     | { type: 'UPDATE_QUEUE_ITEM_SCORE'; payload: { remoteQueueId: string; score?: number; bonusPoints?: number; locked?: boolean } }
     | { type: 'APPLY_REMOTE_EDIT'; payload: { remoteQueueId: string; singers: Singer[]; stageTheme: string | null; isHidden: boolean } }
     | { type: 'LOCK_NEXT_UP' }
     | { type: 'BUMP_BONUS_POINTS' }
-    | { type: 'SET_EDITING_QUEUE_INDEX'; payload: number | null }
+    | { type: 'SET_EDITING_QUEUE_ITEM'; payload: string | null }
     | { type: 'UPDATE_NOW_PLAYING_EFFECTS'; payload: { singerIndex: number; effects: VoiceEffects } }
     | { type: 'UPDATE_NOW_PLAYING_SINGER'; payload: { singerId: number; updates: Partial<Singer> } }
     | { type: 'SET_MIC_SLOT'; payload: { index: number; config: Partial<MicSlotConfig> } }
@@ -573,6 +577,15 @@ function reducer(state: AppState, action: Action): AppState {
         case 'SET_TOKEN':
             return { ...state, spotifyToken: action.payload }
         case 'SET_TRACK':
+            // Clear every per-song draft field so nothing from the previously
+            // selected song can ride along onto this one (callers set the new
+            // song's values right after). voiceEffects / backgroundVideoPath
+            // used to survive when the new song had none, so a song queued
+            // with the last song's effects (and its key → wrong autotune).
+            // monitorDeviceIds is deliberately NOT touched: the Vocal Out
+            // device is a session-wide preference (see useAudioSync), and
+            // clearing it here muted the vocal monitor of the song on stage
+            // every time the host opened a song in Search.
             return {
                 ...state,
                 currentTrack: action.payload,
@@ -582,7 +595,8 @@ function reducer(state: AppState, action: Action): AppState {
                 processingStatus: initialState.processingStatus,
                 songPath: null,
                 stemsPath: null,
-                monitorDeviceIds: []
+                voiceEffects: null,
+                backgroundVideoPath: null
             }
         case 'SET_LYRICS':
             return { ...state, lyrics: action.payload }
@@ -685,6 +699,12 @@ function reducer(state: AppState, action: Action): AppState {
         case 'SET_STAGE_MODE':
             return { ...state, stageMode: action.payload }
         case 'ENQUEUE_SONG': {
+            // One Supabase row = one queue entry. The initial queue fetch and
+            // the realtime INSERT can both deliver the same row on (re)join.
+            const rowId = action.payload.remoteQueueId
+            if (rowId && (state.queue.some(q => q.remoteQueueId === rowId) || state.nowPlaying?.remoteQueueId === rowId)) {
+                return state
+            }
             // INVARIANT: callers MUST supply payload.createdAt (QueuePage and
             // resolveRemoteRow both do). createdAt is the final tiebreaker in
             // sortQueueByScore, so a per-window `new Date()` fallback here
@@ -705,14 +725,15 @@ function reducer(state: AppState, action: Action): AppState {
             }
         }
         case 'REPLACE_QUEUE_ITEM': {
-            const { index, item } = action.payload
-            const newQueue = [...state.queue]
-            newQueue[index] = item
+            const { item } = action.payload
+            if (!state.queue.some(q => q.id === item.id)) {
+                return { ...state, currentTrack: null, editingQueueItemId: null }
+            }
             return {
                 ...state,
-                queue: newQueue,
+                queue: sortQueueByScore(state.queue.map(q => q.id === item.id ? item : q)),
                 currentTrack: null,
-                editingQueueIndex: null
+                editingQueueItemId: null
             }
         }
         case 'SET_QUEUE_ITEM_REMOTE_ID': {
@@ -731,8 +752,8 @@ function reducer(state: AppState, action: Action): AppState {
                     : state.nowPlaying,
             }
         }
-        case 'SET_EDITING_QUEUE_INDEX':
-            return { ...state, editingQueueIndex: action.payload }
+        case 'SET_EDITING_QUEUE_ITEM':
+            return { ...state, editingQueueItemId: action.payload }
         case 'NEXT_SONG':
             // Prefer the authoritative result computed by the main window
             // (action.payload). Fall back to computing locally so the reducer
@@ -767,18 +788,15 @@ function reducer(state: AppState, action: Action): AppState {
         case 'CLEAR_QUEUE':
             return { ...state, queue: [] }
         case 'REMOVE_FROM_QUEUE': {
-            const index = action.payload
-            let newEditing = state.editingQueueIndex
-            if (newEditing === index) newEditing = null
-            else if (newEditing !== null && newEditing > index) newEditing = newEditing - 1
+            const itemId = action.payload
             return {
                 ...state,
-                queue: state.queue.filter((_, i) => i !== index),
-                editingQueueIndex: newEditing
+                queue: state.queue.filter(q => q.id !== itemId),
+                editingQueueItemId: state.editingQueueItemId === itemId ? null : state.editingQueueItemId
             }
         }
         case 'REORDER_QUEUE':
-            return { ...state, queue: action.payload, editingQueueIndex: null }
+            return { ...state, queue: action.payload }
         case 'UPDATE_QUEUE_ITEM_SCORE': {
             const { remoteQueueId, score, bonusPoints, locked } = action.payload
             const updated = state.queue.map(q => {
@@ -798,11 +816,18 @@ function reducer(state: AppState, action: Action): AppState {
             // score, bonus, locked, or any catalog-derived fields. Sort isn't
             // affected — score didn't change, so we skip sortQueueByScore.
             const { remoteQueueId, singers, stageTheme, isHidden } = action.payload
-            const updated = state.queue.map(q =>
-                q.remoteQueueId === remoteQueueId
-                    ? { ...q, singers, stageTheme, isHidden }
-                    : q
-            )
+            // singer_configs carry no mic routing, so keep the host's mic
+            // pick for any slot that is still the same person — this UPDATE
+            // also fires on every vote / bonus bump, which used to wipe them.
+            const updated = state.queue.map(q => {
+                if (q.remoteQueueId !== remoteQueueId) return q
+                const merged = singers.map((s, i) => {
+                    const prev = q.singers[i]
+                    const samePerson = !!prev && (s.guestId ? prev.guestId === s.guestId : (!prev.guestId && prev.name === s.name))
+                    return samePerson && prev.micDeviceId ? { ...s, micDeviceId: prev.micDeviceId } : s
+                })
+                return { ...q, singers: merged, stageTheme, isHidden }
+            })
             return { ...state, queue: updated }
         }
         case 'LOCK_NEXT_UP': {
@@ -881,7 +906,7 @@ function reducer(state: AppState, action: Action): AppState {
             return { ...state, micSlots: slots }
         }
         case 'INIT_STATE':
-            return { ...initialState, ...action.payload, editingQueueIndex: action.payload.editingQueueIndex ?? null }
+            return { ...initialState, ...action.payload, editingQueueItemId: action.payload.editingQueueItemId ?? null }
         case 'RESET':
             return initialState
         case 'SET_KARAOKE_SESSION':
@@ -970,12 +995,22 @@ interface AppContextValue {
 const AppContext = createContext<AppContextValue | undefined>(undefined)
 
 export function AppProvider({ children }: { children: ReactNode }) {
-    const [state, rawDispatch] = useReducer(reducer, initialState)
+    const [state, rawReducerDispatch] = useReducer(reducer, initialState)
+    // Latest state INCLUDING dispatches React hasn't rendered yet. It is
+    // advanced synchronously with every dispatch (the reducer is pure, so
+    // this is exactly the state React will render). It used to be synced in
+    // a useEffect — but this provider's effects run AFTER its children's, so
+    // a NEXT_SONG dispatched from a child effect (remote skip) was resolved
+    // against the previous render's queue, and an init snapshot for the
+    // stage window could predate an action already relayed to it — leaving
+    // the stage showing one song while this window played another.
     const stateRef = useRef(state)
+    const rawDispatch = useCallback((action: Action) => {
+        stateRef.current = reducer(stateRef.current, action)
+        rawReducerDispatch(action)
+    }, [])
     const isRemoteRef = useRef(false)
     const isStageWindow = window.electronAPI?.isStageWindow ?? false
-
-    useEffect(() => { stateRef.current = state }, [state])
 
     const dispatch = useCallback((action: Action) => {
         let outgoing: Action = action
@@ -1006,7 +1041,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (!isRemoteRef.current && outgoing.type !== 'INIT_STATE' && window.electronAPI) {
             window.electronAPI.sendStateAction(outgoing)
         }
-    }, [isStageWindow])
+    }, [isStageWindow, rawDispatch])
 
     // Auto-pop queue when nothing is playing (main window only). Held off while
     // a resumed session is still restoring its persisted now-playing song, so
@@ -1081,6 +1116,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
             requestHandler = window.electronAPI.onInitStateRequest(() => {
                 window.electronAPI.sendInitState(stateRef.current)
             })
+            // If a stage window outlived a reload of this window, it still
+            // holds the OLD now-playing song — and RESTORE_NOW_PLAYING is a
+            // no-op wherever nowPlaying is already set, so it would keep
+            // showing that song's lyrics while this window plays the restored
+            // one. Resync it to this window's fresh state. (No-op when no
+            // stage window is open.)
+            window.electronAPI.sendInitState(stateRef.current)
         }
 
         return () => {
@@ -1088,7 +1130,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             if (initHandler) window.electronAPI.offInitState(initHandler)
             if (requestHandler) window.electronAPI.offInitStateRequest(requestHandler)
         }
-    }, [])
+    }, [rawDispatch])
 
     return (
         <AppContext.Provider value={{ state, dispatch }}>
