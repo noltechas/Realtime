@@ -584,6 +584,66 @@ body:has(.emoji-picker-overlay, .meme-picker-overlay, .text-input-overlay, .skip
   font-family: var(--font-display); font-weight: 700; font-size: 14px;
   color: var(--emerald); margin-bottom: 2px;
 }
+.req-confirm--tap { cursor: pointer; }
+.req-confirm--tap:active { transform: scale(0.98); }
+
+/* "Your requests" — live build progress from the host's song generator */
+.req-mine { padding: 16px 20px 0; }
+.req-mine-label {
+  font-family: var(--font-display); font-weight: 700; font-size: 11px;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--white-faint); margin-bottom: 10px;
+}
+.req-mine-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px; margin-bottom: 8px;
+  background: var(--surface-1); border: 1px solid var(--hairline);
+  border-radius: 16px;
+  box-shadow: var(--top-light);
+  transition: transform 0.16s var(--ease-spring), border-color 0.2s;
+}
+.req-mine-row--ready {
+  border-color: rgba(61, 220, 151, 0.42);
+  background: linear-gradient(135deg, rgba(61, 220, 151, 0.10), rgba(61, 220, 151, 0.02)), var(--surface-1);
+  cursor: pointer;
+}
+.req-mine-row--ready:active { transform: scale(0.98); }
+.req-mine-row--failed { border-color: rgba(255, 92, 122, 0.35); }
+.req-mine-art { width: 46px; height: 46px; border-radius: 10px; overflow: hidden; flex-shrink: 0; background: var(--surface-2); }
+.req-mine-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.req-mine-art-blank { width: 100%; height: 100%; background: var(--grad-hero); opacity: 0.35; }
+.req-mine-info { flex: 1; min-width: 0; }
+.req-mine-title {
+  font-family: var(--font-display); font-weight: 700; font-size: 14px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.req-mine-status {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--white-muted); margin-top: 3px;
+}
+.req-mine-row--ready .req-mine-status { color: var(--emerald); font-weight: 600; }
+.req-mine-row--failed .req-mine-status { color: var(--red); }
+.req-mine-pct { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--white-faint); }
+.req-mine-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+  background: var(--amber); box-shadow: 0 0 10px var(--amber);
+  animation: reqMinePulse 1.4s ease-in-out infinite;
+}
+@keyframes reqMinePulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+.req-mine-bar {
+  height: 5px; margin-top: 8px; border-radius: 99px; overflow: hidden;
+  background: var(--surface-3);
+}
+.req-mine-bar-fill {
+  height: 100%; border-radius: 99px; background: var(--grad-hero);
+  transition: width 0.8s var(--ease-out);
+}
+/* Queued: no number yet, so sweep instead of sitting at 0 */
+.req-mine-bar--idle .req-mine-bar-fill {
+  width: 30% !important;
+  animation: reqMineSweep 1.6s ease-in-out infinite;
+}
+@keyframes reqMineSweep { 0% { transform: translateX(-110%); } 100% { transform: translateX(360%); } }
 
 /* --------------------------------------------------------------------------
    Wizard — topbar, stepper, singer setup, roles, finish.

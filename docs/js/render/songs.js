@@ -55,7 +55,7 @@ export function renderRequestCta(){
     '</span>'+
     '<span class="request-song-cta-body">'+
       '<span class="request-song-cta-title">Request a Song to be Added</span>'+
-      '<span class="request-song-cta-sub">Tell Chas to add a new song to the library.</span>'+
+      '<span class="request-song-cta-sub">Anything on Spotify — new songs build themselves in a few minutes.</span>'+
     '</span>'+
     '<span class="request-song-cta-chevron">'+
       '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>'+
@@ -150,8 +150,6 @@ export function renderRequest(){
     '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'+
     '<input class="search-input" id="req-search-input" placeholder="Search Spotify…" autocomplete="off" value="'+esc(S.requestQuery||"")+'">'+
   '</div>';
-  var confirm=S.requestConfirm?
-    '<div class="req-confirm"><div class="req-confirm-title">'+esc(S.requestConfirm.title)+'</div><div>'+esc(S.requestConfirm.sub||"")+'</div></div>':"";
   return '<div class="req-screen screen">'+
     '<div class="req-header">'+
       '<button class="req-back" id="req-back" type="button">'+
@@ -159,11 +157,56 @@ export function renderRequest(){
         'Back to Songs'+
       '</button>'+
       '<div class="req-title">Request a Song</div>'+
-      '<div class="req-sub">Pick anything from Spotify and Chas will add it to the karaoke library when he can.</div>'+
+      '<div class="req-sub">Pick anything on Spotify. New songs usually build themselves in a few minutes, and you\u2019ll get a heads-up when yours is ready.</div>'+
       inputHtml+
     '</div>'+
+    '<div id="req-mine">'+renderMyRequests()+'</div>'+
     '<div class="req-results" id="req-results">'+body+'</div>'+
-    confirm+
+  '</div>';
+}
+
+// What the host's generator is doing with a request, in guest terms.
+var GEN_LABELS={
+  queued:"In line to be built",
+  downloading:"Grabbing the audio",
+  separating:"Splitting the vocals from the music",
+  importing:"Syncing the lyrics",
+  tuning:"Dialing in the vocal effects"
+};
+function requestView(r){
+  if(r.status==="dismissed")return{label:"The host passed on this one",tone:"muted"};
+  if(r.status==="added"||r.generation_status==="ready")return{label:"Ready to sing \u2014 tap to open",tone:"ready"};
+  if(r.generation_status==="failed")return{label:r.generation_error||"Couldn\u2019t build this one",tone:"failed"};
+  if(r.generation_status&&GEN_LABELS[r.generation_status]){
+    var pct=typeof r.generation_progress==="number"?r.generation_progress:null;
+    return{label:GEN_LABELS[r.generation_status],tone:"working",pct:r.generation_status==="queued"?null:pct};
+  }
+  return{label:"Waiting for the host",tone:"muted"};
+}
+// The guest's recent requests with live build progress. Re-rendered in
+// place (see setMyRequestsPatcher) so progress ticks don't steal focus from
+// the search box.
+export function renderMyRequests(){
+  var rows=(S.myRequests||[]).filter(function(r){return r.status!=="dismissed"||r.generation_status;});
+  if(rows.length===0)return "";
+  return '<div class="req-mine">'+
+    '<div class="req-mine-label">Your requests</div>'+
+    rows.map(function(r){
+      var v=requestView(r);
+      var ready=v.tone==="ready"&&S.catalog.some(function(c){return c.track_id===r.track_id;});
+      var art=r.track_art_url?'<img src="'+esc(r.track_art_url)+'" alt="" loading="lazy">':'<div class="req-mine-art-blank"></div>';
+      var bar=v.tone==="working"?
+        '<div class="req-mine-bar'+(v.pct==null?' req-mine-bar--idle':'')+'"><div class="req-mine-bar-fill" style="width:'+(v.pct==null?0:Math.max(4,Math.min(100,v.pct)))+'%"></div></div>':'';
+      var pctText=v.tone==="working"&&v.pct!=null?'<span class="req-mine-pct">'+v.pct+'%</span>':'';
+      return '<div class="req-mine-row req-mine-row--'+v.tone+'"'+(ready?' data-req-ready-track="'+esc(r.track_id)+'" role="button" tabindex="0"':'')+'>'+
+        '<div class="req-mine-art">'+art+'</div>'+
+        '<div class="req-mine-info">'+
+          '<div class="req-mine-title">'+esc(r.track_name||"")+'</div>'+
+          '<div class="req-mine-status">'+(v.tone==="working"?'<span class="req-mine-dot"></span>':'')+esc(v.label)+pctText+'</div>'+
+          bar+
+        '</div>'+
+      '</div>';
+    }).join("")+
   '</div>';
 }
 // Safe mode: append "?safemode" (or "&safemode") to the URL to skip the

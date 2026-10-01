@@ -56,6 +56,13 @@ export function render(){
     overlayHtml+=renderRevealOverlay();
   }
   if(S.screen==="awards"){overlayHtml+=renderVoteConfirmOverlay();}
+  // Request toasts render on every screen: a successful request navigates
+  // back to Songs, and "your song is ready" can arrive anywhere.
+  if(S.requestConfirm){
+    var tap=!!S.requestConfirm.trackId;
+    overlayHtml+='<div class="req-confirm'+(tap?' req-confirm--tap':'')+'"'+(tap?' id="req-confirm-open" role="button" tabindex="0"':'')+'>'+
+      '<div class="req-confirm-title">'+esc(S.requestConfirm.title)+'</div><div>'+esc(S.requestConfirm.sub||"")+'</div></div>';
+  }
   if(overlayMount){overlayMount.innerHTML=overlayHtml;}
   try{ bindEvents(); }
   catch(e){

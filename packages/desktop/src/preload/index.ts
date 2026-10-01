@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import type { AutogenSettings, AutogenStatus, AutogenTrackInput } from '../main/autogen'
 
 export type ElectronAPI = {
     // Window controls
@@ -98,6 +99,18 @@ export type ElectronAPI = {
     persistAwardResults: (results: any[]) => Promise<void>
     unfinalizeAwards: (awardIds: string[]) => Promise<void>
     broadcastRevealStep: (step: any) => Promise<void>
+    // Song auto-generation (main/autogen.ts)
+    autogenStatus: () => Promise<AutogenStatus>
+    autogenEnqueue: (input: AutogenTrackInput) => Promise<AutogenStatus>
+    autogenCancel: (trackId: string) => Promise<void>
+    autogenRetry: (trackId: string) => Promise<void>
+    autogenDismiss: (trackId: string) => Promise<void>
+    autogenSetSettings: (next: Partial<AutogenSettings>) => Promise<AutogenStatus>
+    onAutogenUpdate: (callback: (status: AutogenStatus) => void) => any
+    offAutogenUpdate: (handler: any) => void
+    /** A generated song just landed in the library — reload the catalog. */
+    onAutogenSongReady: (callback: (trackId: string) => void) => any
+    offAutogenSongReady: (handler: any) => void
 }
 
 const api: ElectronAPI = {
@@ -236,7 +249,26 @@ const api: ElectronAPI = {
     setAwardAdjustments: (awardId, adjustments) => ipcRenderer.invoke('karaoke:set-award-adjustments', awardId, adjustments),
     persistAwardResults: (results) => ipcRenderer.invoke('karaoke:persist-award-results', results),
     unfinalizeAwards: (awardIds) => ipcRenderer.invoke('karaoke:unfinalize-awards', awardIds),
-    broadcastRevealStep: (step) => ipcRenderer.invoke('karaoke:broadcast-reveal-step', step)
+    broadcastRevealStep: (step) => ipcRenderer.invoke('karaoke:broadcast-reveal-step', step),
+    // Song auto-generation
+    autogenStatus: () => ipcRenderer.invoke('autogen:status'),
+    autogenEnqueue: (input) => ipcRenderer.invoke('autogen:enqueue', input),
+    autogenCancel: (trackId) => ipcRenderer.invoke('autogen:cancel', trackId),
+    autogenRetry: (trackId) => ipcRenderer.invoke('autogen:retry', trackId),
+    autogenDismiss: (trackId) => ipcRenderer.invoke('autogen:dismiss', trackId),
+    autogenSetSettings: (next) => ipcRenderer.invoke('autogen:set-settings', next),
+    onAutogenUpdate: (callback) => {
+        const handler = (_e: any, status: AutogenStatus) => callback(status)
+        ipcRenderer.on('autogen:update', handler)
+        return handler
+    },
+    offAutogenUpdate: (handler) => ipcRenderer.removeListener('autogen:update', handler),
+    onAutogenSongReady: (callback) => {
+        const handler = (_e: any, trackId: string) => callback(trackId)
+        ipcRenderer.on('autogen:song-ready', handler)
+        return handler
+    },
+    offAutogenSongReady: (handler) => ipcRenderer.removeListener('autogen:song-ready', handler)
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

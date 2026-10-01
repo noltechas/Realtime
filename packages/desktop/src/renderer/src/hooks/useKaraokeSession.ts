@@ -157,6 +157,15 @@ export function useKaraokeSession() {
         void reloadCatalog()
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
+    // A generated song (autogen) can land mid-session; refresh so a guest who
+    // queues it right away resolves on the first try.
+    useEffect(() => {
+        const api = window.electronAPI
+        if (api?.isStageWindow || !api?.onAutogenSongReady) return
+        const handler = api.onAutogenSongReady(() => { void reloadCatalog() })
+        return () => api.offAutogenSongReady(handler)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
 
     // Live guest roster. Singers reference guests by id, so the renderer needs
     // each guest's canonical name + avatar to resolve singers at render time

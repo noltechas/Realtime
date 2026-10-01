@@ -1,10 +1,16 @@
 /// <reference types="electron-vite/node" />
 import { createClient, RealtimeChannel } from '@supabase/supabase-js'
+import WebSocket from 'ws'
 
 const SUPABASE_URL = 'https://hnnbxwitjkeijvoldfuv.supabase.co'
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhubmJ4d2l0amtlaWp2b2xkZnV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MjcwMTQsImV4cCI6MjA5MDUwMzAxNH0.ENzZ2VLxszHr9StjFds06In7CyGkiyPvu6Jh1LUMMvA'
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+// Electron 28's main process runs Node 18, which has no global WebSocket —
+// without an explicit transport every Realtime subscription here silently
+// never connects (no error, no status). The renderer has the browser's.
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    realtime: { transport: WebSocket as unknown as typeof globalThis.WebSocket },
+})
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 
@@ -896,4 +902,89 @@ export async function broadcastRevealStep(sessionId: string, step: unknown): Pro
     } catch (e) {
         console.error('[Awards] broadcast send failed:', e)
     }
+}
+
+// ─── Song requests: auto-generation status ──────────────────────────────────
+// The main-process generator (autogen.ts) mirrors its progress onto the
+// guest's request row so the website / app can show "Generating… 40%".
+// Columns from supabase/migrations/*_song_request_generation.sql.
+
+export type GenerationStatus = 'queued' | 'downloading' | 'separating' | 'importing' | 'tuning' | 'ready' | 'failed'
+
+export interface SongRequestRow {
+    id: string
+    session_id: string
+    track_id: string
+    track_name: string
+    track_artist: string
+    track_art_url: string | null
+    requested_by_name: string | null
+    status: 'pending' | 'added' | 'dismissed'
+    generation_status?: GenerationStatus | null
+}
+
+// Until the migration is applied the generation_* columns don't exist and
+// every write naming them fails; fall back to the base columns (so a finished
+// song still resolves its request) and only warn once.
+let generationColumnsMissing = false
+
+export async function updateSongRequestGeneration(ids: string[], fields: {
+    generationStatus: GenerationStatus
+    progress: number
+    error: string | null
+    markAdded: boolean
+}): Promise<void> {
+    if (ids.length === 0) return
+    const base: Record<string, unknown> = fields.markAdded
+        ? { status: 'added', resolved_at: new Date().toISOString() }
+        : {}
+    if (!generationColumnsMissing) {
+        const { error } = await supabase
+            .from('karaoke_song_requests')
+            .update({
+                ...base,
+                generation_status: fields.generationStatus,
+                generation_progress: Math.round(fields.progress),
+                generation_error: fields.error,
+                generation_updated_at: new Date().toISOString(),
+            })
+            .in('id', ids)
+        if (!error) return
+        if (!/generation_/.test(error.message)) {
+            console.error('[autogen] request status write failed:', error.message)
+            return
+        }
+        generationColumnsMissing = true
+        console.warn('[autogen] karaoke_song_requests has no generation_* columns — apply supabase/migrations/*_song_request_generation.sql. Falling back to status-only updates.')
+    }
+    if (Object.keys(base).length === 0) return
+    const { error } = await supabase.from('karaoke_song_requests').update(base).in('id', ids)
+    if (error) console.error('[autogen] request resolve failed:', error.message)
+}
+
+export async function listOpenSongRequests(sessionId: string): Promise<SongRequestRow[]> {
+    const { data, error } = await supabase
+        .from('karaoke_song_requests')
+        .select('*')
+        .eq('session_id', sessionId)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true })
+    if (error) {
+        console.error('[autogen] listing requests failed:', error.message)
+        return []
+    }
+    return (data || []) as SongRequestRow[]
+}
+
+export function subscribeToSongRequests(sessionId: string, onInsert: (row: SongRequestRow) => void): RealtimeChannel {
+    return supabase
+        .channel('main-autogen-requests-' + sessionId)
+        .on('postgres_changes',
+            { event: 'INSERT', schema: 'public', table: 'karaoke_song_requests', filter: 'session_id=eq.' + sessionId },
+            (payload) => onInsert(payload.new as SongRequestRow))
+        .subscribe()
+}
+
+export function removeRealtimeChannel(channel: RealtimeChannel): void {
+    supabase.removeChannel(channel)
 }

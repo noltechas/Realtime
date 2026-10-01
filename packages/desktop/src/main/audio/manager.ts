@@ -159,6 +159,13 @@ export interface SongMeta {
 
 export type CatalogSong = SongMeta & { instrumentalPath: string, vocalsPath?: string }
 
+// Cheap "do we already have this track?" check (no meta parse) for the
+// auto-generation queue. Fingerprint verification still happens at listing.
+export function isSongInLibrary(trackId: string): boolean {
+    const dir = getSongDir(trackId)
+    return fs.existsSync(path.join(dir, 'meta.json')) && findStemFile(dir, 'instrumental') !== null
+}
+
 // The playable library: every song with a meta.json + instrumental whose stems
 // still match their verified fingerprints. The single source of truth for BOTH
 // the renderer's catalog (audio:list-catalog) and the companion catalog pushed

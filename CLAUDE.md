@@ -311,6 +311,24 @@ Always include every block in every role — don't partial-update. If you want a
 
 **Adding only the `doubler` to existing songs:** the per-song doubler scripts ([scripts/travis-doubler-per-song.js](packages/desktop/scripts/travis-doubler-per-song.js), [tpain-doubler-per-song.js](packages/desktop/scripts/tpain-doubler-per-song.js), [library-doubler-per-song.js](packages/desktop/scripts/library-doubler-per-song.js)) MERGE only a `doubler` block into each role's existing `voiceEffects[i]` (`{ ...existing, doubler }`) rather than rewriting the whole entry — this preserves all prior per-song tuning (key/mode/tempo/micLevel/pitchCorrection/reverb/…). Copy one of these as the template when adding the doubler to more songs; they dry-run by default and write a one-time `.doubler.bak`.
 
+## Song Auto-Generation
+
+Any Spotify track can become a library song with no manual stem export:
+
+```
+Spotify track → YouTube Music audio (same master) → local RoFormer vocal separation
+  → import-song.js --instrumental/--vocals → key/BPM from the stems → headless Claude Code add-song pass
+```
+
+- **CLI**: `node packages/desktop/scripts/generate-song.js <spotify-url-or-id> [--no-agent] [--force] [--events]`. Logs go to `~/.realtime-karaoke/autogen/logs/`. One generation at a time (lock file).
+- **Python worker**: `scripts/autogen/autogen.py` (`fetch` / `separate` / `analyze`) runs in `~/.realtime-karaoke/separator-venv` (Python 3.12 via uv — system 3.9 is too old). Set up or repair with `bash packages/desktop/scripts/autogen/setup.sh`; `--upgrade-ytdlp` when YouTube breaks downloads. Model: `vocals_mel_band_roformer.ckpt` (~14 s per minute of audio on the M4 Pro).
+- **Matching is strict on purpose**: only an official upload by the primary artist, title match, length within 3 s, explicit/clean preference. It refuses rather than guesses (`no-match`); wrong-song imports have corrupted the library before.
+- **App**: `src/main/autogen.ts` is the queue (main process, so it runs on every page). It listens for `karaoke_song_requests` INSERTs, mirrors progress onto the row's `generation_*` columns, and pushes the catalog when a song lands. Admin → Songs has the Song Generator card plus a **Generate** button on Spotify results; Requests shows per-request status. Renderer hook: `hooks/useAutogen.ts`.
+- **The Claude pass** shells out to the Claude Code CLI (`claude -p`, subscription usage — the generator strips `ANTHROPIC_API_KEY` etc. so it never bills per-token). If the CLI isn't logged in or is out of usage, the song still imports on default effects with `meta.autogen.needsReview: true` (Admin shows a "Review" chip).
+- **Main-process Realtime needs the `ws` transport** (`src/main/supabase.ts`): Electron 28's main process is Node 18 with no global WebSocket, and without it subscriptions silently never connect.
+- **Migration**: `supabase/migrations/20261001150000_song_request_generation.sql` adds the `generation_*` columns. Until it's applied, requests still auto-generate and resolve, but guests only see "Waiting for the host" instead of live progress.
+- The desktop `scripts/` folder is gitignored (local-only), so a fresh clone has no generator. `autogen.ts` reports it unavailable instead of crashing.
+
 ## Common Pitfalls
 
 - **Stem fingerprints (`meta.stems`)**: every song's `meta.json` records the sha256/size/duration of the audio verified to belong to it. `audio:list-catalog` refuses to serve a song whose on-disk stems don't match their fingerprint, and both import paths (`import-song.js`, `audio:import` IPC) refuse audio whose bytes already belong to another song or whose length doesn't match the track. Any script that writes/replaces stem files MUST update `meta.stems` (see `scripts/fingerprint-library.js`) or the song will vanish from the catalog. Stems in `~/Downloads` are matched by FILENAME (export named after the song), never by duration alone.

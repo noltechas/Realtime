@@ -53,6 +53,68 @@ interface ElectronAPI {
     getSystemVolume: () => Promise<number>
 }
 
+// Song auto-generation — mirrors the types in src/main/autogen.ts (the
+// renderer project can't import main-process modules).
+type AutogenStage =
+    | 'queued' | 'resolving' | 'searching' | 'downloading' | 'separating'
+    | 'importing' | 'analyzing' | 'tuning' | 'ready' | 'failed'
+
+interface AutogenJob {
+    trackId: string
+    name: string
+    artist: string
+    artUrl: string | null
+    requestIds: string[]
+    requestedBy: string | null
+    stage: AutogenStage
+    overall: number
+    message?: string
+    error?: string
+    errorCode?: string
+    agent?: 'done' | 'skipped' | 'failed'
+    agentReason?: string
+    needsReview?: boolean
+    alreadyInLibrary?: boolean
+    logPath?: string
+    createdAt: number
+    startedAt?: number
+    finishedAt?: number
+}
+
+interface AutogenSettings {
+    autoGenerateRequests: boolean
+}
+
+interface AutogenStatus {
+    available: boolean
+    unavailableReason?: string
+    settings: AutogenSettings
+    jobs: AutogenJob[]
+}
+
+interface AutogenTrackInput {
+    trackId: string
+    name: string
+    artist: string
+    artUrl?: string | null
+    requestId?: string | null
+    requestIds?: string[]
+    requestedBy?: string | null
+}
+
+interface ElectronAPI {
+    autogenStatus: () => Promise<AutogenStatus>
+    autogenEnqueue: (input: AutogenTrackInput) => Promise<AutogenStatus>
+    autogenCancel: (trackId: string) => Promise<void>
+    autogenRetry: (trackId: string) => Promise<void>
+    autogenDismiss: (trackId: string) => Promise<void>
+    autogenSetSettings: (next: Partial<AutogenSettings>) => Promise<AutogenStatus>
+    onAutogenUpdate: (callback: (status: AutogenStatus) => void) => any
+    offAutogenUpdate: (handler: any) => void
+    onAutogenSongReady: (callback: (trackId: string) => void) => any
+    offAutogenSongReady: (handler: any) => void
+}
+
 interface Window {
     electronAPI: ElectronAPI
 }

@@ -59,6 +59,22 @@ export default function SearchPage() {
         loadCatalog()
     }, [])
 
+    // A generated song just landed: add it to the top without reshuffling
+    // the list the host is browsing.
+    useEffect(() => {
+        const api = window.electronAPI
+        if (!api?.onAutogenSongReady) return
+        const handler = api.onAutogenSongReady(async () => {
+            const songs = await api.listCatalog()
+            setCatalog(prev => {
+                const have = new Set(prev.map((s: any) => s.trackId))
+                const fresh = songs.filter((s: any) => !have.has(s.trackId))
+                return fresh.length ? [...fresh, ...prev] : prev
+            })
+        })
+        return () => api.offAutogenSongReady(handler)
+    }, [])
+
     const loadCatalog = async () => {
         setLoading(true)
         if (window.electronAPI) {

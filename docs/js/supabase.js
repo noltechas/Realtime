@@ -5,7 +5,7 @@ import { captureQueueRects, flipQueueAnimation, renderWithQueueFlip } from './an
 import { saveLocal, saveDeviceProfile, loadVotedMap, saveVotedMap } from './persistence.js';
 
 // Channels — module-local; only this file subscribes/sends.
-var qCh=null,sCh=null,gCh=null,rCh=null,awCh=null,avCh=null,arCh=null;
+var qCh=null,sCh=null,gCh=null,rCh=null,awCh=null,avCh=null,arCh=null,reqCh=null;
 var confirmDismissTimer=null;
 var lastReactionTime=0;
 
@@ -73,7 +73,8 @@ export function submitSongRequest(item){
         S.requestConfirm={title:"Couldn't send request",sub:res.error.message||"Try again in a moment."};
       }
     }else{
-      S.requestConfirm={title:"Request sent!",sub:"Chas will add your song ASAP!"};
+      S.requestConfirm={title:"Request sent!",sub:"You'll get a heads-up here as soon as it's in the library."};
+      loadMyRequests().then(render);
       S.requestQuery="";S.requestResults=[];S.requestSearching=false;
       S.searchQuery="";S.selectedGenre="All Songs";
       S.screen="songs";
@@ -81,10 +82,65 @@ export function submitSongRequest(item){
     render();scheduleConfirmDismiss();
   });
 }
-export function scheduleConfirmDismiss(){
+export function scheduleConfirmDismiss(ms){
   if(confirmDismissTimer)clearTimeout(confirmDismissTimer);
-  confirmDismissTimer=setTimeout(function(){S.requestConfirm=null;render();},3200);
+  confirmDismissTimer=setTimeout(function(){S.requestConfirm=null;render();},ms||3200);
 }
+
+// The guest's own requests, carrying the host generator's live progress
+// (generation_status / generation_progress / generation_error). select("*")
+// on purpose: naming the generation_* columns would fail the whole query on a
+// database that doesn't have them yet.
+export async function loadMyRequests(){
+  if(!S.sessionId||!S.guestId){S.myRequests=[];return;}
+  var r=await sb.from("karaoke_song_requests").select("*")
+    .eq("session_id",S.sessionId).eq("requested_by_guest_id",S.guestId)
+    .order("created_at",{ascending:false}).limit(8);
+  if(!r.error)S.myRequests=r.data||[];
+}
+export function requestIsReady(row){
+  return !!row&&(row.status==="added"||row.generation_status==="ready");
+}
+// A generated song just landed: pull the new catalog rows without
+// reshuffling the list everyone is browsing.
+export async function mergeNewCatalog(){
+  var r=await sb.from("karaoke_catalog").select("*").eq("session_id",S.sessionId);
+  if(r.error||!r.data)return [];
+  var have={};
+  S.catalog.forEach(function(c){have[c.track_id]=1;});
+  var fresh=r.data.filter(function(c){return !have[c.track_id];});
+  if(fresh.length)S.catalog=fresh.concat(S.catalog);
+  return fresh;
+}
+function onRequestRowChange(pl){
+  var row=pl.new;
+  if(!row||!row.id)return;
+  var mine=!!S.guestId&&row.requested_by_guest_id===S.guestId;
+  var prev=null;
+  if(mine){
+    var i=S.myRequests.findIndex(function(r){return r.id===row.id;});
+    if(i>=0){prev=S.myRequests[i];S.myRequests[i]=row;}
+    else S.myRequests.unshift(row);
+  }
+  var becameReady=requestIsReady(row)&&!requestIsReady(prev);
+  if(row.status==="added"&&(becameReady||!mine)){
+    // Anyone's request landing means a new song for everyone.
+    mergeNewCatalog().then(function(){
+      if(mine&&becameReady){
+        S.requestConfirm={title:"\u201C"+(row.track_name||"Your song")+"\u201D is ready!",sub:"It's in the library now — tap here to sing it.",trackId:row.track_id};
+        scheduleConfirmDismiss(7000);
+      }
+      render();
+    });
+    return;
+  }
+  // Progress ticks: patch only the list so a full render doesn't steal
+  // focus from the search box.
+  if(mine&&S.screen==="request")patchMyRequests();
+}
+var myRequestsPatcher=null;
+export function setMyRequestsPatcher(fn){myRequestsPatcher=fn;}
+function patchMyRequests(){if(myRequestsPatcher)myRequestsPatcher();}
 export function sendReaction(type,content){
   if(!rCh)return;
   var now=Date.now();
@@ -320,6 +376,9 @@ export function subRT(){
   if(rCh)sb.removeChannel(rCh);
   rCh=sb.channel("cr-"+S.sessionId);
   rCh.subscribe();
+  if(reqCh)sb.removeChannel(reqCh);
+  reqCh=sb.channel("creq-"+S.sessionId).on("postgres_changes",{event:"*",schema:"public",table:"karaoke_song_requests",filter:"session_id=eq."+S.sessionId},onRequestRowChange).subscribe();
+  loadMyRequests();
   subAwardsRealtime();
 }
 export async function addToQueue(){

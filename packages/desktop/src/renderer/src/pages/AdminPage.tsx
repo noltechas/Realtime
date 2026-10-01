@@ -9,6 +9,8 @@ import { useAudioDevices } from '../hooks/useAudioDevices'
 import { resyncLyrics } from '../utils/resyncSyllables'
 import { SyllableEditor } from '../components/SyllableEditor'
 import { LobbyModeCard } from '../components/LobbyModeCard'
+import { AutogenJobLine, AutogenQueueCard, AutogenRowStatus } from '../components/AutogenPanel'
+import { isAutogenActive, useAutogen, useAutogenSongReady } from '../hooks/useAutogen'
 import {
     ArtTile, Avatar, Button, Card, CardHeader, Chip, EmptyState, FaderRow, Field,
     Icon, IconButton, Input, Led, Meter, PageHeader, SearchInput, Select, Spinner, Tabs, Toggle,
@@ -41,6 +43,9 @@ interface SongRequest {
     spotifyData: any | null
     status: 'pending' | 'added' | 'dismissed'
     createdAt: string
+    /** Set by the main-process generator (null until a run starts). */
+    generationStatus: string | null
+    generationError: string | null
 }
 
 interface CatalogSong {
@@ -53,6 +58,7 @@ interface CatalogSong {
     lyrics?: any[]
     genres?: string[]
     spotifyData?: { key?: number; mode?: number; tempo?: number; releaseDate?: string; instrumentalness?: number; popularity?: number }
+    autogen?: { needsReview?: boolean; agent?: { status?: string; reason?: string } }
 }
 
 interface PendingSong {
@@ -688,6 +694,8 @@ export default function AdminPage() {
             spotifyData: r.spotify_data,
             status: r.status,
             createdAt: r.created_at,
+            generationStatus: r.generation_status ?? null,
+            generationError: r.generation_error ?? null,
         })
 
         supabase.from('karaoke_song_requests')
@@ -802,6 +810,31 @@ export default function AdminPage() {
             const cat = await window.electronAPI.listCatalog()
             setCatalog(cat)
         }
+    }
+
+    const autogen = useAutogen()
+    // setCatalog is stable, so the first render's loadCatalog is safe to keep.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useAutogenSongReady(useCallback(() => { void loadCatalog() }, []))
+
+    const generateTrack = (track: any) => {
+        autogen.enqueue({
+            trackId: track.id,
+            name: track.name,
+            artist: (track.artists || []).map((a: any) => a.name).join(', '),
+            artUrl: track.album?.images?.[0]?.url ?? null,
+        })
+    }
+
+    const generateRequest = (req: SongRequest) => {
+        autogen.enqueue({
+            trackId: req.trackId,
+            name: req.trackName,
+            artist: req.trackArtist,
+            artUrl: req.trackArtUrl,
+            requestId: req.id,
+            requestedBy: req.requestedByName,
+        })
     }
 
     const handleEditCatalogSong = (song: CatalogSong) => {
@@ -1452,10 +1485,25 @@ export default function AdminPage() {
                                                     </div>
                                                     {inCat ? (
                                                         <Chip tone="green" style={{ fontSize: 10.5 }}><Icon name="check" size={10} /> In Catalog</Chip>
+                                                    ) : autogen.jobFor(track.id) && autogen.jobFor(track.id)!.stage !== 'failed' ? (
+                                                        <AutogenRowStatus job={autogen.jobFor(track.id)!} />
                                                     ) : (
-                                                        <span style={{ fontSize: 11.5, color: 'var(--adm-text-3)', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                                                            Configure <Icon name="chevronRight" size={12} />
-                                                        </span>
+                                                        <>
+                                                            {autogen.status?.available && (
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="primary"
+                                                                    icon="spark"
+                                                                    title="Fetch the audio, separate the vocals, and import it automatically"
+                                                                    onClick={(e) => { e.stopPropagation(); generateTrack(track) }}
+                                                                >
+                                                                    Generate
+                                                                </Button>
+                                                            )}
+                                                            <span style={{ fontSize: 11.5, color: 'var(--adm-text-3)', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                                                                Configure <Icon name="chevronRight" size={12} />
+                                                            </span>
+                                                        </>
                                                     )}
                                                 </div>
                                             )
@@ -1494,6 +1542,17 @@ export default function AdminPage() {
                                                         <div style={{ fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{song.name}</div>
                                                         <div style={{ fontSize: 11.5, color: 'var(--adm-text-3)' }}>{song.artist}</div>
                                                     </div>
+                                                    {song.autogen?.needsReview && (
+                                                        <Chip
+                                                            tone="amber"
+                                                            style={{ fontSize: 10.5, flexShrink: 0 }}
+                                                            title={song.autogen.agent?.reason
+                                                                ? `Auto-generated — ${song.autogen.agent.reason}`
+                                                                : 'Auto-generated — give it a listen and check the lyrics'}
+                                                        >
+                                                            Review
+                                                        </Chip>
+                                                    )}
                                                     {hasSyllables && (
                                                         <span
                                                             title="Word-level karaoke timing"
@@ -1511,6 +1570,8 @@ export default function AdminPage() {
                                     </div>
                                 )}
                             </Card>
+
+                            <AutogenQueueCard autogen={autogen} />
                         </div>
                     )}
 
@@ -2229,7 +2290,9 @@ export default function AdminPage() {
                             <EmptyState
                                 icon="inbox"
                                 title="No Requests Yet"
-                                desc="When a guest can't find a song, they can ask you to add it here"
+                                desc={autogen.status?.settings.autoGenerateRequests
+                                    ? "When a guest can't find a song, it starts generating automatically and shows up here"
+                                    : "When a guest can't find a song, they can ask you to add it here"}
                             />
                         </Card>
                     ) : (
@@ -2237,6 +2300,7 @@ export default function AdminPage() {
                             {songRequests.map(req => {
                                 const isPendingReq = req.status === 'pending'
                                 const inCatalog = catalog.some(c => c.trackId === req.trackId)
+                                const genJob = autogen.jobFor(req.trackId)
                                 const statusBadge = req.status === 'added'
                                     ? { label: 'Added', tone: 'green' as const }
                                     : req.status === 'dismissed'
@@ -2287,16 +2351,29 @@ export default function AdminPage() {
                                             </div>
                                         </div>
 
+                                        {genJob ? (
+                                            <AutogenJobLine job={genJob} autogen={autogen} />
+                                        ) : isPendingReq && req.generationStatus === 'failed' ? (
+                                            <div style={{ fontSize: 11.5, color: 'var(--adm-red)' }}>
+                                                Generation failed{req.generationError ? ` — ${req.generationError}` : ''}
+                                            </div>
+                                        ) : null}
+
                                         {isPendingReq && (
                                             <div style={{ display: 'flex', gap: 8 }}>
+                                                {!inCatalog && !isAutogenActive(genJob) && autogen.status?.available && (
+                                                    <Button variant="primary" icon="spark" style={{ flex: 1 }} onClick={() => generateRequest(req)}>
+                                                        {genJob?.stage === 'failed' || req.generationStatus === 'failed' ? 'Try again' : 'Generate'}
+                                                    </Button>
+                                                )}
                                                 <Button
-                                                    variant="primary"
+                                                    variant={autogen.status?.available ? 'secondary' : 'primary'}
                                                     style={{ flex: 1 }}
                                                     onClick={() => openSongRequest(req)}
-                                                    disabled={inCatalog}
+                                                    disabled={inCatalog || isAutogenActive(genJob)}
                                                     title={inCatalog ? 'Already in catalog' : 'Open in Add Song flow'}
                                                 >
-                                                    {inCatalog ? 'Already in catalog' : 'Add to library'}
+                                                    {inCatalog ? 'Already in catalog' : autogen.status?.available ? 'Add manually' : 'Add to library'}
                                                 </Button>
                                                 <Button variant="danger" onClick={() => dismissSongRequest(req.id)}>Dismiss</Button>
                                             </div>

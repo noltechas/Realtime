@@ -2,9 +2,9 @@ import { sb, S, caches } from '../state.js';
 import { filterGifs, restoreMemeSearch, resizeImage } from '../utils.js';
 import { clearDeviceProfile } from '../persistence.js';
 import { initWizardFromTrack, initWizardFromQueueItem, addSinger, removeSinger, setSingerColor, wizardHasAnyChanges, wizardBack, nextWizardStep } from '../wizard.js';
-import { castVote, sendReaction, joinSession, rejoinAsGuest, updateProfile, runRequestSearch, submitSongRequest, loadAwards, loadGuests, loadQueue, validateSession } from '../supabase.js';
+import { castVote, sendReaction, joinSession, rejoinAsGuest, updateProfile, runRequestSearch, submitSongRequest, loadAwards, loadGuests, loadQueue, validateSession, loadMyRequests, setMyRequestsPatcher } from '../supabase.js';
 import { render } from '../render/main.js';
-import { filterCatalog, renderGenreTabs, renderRequest, renderSongCards, songCardHtml, SONGS_BATCH_SIZE } from '../render/songs.js';
+import { filterCatalog, renderGenreTabs, renderRequest, renderSongCards, songCardHtml, SONGS_BATCH_SIZE, renderMyRequests } from '../render/songs.js';
 import { bindAwardsEvents } from './awards.js';
 import { ensureAwardsManifest } from '../awards-manifest.js';
 import { pickProfilePhoto } from '../photo-upload.js';
@@ -218,6 +218,7 @@ export function bindEvents(){
       S.requestResults=[];
       S.requestSearching=!!carry;
       render();
+      loadMyRequests().then(patchMyRequestsNow);
       setTimeout(function(){
         var i=document.getElementById("req-search-input");
         if(i){i.focus();try{var n=i.value.length;i.setSelectionRange(n,n);}catch(e){}}
@@ -603,6 +604,7 @@ export function bindEvents(){
       },280);
     });
   }
+  bindMyRequests();
   function bindReqResults(){
     document.querySelectorAll(".song-card[data-req-track]").forEach(function(card){
       var pick=function(){
@@ -617,3 +619,33 @@ export function bindEvents(){
   }
   bindReqResults();
 }
+
+// ── Song requests: "Your requests" list + ready toast ────────────────────────
+// A request the host generated: open it straight in the add-to-queue wizard.
+function openRequestedTrack(trackId){
+  var track=S.catalog.find(function(c){return c.track_id===trackId;});
+  if(!track)return;
+  S.requestConfirm=null;
+  S.requestQuery="";S.requestResults=[];S.requestSearching=false;
+  initWizardFromTrack(track);
+  render();
+}
+function bindMyRequests(){
+  document.querySelectorAll("[data-req-ready-track]").forEach(function(row){
+    var open=function(){openRequestedTrack(row.dataset.reqReadyTrack);};
+    row.addEventListener("click",open);
+    row.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();open();}});
+  });
+  var toast=document.getElementById("req-confirm-open");
+  if(toast&&S.requestConfirm&&S.requestConfirm.trackId){
+    var tid=S.requestConfirm.trackId;
+    toast.addEventListener("click",function(){openRequestedTrack(tid);});
+  }
+}
+function patchMyRequestsNow(){
+  var el=document.getElementById("req-mine");
+  if(!el)return;
+  el.innerHTML=renderMyRequests();
+  bindMyRequests();
+}
+setMyRequestsPatcher(patchMyRequestsNow);

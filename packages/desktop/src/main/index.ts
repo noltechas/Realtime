@@ -524,7 +524,12 @@ ipcMain.handle('lyrics:fetch', async (_event, payload: string | { trackId: strin
     return spotifyResult ?? { error: 'Lyrics not found' }
 })
 
-import { registerAudioHandlers, listCatalogSongs } from './audio/manager'
+import { registerAudioHandlers, listCatalogSongs, isSongInLibrary } from './audio/manager'
+import {
+    initAutogen, setAutogenSession, shutdownAutogen, getAutogenStatus, enqueueAutogen,
+    cancelAutogen, retryAutogen, dismissAutogen, setAutogenSettings,
+    AutogenSettings, AutogenTrackInput,
+} from './autogen'
 
 // ----- Karaoke Session State -----
 let activeSession: { id: string; code: string } | null = null
@@ -577,6 +582,7 @@ ipcMain.handle('karaoke:create-session', async (_event, name: string, themeName:
     try {
         const session = await createSession(name, themeName)
         activeSession = { id: session.sessionId, code: session.sessionCode }
+        setAutogenSession(session.sessionId)
 
         const { companionUrl, qrDataUrl } = await generateSessionQR(session.sessionCode)
 
@@ -622,6 +628,7 @@ ipcMain.handle('karaoke:resume-session', async (_event, sessionId: string) => {
     try {
         const session = await getSession(sessionId)
         activeSession = { id: session.sessionId, code: session.sessionCode }
+        setAutogenSession(session.sessionId)
 
         const { companionUrl, qrDataUrl } = await generateSessionQR(session.sessionCode)
 
@@ -667,8 +674,20 @@ ipcMain.handle('karaoke:close-session', async () => {
     if (activeSession) {
         await closeSession(activeSession.id)
         activeSession = null
+        setAutogenSession(null)
     }
 })
+
+// ----- Song auto-generation (autogen.ts) -----
+ipcMain.handle('autogen:status', () => getAutogenStatus())
+ipcMain.handle('autogen:enqueue', (_event, input: AutogenTrackInput) => {
+    enqueueAutogen(input)
+    return getAutogenStatus()
+})
+ipcMain.handle('autogen:cancel', (_event, trackId: string) => { cancelAutogen(trackId) })
+ipcMain.handle('autogen:retry', (_event, trackId: string) => { retryAutogen(trackId) })
+ipcMain.handle('autogen:dismiss', (_event, trackId: string) => { dismissAutogen(trackId) })
+ipcMain.handle('autogen:set-settings', (_event, next: Partial<AutogenSettings>) => setAutogenSettings(next))
 
 // now_playing_* / is_playing writes to the session row must land in the order
 // the renderer issued them. As independent concurrent requests, a rapid skip
@@ -859,6 +878,16 @@ app.whenReady().then(() => {
     })
 
     registerAudioHandlers()
+    initAutogen({
+        isInLibrary: isSongInLibrary,
+        onSongReady: async (trackId) => {
+            // Guests can queue it the moment the request flips to "ready".
+            if (activeSession) await pushLocalCatalog(activeSession.id)
+            for (const w of BrowserWindow.getAllWindows()) {
+                if (!w.isDestroyed()) w.webContents.send('autogen:song-ready', trackId)
+            }
+        },
+    })
     createWindow()
 
     // Tell the renderer when the machine goes to sleep or the screen locks, so
@@ -882,6 +911,8 @@ app.whenReady().then(() => {
 
 // Sessions persist across app restarts for resume support.
 // activeSession is only cleared in-memory; the DB row stays is_active=true.
+
+app.on('before-quit', () => shutdownAutogen())
 
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
