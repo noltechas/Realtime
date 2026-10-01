@@ -20,6 +20,22 @@ export interface VoiceEffects {
         release: number // 0 to 1 sec
     }
 
+    // Formant shift, inside the PSOLA pitch shifter: moves the vocal tract's
+    // resonances without changing pitch. + = smaller / brighter voice.
+    // Optional (absent = off). Set by voice matching.
+    formant?: {
+        enabled: boolean
+        shift: number // -4 to +4 semitones
+    }
+
+    // 6-band match EQ (one band per vocal-profile band: <200, 200-500,
+    // 500-1.5k, 1.5k-4k, 4k-8k, 8k+), after the 3-band EQ. Optional; set by
+    // voice matching to move a singer's tone toward the record.
+    matchEq?: {
+        enabled: boolean
+        gains: number[] // 6 values, -12 to +12 dB
+    }
+
     // EQ (3-band)
     eq: {
         enabled: boolean

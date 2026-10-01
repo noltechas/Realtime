@@ -21,6 +21,13 @@ import { parseDeviceId } from '../hooks/useAudioDevices'
  */
 const DISABLE_PITCH_CORRECTION_WORKLET = false
 
+// PSOLA grain read-rate for a formant shift in semitones (1 = none).
+function formantFactor(fx: VoiceEffects | null | undefined): number {
+    const f = fx?.formant
+    if (!f?.enabled || !f.shift) return 1
+    return Math.pow(2, Math.max(-4, Math.min(4, f.shift)) / 12)
+}
+
 export class VoiceEffectsEngine {
     private ctx: AudioContext
     private stream: MediaStream | null = null
@@ -53,6 +60,10 @@ export class VoiceEffectsEngine {
     private eqLow: BiquadFilterNode
     private eqMid: BiquadFilterNode
     private eqHigh: BiquadFilterNode
+    // 6-band match EQ (VoiceEffects.matchEq) after the 3-band EQ; flat by default.
+    private matchEq: BiquadFilterNode[] = []
+    // Last node of the EQ section (what the vocoder / its bypass hangs off).
+    private eqOut: AudioNode
 
     // Chorus block
     private chorusIn: GainNode
@@ -195,6 +206,28 @@ export class VoiceEffectsEngine {
         this.eqHigh.type = 'highshelf'
         this.eqHigh.frequency.value = 5000
 
+        // 3a. Match EQ: one filter per vocal-profile band (geometric centers).
+        const MATCH_BANDS: Array<{ type: BiquadFilterType; f: number; q: number }> = [
+            { type: 'lowshelf', f: 200, q: 0.7 },
+            { type: 'peaking', f: 316, q: 1.1 },
+            { type: 'peaking', f: 866, q: 0.9 },
+            { type: 'peaking', f: 2450, q: 0.9 },
+            { type: 'peaking', f: 5660, q: 1.0 },
+            { type: 'highshelf', f: 8000, q: 0.7 },
+        ]
+        let prevEq: AudioNode = this.eqHigh
+        for (const b of MATCH_BANDS) {
+            const f = this.ctx.createBiquadFilter()
+            f.type = b.type
+            f.frequency.value = b.f
+            f.Q.value = b.q
+            f.gain.value = 0
+            prevEq.connect(f)
+            prevEq = f
+            this.matchEq.push(f)
+        }
+        this.eqOut = prevEq
+
         // 4. Chorus (LFO -> Depth -> DelayTime)
         this.chorusIn = this.ctx.createGain()
         this.chorusDry = this.ctx.createGain()
@@ -300,7 +333,7 @@ export class VoiceEffectsEngine {
         // peak tracking robustness and keeps the shifter from amplifying
         // quantization noise through makeup gain):
         //
-        // input -> comp -> [pitchCorrection OR bypass] -> eqLow -> eqMid -> eqHigh
+        // input -> comp -> [pitchCorrection OR bypass] -> eqLow -> eqMid -> eqHigh -> matchEq x6
         //                                                                    |
         //                                                                    v
         //         [vocoder OR vocoderBypass] -> distortionIn
@@ -321,7 +354,8 @@ export class VoiceEffectsEngine {
         this.pitchCorrectionBypass.connect(this.eqLow)
         this.eqLow.connect(this.eqMid)
         this.eqMid.connect(this.eqHigh)
-        this.eqHigh.connect(this.vocoderBypass)
+        // (eqHigh -> matchEq chain is wired where the filters are created)
+        this.eqOut.connect(this.vocoderBypass)
         this.vocoderBypass.connect(this.distortionIn)
 
         // distortion -> doubler -> chorus
@@ -410,6 +444,7 @@ export class VoiceEffectsEngine {
                     strength: this.lastAppliedFx.pitchCorrection?.enabled ? this.lastAppliedFx.pitchCorrection.strength : 0,
                     key: this.lastAppliedFx.key ?? -1,
                     mode: this.lastAppliedFx.mode ?? 1,
+                    formant: formantFactor(this.lastAppliedFx),
                 })
             }
 
@@ -440,7 +475,9 @@ export class VoiceEffectsEngine {
     private updatePitchRouting() {
         if (!this.pitchCorrectionReady || !this.pitchCorrectionNode) return
         const pc = this.lastAppliedFx?.pitchCorrection
-        const want = !!(pc?.enabled && (pc.strength ?? 0) > 0)
+        // The formant shift lives in the same PSOLA node, so it needs the
+        // worklet routed in even with autotune off.
+        const want = !!(pc?.enabled && (pc.strength ?? 0) > 0) || formantFactor(this.lastAppliedFx) !== 1
         if (want === this.pitchActive) return
         try {
             if (want) {
@@ -562,10 +599,10 @@ export class VoiceEffectsEngine {
                 }
             }
 
-            // Reroute: eqHigh -> vocoder -> distortionIn (replacing bypass)
-            this.eqHigh.disconnect(this.vocoderBypass)
+            // Reroute: EQ out -> vocoder -> distortionIn (replacing bypass)
+            this.eqOut.disconnect(this.vocoderBypass)
             this.vocoderBypass.disconnect(this.distortionIn)
-            this.eqHigh.connect(this.vocoderNode)
+            this.eqOut.connect(this.vocoderNode)
             this.vocoderNode.connect(this.distortionIn)
 
             this.vocoderReady = true
@@ -681,8 +718,9 @@ export class VoiceEffectsEngine {
                 strength: fx.pitchCorrection?.enabled ? fx.pitchCorrection.strength : 0,
                 key: fx.key ?? -1,
                 mode: fx.mode ?? 1,
+                formant: formantFactor(fx),
             })
-            // Route around the worklet when autotune is off (saves ~21ms latency)
+            // Route around the worklet when autotune (and formant) are off (saves ~21ms latency)
             this.updatePitchRouting()
         }
 
@@ -702,6 +740,11 @@ export class VoiceEffectsEngine {
         this.eqLow.gain.setTargetAtTime(fx.eq.enabled ? fx.eq.lowGain : 0, t, 0.05)
         this.eqMid.gain.setTargetAtTime(fx.eq.enabled ? fx.eq.midGain : 0, t, 0.05)
         this.eqHigh.gain.setTargetAtTime(fx.eq.enabled ? fx.eq.highGain : 0, t, 0.05)
+        const me = fx.matchEq
+        this.matchEq.forEach((f, i) => {
+            const g = me?.enabled ? Math.max(-12, Math.min(12, me.gains?.[i] ?? 0)) : 0
+            f.gain.setTargetAtTime(g, t, 0.05)
+        })
 
         // Chorus
         if (fx.chorus.enabled) {
@@ -1475,7 +1518,61 @@ export class VoiceEffectsEngine {
         return buf
     }
 
+    // ─── Dry performance recording (artist replays) ───────────────────────
+    // Taps the mic right after the input high-pass — before any effect — so
+    // the recording is the singer's plain voice, which is what voice
+    // conversion wants (separate from the Audition Booth's MediaRecorder
+    // snippet recorder above). `drySamples` is read by the stage's recorder to
+    // log a sample → song-time map.
+    private dryTap: ScriptProcessorNode | null = null
+    private dryTapSink: GainNode | null = null
+    private dryChunks: Float32Array[] = []
+    // The finished take, kept after stopDryTake()/destroy(): when a song
+    // leaves the stage, React tears the singers' mic engines down BEFORE the
+    // stage's recorder collects, so the take has to outlive the engine's audio.
+    private dryTake: { samples: Float32Array; sampleRate: number } | null = null
+    public drySamples = 0
+
+    public startDryTake(): void {
+        if (this.dryTap || this.ctx.state === 'closed') return
+        this.dryTake = null
+        this.dryChunks = []
+        this.drySamples = 0
+        const rec = this.ctx.createScriptProcessor(4096, 1, 1)
+        rec.onaudioprocess = (ev) => {
+            const ch = new Float32Array(ev.inputBuffer.getChannelData(0))
+            this.dryChunks.push(ch)
+            this.drySamples += ch.length
+        }
+        // A ScriptProcessor only runs while connected to the destination.
+        const sink = this.ctx.createGain()
+        sink.gain.value = 0
+        this.inputHighPass.connect(rec)
+        rec.connect(sink)
+        sink.connect(this.ctx.destination)
+        this.dryTap = rec
+        this.dryTapSink = sink
+    }
+
+    /** Stop and return the dry take (mono). Repeat calls return the same take; null if none. */
+    public stopDryTake(): { samples: Float32Array; sampleRate: number } | null {
+        if (!this.dryTap) return this.dryTake
+        try { this.inputHighPass.disconnect(this.dryTap) } catch { /* ignore */ }
+        try { this.dryTap.disconnect() } catch { /* ignore */ }
+        try { this.dryTapSink?.disconnect() } catch { /* ignore */ }
+        this.dryTap.onaudioprocess = null
+        this.dryTap = null
+        this.dryTapSink = null
+        const samples = new Float32Array(this.drySamples)
+        let o = 0
+        for (const c of this.dryChunks) { samples.set(c, o); o += c.length }
+        this.dryChunks = []
+        this.dryTake = { samples, sampleRate: this.ctx.sampleRate }
+        return this.dryTake
+    }
+
     public destroy() {
+        this.stopDryTake()
         this.stopPlayback()
         this.stopLivePreview()
         this.stopTestPreview()

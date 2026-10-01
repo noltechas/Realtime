@@ -531,6 +531,7 @@ import {
     AutogenSettings, AutogenTrackInput,
 } from './autogen'
 import { registerVoiceHandlers } from './voices'
+import { registerPerformanceHandlers, shutdownPerformances } from './performances'
 
 // ----- Karaoke Session State -----
 let activeSession: { id: string; code: string } | null = null
@@ -880,6 +881,7 @@ app.whenReady().then(() => {
 
     registerAudioHandlers()
     registerVoiceHandlers()
+    registerPerformanceHandlers()
     initAutogen({
         isInLibrary: isSongInLibrary,
         onSongReady: async (trackId) => {
@@ -914,7 +916,10 @@ app.whenReady().then(() => {
 // Sessions persist across app restarts for resume support.
 // activeSession is only cleared in-memory; the DB row stays is_active=true.
 
-app.on('before-quit', () => shutdownAutogen())
+app.on('before-quit', () => {
+    shutdownAutogen()
+    shutdownPerformances()
+})
 
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {

@@ -16,6 +16,7 @@ import { VoiceEffectsEngine } from '../audio/VoiceEffectsEngine'
 import { DEFAULT_VOICE_EFFECTS } from '../audio/VoiceEffectsTypes'
 import { applyVoiceMatch, partTarget } from '../audio/voiceMatch'
 import { findVoiceProfile, useSongVocalProfile, useVoiceProfiles } from '../hooks/useVoiceMatch'
+import { PerformanceRecorder, registerMicEngine, unregisterMicEngine } from '../audio/performanceRecorder'
 import { parseDeviceId } from '../hooks/useAudioDevices'
 import OSCARS_MUSIC_URL from '../assets/oscars.mp3'
 
@@ -2020,6 +2021,7 @@ function useSingerMic(deviceId: string, enabled: boolean, effects: any, mainOutp
             if (cancelled) { engine.destroy(); return }
 
             if (success) {
+                registerMicEngine(deviceId, engine)
                 const dataArray = new Uint8Array(engine.analyser.frequencyBinCount)
                 let lastUpdate = 0
                 const METER_INTERVAL = 66 // ~15fps — visually smooth for level meters
@@ -2043,6 +2045,7 @@ function useSingerMic(deviceId: string, enabled: boolean, effects: any, mainOutp
         return () => {
             cancelled = true
             cancelAnimationFrame(animRef.current)
+            unregisterMicEngine(deviceId, engine)
             engine.destroy()
             engineRef.current = null
             setLevel(0)
@@ -4440,6 +4443,7 @@ export default function KaraokePage() {
     // — a fresh effects object every render would re-apply the mic chain.
     const voiceProfiles = useVoiceProfiles()
     const songVocalProfile = useSongVocalProfile(track?.id)
+    const recorderRef = useRef<PerformanceRecorder | null>(null)
     const matchedEffects = useMemo(() => {
         const out = new Map<number, VoiceEffects>()
         if (!state.voiceMatch || !voiceEffects) return out
@@ -4495,6 +4499,7 @@ export default function KaraokePage() {
         const timeHandler = window.electronAPI.onPlaybackTime((timeMs: number) => {
             setElapsed(timeMs)
             audioTimeMsRef.current = timeMs
+            recorderRef.current?.tick(timeMs)
             timeAnchorRef.current = { eventMs: timeMs, perfAt: performance.now() }
         })
         const seekHandler = window.electronAPI.onPlaybackSeek((timeMs: number) => {
@@ -4510,6 +4515,32 @@ export default function KaraokePage() {
             window.electronAPI.offPlaybackSeek(seekHandler)
         }
     }, [])
+
+    // Artist replays: record each singer's dry mic while the song plays
+    // (opt-in, Controls → Artist Replays). One recorder per queue item.
+    useEffect(() => {
+        if (!window.electronAPI?.isStageWindow || !state.recordPerformances) return
+        if (state.stageMode !== 'playing' || !np?.id || !track?.id) return
+        if (recorderRef.current?.queueItemId === np.id) return
+        recorderRef.current = new PerformanceRecorder(
+            np.id,
+            { trackId: track.id, name: track.name, artist: (track.artists || []).map(a => a.name).join(', ') },
+            singers.map(s => ({
+                name: (s.guestId && guestsMap.get(s.guestId)?.name) || s.name,
+                guestId: s.guestId,
+                roleIndices: s.roleIndices ?? [],
+                micDeviceId: s.micDeviceId,
+            })),
+        )
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [state.recordPerformances, state.stageMode, np?.id, track?.id])
+    // Hand the takes over when the song leaves the stage. (The singers' mic
+    // engines are torn down first; they keep their finished takes for this.)
+    useEffect(() => () => {
+        const rec = recorderRef.current
+        recorderRef.current = null
+        void rec?.finish()
+    }, [np?.id])
 
     // Reset elapsed when track changes
     useEffect(() => {

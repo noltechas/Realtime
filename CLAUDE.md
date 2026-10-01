@@ -306,8 +306,12 @@ From [VoiceEffectsTypes.ts](src/renderer/src/audio/VoiceEffectsTypes.ts) — use
 | `noiseGate` | `enabled`, `threshold` | -100..0 dB |
 | `vocoder` | `enabled`, `mix`, `brightness`, `sibilance`, `voicing` | 0–100%, 0–100, 0–100, `'triad'\|'power'\|'octaves'` |
 | `doubler` | `enabled`, `voices`, `detune`, `delay`, `width`, `mix` | 2–4, 0–30¢, 8–40 ms, 0–100%, 0–100% |
+| `formant` | `enabled`, `shift` | −4..+4 semitones (+ = smaller/brighter vocal tract; pitch unchanged) |
+| `matchEq` | `enabled`, `gains` | 6 values, ±12 dB — one per vocal-profile band (<200, 200–500, 500–1.5k, 1.5k–4k, 4k–8k, 8k+) |
 
-Always include every block in every role — don't partial-update. If you want a block inert, set `enabled: false` and give the other fields neutral values (the existing scripts follow this pattern). `vocoder` and `doubler` are OPTIONAL blocks (newer than the rest) — a missing block is treated as disabled, so older `meta.json` files without them are fine.
+Always include every block in every role — don't partial-update. If you want a block inert, set `enabled: false` and give the other fields neutral values (the existing scripts follow this pattern). `vocoder`, `doubler`, `formant` and `matchEq` are OPTIONAL blocks (newer than the rest) — a missing block is treated as disabled, so older `meta.json` files without them are fine. `formant` and `matchEq` are normally set at performance time by singer matching, not per song.
+
+`formant` lives inside the PSOLA pitch-correction worklet: each synthesis grain reads its analysis grain at `a + j·φ` (φ = 2^(shift/12)) over a 1/φ-length output grain, so formants scale by φ while grain spacing keeps the pitch. The engine routes the worklet in whenever a formant shift is set, even with autotune off. `scripts/test-formant.js` evals the shipping worklet on a synthetic vowel and must stay green alongside `test-autotune-artifacts.js` / `test-vocoder.js` / `test-buzz-fix.js`.
 
 **Adding only the `doubler` to existing songs:** the per-song doubler scripts ([scripts/travis-doubler-per-song.js](packages/desktop/scripts/travis-doubler-per-song.js), [tpain-doubler-per-song.js](packages/desktop/scripts/tpain-doubler-per-song.js), [library-doubler-per-song.js](packages/desktop/scripts/library-doubler-per-song.js)) MERGE only a `doubler` block into each role's existing `voiceEffects[i]` (`{ ...existing, doubler }`) rather than rewriting the whole entry — this preserves all prior per-song tuning (key/mode/tempo/micLevel/pitchCorrection/reverb/…). Copy one of these as the template when adding the doubler to more songs; they dry-run by default and write a one-time `.doubler.bak`.
 
@@ -343,7 +347,26 @@ Spotify track → YouTube Music audio (same master) → local RoFormer vocal sep
   Run it with `node scripts/autogen/song-tool.js profile <trackId> [--apply]`. `generate-song.js` stores it after every generation, and `scripts/autogen/profile-library.js` backfills the library (measurement only, never touches hand-tuned effects).
 - **Only autotune strength is applied automatically**, through a curve calibrated against the hand-tuned library (`validate-profiles.py`: held-out error 22.6 vs 26.8 for a constant guess). Reverb, width and echo measured from separated stems did NOT track the hand-tuned settings (separation alters them), so they're stored as weak hints for the Claude pass, not applied. Re-run `validate-profiles.py` before trusting a new measurement.
 - **Singer voice profiles** (`~/.realtime-karaoke/voices.json`, `src/main/voices.ts`): Admin → Guests → Voice Check records ~20 s from a karaoke mic and measures it with the same code (`autogen.py voicecheck`). Profiles are keyed by normalized singer name so they persist across sessions (guest ids are per-session).
-- **Matching** (`renderer/src/audio/voiceMatch.ts`, applied in `KaraokePage` before the FX toggles, memoized per singer): EQ nudged 40% toward the record's tone (±4 dB), autotune adjusted for the singer's pitch steadiness, mic gain levelled, and a range hint when the part centers outside the singer's voice-check range. It's conservative by design, because the measurements are approximate. The Controls page has a Voice Match toggle that lists each singer's adjustments.
+- **Matching** (`renderer/src/audio/voiceMatch.ts`, applied in `KaraokePage` before the FX toggles, memoized per singer):
+  - a 6-band `matchEq` at half the record-vs-singer tone difference (±6 dB)
+  - a `formant` nudge (up to ±2.5 st) when the part centers 7+ semitones from the singer's voice
+  - autotune adjusted for the singer's pitch steadiness
+  - mic gain levelled
+  - a range hint when the part centers outside the singer's voice-check range
+
+  It's conservative by design, because the measurements are approximate. The Controls page has a Voice Match toggle that lists each singer's adjustments.
+
+## Artist Replays ("Hear it as the artist")
+
+- **Recording is opt-in** (Controls → Hear It As the Artist → Record performances, `state.recordPerformances`, default off). On the stage, `audio/performanceRecorder.ts` taps each singer's DRY mic (`VoiceEffectsEngine.startDryTake()`, right after the input high-pass) and logs a sample → song-time map every playback tick, so pauses and seeks don't break alignment. The takes go to `src/main/performances.ts`, stored in `~/.realtime-karaoke/performances/<id>/`, newest 15 kept.
+- **The replay** (`scripts/autogen/artist_replay.py replay`):
+  - lays each take on the song timeline
+  - converts only the sung stretches with **Seed-VC** zero-shot singing voice conversion, using the artist's own solo lines from the record's separated vocal (~15 s) as the voice reference
+  - puts them back in place and mixes over the instrumental into `replay.mp3`
+
+  Measured on a test clip: duration exact, pitch within 50 cents for ~90% of frames, timbre moved most of the way to the target. Speed is ~2–3× slower than real time on the M4 Pro at 20 diffusion steps.
+- **Setup:** `bash packages/desktop/scripts/autogen/setup-vc.sh`. Seed-VC (GPL-3.0) is cloned to `~/.realtime-karaoke/seed-vc`, pinned, with its own venv `~/.realtime-karaoke/vc-venv` (torch 2.4 / numpy 1.26 would break the separator venv). The wrapper shims two Apple-GPU gaps instead of patching upstream: float64 → float32 for F0 tensors, and no autocast on MPS.
+- These are AI imitations of real artists' voices. The UI says so and asks people not to post them, and nothing leaves the Mac. Keep it that way: no export or share button.
 
 ## Common Pitfalls
 

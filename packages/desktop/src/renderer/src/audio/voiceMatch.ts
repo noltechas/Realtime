@@ -6,7 +6,10 @@
 //
 // Adjustments are deliberately conservative — these are approximate
 // measurements, and a wrong big move sounds worse than no move:
-//   tone     EQ nudged toward the record's balance (40% of the difference, ±4 dB)
+//   tone     6-band match EQ: half the record-vs-singer difference per band, ±6 dB
+//   formant  a part pitched far from the singer's voice (a man taking a woman's
+//            part an octave down, or vice versa) gets a formant nudge toward
+//            the part's vocal size, ±2.5 semitones
 //   pitch    autotune helps an unsteady singer more, a steady one less
 //   level    mic gain evens out quiet / loud singers
 //   range    a hint when the part sits outside the singer's comfortable range
@@ -22,10 +25,13 @@ export interface MatchMeasurements {
 // The parts of an effect chain matching touches (structural, so it works with
 // both the full VoiceEffectsTypes chain and AppContext's VoiceEffects).
 interface MatchableEffects {
-    eq?: { enabled: boolean; lowGain: number; midGain: number; highGain: number }
     pitchCorrection?: { enabled: boolean; strength: number }
     micLevel?: number
+    formant?: { enabled: boolean; shift: number }
+    matchEq?: { enabled: boolean; gains: number[] }
 }
+
+const BAND_LABELS = ['sub', 'body', 'mids', 'presence', 'bite', 'air']
 
 export interface VoiceMatchResult<T> {
     effects: T
@@ -65,23 +71,29 @@ export function applyVoiceMatch<T extends MatchableEffects>(
     const out: T = JSON.parse(JSON.stringify(fx))
     const notes: string[] = []
 
-    // Tone: both spectra are dB relative to their own 500–1.5k band.
+    // Tone: both spectra are dB relative to their own 500–1.5k band (index
+    // 2), so that band is 0 by construction; the other five carry the shape.
+    const m = out as MatchableEffects
     if (part?.spectrum && singer.spectrum && part.spectrum.length === 6 && singer.spectrum.length === 6) {
-        const d = part.spectrum.map((v, i) => v - singer.spectrum![i])
-        const nudge = (x: number) => half(clamp(0.4 * x, -4, 4))
-        const low = nudge(mean([d[0], d[1]]))
-        const mid = nudge(d[3])
-        const high = nudge(mean([d[4], d[5]]))
-        if (low || mid || high) {
-            out.eq = {
-                ...(out.eq || { lowGain: 0, midGain: 0, highGain: 0 }),
-                enabled: true,
-                lowGain: clamp((out.eq?.lowGain ?? 0) + low, -12, 12),
-                midGain: clamp((out.eq?.midGain ?? 0) + mid, -12, 12),
-                highGain: clamp((out.eq?.highGain ?? 0) + high, -12, 12),
-            }
-            const fmt = (label: string, v: number) => (v ? `${label} ${v > 0 ? '+' : ''}${v} dB` : null)
-            notes.push('tone ' + [fmt('low', low), fmt('presence', mid), fmt('air', high)].filter(Boolean).join(', '))
+        const gains = part.spectrum.map((v, i) => half(clamp(0.5 * (v - singer.spectrum![i]), -6, 6)))
+        if (gains.some(g => g !== 0)) {
+            m.matchEq = { enabled: true, gains }
+            const moved = gains.map((g, i) => ({ g, label: BAND_LABELS[i] })).filter(x => Math.abs(x.g) >= 1.5)
+            notes.push(moved.length
+                ? 'tone ' + moved.map(x => `${x.label} ${x.g > 0 ? '+' : ''}${x.g}`).join(', ') + ' dB'
+                : 'tone: small trims')
+        }
+    }
+
+    // Formant: when the part centers far from where the singer's voice sits,
+    // they'll sing it in their own octave; nudging formants toward the part
+    // brings the vocal size closer (a lighter timbre for a higher part).
+    if (part?.range && singer.range) {
+        const diff = part.range.medianMidi - singer.range.medianMidi
+        if (Math.abs(diff) >= 7) {
+            const shift = Math.sign(diff) * half(Math.min(2.5, 1 + (Math.abs(diff) - 7) * 0.25))
+            m.formant = { enabled: true, shift }
+            notes.push(`formant ${shift > 0 ? '+' : ''}${shift} st (${shift > 0 ? 'lighter' : 'deeper'} timbre for this part)`)
         }
     }
 

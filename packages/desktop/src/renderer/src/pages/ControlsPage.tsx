@@ -9,6 +9,7 @@ import { ArtTile, Button, Card, Fader, Icon, Led, PageHeader, Select, Spinner, T
 import { computeFillSegments } from '../audio/fillVocals'
 import { applyVoiceMatch, partTarget } from '../audio/voiceMatch'
 import { findVoiceProfile, useSongVocalProfile, useVoiceProfiles } from '../hooks/useVoiceMatch'
+import { ArtistReplaysCard } from '../components/ArtistReplaysCard'
 import { LobbyModeBanner } from '../components/LobbyModeCard'
 
 function formatTime(ms: number): string {
@@ -593,6 +594,7 @@ export default function ControlsPage() {
             <LobbyModeBanner />
             <NowPlaying />
             <AudioMixPanel />
+            <ArtistReplaysCard />
         </div>
     )
 }

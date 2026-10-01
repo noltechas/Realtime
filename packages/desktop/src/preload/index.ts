@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { AutogenSettings, AutogenStatus, AutogenTrackInput } from '../main/autogen'
 import type { VoiceProfile } from '../main/voices'
+import type { PerformanceSummary } from '../main/performances'
 
 export type ElectronAPI = {
     // Window controls
@@ -120,6 +121,13 @@ export type ElectronAPI = {
     offVoiceUpdated: (handler: any) => void
     /** meta.vocalProfile of one song (measured parts), or null. */
     getVocalProfile: (trackId: string) => Promise<any | null>
+    // Recorded performances + artist replays (main/performances.ts)
+    perfSave: (payload: { trackId: string; name: string; artist: string; singers: { name: string; guestId: string | null; roleIndices: number[]; sampleRate: number; timeMap: [number, number][]; wav: Uint8Array }[] }) => Promise<{ id: string }>
+    perfList: () => Promise<{ performances: PerformanceSummary[]; available: boolean; reason?: string }>
+    perfDelete: (id: string) => Promise<void>
+    perfReplay: (id: string) => Promise<void>
+    onPerfUpdate: (callback: (list: PerformanceSummary[]) => void) => any
+    offPerfUpdate: (handler: any) => void
 }
 
 const api: ElectronAPI = {
@@ -287,7 +295,17 @@ const api: ElectronAPI = {
         return handler
     },
     offVoiceUpdated: (handler) => ipcRenderer.removeListener('voice:updated', handler),
-    getVocalProfile: (trackId) => ipcRenderer.invoke('audio:vocal-profile', trackId)
+    getVocalProfile: (trackId) => ipcRenderer.invoke('audio:vocal-profile', trackId),
+    perfSave: (payload) => ipcRenderer.invoke('perf:save', payload),
+    perfList: () => ipcRenderer.invoke('perf:list'),
+    perfDelete: (id) => ipcRenderer.invoke('perf:delete', id),
+    perfReplay: (id) => ipcRenderer.invoke('perf:replay', id),
+    onPerfUpdate: (callback) => {
+        const handler = (_e: any, list: PerformanceSummary[]) => callback(list)
+        ipcRenderer.on('perf:update', handler)
+        return handler
+    },
+    offPerfUpdate: (handler) => ipcRenderer.removeListener('perf:update', handler)
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

@@ -123,7 +123,24 @@ interface VoiceProfile {
     measurements: VoiceMeasurements
 }
 
+// Recorded performances — mirrors src/main/performances.ts.
+interface PerformanceSummary {
+    id: string
+    trackId: string
+    songName: string
+    artist: string
+    createdAt: string
+    singers: string[]
+    replay: { status: 'none' | 'queued' | 'converting' | 'ready' | 'failed'; pct?: number; error?: string; file?: string }
+}
+
 interface ElectronAPI {
+    perfSave: (payload: { trackId: string; name: string; artist: string; singers: { name: string; guestId: string | null; roleIndices: number[]; sampleRate: number; timeMap: [number, number][]; wav: Uint8Array }[] }) => Promise<{ id: string }>
+    perfList: () => Promise<{ performances: PerformanceSummary[]; available: boolean; reason?: string }>
+    perfDelete: (id: string) => Promise<void>
+    perfReplay: (id: string) => Promise<void>
+    onPerfUpdate: (callback: (list: PerformanceSummary[]) => void) => any
+    offPerfUpdate: (handler: any) => void
     voiceList: () => Promise<Record<string, VoiceProfile>>
     voiceAnalyze: (args: { wav: Uint8Array; name: string; guestId?: string | null; micLabel?: string | null }) => Promise<{ profile?: VoiceProfile; error?: string }>
     voiceDelete: (key: string) => Promise<void>

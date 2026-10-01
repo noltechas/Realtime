@@ -38,6 +38,14 @@
  *
  * Parameters (via MessagePort):
  * - strength: 0-100 (correction aggressiveness, 0=bypass, 100=hard snap)
+ * - formant: grain read-rate factor (default 1). Each synthesis grain reads
+ *   its analysis grain at (a + j*formant) instead of (a + j): the period
+ *   waveform is time-scaled by 1/formant, so the spectral envelope (formants)
+ *   scales by `formant` while grain SPACING still sets the pitch. 1.12 ≈ +2
+ *   semitones of formant = a smaller-sounding vocal tract; <1 = bigger/darker.
+ *   PSOLA runs continuously while the gate is open (pitchFactor 1 at
+ *   strength 0), so this works with autotune off as long as the node is
+ *   routed in. Safe range ~0.75–1.33 (reads stay inside buffered history).
  * - key: 0-11 (C=0..B=11, -1=chromatic)
  * - mode: 0=minor, 1=major
  * - debugRatio: number | null (dev test harness — forces exact pitch ratio,
@@ -69,6 +77,7 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
 
         // === Parameters ===
         this._strength = 0;
+        this._formant = 1.0;
         this._key = 0;
         this._mode = 1;
         this._debugRatioOverride = null;
@@ -175,6 +184,7 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
             const d = e.data;
             if (d.type === 'params') {
                 if (d.strength !== undefined) this._strength = d.strength;
+                if (d.formant !== undefined) this._formant = Math.max(0.75, Math.min(1.33, d.formant));
                 if (d.key !== undefined) this._key = d.key;
                 if (d.mode !== undefined) this._mode = d.mode;
             } else if (d.type === 'debugRatio') {
@@ -300,11 +310,16 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
         //    window-sum-normalized overlap-add into the output ring.
         const Psyn = Math.max(1, P / pitchFactor);
         const obLen = this._psOutLen;
-        const twoGH = 2 * grainHalf;
+        // Formant: the output grain is the analysis grain (±grainHalf input
+        // samples) resampled by phi, so it spans ±grainHalf/phi output
+        // samples — a constant analysis support whichever way formants move.
+        const phi = this._formant;
+        const gh = phi === 1 ? grainHalf : Math.round(grainHalf / phi);
+        const twoGH = 2 * gh;
         while (this._psSynth + grainHalf + search < this._inAbs) {
             const a = this._psNearestMark(this._psSynth);
             const sc = Math.round(this._psSynth);
-            for (let j = -grainHalf; j <= grainHalf; j++) {
+            for (let j = -gh; j <= gh; j++) {
                 const si = sc + j;
                 // Never write BEHIND the drain frontier. At a voiced onset the
                 // first grain is centered at _psOutRead, so its left half would
@@ -314,9 +329,9 @@ class PitchCorrectionProcessor extends AudioWorkletProcessor {
                 // correct (the window-sum normalization handles the reduced
                 // overlap at the boundary).
                 if (si < this._psOutRead) continue;
-                const w = 0.5 * (1 - Math.cos(2 * Math.PI * (j + grainHalf) / twoGH));
+                const w = 0.5 * (1 - Math.cos(2 * Math.PI * (j + gh) / twoGH));
                 const idx = ((si % obLen) + obLen) % obLen;
-                this._psOut[idx] += this._psLerpIn(a + j) * w;
+                this._psOut[idx] += this._psLerpIn(a + j * phi) * w;
                 this._psWsum[idx] += w;
             }
             this._psSynth += Psyn;
