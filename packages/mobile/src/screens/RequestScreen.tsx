@@ -19,8 +19,10 @@ import {
 } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
+  catalogRowFromSpotify,
+  songAddView,
   spotifyTokenIfFresh,
-  submitSongRequest,
+  type KaraokeSongAddRow,
   type SpotifyTrackResult,
   type ThemeTokens,
 } from '@karaoke/shared'
@@ -33,6 +35,7 @@ import { useSessionRow } from '../hooks/useSessionRow'
 import { useCatalog } from '../hooks/useCatalog'
 import { supabase } from '../supabase/client'
 import { searchSpotify } from '../spotify/searchSpotify'
+import { useSongAdds } from '../hooks/useSongAdds'
 
 type RequestNav = NativeStackNavigationProp<RootStackParamList, 'Request'>
 type RequestRouteProp = RouteProp<RootStackParamList, 'Request'>
@@ -47,7 +50,7 @@ function formatDuration(ms: number | null | undefined): string {
 
 // Bright/vivid background + guaranteed-dark text, the same contract the
 // NowPlayingBanner relies on (`accentB` is always a vivid color). Used for the
-// success toast and the "requested" badge so they read on every theme.
+// success toast and the "building" badge so they read on every theme.
 const ON_BRIGHT = '#16161D'
 
 // Pick a legible ink for text/icons placed ON a themed card. Most themes pair a
@@ -112,8 +115,9 @@ interface ConfirmState {
   kind: 'success' | 'error'
 }
 
-// Per-result lifecycle. Drives the right-hand affordance on each row.
-type RowState = 'idle' | 'busy' | 'requested' | 'in-library'
+// Per-result state. Drives the right-hand affordance on each row. Every row
+// opens the sign-up wizard; 'building' means someone already added it.
+type RowState = 'idle' | 'building' | 'in-library'
 
 // Public entry — wraps the body in SessionThemeProvider so this root-stack
 // modal renders under the live session theme (same pattern as WizardScreen).
@@ -133,7 +137,7 @@ function RequestScreenBody() {
   const { session } = useSession()
   const { profile } = useProfile()
   const row = useSessionRow(session?.sessionId)
-  const { catalog } = useCatalog(session?.sessionId)
+  const { catalog, refresh: refreshCatalog } = useCatalog(session?.sessionId)
 
   const token = spotifyTokenIfFresh(
     row?.spotify_token,
@@ -143,8 +147,6 @@ function RequestScreenBody() {
   const [query, setQuery] = useState(route.params?.initialQuery ?? '')
   const [results, setResults] = useState<SpotifyTrackResult[]>([])
   const [searching, setSearching] = useState(false)
-  const [submittingId, setSubmittingId] = useState<string | null>(null)
-  const [requestedIds, setRequestedIds] = useState<Set<string>>(new Set())
   const [confirm, setConfirm] = useState<ConfirmState | null>(null)
 
   // track_ids already in the host's library — tapping one of these tells the
@@ -170,11 +172,32 @@ function RequestScreenBody() {
   const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const flashConfirm = useCallback((next: ConfirmState) => {
+  const flashConfirm = useCallback((next: ConfirmState, ms = 3200) => {
     setConfirm(next)
     if (confirmTimer.current) clearTimeout(confirmTimer.current)
-    confirmTimer.current = setTimeout(() => setConfirm(null), 3200)
+    confirmTimer.current = setTimeout(() => setConfirm(null), ms)
   }, [])
+
+  // Live build progress for the session's adds; when one of ours lands, say
+  // so and pull the new song into the catalog.
+  const { rows: adds, byTrack } = useSongAdds(session?.sessionId, (landed) => {
+    void refreshCatalog()
+    if (landed.requested_by_guest_id && landed.requested_by_guest_id === session?.guestId) {
+      flashConfirm({
+        title: `“${landed.track_name || 'Your song'}” is ready!`,
+        sub: 'It’s in the library now.',
+        kind: 'success',
+      }, 6000)
+    }
+  })
+  const myAdds = useMemo(
+    () => adds
+      .filter((r) => r.requested_by_guest_id === session?.guestId)
+      // Old host dismissals (before adds built themselves) are noise now.
+      .filter((r) => r.status !== 'dismissed' || !!r.generation_status)
+      .slice(0, 6),
+    [adds, session?.guestId],
+  )
 
   // Debounced Spotify search. Mirrors the website's runRequestSearch (280ms).
   useEffect(() => {
@@ -220,62 +243,30 @@ function RequestScreenBody() {
   const rowStateFor = useCallback(
     (track: SpotifyTrackResult): RowState => {
       if (catalogIds.has(track.trackId)) return 'in-library'
-      if (submittingId === track.trackId) return 'busy'
-      if (requestedIds.has(track.trackId)) return 'requested'
+      const add = byTrack.get(track.trackId)
+      if (add && songAddView(add).tone === 'working') return 'building'
       return 'idle'
     },
-    [catalogIds, submittingId, requestedIds],
+    [catalogIds, byTrack],
   )
 
-  const onRequest = useCallback(
-    async (track: SpotifyTrackResult) => {
-      if (!session || submittingId) return
-      if (catalogIds.has(track.trackId)) {
-        flashConfirm({
-          title: 'Already in the library',
-          sub: 'Find it on the Songs tab and add it to the queue.',
-          kind: 'success',
-        })
+  // Every result opens the sign-up wizard. A song not in the library yet gets
+  // a stand-in catalog row and carries the Spotify track, so the wizard's
+  // submit starts building it (or the guest can just add it to the library).
+  const onPick = useCallback(
+    (track: SpotifyTrackResult) => {
+      if (!session) return
+      const inLibrary = catalog.find((c) => c.track_id === track.trackId)
+      if (inLibrary) {
+        navigation.navigate('Wizard', { track: inLibrary })
         return
       }
-      setSubmittingId(track.trackId)
-      const res = await submitSongRequest(supabase, {
-        sessionId: session.sessionId,
-        requestedByGuestId: session.guestId,
-        requestedByName: profile?.name || session.guestName || 'Guest',
-        requestedByProfilePicture: profile?.profilePicture ?? null,
-        track,
+      navigation.navigate('Wizard', {
+        track: catalogRowFromSpotify(track, session.sessionId),
+        addTrack: track,
       })
-      setSubmittingId(null)
-
-      if (res.status === 'ok' || res.status === 'duplicate') {
-        setRequestedIds((prev) => {
-          const next = new Set(prev)
-          next.add(track.trackId)
-          return next
-        })
-      }
-      if (res.status === 'ok') {
-        flashConfirm({
-          title: 'Request sent!',
-          sub: 'The host will add your song as soon as they can.',
-          kind: 'success',
-        })
-      } else if (res.status === 'duplicate') {
-        flashConfirm({
-          title: 'Already requested',
-          sub: 'Someone already asked for this one.',
-          kind: 'success',
-        })
-      } else {
-        flashConfirm({
-          title: "Couldn't send request",
-          sub: res.message || 'Try again in a moment.',
-          kind: 'error',
-        })
-      }
     },
-    [session, submittingId, catalogIds, profile, flashConfirm],
+    [session, catalog, navigation],
   )
 
   const keyExtractor = useCallback((item: SpotifyTrackResult) => item.trackId, [])
@@ -287,15 +278,15 @@ function RequestScreenBody() {
         ink={cardInk}
         track={item}
         state={rowStateFor(item)}
-        onPress={() => onRequest(item)}
+        onPress={() => onPick(item)}
       />
     ),
-    [tokens, ui, cardInk, rowStateFor, onRequest],
+    [tokens, ui, cardInk, rowStateFor, onPick],
   )
 
   const trimmed = query.trim()
   const tokenLoading = !row // session row not fetched yet
-  const requestsAvailable = !!token
+  const addingAvailable = !!token
 
   return (
     <SafeAreaView style={ui.styles.screen} edges={['top', 'left', 'right']}>
@@ -311,9 +302,9 @@ function RequestScreenBody() {
         }}
       >
         <View style={{ flex: 1, paddingRight: 12 }}>
-          <Text style={ui.styles.h1}>Request a Song</Text>
+          <Text style={ui.styles.h1}>Add a Song</Text>
           <Text style={[ui.styles.muted, { marginTop: 4 }]}>
-            Can't find it? Ask the host to add it.
+            Anything on Spotify. Sign up for it right away and it builds itself in a few minutes.
           </Text>
         </View>
         <Pressable
@@ -337,7 +328,7 @@ function RequestScreenBody() {
         </Pressable>
       </View>
 
-      {requestsAvailable ? (
+      {addingAvailable ? (
         <KeyboardAvoidingView
           style={{ flex: 1 }}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -363,6 +354,7 @@ function RequestScreenBody() {
                 paddingTop: 8,
                 paddingBottom: insets.bottom + 120,
               }}
+              ListHeaderComponent={myAdds.length > 0 ? <MyAdds rows={myAdds} tokens={tokens} ui={ui} /> : null}
               ListEmptyComponent={
                 <View style={{ paddingVertical: 40, alignItems: 'center' }}>
                   <Text style={[ui.styles.h2, { marginBottom: 6, textAlign: 'center' }]}>
@@ -371,7 +363,7 @@ function RequestScreenBody() {
                   <Text style={[ui.styles.muted, { textAlign: 'center' }]}>
                     {trimmed
                       ? 'Try a different spelling or the artist name.'
-                      : 'Type a song or artist and tap one to send it to the host.'}
+                      : 'Type a song or artist and tap one to sign up for it.'}
                   </Text>
                 </View>
               }
@@ -398,11 +390,10 @@ function RequestScreenBody() {
                 style={{ marginBottom: 14 }}
               />
               <Text style={[ui.styles.h2, { textAlign: 'center', marginBottom: 8 }]}>
-                Requests aren't available right now
+                Adding songs isn't available right now
               </Text>
               <Text style={[ui.styles.muted, { textAlign: 'center' }]}>
-                The host needs to connect Spotify on their end before guests can
-                request new songs. Try again in a bit.
+                The host's Spotify connection isn't live yet. Try again in a bit.
               </Text>
             </>
           )}
@@ -454,9 +445,40 @@ function RequestScreenBody() {
   )
 }
 
+// "Songs you added": this guest's recent adds with live build progress.
+// Rendered on the page background (not a themed card) so page ink reads on
+// every theme.
+function MyAdds({ rows, tokens, ui }: { rows: KaraokeSongAddRow[]; tokens: ThemeTokens; ui: ThemeUIModule }) {
+  return (
+    <View style={{ marginBottom: 14 }}>
+      <Text style={[ui.styles.sectionLabel, { marginBottom: 8 }]}>Songs you added</Text>
+      {rows.map((r) => {
+        const v = songAddView(r)
+        const color = v.tone === 'failed' ? tokens.hotRed : v.tone === 'ready' ? tokens.mintGreen : tokens.muted
+        return (
+          <View key={r.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6 }}>
+            {r.track_art_url ? (
+              <Image source={{ uri: r.track_art_url }} style={{ width: 36, height: 36, borderRadius: tokens.cornerStyle === 'sharp' ? 0 : 6 }} />
+            ) : (
+              <View style={{ width: 36, height: 36, borderRadius: tokens.cornerStyle === 'sharp' ? 0 : 6, backgroundColor: tokens.creamDark }} />
+            )}
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={[ui.styles.body, { fontWeight: '700' }]} numberOfLines={1}>{r.track_name}</Text>
+              <Text style={[ui.styles.muted, { fontSize: 12, color }]} numberOfLines={1}>
+                {v.label}{v.pct != null ? `  ${v.pct}%` : ''}
+              </Text>
+            </View>
+            {v.tone === 'working' ? <ActivityIndicator size="small" color={tokens.muted} /> : null}
+          </View>
+        )
+      })}
+    </View>
+  )
+}
+
 // A single Spotify search result, composed from the active theme's card style
 // + tokens so it inherits each theme's card chrome (box / blob / skew / glow /
-// border / shadow). The whole row is the request affordance: tap to send.
+// border / shadow). The whole row opens the sign-up wizard.
 function ResultRow({
   tokens,
   ui,
@@ -479,7 +501,6 @@ function ResultRow({
   return (
     <Pressable
       onPress={onPress}
-      disabled={dim || state === 'busy'}
       style={({ pressed }) => [
         ui.styles.card,
         {
@@ -539,7 +560,7 @@ function ResultRow({
             style={[ui.styles.muted, { marginTop: 2, fontWeight: '700', color: ink, opacity: 0.72 }]}
             numberOfLines={1}
           >
-            Already in the library
+            In the library
           </Text>
         ) : track.album || duration ? (
           <Text
@@ -563,7 +584,7 @@ function ResultRow({
 }
 
 // Right-hand state badge. Idle uses foreground-on-card (always legible); the
-// "requested" check uses a bright accentB fill + dark glyph (same guaranteed-
+// "building" badge uses a bright accentB fill + dark glyph (same guaranteed-
 // contrast contract as the toast).
 function RowAffordance({
   tokens,
@@ -577,14 +598,8 @@ function RowAffordance({
   const size = 34
   const radius = tokens.cornerStyle === 'sharp' ? 0 : 999
 
-  if (state === 'busy') {
-    return (
-      <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color={ink} />
-      </View>
-    )
-  }
-  if (state === 'requested') {
+  if (state === 'building') {
+    // Someone already added it and it's building: tapping still signs up.
     return (
       <View
         style={{
@@ -598,7 +613,7 @@ function RowAffordance({
           justifyContent: 'center',
         }}
       >
-        <Ionicons name="checkmark" size={20} color={ON_BRIGHT} />
+        <Ionicons name="hourglass-outline" size={18} color={ON_BRIGHT} />
       </View>
     )
   }

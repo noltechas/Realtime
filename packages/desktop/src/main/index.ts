@@ -535,8 +535,8 @@ ipcMain.handle('lyrics:fetch', async (_event, payload: string | { trackId: strin
 import { registerAudioHandlers, listCatalogSongs, isSongInLibrary } from './audio/manager'
 import {
     initAutogen, setAutogenSession, shutdownAutogen, getAutogenStatus, enqueueAutogen,
-    cancelAutogen, retryAutogen, dismissAutogen, setAutogenSettings,
-    AutogenSettings, AutogenTrackInput,
+    cancelAutogen, retryAutogen, dismissAutogen,
+    AutogenTrackInput,
 } from './autogen'
 import { registerVoiceHandlers } from './voices'
 import { registerPerformanceHandlers, shutdownPerformances } from './performances'
@@ -697,7 +697,6 @@ ipcMain.handle('autogen:enqueue', (_event, input: AutogenTrackInput) => {
 ipcMain.handle('autogen:cancel', (_event, trackId: string) => { cancelAutogen(trackId) })
 ipcMain.handle('autogen:retry', (_event, trackId: string) => { retryAutogen(trackId) })
 ipcMain.handle('autogen:dismiss', (_event, trackId: string) => { dismissAutogen(trackId) })
-ipcMain.handle('autogen:set-settings', (_event, next: Partial<AutogenSettings>) => setAutogenSettings(next))
 
 // now_playing_* / is_playing writes to the session row must land in the order
 // the renderer issued them. As independent concurrent requests, a rapid skip

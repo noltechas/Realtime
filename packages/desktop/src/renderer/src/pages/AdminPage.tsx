@@ -735,20 +735,14 @@ export default function AdminPage() {
         }
     }, [state.karaokeSessionId])
 
-    const dismissSongRequest = async (id: string) => {
-        const { error } = await supabase
-            .from('karaoke_song_requests')
-            .update({ status: 'dismissed', resolved_at: new Date().toISOString() })
-            .eq('id', id)
-        if (error) console.warn('Dismiss request failed:', error.message)
-    }
-
-    // When a requested song lands in the catalog, mark the request resolved
-    // so it doesn't keep showing up as pending.
+    // When an added song lands in the catalog (built, or imported by hand),
+    // mark the row resolved so it doesn't keep showing up as building.
     useEffect(() => {
         if (!state.karaokeSessionId) return
         const catalogIds = new Set(catalog.map(c => c.trackId))
-        const newlyAdded = songRequests.filter(r => r.status === 'pending' && catalogIds.has(r.trackId))
+        // A failed add the host then imported by hand counts too.
+        const open = (r: SongRequest) => r.status === 'pending' || (r.status === 'dismissed' && r.generationStatus === 'failed')
+        const newlyAdded = songRequests.filter(r => open(r) && catalogIds.has(r.trackId))
         if (newlyAdded.length === 0) return
         const now = new Date().toISOString()
         supabase.from('karaoke_song_requests')
@@ -774,7 +768,9 @@ export default function AdminPage() {
         selectTrack(track)
     }
 
-    const pendingRequestCount = songRequests.filter(r => r.status === 'pending').length
+    // Guest adds still on their way into the library (failed ones are resolved
+    // as 'dismissed' by the generator, so 'pending' means building or waiting).
+    const buildingCount = songRequests.filter(r => r.status === 'pending' && !catalog.some(c => c.trackId === r.trackId)).length
 
     const startEditGuest = (guest: AdminGuest) => {
         setEditingGuestId(guest.id)
@@ -1391,7 +1387,7 @@ export default function AdminPage() {
                 desc={
                     adminTab === 'songs' ? 'Import songs, sculpt the FX rack, and manage the catalog'
                         : adminTab === 'guests' ? 'View and manage guests in the current session'
-                            : adminTab === 'requests' ? 'Songs guests are asking you to add to the library'
+                            : adminTab === 'requests' ? 'Songs guests added from Spotify. They build themselves and land in the library'
                                 : 'Review live vote tallies and reveal winners on the stage'
                 }
             />
@@ -1437,7 +1433,7 @@ export default function AdminPage() {
                     tabs={[
                         { id: 'songs' as const, label: 'Songs', icon: 'music' },
                         { id: 'guests' as const, label: 'Guests', icon: 'users', count: guests.length },
-                        { id: 'requests' as const, label: 'Requests', icon: 'inbox', count: pendingRequestCount },
+                        { id: 'requests' as const, label: 'Guest Adds', icon: 'inbox', count: buildingCount },
                         { id: 'awards' as const, label: 'Awards', icon: 'trophy', count: state.awards.length },
                     ]}
                     active={adminTab}
@@ -2288,7 +2284,10 @@ export default function AdminPage() {
                 </div>
             )}
 
-            {/* ═══ Requests Tab ═══ */}
+            {/* ═══ Guest Adds Tab ═══ */}
+            {/* Songs guests added from Spotify ("Add a Song" on the companion
+                site and app). They build themselves (main/autogen.ts); the host
+                only steps in when one fails. */}
             {adminTab === 'requests' && (
                 <div>
                     {!state.karaokeSessionId ? (
@@ -2296,33 +2295,37 @@ export default function AdminPage() {
                             <EmptyState
                                 icon="radio"
                                 title="No Active Session"
-                                desc="Start a karaoke session to receive song requests"
+                                desc="Start a karaoke session so guests can add songs"
                             />
                         </Card>
                     ) : songRequests.length === 0 ? (
                         <Card>
                             <EmptyState
                                 icon="inbox"
-                                title="No Requests Yet"
-                                desc={autogen.status?.settings.autoGenerateRequests
-                                    ? "When a guest can't find a song, it starts generating automatically and shows up here"
-                                    : "When a guest can't find a song, they can ask you to add it here"}
+                                title="No Guest Adds Yet"
+                                desc="When a guest adds a song from Spotify, it builds itself automatically and shows up here"
                             />
                         </Card>
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                             {songRequests.map(req => {
-                                const isPendingReq = req.status === 'pending'
                                 const inCatalog = catalog.some(c => c.trackId === req.trackId)
                                 const genJob = autogen.jobFor(req.trackId)
-                                const statusBadge = req.status === 'added'
-                                    ? { label: 'Added', tone: 'green' as const }
-                                    : req.status === 'dismissed'
-                                        ? { label: 'Dismissed', tone: 'red' as const }
-                                        : null
+                                const building = isAutogenActive(genJob)
+                                const failed = !inCatalog && !building && (genJob?.stage === 'failed' || req.generationStatus === 'failed')
+                                // Picked up by nobody yet: added while the generator was
+                                // unavailable, or before this host app was running.
+                                const idle = !inCatalog && !building && !failed && !genJob && !req.generationStatus && req.status === 'pending'
+                                const statusBadge = inCatalog
+                                    ? { label: 'In library', tone: 'green' as const }
+                                    : failed
+                                        ? { label: 'Failed', tone: 'red' as const }
+                                        : req.status === 'dismissed'
+                                            ? { label: 'Dismissed', tone: 'red' as const }
+                                            : null
                                 return (
                                     <Card key={req.id} style={{
-                                        opacity: isPendingReq ? 1 : 0.6,
+                                        opacity: inCatalog || (req.status === 'dismissed' && !failed) ? 0.6 : 1,
                                         display: 'flex', flexDirection: 'column', gap: 12,
                                     }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -2360,36 +2363,38 @@ export default function AdminPage() {
                                         }}>
                                             <Avatar name={req.requestedByName} src={req.requestedByProfilePicture} size={26} />
                                             <div style={{ flex: 1, minWidth: 0, fontSize: 12, color: 'var(--adm-text-2)' }}>
-                                                Requested by <span style={{ color: 'var(--adm-text)', fontWeight: 600 }}>{req.requestedByName}</span>
+                                                Added by <span style={{ color: 'var(--adm-text)', fontWeight: 600 }}>{req.requestedByName}</span>
                                                 <span style={{ color: 'var(--adm-text-3)' }}> · {new Date(req.createdAt).toLocaleString()}</span>
                                             </div>
                                         </div>
 
-                                        {genJob ? (
+                                        {genJob && !failed ? (
                                             <AutogenJobLine job={genJob} autogen={autogen} />
-                                        ) : isPendingReq && req.generationStatus === 'failed' ? (
+                                        ) : failed ? (
                                             <div style={{ fontSize: 11.5, color: 'var(--adm-red)' }}>
-                                                Generation failed{req.generationError ? `: ${req.generationError}` : ''}
+                                                Couldn't build it{(genJob?.error || req.generationError) ? `: ${genJob?.error || req.generationError}` : ''}
+                                            </div>
+                                        ) : idle && !autogen.status?.available ? (
+                                            <div style={{ fontSize: 11.5, color: 'var(--adm-amber-bright)' }}>
+                                                The song generator isn't set up on this Mac{autogen.status?.unavailableReason ? `: ${autogen.status.unavailableReason}` : ''}
                                             </div>
                                         ) : null}
 
-                                        {isPendingReq && (
+                                        {(failed || idle) && (
                                             <div style={{ display: 'flex', gap: 8 }}>
-                                                {!inCatalog && !isAutogenActive(genJob) && autogen.status?.available && (
+                                                {autogen.status?.available && (
                                                     <Button variant="primary" icon="spark" style={{ flex: 1 }} onClick={() => generateRequest(req)}>
-                                                        {genJob?.stage === 'failed' || req.generationStatus === 'failed' ? 'Try again' : 'Generate'}
+                                                        {failed ? 'Try again' : 'Build it'}
                                                     </Button>
                                                 )}
                                                 <Button
                                                     variant={autogen.status?.available ? 'secondary' : 'primary'}
                                                     style={{ flex: 1 }}
                                                     onClick={() => openSongRequest(req)}
-                                                    disabled={inCatalog || isAutogenActive(genJob)}
-                                                    title={inCatalog ? 'Already in catalog' : 'Open in Add Song flow'}
+                                                    title="Open in the Add Song flow"
                                                 >
-                                                    {inCatalog ? 'Already in catalog' : autogen.status?.available ? 'Add manually' : 'Add to library'}
+                                                    Add manually
                                                 </Button>
-                                                <Button variant="danger" onClick={() => dismissSongRequest(req.id)}>Dismiss</Button>
                                             </div>
                                         )}
                                     </Card>

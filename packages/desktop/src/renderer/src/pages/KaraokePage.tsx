@@ -4110,7 +4110,7 @@ function LobbyNoticeCard({ notice, theme, guests }: {
 }) {
     const skin = noticeSkin(theme)
     const singers = notice.singers.map(s => resolveNoticeSinger(s, guests))
-    const label = notice.kind === 'requested' ? 'Song requested' : 'Added to the queue'
+    const label = notice.kind === 'requested' ? 'Adding to the library' : 'Added to the queue'
     const artSize = 78
 
     const avatar = (name: string, picture: string | null, color: string, size: number) => (
@@ -4196,7 +4196,7 @@ function LobbyNoticeCard({ notice, theme, guests }: {
                             <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginTop: 11 }}>
                                 {avatar(notice.byName, notice.byPicture, theme.accentA, 26)}
                                 <span style={{ ...skin.meta, fontSize: stageFont(13) }}>
-                                    {notice.byName} {notice.kind === 'requested' ? 'asked for this one' : 'added this one'}
+                                    {notice.byName} {notice.kind === 'requested' ? 'is adding this one' : 'added this one'}
                                 </span>
                             </div>
                         ) : null}

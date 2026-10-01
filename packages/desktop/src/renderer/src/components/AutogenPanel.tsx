@@ -1,4 +1,4 @@
-import { ArtTile, Card, CardHeader, Chip, Icon, IconButton, Meter, Spinner, Toggle } from './ui'
+import { ArtTile, Card, CardHeader, Chip, Icon, IconButton, Meter, Spinner } from './ui'
 import { AUTOGEN_STAGE_LABEL, isAutogenActive, useAutogen } from '../hooks/useAutogen'
 
 type Autogen = ReturnType<typeof useAutogen>
@@ -82,18 +82,8 @@ export function AutogenQueueCard({ autogen }: { autogen: Autogen }) {
                 title="Song Generator"
                 desc="Spotify track → separated stems → tuned library song, no export needed"
             />
-            <div className="adm-well" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', marginBottom: 14 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>Auto-generate guest requests</div>
-                    <div style={{ fontSize: 11.5, color: 'var(--adm-text-3)', marginTop: 2 }}>
-                        A requested song starts generating right away and lands in the catalog when it's done.
-                    </div>
-                </div>
-                <Toggle
-                    on={status.settings.autoGenerateRequests}
-                    onToggle={() => autogen.setAutoGenerate(!status.settings.autoGenerateRequests)}
-                    title="Auto-generate guest requests"
-                />
+            <div style={{ fontSize: 12, color: 'var(--adm-text-3)', lineHeight: 1.45, marginBottom: 14 }}>
+                Songs guests add from Spotify build here automatically and land in the catalog when they're done.
             </div>
 
             {!status.available && (

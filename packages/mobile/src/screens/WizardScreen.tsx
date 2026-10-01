@@ -21,6 +21,7 @@ import {
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
   addQueueItem,
+  submitSongRequest,
   listGuests,
   updateQueueItem,
   UNIVERSAL_SINGER_COLORS,
@@ -394,8 +395,11 @@ function WizardBody() {
   const insets = useSafeAreaInsets()
   const navigation = useNavigation<WizardNav>()
   const route = useRoute<WizardRouteProp>()
-  const { track, edit } = route.params
+  const { track, edit, addTrack, pendingSong } = route.params
   const isEditMode = !!edit
+  // A song that isn't in the library yet: no parts until it's built.
+  const isNewSong = !!addTrack || !!pendingSong
+  const [justAdding, setJustAdding] = useState(false)
   const { session } = useSession()
   const { profile, loading: profileLoading } = useProfile()
 
@@ -584,6 +588,18 @@ function WizardBody() {
         else sc.name = s.name.trim() || 'Singer'
         return sc
       })
+      // Signing up for a song that isn't in the library yet: start building it
+      // first (the queue row then waits on the host until the song lands).
+      if (!isEditMode && addTrack) {
+        const res = await submitSongRequest(supabase, {
+          sessionId: session.sessionId,
+          requestedByGuestId: session.guestId,
+          requestedByName: profile?.name || session.guestName || 'Guest',
+          requestedByProfilePicture: profile?.profilePicture ?? null,
+          track: addTrack,
+        })
+        if (res.status === 'error') throw new Error(res.message || 'Couldn’t start building this song.')
+      }
       if (isEditMode && edit) {
         await updateQueueItem(supabase, {
           queueRowId: edit.queueRowId,
@@ -637,7 +653,34 @@ function WizardBody() {
     navigation,
     isEditMode,
     edit,
+    addTrack,
+    profile,
   ])
+
+  // "Just add it to the library": build the song without signing up.
+  const justAdd = useCallback(async () => {
+    if (!session || !addTrack || justAdding) return
+    setJustAdding(true)
+    const res = await submitSongRequest(supabase, {
+      sessionId: session.sessionId,
+      requestedByGuestId: session.guestId,
+      requestedByName: profile?.name || session.guestName || 'Guest',
+      requestedByProfilePicture: profile?.profilePicture ?? null,
+      track: addTrack,
+    })
+    setJustAdding(false)
+    if (res.status === 'error') {
+      Alert.alert('Couldn’t add this song', res.message || 'Try again in a moment.')
+      return
+    }
+    Alert.alert(
+      res.status === 'duplicate' ? 'Already on its way' : 'Adding it to the library',
+      res.status === 'duplicate'
+        ? 'Someone else is adding this song. It’ll be in the library soon.'
+        : 'It builds itself in a few minutes. You’ll see it on the Songs tab when it’s ready.',
+    )
+    navigation.goBack()
+  }, [session, addTrack, justAdding, profile, navigation])
 
   const stepLabel = step === 2 ? 'Singers' : step === 3 ? 'Roles' : 'Finish'
   const stepCount = hasRoles ? 3 : 2
@@ -818,6 +861,27 @@ function WizardBody() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          {step === 2 && isNewSong ? (
+            // Outlined on the page background (not a themed card) so page-ink
+            // text stays legible on every theme.
+            <View style={{
+              marginHorizontal: 24, marginTop: 4, marginBottom: 14, padding: 14,
+              borderWidth: 1.5, borderStyle: 'dashed', borderColor: tokens.dimBorder,
+              borderRadius: tokens.cornerStyle === 'sharp' ? 0 : tokens.radiusSmall,
+            }}>
+              <Text style={[ui.styles.body, { fontWeight: '800' }]}>New to the library</Text>
+              <Text style={[ui.styles.muted, { marginTop: 4, lineHeight: 19 }]}>
+                This one takes a few minutes to build. Sign up now: it holds your spot in the queue and plays as soon as it’s ready.
+              </Text>
+              {addTrack && !isEditMode ? (
+                <Pressable onPress={justAdd} disabled={justAdding} hitSlop={8} style={{ marginTop: 10, alignSelf: 'flex-start' }}>
+                  <Text style={[ui.styles.body, { fontWeight: '700', textDecorationLine: 'underline', opacity: justAdding ? 0.5 : 1 }]}>
+                    Just add it to the library
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
           {step === 2 ? (
             <SingersStep
               singers={singers}

@@ -1,5 +1,5 @@
 import type { NavigatorScreenParams } from '@react-navigation/native'
-import type { KaraokeCatalogRow, SingerConfig } from '@karaoke/shared'
+import type { KaraokeCatalogRow, SingerConfig, SpotifyTrackResult } from '@karaoke/shared'
 
 // When the Wizard is opened to edit an existing queue row, the caller passes
 // the row's current state alongside the catalog track so the wizard can pre-
@@ -29,9 +29,18 @@ export type RootStackParamList = {
   Main: NavigatorScreenParams<MainTabsParamList> | undefined
   Lobby: { code: string }
   Session: NavigatorScreenParams<SessionTabsParamList> | undefined
-  Wizard: { track: KaraokeCatalogRow; edit?: WizardEditPayload }
-  // "Request a song to be added" — opened from the Songs tab when a guest
-  // can't find a track. `initialQuery` seeds the Spotify search with whatever
-  // they'd typed into the catalog filter.
+  Wizard: {
+    track: KaraokeCatalogRow
+    edit?: WizardEditPayload
+    /** Signing up for a Spotify track that isn't in the library yet (from Add
+     *  a Song): submit starts building it first. `track` is then a stand-in
+     *  row with no parts (catalogRowFromSpotify). */
+    addTrack?: SpotifyTrackResult
+    /** Editing a queued song that's still being built (stand-in `track`). */
+    pendingSong?: boolean
+  }
+  // "Add a Song": search all of Spotify and sign up for anything, opened from
+  // the Songs tab. `initialQuery` seeds the search with whatever they'd typed
+  // into the catalog filter.
   Request: { initialQuery?: string } | undefined
 }

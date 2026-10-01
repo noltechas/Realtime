@@ -933,11 +933,15 @@ export async function updateSongRequestGeneration(ids: string[], fields: {
     progress: number
     error: string | null
     markAdded: boolean
+    /** Resolve the row as 'dismissed' so the pending-row unique index lets the track be added again. */
+    markFailed?: boolean
 }): Promise<void> {
     if (ids.length === 0) return
     const base: Record<string, unknown> = fields.markAdded
         ? { status: 'added', resolved_at: new Date().toISOString() }
-        : {}
+        : fields.markFailed
+            ? { status: 'dismissed', resolved_at: new Date().toISOString() }
+            : {}
     if (!generationColumnsMissing) {
         const { error } = await supabase
             .from('karaoke_song_requests')

@@ -108,6 +108,16 @@ export interface QueueItem {
     bonusPoints?: number
     locked?: boolean
     createdAt?: string
+    /** Signed up before its song was in the library (guest "Add a Song"): the
+     *  song is still being generated, so the item has no stems / lyrics /
+     *  roles yet. It keeps its place and votes but is skipped until the song
+     *  lands, then upgraded in place (RESOLVE_PENDING_QUEUE_ITEM). */
+    pending?: boolean
+}
+
+/** Can this item go on deck now? Pending items wait for their song to land. */
+export function isPlayable(item: QueueItem): boolean {
+    return !item.pending
 }
 
 // Vote-weighted sort: locked items pinned to top, then by (score + bonus)
@@ -434,6 +444,7 @@ type Action =
     | { type: 'UPDATE_QUEUE_ITEM_SCORE'; payload: { remoteQueueId: string; score?: number; bonusPoints?: number; locked?: boolean } }
     | { type: 'APPLY_REMOTE_EDIT'; payload: { remoteQueueId: string; singers: Singer[]; stageTheme: string | null; isHidden: boolean } }
     | { type: 'LOCK_NEXT_UP' }
+    | { type: 'RESOLVE_PENDING_QUEUE_ITEM'; payload: { item: QueueItem } }
     | { type: 'BUMP_BONUS_POINTS' }
     | { type: 'SET_EDITING_QUEUE_ITEM'; payload: string | null }
     | { type: 'UPDATE_NOW_PLAYING_EFFECTS'; payload: { singerIndex: number; effects: VoiceEffects } }
@@ -531,6 +542,16 @@ function ensureSlots(slots: MicSlotConfig[], minCount: number): MicSlotConfig[] 
     return result
 }
 
+// Pin the first playable item as next-up (pending items can't be next), then
+// re-sort so the locked item sits on top.
+function lockFirstPlayable(queue: QueueItem[]): QueueItem[] {
+    const idx = queue.findIndex(isPlayable)
+    if (idx < 0 || queue[idx].locked) return queue
+    const next = [...queue]
+    next[idx] = { ...next[idx], locked: true }
+    return sortQueueByScore(next)
+}
+
 // Resolve a NEXT_SONG transition into the set of state fields it changes.
 // Pure + deterministic given `state`, so the main window can compute it once
 // and broadcast the result for the stage window to apply verbatim.
@@ -544,21 +565,23 @@ function resolveNextSong(state: AppState): Partial<AppState> {
     // Lobby Mode never puts a song on deck — finishing (or skipping) the
     // current song returns the stage to the join screen and leaves the queue
     // untouched, so guests keep piling songs in until the host ends the lobby.
-    if (state.lobbyMode || state.queue.length === 0) {
+    // A song still being generated is skipped: the next PLAYABLE song goes on
+    // deck and the pending one keeps its place (and its votes) until it lands.
+    // With nothing playable, the stage idles without touching the queue.
+    const sorted = sortQueueByScore(state.queue)
+    const nextIdx = sorted.findIndex(isPlayable)
+    if (state.lobbyMode || nextIdx < 0) {
         return { isPlaying: false, nowPlaying: null, stageMode: 'idle', history: newHistory, micSlots: savedSlots }
     }
-    const sorted = sortQueueByScore(state.queue)
-    const nextItem = mergeMicSlotsIntoItem(sorted[0], savedSlots)
+    const nextItem = mergeMicSlotsIntoItem(sorted[nextIdx], savedSlots)
     // Award +1 bonus point to every remaining song so long-waiting tracks
-    // eventually surface, then re-sort and lock the new position-0.
-    const remaining = sorted.slice(1).map(item => ({
+    // eventually surface (a skipped pending song included), then re-sort and
+    // lock the new next-up.
+    const remaining = sorted.filter((_, i) => i !== nextIdx).map(item => ({
         ...item,
         bonusPoints: (item.bonusPoints ?? 0) + 1
     }))
-    const resorted = sortQueueByScore(remaining)
-    if (resorted.length > 0) {
-        resorted[0] = { ...resorted[0], locked: true }
-    }
+    const resorted = lockFirstPlayable(sortQueueByScore(remaining))
     return {
         queue: resorted,
         nowPlaying: nextItem,
@@ -859,11 +882,17 @@ function reducer(state: AppState, action: Action): AppState {
             return { ...state, queue: updated }
         }
         case 'LOCK_NEXT_UP': {
-            if (state.queue.length === 0) return state
-            if (state.queue[0].locked) return state
-            const newQueue = [...state.queue]
-            newQueue[0] = { ...newQueue[0], locked: true }
-            return { ...state, queue: newQueue }
+            const newQueue = lockFirstPlayable(state.queue)
+            return newQueue === state.queue ? state : { ...state, queue: newQueue }
+        }
+        case 'RESOLVE_PENDING_QUEUE_ITEM': {
+            // A pending item's song landed: swap in the resolved item by id.
+            // Unlike REPLACE_QUEUE_ITEM this leaves the host's open setup panel
+            // alone; the payload already carries the item's votes, lock and
+            // createdAt, so both windows keep the same order.
+            const { item } = action.payload
+            if (!state.queue.some(q => q.id === item.id)) return state
+            return { ...state, queue: state.queue.map(q => q.id === item.id ? item : q) }
         }
         case 'BUMP_BONUS_POINTS': {
             const bumped = state.queue.map(q => ({
@@ -1071,6 +1100,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
     }, [isStageWindow, rawDispatch])
 
+    const playableCount = state.queue.filter(isPlayable).length
     // Auto-pop queue when nothing is playing (main window only). Held off while
     // a resumed session is still restoring its persisted now-playing song, so
     // it can't promote the up-next song into the now-playing slot first and
@@ -1082,10 +1112,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // host ends the lobby, at which point this fires and the top song
         // (highest voted) takes the stage.
         if (state.lobbyMode) return
-        if (!state.nowPlaying && state.queue.length > 0) {
+        // Only when something can actually go on deck: a queue of songs still
+        // being generated must not spin NEXT_SONG (each one bumps every
+        // item's bonus). Keyed on the playable count so a pending song that
+        // lands while the stage idles goes straight on deck.
+        if (!state.nowPlaying && playableCount > 0) {
             dispatch({ type: 'NEXT_SONG' })
         }
-    }, [state.nowPlaying, state.queue.length, state.hydratingNowPlaying, state.lobbyMode, dispatch])
+    }, [state.nowPlaying, playableCount, state.hydratingNowPlaying, state.lobbyMode, dispatch])
 
     // Persist the Lobby Mode flags (main window only — the stage mirrors relayed
     // state and must never write its own, possibly pre-INIT, values back).

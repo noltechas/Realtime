@@ -68,11 +68,16 @@ export {
   spotifyTokenIfFresh,
   normalizeSpotifyTrack,
   submitSongRequest,
+  listSongAdds,
+  songAddView,
+  catalogRowFromSpotify,
 } from './requests'
 export type {
   SpotifyTrackResult,
   SubmitSongRequestInput,
   SubmitSongRequestResult,
+  KaraokeSongAddRow,
+  SongAddView,
 } from './requests'
 export {
   loadAwards,

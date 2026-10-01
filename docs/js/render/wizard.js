@@ -23,13 +23,23 @@ export function renderWizardStepper(step){
 }
 export function renderWizardSongBanner(){
   var t=S.selectedTrack;if(!t)return"";
+  // Signing up for a song that isn't in the library yet (from "Add a Song").
+  var isNew=!S.catalog.some(function(c){return c.track_id===t.track_id;});
+  var note="";
+  if(isNew&&S.wizardStep===2){
+    note='<div class="wiz-new-note">'+
+      '<div class="wiz-new-note-title">New to the library</div>'+
+      '<div class="wiz-new-note-body">This one takes a few minutes to build. Sign up now: it holds your spot in the queue and plays as soon as it\u2019s ready.</div>'+
+      (t.addItem&&!S.editQueueRowId?'<button type="button" class="wiz-new-note-link" id="wiz-just-add">Just add it to the library</button>':'')+
+    '</div>';
+  }
   return '<div class="wiz-song-banner">'+
     (t.art_url?'<img src="'+esc(t.art_url)+'" alt="">':"")+
     '<div class="wiz-song-banner-body">'+
       '<div class="wiz-song-banner-title">'+esc(t.name)+'</div>'+
       '<div class="wiz-song-banner-artist">'+esc(t.artist)+'</div>'+
     '</div>'+
-  '</div>';
+  '</div>'+note;
 }
 export function renderWizardShell(step,body){
   var hasRoles=((S.selectedTrack&&S.selectedTrack.roles)||[]).length>1;

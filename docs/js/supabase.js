@@ -43,15 +43,12 @@ export function runRequestSearch(){
     S.requestSearching=false;
   });
 }
-export function submitSongRequest(item){
-  if(!S.sessionId||S.requestSubmittingId)return;
-  if(S.catalog.some(function(c){return c.track_id===item.trackId;})){
-    S.requestConfirm={title:"Already in the library",sub:"This song is already available. Search for it on the Songs page."};
-    render();scheduleConfirmDismiss();
-    return;
-  }
-  S.requestSubmittingId=item.trackId;render();
-  sb.from("karaoke_song_requests").insert({
+// "Add a Song": a guest picks any Spotify track and the host's generator
+// builds it into the library (desktop main/autogen.ts). The row lives in
+// karaoke_song_requests; a pending row per track is unique, so a second add of
+// the same song comes back as 23505 ("already on its way").
+export function insertSongAdd(item){
+  return sb.from("karaoke_song_requests").insert({
     session_id:S.sessionId,
     requested_by_guest_id:S.guestId||null,
     requested_by_name:S.guestName||"Guest",
@@ -63,18 +60,30 @@ export function submitSongRequest(item){
     track_album:item.album||null,
     track_duration_ms:item.duration_ms||null,
     spotify_data:item.raw||null
-  }).then(function(res){
+  });
+}
+// Add a song to the library without signing up for it.
+export function submitSongRequest(item){
+  if(!S.sessionId||S.requestSubmittingId)return;
+  if(S.catalog.some(function(c){return c.track_id===item.trackId;})){
+    S.requestConfirm={title:"Already in the library",sub:"Find it on the Songs page."};
+    render();scheduleConfirmDismiss();
+    return;
+  }
+  S.requestSubmittingId=item.trackId;render();
+  insertSongAdd(item).then(function(res){
     S.requestSubmittingId=null;
     if(res.error){
       if((res.error.code||"")==="23505"){
-        S.requestConfirm={title:"Already requested",sub:"Someone else already asked for this song."};
+        S.requestConfirm={title:"Already on its way",sub:"Someone else is adding this song. It\u2019ll be in the library soon."};
       }else{
-        console.warn("Request insert failed:",res.error);
-        S.requestConfirm={title:"Couldn't send request",sub:res.error.message||"Try again in a moment."};
+        console.warn("Song add failed:",res.error);
+        S.requestConfirm={title:"Couldn\u2019t add this song",sub:res.error.message||"Try again in a moment."};
       }
     }else{
-      S.requestConfirm={title:"Request sent!",sub:"You'll get a heads-up here as soon as it's in the library."};
+      S.requestConfirm={title:"Adding it to the library",sub:"It builds itself in a few minutes. You\u2019ll get a heads-up when it\u2019s ready."};
       loadMyRequests().then(render);
+      loadSessionAdds();
       S.requestQuery="";S.requestResults=[];S.requestSearching=false;
       S.searchQuery="";S.selectedGenre="All Songs";
       S.screen="songs";
@@ -98,6 +107,22 @@ export async function loadMyRequests(){
     .order("created_at",{ascending:false}).limit(8);
   if(!r.error)S.myRequests=r.data||[];
 }
+// Every add in the session, newest row per track. Drives the "Building" note
+// on queue rows whose song isn't in the library yet (anyone's, not just ours).
+export async function loadSessionAdds(){
+  if(!S.sessionId){S.songAdds={};return;}
+  var r=await sb.from("karaoke_song_requests").select("*")
+    .eq("session_id",S.sessionId).order("created_at",{ascending:false}).limit(100);
+  if(r.error)return;
+  var m={};
+  (r.data||[]).forEach(function(row){if(row.track_id&&!m[row.track_id])m[row.track_id]=row;});
+  S.songAdds=m;
+}
+function noteSessionAdd(row){
+  if(!row.track_id)return;
+  var cur=S.songAdds[row.track_id];
+  if(!cur||cur.id===row.id||Date.parse(row.created_at||0)>=Date.parse(cur.created_at||0))S.songAdds[row.track_id]=row;
+}
 export function requestIsReady(row){
   return !!row&&(row.status==="added"||row.generation_status==="ready");
 }
@@ -115,6 +140,7 @@ export async function mergeNewCatalog(){
 function onRequestRowChange(pl){
   var row=pl.new;
   if(!row||!row.id)return;
+  noteSessionAdd(row);
   var mine=!!S.guestId&&row.requested_by_guest_id===S.guestId;
   var prev=null;
   if(mine){
@@ -127,16 +153,22 @@ function onRequestRowChange(pl){
     // Anyone's request landing means a new song for everyone.
     mergeNewCatalog().then(function(){
       if(mine&&becameReady){
-        S.requestConfirm={title:"\u201C"+(row.track_name||"Your song")+"\u201D is ready!",sub:"It's in the library now. Tap here to sing it.",trackId:row.track_id};
+        // Already signed up for it? Then it just plays in its turn; otherwise
+        // the toast opens the sign-up wizard.
+        var queued=S.queue.some(function(q){return q.track_id===row.track_id&&q.added_by_guest_id===S.guestId;});
+        S.requestConfirm=queued
+          ? {title:"\u201C"+(row.track_name||"Your song")+"\u201D is ready!",sub:"It\u2019s in the library now and plays in its turn."}
+          : {title:"\u201C"+(row.track_name||"Your song")+"\u201D is ready!",sub:"It's in the library now. Tap here to sing it.",trackId:row.track_id};
         scheduleConfirmDismiss(7000);
       }
       render();
     });
     return;
   }
-  // Progress ticks: patch only the list so a full render doesn't steal
-  // focus from the search box.
-  if(mine&&S.screen==="request")patchMyRequests();
+  // Progress ticks: patch only the progress bits (the "Songs you added" list
+  // and any queue row still building) so a full render doesn't steal focus
+  // or replay the queue's animations.
+  if(S.screen==="request"||S.screen==="queue")patchMyRequests();
 }
 var myRequestsPatcher=null;
 export function setMyRequestsPatcher(fn){myRequestsPatcher=fn;}
@@ -379,6 +411,7 @@ export function subRT(){
   if(reqCh)sb.removeChannel(reqCh);
   reqCh=sb.channel("creq-"+S.sessionId).on("postgres_changes",{event:"*",schema:"public",table:"karaoke_song_requests",filter:"session_id=eq."+S.sessionId},onRequestRowChange).subscribe();
   loadMyRequests();
+  loadSessionAdds();
   subAwardsRealtime();
 }
 export async function addToQueue(){
@@ -396,6 +429,16 @@ export async function addToQueue(){
     }
   }
   S.addingToQueue=true;
+  // Signing up for a song that isn't in the library yet: start building it
+  // first (the queue row then waits on the host until the song lands).
+  var isNew=!editing&&!!t.addItem&&!S.catalog.some(function(c){return c.track_id===t.track_id;});
+  if(isNew){
+    var ar=await insertSongAdd(t.addItem);
+    if(ar.error&&(ar.error.code||"")!=="23505"){
+      console.warn("Song add failed:",ar.error);
+      S.addingToQueue=false;alert("Couldn\u2019t start building this song. Try again.");return;
+    }
+  }
   if(editing){
     // UPDATE in place — preserve score / position / locked / created_at /
     // added_by_* so votes and ordering aren't reset by an edit.
@@ -411,7 +454,14 @@ export async function addToQueue(){
     var r=await sb.from("karaoke_queue").insert(ins);
     if(r.error){S.addingToQueue=false;alert("Failed to add song. Try again.");return;}
   }
-  S.addingToQueue=false;S.selectedTrack=null;S.singers=[];S.stage_theme=null;S.hide_song=false;S.customSingerName="";S.singerPickerOpen=false;S.editQueueRowId=null;S.screen="queue";await loadQueue();render();
+  S.addingToQueue=false;S.selectedTrack=null;S.singers=[];S.stage_theme=null;S.hide_song=false;S.customSingerName="";S.singerPickerOpen=false;S.editQueueRowId=null;S.screen="queue";
+  if(isNew){
+    S.requestQuery="";S.requestResults=[];S.requestSearching=false;
+    S.requestConfirm={title:"You\u2019re signed up",sub:"It\u2019s building now and plays as soon as it\u2019s ready."};
+    scheduleConfirmDismiss(5000);
+    loadMyRequests();await loadSessionAdds();
+  }
+  await loadQueue();render();
 }
 export async function updateProfile(name,pic,defaultColor){
   var upd={name:name.trim()};

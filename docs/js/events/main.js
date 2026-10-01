@@ -4,7 +4,7 @@ import { clearDeviceProfile } from '../persistence.js';
 import { initWizardFromTrack, initWizardFromQueueItem, addSinger, removeSinger, setSingerColor, wizardHasAnyChanges, wizardBack, nextWizardStep } from '../wizard.js';
 import { castVote, sendReaction, joinSession, rejoinAsGuest, updateProfile, runRequestSearch, submitSongRequest, loadAwards, loadGuests, loadQueue, validateSession, loadMyRequests, setMyRequestsPatcher } from '../supabase.js';
 import { render } from '../render/main.js';
-import { filterCatalog, renderGenreTabs, renderRequest, renderSongCards, songCardHtml, SONGS_BATCH_SIZE, renderMyRequests } from '../render/songs.js';
+import { filterCatalog, renderGenreTabs, renderRequest, renderSongCards, songCardHtml, SONGS_BATCH_SIZE, renderMyRequests, buildState, buildNoteInner } from '../render/songs.js';
 import { bindAwardsEvents } from './awards.js';
 import { ensureAwardsManifest } from '../awards-manifest.js';
 import { pickProfilePhoto } from '../photo-upload.js';
@@ -573,10 +573,19 @@ export function bindEvents(){
       var row=S.queue.find(function(q){return q.id===id;});
       if(!row)return;
       var track=S.catalog.find(function(c){return c.track_id===row.track_id;});
-      if(!track){alert("Can't edit yet. The song catalog is still loading.");return;}
+      // A song still being built isn't in the catalog yet: edit its singers
+      // from the queue row itself (parts get assigned once it lands).
+      if(!track)track={track_id:row.track_id,name:row.track_name,artist:row.track_artist,art_url:row.track_art_url,duration_ms:row.track_duration_ms,roles:[]};
       initWizardFromQueueItem(track,row);
       render();
     });
+  });
+  var justAdd=document.getElementById("wiz-just-add");
+  if(justAdd)justAdd.addEventListener("click",function(){
+    var item=S.selectedTrack&&S.selectedTrack.addItem;
+    if(!item)return;
+    S.selectedTrack=null;S.singers=[];S.stage_theme=null;S.hide_song=false;S.customSingerName="";S.singerPickerOpen=false;S.editQueueRowId=null;
+    submitSongRequest(item);
   });
   var reqBack=document.getElementById("req-back");
   if(reqBack)reqBack.addEventListener("click",function(){
@@ -611,7 +620,13 @@ export function bindEvents(){
         if(card.dataset.reqBusy==="1")return;
         var tid=card.dataset.reqTrack;
         var item=S.requestResults.find(function(t){return t.trackId===tid;});
-        if(item)submitSongRequest(item);
+        if(!item)return;
+        // Every result opens the sign-up wizard. A song not in the library yet
+        // gets a stand-in catalog row (no parts known until it's built) and
+        // carries the Spotify item so submit can start building it.
+        var cat=S.catalog.find(function(c){return c.track_id===item.trackId;});
+        initWizardFromTrack(cat||{track_id:item.trackId,name:item.name,artist:item.artist,art_url:item.art,duration_ms:item.duration_ms,album_name:item.album,roles:[],addItem:item});
+        render();
       };
       card.addEventListener("click",pick);
       card.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();pick();}});
@@ -644,8 +659,17 @@ function bindMyRequests(){
 }
 function patchMyRequestsNow(){
   var el=document.getElementById("req-mine");
-  if(!el)return;
-  el.innerHTML=renderMyRequests();
-  bindMyRequests();
+  if(el){
+    el.innerHTML=renderMyRequests();
+    bindMyRequests();
+  }
+  // Queue rows still building: refresh their progress note in place.
+  document.querySelectorAll("[data-build-track]").forEach(function(n){
+    var tid=n.getAttribute("data-build-track");
+    var v=buildState(tid);
+    if(!v)return;
+    n.className="queue-item-build queue-item-build--"+v.tone;
+    n.innerHTML=buildNoteInner(tid);
+  });
 }
 setMyRequestsPatcher(patchMyRequestsNow);

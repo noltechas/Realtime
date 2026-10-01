@@ -8,6 +8,7 @@ import { useAudioDevices } from '../hooks/useAudioDevices'
 import { updateQueueRowConfig } from '../hooks/useKaraokeSession'
 import { Avatar, ArtTile, Button, Card, CardHeader, Chip, EmptyState, Field, Icon, IconButton, Input, PageHeader, Select } from '../components/ui'
 import { LobbyModeBanner } from '../components/LobbyModeCard'
+import { AUTOGEN_STAGE_LABEL, isAutogenActive, useAutogen } from '../hooks/useAutogen'
 
 function formatTime(ms: number): string {
     const s = Math.floor(ms / 1000)
@@ -589,8 +590,31 @@ function NowPlayingBanner({ npOverride }: { npOverride?: QueueItem } = {}) {
 }
 
 // ---- Queue Page ----
+// A queued song still being generated: where its build is, from the
+// generator's job (main/autogen.ts). It's skipped until it lands.
+function PendingBuildNote({ job, generatorReady }: { job: AutogenJob | undefined; generatorReady: boolean }) {
+    const failed = job?.stage === 'failed' || (!job && !generatorReady)
+    const text = job?.stage === 'failed'
+        ? `Couldn't build this song${job.error ? `: ${job.error}` : ''}`
+        : !job && !generatorReady
+            ? "Can't build it: the song generator isn't set up on this Mac"
+            : isAutogenActive(job)
+                ? `Building · ${AUTOGEN_STAGE_LABEL[job!.stage]}${job!.overall > 0 ? ` · ${Math.round(job!.overall)}%` : ''}`
+                : job?.stage === 'ready' ? 'Built, loading it in' : 'Waiting to build'
+    return (
+        <div style={{
+            fontSize: 11, fontWeight: 600, marginTop: 3,
+            color: failed ? 'var(--adm-red)' : 'var(--adm-cyan)',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }} title={failed ? undefined : 'Skipped until it is built, then it plays in its turn'}>
+            {text}
+        </div>
+    )
+}
+
 export default function QueuePage() {
     const { state, dispatch } = useApp()
+    const autogen = useAutogen()
     const navigate = useNavigate()
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
@@ -932,6 +956,7 @@ export default function QueuePage() {
                                                     Added by {item.addedBy}
                                                 </div>
                                             )}
+                                            {item.pending && <PendingBuildNote job={autogen.jobFor(item.track.id)} generatorReady={autogen.status?.available !== false} />}
                                         </div>
                                     </>
                                 )}
@@ -995,7 +1020,7 @@ export default function QueuePage() {
 
                                 {/* Actions — Edit is suppressed for hidden songs so the host can't reveal them */}
                                 <div style={{ display: 'flex', gap: 6 }}>
-                                    {!item.isHidden && (
+                                    {!item.isHidden && !item.pending && (
                                         <IconButton icon="pencil" title="Edit song setup" onClick={() => editSong(item)} />
                                     )}
                                     <IconButton icon="trash" danger title="Remove from queue" onClick={() => removeSong(item)} />

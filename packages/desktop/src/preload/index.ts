@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { AutogenSettings, AutogenStatus, AutogenTrackInput } from '../main/autogen'
+import type { AutogenStatus, AutogenTrackInput } from '../main/autogen'
 import type { VoiceProfile } from '../main/voices'
 import type { PerformanceSummary } from '../main/performances'
 
@@ -107,7 +107,6 @@ export type ElectronAPI = {
     autogenCancel: (trackId: string) => Promise<void>
     autogenRetry: (trackId: string) => Promise<void>
     autogenDismiss: (trackId: string) => Promise<void>
-    autogenSetSettings: (next: Partial<AutogenSettings>) => Promise<AutogenStatus>
     onAutogenUpdate: (callback: (status: AutogenStatus) => void) => any
     offAutogenUpdate: (handler: any) => void
     /** A generated song just landed in the library — reload the catalog. */
@@ -277,7 +276,6 @@ const api: ElectronAPI = {
     autogenCancel: (trackId) => ipcRenderer.invoke('autogen:cancel', trackId),
     autogenRetry: (trackId) => ipcRenderer.invoke('autogen:retry', trackId),
     autogenDismiss: (trackId) => ipcRenderer.invoke('autogen:dismiss', trackId),
-    autogenSetSettings: (next) => ipcRenderer.invoke('autogen:set-settings', next),
     onAutogenUpdate: (callback) => {
         const handler = (_e: any, status: AutogenStatus) => callback(status)
         ipcRenderer.on('autogen:update', handler)

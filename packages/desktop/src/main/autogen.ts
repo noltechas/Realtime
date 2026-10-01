@@ -6,8 +6,10 @@
 // onto the guest's `karaoke_song_requests` row, and pushes the catalog when a
 // song lands so guests can queue it right away.
 //
-// Lives in the main process (not AdminPage) so requests keep generating no
-// matter which page the host is on.
+// Guests add songs from the companion site / mobile app ("Add a Song"): every
+// add inserts a `karaoke_song_requests` row and is generated automatically,
+// with no host approval step. Lives in the main process (not AdminPage) so
+// adds keep generating no matter which page the host is on.
 
 import { app, BrowserWindow } from 'electron'
 import { spawn, ChildProcess } from 'child_process'
@@ -51,15 +53,9 @@ export interface AutogenJob {
     finishedAt?: number
 }
 
-export interface AutogenSettings {
-    /** Start generating as soon as a guest requests a song we don't have. */
-    autoGenerateRequests: boolean
-}
-
 export interface AutogenStatus {
     available: boolean
     unavailableReason?: string
-    settings: AutogenSettings
     jobs: AutogenJob[]
 }
 
@@ -83,14 +79,12 @@ interface AutogenHooks {
 }
 
 const AUTOGEN_DIR = path.join(os.homedir(), '.realtime-karaoke', 'autogen')
-const SETTINGS_PATH = path.join(AUTOGEN_DIR, 'settings.json')
 const VENV_PYTHON = path.join(os.homedir(), '.realtime-karaoke', 'separator-venv', 'bin', 'python')
 const FFMPEG_CANDIDATES = ['/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/usr/bin/ffmpeg']
 // Finished jobs linger in the panel this long so the host sees the outcome.
 const FINISHED_JOB_TTL_MS = 30 * 60 * 1000
 
 let hooks: AutogenHooks | null = null
-let settings: AutogenSettings = loadSettings()
 const jobs: AutogenJob[] = []
 let running: { job: AutogenJob; child: ChildProcess; cancelled: boolean } | null = null
 let sessionId: string | null = null
@@ -99,20 +93,6 @@ let requestChannel: RealtimeChannel | null = null
 // Throttle request-row writes: stage changes go out immediately, progress at
 // most every few seconds.
 const lastRowWrite = new Map<string, { at: number; overall: number; status: GenerationStatus }>()
-
-function loadSettings(): AutogenSettings {
-    try {
-        const raw = JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf-8'))
-        return { autoGenerateRequests: raw.autoGenerateRequests !== false }
-    } catch {
-        return { autoGenerateRequests: true }
-    }
-}
-
-function saveSettings(): void {
-    fs.mkdirSync(AUTOGEN_DIR, { recursive: true })
-    fs.writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2))
-}
 
 function scriptPath(): string {
     return path.join(app.getAppPath(), 'scripts', 'generate-song.js')
@@ -138,7 +118,7 @@ export function getAutogenStatus(): AutogenStatus {
         if (j.finishedAt && now - j.finishedAt > FINISHED_JOB_TTL_MS) jobs.splice(i, 1)
     }
     const a = availability()
-    return { available: a.available, unavailableReason: a.reason, settings: { ...settings }, jobs: jobs.map(j => ({ ...j, requestIds: [...j.requestIds] })) }
+    return { available: a.available, unavailableReason: a.reason, jobs: jobs.map(j => ({ ...j, requestIds: [...j.requestIds] })) }
 }
 
 function broadcast(): void {
@@ -174,6 +154,9 @@ function syncRows(job: AutogenJob, force = false): void {
         progress: job.overall,
         error: status === 'failed' ? friendlyError(job) : null,
         markAdded: status === 'ready',
+        // A failed add releases the track so a guest can simply add it again
+        // (the pending-row unique index would otherwise block it forever).
+        markFailed: status === 'failed',
     }).finally(() => { if (terminal) lastRowWrite.delete(job.trackId) })
 }
 
@@ -181,10 +164,10 @@ function syncRows(job: AutogenJob, force = false): void {
 function friendlyError(job: AutogenJob): string {
     switch (job.errorCode) {
         case 'no-match': return "Couldn't find an official recording of this song to work from."
-        case 'download': return "Couldn't download this song right now. The host can retry."
-        case 'setup': return 'Song generation is not set up on the host computer.'
+        case 'download': return "Couldn't download this song right now. Try adding it again in a minute."
+        case 'setup': return "Adding new songs isn't set up on the host's computer yet."
         case 'cancelled': return 'The host cancelled this one.'
-        default: return 'Something went wrong generating this song.'
+        default: return 'Something went wrong building this song. Try adding it again.'
     }
 }
 
@@ -260,14 +243,6 @@ export function dismissAutogen(trackId: string): void {
     if (!job || !job.finishedAt) return
     jobs.splice(jobs.indexOf(job), 1)
     broadcast()
-}
-
-export function setAutogenSettings(next: Partial<AutogenSettings>): AutogenStatus {
-    settings = { ...settings, ...next }
-    saveSettings()
-    if (next.autoGenerateRequests && sessionId) void catchUpRequests(sessionId)
-    broadcast()
-    return getAutogenStatus()
 }
 
 function pump(): void {
@@ -371,7 +346,7 @@ function handleEvent(job: AutogenJob, ev: any): void {
     broadcast()
 }
 
-// ─── guest requests ──────────────────────────────────────────────────────────
+// ─── guest adds ──────────────────────────────────────────────────────────────
 
 function enqueueFromRequest(row: SongRequestRow): void {
     if (row.status !== 'pending' || !row.track_id) return
@@ -390,11 +365,10 @@ function enqueueFromRequest(row: SongRequestRow): void {
     })
 }
 
-// Requests made while the app was closed (or before auto-generation was
-// switched on). A row stuck mid-pipeline from a previous run is restarted;
-// a failed one is left for the host to retry, so a bad track can't loop.
+// Adds made while the app was closed. A row stuck mid-pipeline from a previous
+// run is restarted; a failed one is skipped so a bad track can't loop (the
+// guest can add it again, or the host can retry it).
 async function catchUpRequests(sid: string): Promise<void> {
-    if (!settings.autoGenerateRequests) return
     const rows = await listOpenSongRequests(sid)
     for (const row of rows) {
         if (row.generation_status === 'failed') continue
@@ -412,7 +386,7 @@ export function setAutogenSession(nextSessionId: string | null): void {
     if (!sessionId) return
     const sid = sessionId
     requestChannel = subscribeToSongRequests(sid, (row) => {
-        if (settings.autoGenerateRequests && sid === sessionId) enqueueFromRequest(row)
+        if (sid === sessionId) enqueueFromRequest(row)
     })
     void catchUpRequests(sid)
 }

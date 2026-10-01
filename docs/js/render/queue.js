@@ -1,6 +1,7 @@
 import { S } from '../state.js';
 import { esc, avatarHTML, fmtD, resolveSingerConfig } from '../utils.js';
 import { loadVotedMap } from '../persistence.js';
+import { buildState, buildNoteInner } from './songs.js';
 
 export function hiddenLabel(){
   return"Secret Song";
@@ -113,10 +114,15 @@ export function renderQueue(){
           '</div>'+
         '</div>';
     }
-    return '<div class="'+classes+'" data-q-id="'+esc(q.id)+'">'+
+    // Signed up before the song was in the library: it plays once it's built
+    // (the host skips past it until then).
+    var bs=buildState(q.track_id);
+    var buildNote=bs?'<div class="queue-item-build queue-item-build--'+bs.tone+'" data-build-track="'+esc(q.track_id)+'">'+buildNoteInner(q.track_id)+'</div>':'';
+    return '<div class="'+classes+(bs?' queue-item--building':'')+'" data-q-id="'+esc(q.id)+'">'+
       '<div class="queue-pos">'+(i+1)+'</div>'+
       artOrIcon+
       '<div class="queue-item-info"><div class="queue-item-title">'+titleHtml+'</div><div class="queue-item-artist">'+artistHtml+'</div>'+
+      buildNote+
       (q.added_by_name?'<div class="queue-item-added">Added by '+esc(q.added_by_name)+'</div>':"")+
       singerPills+
       '</div>'+

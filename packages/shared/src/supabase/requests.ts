@@ -1,10 +1,15 @@
 import type { KaraokeClient } from './client'
+import type { KaraokeCatalogRow } from './catalog'
 
-// Song requests — a guest who can't find a track in the catalog asks the host
-// to add it. The companion website (docs/js/supabase.js) already implements
-// this; the mobile app and any future client share the data shape + DB write
-// here so every client produces identical `karaoke_song_requests` rows that
-// the desktop Admin page surfaces in realtime.
+// "Add a Song": a guest picks any Spotify track and the host's desktop app
+// builds it into the library automatically (desktop main/autogen.ts: audio →
+// vocal separation → import → tuning pass), with no host approval step. Each
+// add is a `karaoke_song_requests` row; the generator mirrors its progress
+// into the row's generation_* columns. Guests can also sign up for a song
+// before it's built: the queue row waits (the host skips past it) until it
+// lands. The companion website (docs/js/supabase.js) implements the same flow;
+// the mobile app and any future client share the data shape + DB write here
+// so every client produces identical rows.
 //
 // The network search call itself (api.spotify.com) is NOT here: the shared
 // package targets `lib: ["ES2020"]` (no DOM), so `fetch` isn't typed. Each
@@ -76,12 +81,11 @@ export type SubmitSongRequestResult =
   | { status: 'duplicate' }
   | { status: 'error'; message: string }
 
-// Insert a pending row into `karaoke_song_requests`. The desktop Admin page
-// subscribes to this table and surfaces each request with "Add to library" /
-// "Dismiss" actions. A partial unique index on (session_id, track_id) WHERE
-// status='pending' makes a second pending request for the same track raise
-// Postgres 23505 — reported here as 'duplicate' so the UI can say "already
-// requested" rather than surfacing a raw error.
+// Insert a pending row into `karaoke_song_requests`; the host's generator
+// picks it up right away. A partial unique index on (session_id, track_id)
+// WHERE status='pending' makes a second add of a song that's already building
+// raise Postgres 23505, reported here as 'duplicate' ("already on its way").
+// A failed build is resolved as 'dismissed', so the song can be added again.
 export async function submitSongRequest(
   client: KaraokeClient,
   input: SubmitSongRequestInput,
@@ -104,4 +108,93 @@ export async function submitSongRequest(
     return { status: 'error', message: error.message }
   }
   return { status: 'ok' }
+}
+
+// A `karaoke_song_requests` row as guests read it.
+export interface KaraokeSongAddRow {
+  id: string
+  session_id: string
+  track_id: string
+  track_name: string | null
+  track_artist: string | null
+  track_art_url: string | null
+  requested_by_guest_id: string | null
+  requested_by_name: string | null
+  /** pending → added (in the library) | dismissed (build failed, or an old
+   *  host dismissal). */
+  status: 'pending' | 'added' | 'dismissed'
+  generation_status: 'queued' | 'downloading' | 'separating' | 'importing' | 'tuning' | 'ready' | 'failed' | null
+  generation_progress: number | null
+  generation_error: string | null
+  created_at: string
+}
+
+// Every add in the session, newest first. select('*') on purpose: naming the
+// generation_* columns would fail the whole query on a database that predates
+// them (see supabase/migrations/*_song_request_generation.sql).
+export async function listSongAdds(client: KaraokeClient, sessionId: string): Promise<KaraokeSongAddRow[]> {
+  const { data, error } = await client
+    .from('karaoke_song_requests')
+    .select('*')
+    .eq('session_id', sessionId)
+    .order('created_at', { ascending: false })
+    .limit(100)
+  if (error) return []
+  return (data ?? []) as KaraokeSongAddRow[]
+}
+
+// What the host's generator is doing with an add, in guest terms. Mirrors
+// requestView() in docs/js/render/songs.js.
+const BUILD_STAGE_LABELS: Record<string, string> = {
+  queued: 'In line to be built',
+  downloading: 'Grabbing the audio',
+  separating: 'Splitting the vocals from the music',
+  importing: 'Syncing the lyrics',
+  tuning: 'Dialing in the vocal effects',
+}
+
+export interface SongAddView {
+  tone: 'working' | 'ready' | 'failed'
+  label: string
+  /** 0–100 while a stage reports progress, else null. */
+  pct: number | null
+}
+
+export function songAddView(row: KaraokeSongAddRow | undefined): SongAddView {
+  if (!row) return { tone: 'working', label: 'Waiting to start', pct: null }
+  if (row.status === 'added' || row.generation_status === 'ready') {
+    return { tone: 'ready', label: 'In the library', pct: null }
+  }
+  if (row.generation_status === 'failed') {
+    return { tone: 'failed', label: row.generation_error || 'Couldn’t build this one', pct: null }
+  }
+  const label = row.generation_status ? BUILD_STAGE_LABELS[row.generation_status] : undefined
+  if (label) {
+    const pct = row.generation_status !== 'queued' && typeof row.generation_progress === 'number'
+      ? row.generation_progress
+      : null
+    return { tone: 'working', label, pct }
+  }
+  return { tone: 'working', label: 'Waiting to start', pct: null }
+}
+
+// A stand-in catalog row for a track that isn't in the library yet, so the
+// sign-up wizard can run before the song is built. Its parts are unknown
+// (roles: []), so singers skip the parts step; the host assigns parts once the
+// song lands.
+export function catalogRowFromSpotify(track: SpotifyTrackResult, sessionId: string): KaraokeCatalogRow {
+  return {
+    session_id: sessionId,
+    track_id: track.trackId,
+    name: track.name,
+    artist: track.artist,
+    art_url: track.art,
+    album_name: track.album,
+    duration_ms: track.durationMs,
+    roles: [],
+    has_vocals: null,
+    genres: null,
+    offensive_role_indices: null,
+    spotify_data: null,
+  }
 }

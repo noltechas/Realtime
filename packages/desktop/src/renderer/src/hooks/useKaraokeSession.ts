@@ -90,6 +90,57 @@ interface CatalogSong {
     spotifyData?: any
 }
 
+// The library-backed half of a QueueItem, from a catalog song.
+function catalogFields(entry: CatalogSong): Pick<QueueItem, 'track' | 'lyrics' | 'roles' | 'voiceEffects' | 'stemsPath' | 'songPath' | 'backgroundVideoPath'> {
+    return {
+        track: {
+            id: entry.trackId,
+            name: entry.name,
+            artists: [{ name: entry.artist }],
+            album: {
+                name: entry.albumName,
+                images: entry.artUrl ? [{ url: entry.artUrl, width: 300, height: 300 }] : []
+            },
+            duration_ms: entry.durationMs,
+            uri: ''
+        },
+        lyrics: entry.lyrics || [],
+        roles: entry.roles || [],
+        voiceEffects: entry.voiceEffects || DEFAULT_VOICE_EFFECTS,
+        stemsPath: {
+            instrumental: entry.instrumentalPath,
+            vocals: entry.vocalsPath
+        },
+        songPath: null,
+        backgroundVideoPath: entry.youtubeUrl || null,
+    }
+}
+
+// Singers who signed up before a song's parts were known have no roles. Once
+// it lands, spread its parts across them: one singer takes every part; two
+// singers on a duet take one each; extra singers double up from the top.
+function assignRolesIfUnset(singers: QueueItem['singers'], roleCount: number): { singers: QueueItem['singers']; changed: boolean } {
+    if (roleCount === 0 || singers.length === 0) return { singers, changed: false }
+    if (singers.some(s => (s.roleIndices?.length ?? 0) > 0)) return { singers, changed: false }
+    const assigned = singers.map((s, i) => {
+        const roleIndices = singers.length >= roleCount
+            ? [i % roleCount]
+            : Array.from({ length: roleCount }, (_, r) => r).filter(r => r % singers.length === i)
+        return { ...s, roleIndices }
+    })
+    return { singers: assigned, changed: true }
+}
+
+// The karaoke_queue singer_configs shape (same as QueuePage writes).
+function singerConfigsOf(singers: QueueItem['singers']): unknown[] {
+    return singers.map(s => {
+        const cfg: Record<string, unknown> = { color: s.color, colorGlow: s.colorGlow, roleIndices: s.roleIndices ?? [] }
+        if (s.guestId) cfg.guestId = s.guestId; else cfg.name = s.name
+        if (s.oneTimeNwordPassGiftId) cfg.oneTimeNwordPassGiftId = s.oneTimeNwordPassGiftId
+        return cfg
+    })
+}
+
 const OFFENSIVE_WORD_PATTERN = /nigg(?:a|er)s?/i
 
 // Mirrors KaraokePage's role assignment for affected lyric lines so a gift is
@@ -143,29 +194,95 @@ export function useKaraokeSession() {
     // as "unknown track" — the guest's song was silently dropped, and the
     // reconcile pass below then marked its row played.
     const catalogLoadRef = useRef<Promise<void> | null>(null)
-    const reloadCatalog = (): Promise<void> => {
-        if (!catalogLoadRef.current) {
-            catalogLoadRef.current = (window.electronAPI?.listCatalog() ?? Promise.resolve([]))
-                .then((songs: CatalogSong[]) => { if (Array.isArray(songs)) catalogRef.current = songs })
-                .catch((err: unknown) => console.warn('[Karaoke] Failed to load catalog:', err))
-                .finally(() => { catalogLoadRef.current = null })
-        }
-        return catalogLoadRef.current
+    // `fresh` queues a new read behind any load already in flight, for callers
+    // that know the library just changed (an in-flight read may predate it).
+    const reloadCatalog = (fresh = false): Promise<void> => {
+        if (catalogLoadRef.current && !fresh) return catalogLoadRef.current
+        const after = catalogLoadRef.current ?? Promise.resolve()
+        const load: Promise<void> = after
+            .then(() => window.electronAPI?.listCatalog() ?? [])
+            .then((songs: CatalogSong[]) => { if (Array.isArray(songs)) catalogRef.current = songs })
+            .catch((err: unknown) => console.warn('[Karaoke] Failed to load catalog:', err))
+            .finally(() => { if (catalogLoadRef.current === load) catalogLoadRef.current = null })
+        catalogLoadRef.current = load
+        return load
     }
+
+    // ── Pending queue items (signed up before the song was built) ────────────
+    // They sit in the queue as placeholders (see resolveRemoteRow) and are
+    // skipped until their song is in the library; then they're upgraded in
+    // place, keeping votes, lock and position.
+    const queueRef = useRef(state.queue)
+    queueRef.current = state.queue
+    const resolvePendingItems = () => {
+        for (const item of queueRef.current) {
+            if (!item.pending) continue
+            const entry = catalogRef.current.find(s => s.trackId === item.track.id)
+            if (!entry) continue
+            const roles = entry.roles || []
+            const { singers, changed } = assignRolesIfUnset(item.singers, roles.length)
+            const resolved: QueueItem = { ...item, ...catalogFields(entry), singers, pending: false }
+            console.log('[Karaoke] Pending queue item is ready:', entry.name)
+            dispatch({ type: 'RESOLVE_PENDING_QUEUE_ITEM', payload: { item: resolved } })
+            // Tell the guest clients which parts each singer got.
+            if (changed && item.remoteQueueId) {
+                updateQueueRowConfig(item.remoteQueueId, { singerConfigs: singerConfigsOf(singers), stageTheme: item.stageTheme ?? null })
+                    .catch(err => console.warn('[Karaoke] Writing auto-assigned parts failed:', err))
+            }
+        }
+    }
+
     useEffect(() => {
         if (window.electronAPI?.isStageWindow) return
-        void reloadCatalog()
+        void reloadCatalog().then(resolvePendingItems)
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
     // A generated song (autogen) can land mid-session; refresh so a guest who
-    // queues it right away resolves on the first try.
+    // queues it right away resolves on the first try, and so a pending queue
+    // item for it becomes playable.
     useEffect(() => {
         const api = window.electronAPI
         if (api?.isStageWindow || !api?.onAutogenSongReady) return
-        const handler = api.onAutogenSongReady(() => { void reloadCatalog() })
+        const handler = api.onAutogenSongReady(() => { void reloadCatalog(true).then(resolvePendingItems) })
         return () => api.offAutogenSongReady(handler)
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
+
+    // While anything is pending: re-read the library every so often (covers a
+    // song the host imports by hand), and make sure each pending song is
+    // actually being built. Guest clients start the build themselves (a
+    // karaoke_song_requests row), so this only steps in for a placeholder with
+    // no generator job at all, once per track.
+    const hasPending = state.queue.some(q => q.pending)
+    const autoBuiltRef = useRef(new Set<string>())
+    useEffect(() => {
+        if (window.electronAPI?.isStageWindow || !hasPending) return
+        const tick = async () => {
+            await reloadCatalog(true)
+            resolvePendingItems()
+            const api = window.electronAPI
+            if (!api?.autogenStatus) return
+            const status = await api.autogenStatus().catch(() => null)
+            if (!status?.available) return
+            for (const item of queueRef.current) {
+                if (!item.pending || autoBuiltRef.current.has(item.track.id)) continue
+                if (status.jobs.some(j => j.trackId === item.track.id)) continue
+                autoBuiltRef.current.add(item.track.id)
+                console.log('[Karaoke] Building pending queue song:', item.track.name)
+                api.autogenEnqueue({
+                    trackId: item.track.id,
+                    name: item.track.name,
+                    artist: item.track.artists.map(a => a.name).join(', '),
+                    artUrl: item.track.album.images[0]?.url ?? null,
+                    requestedBy: item.addedBy ?? null,
+                }).catch(() => { })
+            }
+        }
+        const first = setTimeout(tick, 10_000)
+        const every = setInterval(tick, 20_000)
+        return () => { clearTimeout(first); clearInterval(every) }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [hasPending])
 
     // Live guest roster. Singers reference guests by id, so the renderer needs
     // each guest's canonical name + avatar to resolve singers at render time
@@ -244,13 +361,12 @@ export function useKaraokeSession() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [state.karaokeSessionId])
 
-    // Helper: resolve a remote queue row into a local QueueItem
-    function resolveRemoteRow(row: any): QueueItem | null {
+    // Helper: resolve a remote queue row into a local QueueItem. A row whose
+    // song isn't in the library yet (a guest signed up for a song they just
+    // added) becomes a pending placeholder built from the row itself, instead
+    // of being dropped, which used to let the reconcile pass mark it played.
+    function resolveRemoteRow(row: any): QueueItem {
         const catalogEntry = catalogRef.current.find(s => s.trackId === row.track_id)
-        if (!catalogEntry) {
-            console.warn('[Karaoke] Remote queue item for unknown track:', row.track_id)
-            return null
-        }
 
         const singerConfigs: any[] = row.singer_configs || []
         const singers = singerConfigs.map((sc: any, i: number) => ({
@@ -271,31 +387,11 @@ export function useKaraokeSession() {
             guestId: sc.guestId || undefined,
         }))
 
-        return {
+        const base = {
             id: `${row.track_id}-${row.id}`,
             stageTheme: row.stage_theme || null,
             isHidden: !!row.is_hidden,
-            track: {
-                id: catalogEntry.trackId,
-                name: catalogEntry.name,
-                artists: [{ name: catalogEntry.artist }],
-                album: {
-                    name: catalogEntry.albumName,
-                    images: catalogEntry.artUrl ? [{ url: catalogEntry.artUrl, width: 300, height: 300 }] : []
-                },
-                duration_ms: catalogEntry.durationMs,
-                uri: ''
-            },
-            lyrics: catalogEntry.lyrics || [],
-            roles: catalogEntry.roles || [],
             singers,
-            voiceEffects: catalogEntry.voiceEffects || DEFAULT_VOICE_EFFECTS,
-            stemsPath: {
-                instrumental: catalogEntry.instrumentalPath,
-                vocals: catalogEntry.vocalsPath
-            },
-            songPath: null,
-            backgroundVideoPath: catalogEntry.youtubeUrl || null,
             addedBy: row.added_by_name || null,
             remoteQueueId: row.id,
             score: row.score ?? 0,
@@ -303,10 +399,34 @@ export function useKaraokeSession() {
             locked: !!row.locked,
             createdAt: row.created_at || new Date().toISOString()
         }
+        if (!catalogEntry) {
+            console.log('[Karaoke] Queued song not in the library yet, waiting for it:', row.track_name || row.track_id)
+            return {
+                ...base,
+                pending: true,
+                // A pending song can't be next-up.
+                locked: false,
+                track: {
+                    id: row.track_id,
+                    name: row.track_name || 'New song',
+                    artists: [{ name: row.track_artist || '' }],
+                    album: { name: '', images: row.track_art_url ? [{ url: row.track_art_url, width: 300, height: 300 }] : [] },
+                    duration_ms: row.track_duration_ms ?? 0,
+                    uri: ''
+                },
+                lyrics: [],
+                roles: [],
+                voiceEffects: DEFAULT_VOICE_EFFECTS,
+                stemsPath: null,
+                songPath: null,
+                backgroundVideoPath: null,
+            }
+        }
+        return { ...base, ...catalogFields(catalogEntry) }
     }
 
     // resolveRemoteRow, reloading the catalog once if the track isn't in it.
-    async function resolveRemoteRowFresh(row: any): Promise<QueueItem | null> {
+    async function resolveRemoteRowFresh(row: any): Promise<QueueItem> {
         if (!catalogRef.current.some(s => s.trackId === row.track_id)) {
             await reloadCatalog()
         }
@@ -757,7 +877,9 @@ export function useKaraokeSession() {
             lockedRemoteIdRef.current = null
             return
         }
-        const top = state.queue[0]
+        // Next-up is the first song that can actually play; a pending one
+        // (still being built) is skipped over.
+        const top = state.queue.find(q => !q.pending)
         if (!top?.remoteQueueId) {
             lockedRemoteIdRef.current = null
             return
@@ -802,6 +924,7 @@ export function useKaraokeSession() {
         const sessionId = state.karaokeSessionId
         if (!sessionId) return
 
+        const pendingNoticeTimers = new Set<ReturnType<typeof setTimeout>>()
         const ch = supabase
             .channel(uniqueChannelName('renderer-requests-' + sessionId))
             .on(
@@ -810,20 +933,33 @@ export function useKaraokeSession() {
                 (payload) => {
                     const row = payload.new as any
                     if (!row?.id) return
-                    window.electronAPI?.sendStageNotice?.({
-                        kind: 'requested',
-                        id: row.id,
-                        title: row.track_name || 'A song',
-                        artist: row.track_artist || '',
-                        artUrl: row.track_art_url || null,
-                        byName: row.requested_by_name || null,
-                        byPicture: row.requested_by_profile_picture || null,
-                    })
+                    // A guest signing up for a brand-new song adds it AND queues
+                    // it a moment later. Hold the "adding" notice briefly and drop
+                    // it if the song shows up in the queue: the queue notice says
+                    // the same thing, and only it knows whether the sign-up is a
+                    // secret song (the add row would print its title on stage).
+                    const timer = setTimeout(() => {
+                        pendingNoticeTimers.delete(timer)
+                        if (queueRef.current.some(q => q.track.id === row.track_id)) return
+                        window.electronAPI?.sendStageNotice?.({
+                            kind: 'requested',
+                            id: row.id,
+                            title: row.track_name || 'A song',
+                            artist: row.track_artist || '',
+                            artUrl: row.track_art_url || null,
+                            byName: row.requested_by_name || null,
+                            byPicture: row.requested_by_profile_picture || null,
+                        })
+                    }, 3000)
+                    pendingNoticeTimers.add(timer)
                 }
             )
             .subscribe()
 
-        return () => { removeChannelTracked(ch) }
+        return () => {
+            pendingNoticeTimers.forEach(clearTimeout)
+            removeChannelTracked(ch)
+        }
     }, [state.karaokeSessionId])
 
     // Sync theme changes to Supabase

@@ -5,6 +5,7 @@ import {
   FlatList,
   RefreshControl,
   Alert,
+  ActivityIndicator,
 } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -19,6 +20,8 @@ import {
   subscribeToQueue,
   listQueue,
   sortQueue,
+  songAddView,
+  type KaraokeCatalogRow,
   type KaraokeQueueRow,
   type KaraokeGuestRow,
 } from '@karaoke/shared'
@@ -30,6 +33,7 @@ import { useTheme, LocalThemeProvider } from '../theme/ThemeContext'
 import { useSession } from '../hooks/useSession'
 import { useSessionGuests } from '../hooks/useSessionGuests'
 import { useCatalog } from '../hooks/useCatalog'
+import { useSongAdds } from '../hooks/useSongAdds'
 import { useForegroundEpoch } from '../hooks/useAppForeground'
 import { supabase } from '../supabase/client'
 
@@ -90,7 +94,10 @@ export function QueueScreen() {
   const { session } = useSession()
   const guests = useSessionGuests()
   const navigation = useNavigation<QueueNav>()
-  const { catalog } = useCatalog(session?.sessionId)
+  const { catalog, loading: catalogLoading, refresh: refreshCatalog } = useCatalog(session?.sessionId)
+  // Songs signed up for before they were built: their add's live progress,
+  // and a catalog refresh when one lands so its row stops showing "Building".
+  const { byTrack: addsByTrack } = useSongAdds(session?.sessionId, () => { void refreshCatalog() })
   const [rows, setRows] = useState<KaraokeQueueRow[]>([])
   const [refreshing, setRefreshing] = useState(false)
   const { votedMap, markVoted } = useVotedMap(session?.sessionCode)
@@ -118,16 +125,33 @@ export function QueueScreen() {
 
   const handleEdit = useCallback(
     (row: KaraokeQueueRow) => {
-      const track = catalog.find((c) => c.track_id === row.track_id)
-      if (!track) {
+      const inLibrary = catalog.find((c) => c.track_id === row.track_id)
+      if (!inLibrary && catalogLoading) {
         Alert.alert(
           "Can't edit yet",
           'The host is still loading the song catalog. Try again in a moment.',
         )
         return
       }
+      // A song still being built isn't in the catalog yet: edit its singers
+      // from the queue row itself (parts get assigned once it lands).
+      const track: KaraokeCatalogRow = inLibrary ?? {
+        session_id: row.session_id,
+        track_id: row.track_id,
+        name: row.track_name,
+        artist: row.track_artist,
+        art_url: row.track_art_url,
+        album_name: null,
+        duration_ms: row.track_duration_ms,
+        roles: [],
+        has_vocals: null,
+        genres: null,
+        offensive_role_indices: null,
+        spotify_data: null,
+      }
       navigation.navigate('Wizard', {
         track,
+        pendingSong: !inLibrary,
         edit: {
           queueRowId: row.id,
           singerConfigs: Array.isArray(row.singer_configs) ? row.singer_configs : [],
@@ -136,7 +160,7 @@ export function QueueScreen() {
         },
       })
     },
-    [catalog, navigation],
+    [catalog, catalogLoading, navigation],
   )
 
   const handleVote = useCallback(
@@ -242,6 +266,9 @@ export function QueueScreen() {
               onVote={handleVote}
               onEdit={handleEdit}
             />
+            {!catalogLoading && !catalog.some((c) => c.track_id === item.track_id) ? (
+              <BuildNote view={songAddView(addsByTrack.get(item.track_id))} />
+            ) : null}
           </LocalThemeProvider>
         )}
       />
@@ -270,3 +297,22 @@ function RowItem(props: {
   )
 }
 
+// Under a queued song that isn't in the library yet: how its build is going.
+// The host skips past it until it lands, then it plays in its turn.
+function BuildNote({ view }: { view: ReturnType<typeof songAddView> }) {
+  const { tokens, ui } = useTheme()
+  const failed = view.tone === 'failed'
+  const text = failed
+    ? 'Couldn’t build this song'
+    : view.tone === 'ready'
+      ? 'Built, loading it in'
+      : `Building · ${view.label}${view.pct != null ? ` · ${view.pct}%` : ''}`
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 6, paddingTop: 6 }}>
+      {failed ? null : <ActivityIndicator size="small" color={tokens.muted} style={{ marginRight: 8, transform: [{ scale: 0.8 }] }} />}
+      <Text style={[ui.styles.muted, { fontSize: 12, color: failed ? tokens.hotRed : tokens.muted, flex: 1 }]} numberOfLines={1}>
+        {text}
+      </Text>
+    </View>
+  )
+}

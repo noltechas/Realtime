@@ -1,5 +1,5 @@
 import { S, GENRE_ORDER } from '../state.js';
-import { esc, fmtD, addedLabel } from '../utils.js';
+import { esc, fmtD } from '../utils.js';
 
 export function computeGenreCounts(){
   var counts={};
@@ -54,8 +54,8 @@ export function renderRequestCta(){
       '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'+
     '</span>'+
     '<span class="request-song-cta-body">'+
-      '<span class="request-song-cta-title">Request a Song to be Added</span>'+
-      '<span class="request-song-cta-sub">Anything on Spotify. New songs build themselves in a few minutes.</span>'+
+      '<span class="request-song-cta-title">Add a Song</span>'+
+      '<span class="request-song-cta-sub">Anything on Spotify. Sign up for it right away and it builds itself in a few minutes.</span>'+
     '</span>'+
     '<span class="request-song-cta-chevron">'+
       '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>'+
@@ -106,11 +106,11 @@ export function renderRequest(){
   var disabled=!S.spotifyToken;
   var body="";
   if(disabled){
-    body='<div class="req-disabled-note">Song requests aren’t available right now. The host needs to be on the Admin page so the song search is live. Try again in a minute.</div>';
+    body='<div class="req-disabled-note">Adding songs isn’t available right now. Try again in a minute.</div>';
   }else if(S.requestSearching){
     body='<div class="req-loading"><div class="spinner"></div></div>';
   }else if(!(S.requestQuery||"").trim()){
-    body='<div class="req-empty">Start typing to search the full Spotify catalog.</div>';
+    body='<div class="req-empty">Search all of Spotify. Tap a song to sign up for it.</div>';
   }else if(S.requestResults.length===0){
     body='<div class="req-empty">No results on Spotify. Try a different spelling.</div>';
   }else{
@@ -120,7 +120,7 @@ export function renderRequest(){
       var art=t.art?'<img src="'+esc(t.art)+'" alt="" loading="lazy">':'<div class="song-card-placeholder">&#127925;</div>';
       var overlay;
       if(inCatalog){
-        overlay='<span class="song-card-added">'+esc(addedLabel())+'</span>';
+        overlay='<span class="song-card-added">In library</span>';
       }else{
         var plusInner=submitting?
           '<div class="spinner" role="presentation"></div>':
@@ -129,10 +129,11 @@ export function renderRequest(){
       }
       var dur=(typeof t.duration_ms==="number"&&t.duration_ms>0)?
         '<div class="song-card-dur">'+fmtD(t.duration_ms)+'</div>':'';
-      var attrs='';
+      // Every result opens the sign-up wizard; one already in the library is
+      // just a normal sign-up.
+      var attrs=' role="button" tabindex="0"';
       if(submitting)attrs+=' data-req-busy="1"';
-      if(inCatalog)attrs+=' data-req-added="1" aria-disabled="true"';
-      else attrs+=' role="button" tabindex="0"';
+      if(inCatalog)attrs+=' data-req-added="1"';
       return '<div class="song-card" data-req-track="'+esc(t.trackId)+'"'+attrs+'>'+
         '<div class="song-card-art-wrap">'+
           art+
@@ -156,8 +157,8 @@ export function renderRequest(){
         '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>'+
         'Back to Songs'+
       '</button>'+
-      '<div class="req-title">Request a Song</div>'+
-      '<div class="req-sub">Pick anything on Spotify. New songs usually build themselves in a few minutes, and you\u2019ll get a heads-up when yours is ready.</div>'+
+      '<div class="req-title">Add a Song</div>'+
+      '<div class="req-sub">Pick anything on Spotify and sign up for it right away. New songs build themselves in a few minutes and play as soon as they\u2019re ready.</div>'+
       inputHtml+
     '</div>'+
     '<div id="req-mine">'+renderMyRequests()+'</div>'+
@@ -165,7 +166,7 @@ export function renderRequest(){
   '</div>';
 }
 
-// What the host's generator is doing with a request, in guest terms.
+// What the host's generator is doing with an added song, in guest terms.
 var GEN_LABELS={
   queued:"In line to be built",
   downloading:"Grabbing the audio",
@@ -174,23 +175,40 @@ var GEN_LABELS={
   tuning:"Dialing in the vocal effects"
 };
 function requestView(r){
-  if(r.status==="dismissed")return{label:"The host passed on this one",tone:"muted"};
-  if(r.status==="added"||r.generation_status==="ready")return{label:"Ready to sing, tap to open",tone:"ready"};
+  if(r.status==="added"||r.generation_status==="ready")return{label:"In the library, tap to sing it",tone:"ready"};
   if(r.generation_status==="failed")return{label:r.generation_error||"Couldn\u2019t build this one",tone:"failed"};
   if(r.generation_status&&GEN_LABELS[r.generation_status]){
     var pct=typeof r.generation_progress==="number"?r.generation_progress:null;
     return{label:GEN_LABELS[r.generation_status],tone:"working",pct:r.generation_status==="queued"?null:pct};
   }
-  return{label:"Waiting for the host",tone:"muted"};
+  return{label:"Waiting to start",tone:"working",pct:null};
+}
+// A queued song that isn't in the library yet: how its build is going, from
+// the newest add for that track (anyone's). null once the song has landed.
+export function buildState(trackId){
+  if(S.catalog.some(function(c){return c.track_id===trackId;}))return null;
+  var row=S.songAdds&&S.songAdds[trackId];
+  if(!row)return{label:"Waiting to start",tone:"working",pct:null};
+  if(row.status==="added"||row.generation_status==="ready")return{label:"Loading into the library",tone:"working",pct:null};
+  return requestView(row);
+}
+// Inner HTML of a queue row's build note (patched in place on progress ticks).
+export function buildNoteInner(trackId){
+  var v=buildState(trackId);
+  if(!v)return "";
+  if(v.tone==="failed")return '<span class="qb-label">Couldn\u2019t build this song</span>';
+  return '<span class="req-mine-dot"></span><span class="qb-label">Building \u00b7 '+esc(v.label)+'</span>'+
+    (v.pct!=null?'<span class="qb-pct">'+v.pct+'%</span>':'');
 }
 // The guest's recent requests with live build progress. Re-rendered in
 // place (see setMyRequestsPatcher) so progress ticks don't steal focus from
 // the search box.
 export function renderMyRequests(){
+  // Rows a host dismissed by hand (before adds built themselves) are noise now.
   var rows=(S.myRequests||[]).filter(function(r){return r.status!=="dismissed"||r.generation_status;});
   if(rows.length===0)return "";
   return '<div class="req-mine">'+
-    '<div class="req-mine-label">Your requests</div>'+
+    '<div class="req-mine-label">Songs you added</div>'+
     rows.map(function(r){
       var v=requestView(r);
       var ready=v.tone==="ready"&&S.catalog.some(function(c){return c.track_id===r.track_id;});

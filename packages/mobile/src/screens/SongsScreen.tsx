@@ -19,6 +19,7 @@ import type { RootStackParamList, SessionTabsParamList } from '../navigation/typ
 import { useTheme } from '../theme/ThemeContext'
 import { useSession } from '../hooks/useSession'
 import { useCatalog } from '../hooks/useCatalog'
+import { useSongAdds } from '../hooks/useSongAdds'
 
 type SongsNav = CompositeNavigationProp<
   BottomTabNavigationProp<SessionTabsParamList, 'Songs'>,
@@ -35,6 +36,8 @@ export function SongsScreen() {
   const navigation = useNavigation<SongsNav>()
   const { session } = useSession()
   const { catalog, loading, refresh } = useCatalog(session?.sessionId)
+  // A song someone added just landed: show it without a pull-to-refresh.
+  useSongAdds(session?.sessionId, () => { void refresh() })
 
   const [query, setQuery] = useState('')
   const [genre, setGenre] = useState('All Songs')
@@ -56,7 +59,7 @@ export function SongsScreen() {
     [session, navigation],
   )
 
-  // Open the "request a song to be added" modal, seeding its Spotify search
+  // Open "Add a Song" (search all of Spotify and sign up), seeding its search
   // with whatever the guest had typed into the catalog filter.
   const onRequestSong = useCallback(() => {
     if (!session) return
@@ -150,7 +153,7 @@ export function SongsScreen() {
                   Can't find your song?
                 </Text>
                 <ui.Button
-                  label="Request a song to be added"
+                  label="Add a song"
                   variant="outline"
                   onPress={onRequestSong}
                 />
@@ -174,12 +177,12 @@ export function SongsScreen() {
               </Text>
               <Text style={[ui.styles.muted, { textAlign: 'center', marginBottom: 18 }]}>
                 {query
-                  ? 'Not in the library yet. Ask the host to add it.'
-                  : 'Ask the host to add some songs from their desktop app.'}
+                  ? 'Not in the library yet. Add it from Spotify and sign up right away.'
+                  : 'Add any song from Spotify. It builds itself in a few minutes.'}
               </Text>
               <View style={{ alignSelf: 'stretch' }}>
                 <ui.Button
-                  label="Request a song to be added"
+                  label="Add a song"
                   variant="outline"
                   onPress={onRequestSong}
                 />

@@ -82,14 +82,9 @@ interface AutogenJob {
     finishedAt?: number
 }
 
-interface AutogenSettings {
-    autoGenerateRequests: boolean
-}
-
 interface AutogenStatus {
     available: boolean
     unavailableReason?: string
-    settings: AutogenSettings
     jobs: AutogenJob[]
 }
 
@@ -155,7 +150,6 @@ interface ElectronAPI {
     autogenCancel: (trackId: string) => Promise<void>
     autogenRetry: (trackId: string) => Promise<void>
     autogenDismiss: (trackId: string) => Promise<void>
-    autogenSetSettings: (next: Partial<AutogenSettings>) => Promise<AutogenStatus>
     onAutogenUpdate: (callback: (status: AutogenStatus) => void) => any
     offAutogenUpdate: (handler: any) => void
     onAutogenSongReady: (callback: (trackId: string) => void) => any

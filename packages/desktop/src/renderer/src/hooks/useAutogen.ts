@@ -25,10 +25,6 @@ export function useAutogen() {
         window.electronAPI.autogenEnqueue(input).then(setStatus).catch(() => { })
     }, [])
 
-    const setAutoGenerate = useCallback((on: boolean) => {
-        window.electronAPI.autogenSetSettings({ autoGenerateRequests: on }).then(setStatus).catch(() => { })
-    }, [])
-
     return {
         status,
         jobFor,
@@ -36,7 +32,6 @@ export function useAutogen() {
         cancel: (trackId: string) => window.electronAPI.autogenCancel(trackId),
         retry: (trackId: string) => window.electronAPI.autogenRetry(trackId),
         dismiss: (trackId: string) => window.electronAPI.autogenDismiss(trackId),
-        setAutoGenerate,
     }
 }
 

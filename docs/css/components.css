@@ -476,7 +476,7 @@ body:has(.emoji-picker-overlay, .meme-picker-overlay, .text-input-overlay, .skip
   padding: 22px 12px; font-size: 12px; color: var(--white-faint);
 }
 
-/* Request-a-song CTA — sits at the end of the grid, full width. */
+/* "Add a Song" CTA: sits at the end of the grid, full width. */
 .request-song-cta {
   grid-column: 1 / -1;
   display: flex; align-items: center; gap: 14px;
@@ -504,7 +504,7 @@ body:has(.emoji-picker-overlay, .meme-picker-overlay, .text-input-overlay, .skip
 .request-song-cta-chevron { color: var(--white-faint); display: flex; }
 
 /* --------------------------------------------------------------------------
-   Request screen
+   Add a Song screen
    -------------------------------------------------------------------------- */
 .req-header {
   position: sticky; top: 0; z-index: 10;
@@ -587,7 +587,7 @@ body:has(.emoji-picker-overlay, .meme-picker-overlay, .text-input-overlay, .skip
 .req-confirm--tap { cursor: pointer; }
 .req-confirm--tap:active { transform: scale(0.98); }
 
-/* "Your requests" — live build progress from the host's song generator */
+/* "Songs you added": live build progress from the host's song generator */
 .req-mine { padding: 16px 20px 0; }
 .req-mine-label {
   font-family: var(--font-display); font-weight: 700; font-size: 11px;
@@ -709,6 +709,19 @@ body:has(.emoji-picker-overlay, .meme-picker-overlay, .text-input-overlay, .skip
 .wiz-song-banner-artist {
   font-size: 12px; color: var(--white-muted); margin-top: 1px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* "New to the library": signing up for a song from Add a Song */
+.wiz-new-note {
+  margin: -8px 20px 18px; padding: 11px 13px;
+  border-radius: 14px; border: 1px dashed var(--hairline);
+  background: var(--surface-2);
+  font-size: 12.5px; line-height: 1.45; color: var(--white-muted);
+}
+.wiz-new-note-title { font-weight: 700; color: var(--amber); margin-bottom: 2px; }
+.wiz-new-note-link {
+  margin-top: 8px; padding: 0; border: 0; background: none;
+  font: inherit; font-weight: 600; color: var(--white); text-decoration: underline;
+  text-underline-offset: 3px; cursor: pointer;
 }
 
 .wiz-hero {
@@ -1112,6 +1125,17 @@ body:has(.emoji-picker-overlay, .meme-picker-overlay, .text-input-overlay, .skip
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .queue-item-added { font-size: 10.5px; color: var(--white-faint); margin-top: 3px; }
+/* Signed up before the song was in the library: it's building, and the host
+   skips past it until it lands. */
+.queue-item-build {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 5px; font-size: 11px; font-weight: 600; color: var(--amber);
+  min-width: 0;
+}
+.queue-item-build .qb-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.queue-item-build .qb-pct { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--white-faint); font-weight: 500; }
+.queue-item-build--failed { color: var(--red); }
+.queue-item--building > img { filter: saturate(0.55) brightness(0.8); }
 .queue-singer-pills { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
 .queue-singer-pill {
   display: inline-flex; align-items: center; gap: 6px;
