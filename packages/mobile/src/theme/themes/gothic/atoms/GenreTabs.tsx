@@ -12,7 +12,7 @@ import { ASH, CANDLE, CandleWax, FLAME, Flame, PEWTER, gothic, serif, useFlicker
 // while the last one is put out and smokes. The tray runs unbroken behind every
 // candle, and the name of each is cut into the tray's front edge.
 
-const STAND_H = 52 // room for the tallest candle, its flame and its cup
+const STAND_H = 50 // room for the tallest candle, its flame and its cup
 const TRAY_H = 9
 const MIN_W = 58
 
@@ -22,7 +22,11 @@ export function GenreTabs({ list, counts, value, onChange }: GenreTabsProps) {
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 4, paddingBottom: 10 }}
+      // A ScrollView shrinks by default, and on the Songs screen the grid below
+      // takes every spare pixel, so without this the stand gets squeezed shorter
+      // than its content and the genre names under the tray are clipped.
+      style={{ flexGrow: 0, flexShrink: 0 }}
+      contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 2, paddingBottom: 6 }}
     >
       <View style={{ flexDirection: 'row' }}>
         {list.map((genre, i) => (
