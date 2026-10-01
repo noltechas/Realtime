@@ -5,6 +5,13 @@
  * Uses `file://` URLs which work directly with <audio> elements in Electron.
  */
 
+import { FILL_FADE_MS, FillSegment, inFillSegment } from './fillVocals'
+
+const FILL_TICK_MS = 25
+// Media currentTime is quantized to the audio callback (~25-50 ms), so two
+// perfectly aligned elements can read up to ~30 ms apart.
+const FILL_SYNC_TOLERANCE_S = 0.045
+
 export class AudioEngine {
     private audio: HTMLAudioElement
     // The vocal `<audio>` element is created lazily on the first song with
@@ -33,6 +40,26 @@ export class AudioEngine {
     // elements so they can't resolve a stale (superseded) load Promise.
     private _loadAbort: AbortController | null = null
 
+    // Fill-in vocals: a second copy of the vocal stem on the MAIN output,
+    // gated open only during the parts no singer claimed (fillVocals.ts) — so
+    // a duet with one guest still has the other part sung by the artist. It's
+    // part of the song mix (follows the track volume and Track Out), unlike
+    // vocalAudio, which is the singer's guide on the Vocal Out device.
+    private fillAudio: HTMLAudioElement | null = null
+    private _fillSegments: FillSegment[] = []
+    private _fillGain = 0
+    // Consecutive ticks the fill element has tracked the main track within
+    // tolerance. A just-started/just-seeked element reports the right
+    // currentTime before it's actually moving, so one in-sync reading isn't
+    // proof — the gate only opens after a few in a row.
+    private _fillSyncTicks = 0
+    // Consecutive advanced ticks the fill element has read out of step.
+    private _fillLagTicks = 0
+    private _lastFillPos = -1
+    private _fillTimer: ReturnType<typeof setInterval> | null = null
+    private _trackVolume = 1
+    private _mainSinkId = ''
+
     constructor() {
         this.audio = new Audio()
         this.audio.preload = 'auto'
@@ -51,6 +78,7 @@ export class AudioEngine {
 
         this.audio.addEventListener('ended', () => {
             this._intendedPlayState = false // Don't let pause handler restart when track ends naturally
+            this._stopFill()
             if (this.onTimeUpdate) {
                 this.onTimeUpdate(this.durationMs)
             }
@@ -135,9 +163,23 @@ export class AudioEngine {
                 this.vocalAudio.muted = true
             }
 
+            this._stopFill()
+            if (stems.vocals) {
+                if (!this.fillAudio) {
+                    this.fillAudio = new Audio()
+                    this.fillAudio.preload = 'auto'
+                    this.fillAudio.volume = 0
+                    if (this._mainSinkId) this._applySink(this.fillAudio, this._mainSinkId)
+                }
+                this.fillAudio.src = toFileUrl(stems.vocals)
+            } else if (this.fillAudio) {
+                this.fillAudio.removeAttribute('src')
+            }
+
             const elementsToWait: HTMLAudioElement[] = []
             if (stems.instrumental) elementsToWait.push(this.audio)
             if (this.vocalAudio && this._hasVocals) elementsToWait.push(this.vocalAudio)
+            if (this.fillAudio && this._hasVocals) elementsToWait.push(this.fillAudio)
 
             if (elementsToWait.length === 0) {
                 this._loaded = true
@@ -165,7 +207,7 @@ export class AudioEngine {
                 audioEl.addEventListener('canplaythrough', onReady, { once: true, signal })
                 audioEl.addEventListener('error', () => {
                     if (done || signal.aborted) return
-                    if (audioEl === this.vocalAudio) {
+                    if (audioEl === this.vocalAudio || audioEl === this.fillAudio) {
                         // The guide vocal is optional — a broken vocals file
                         // must not stop the instrumental from playing.
                         console.warn(`[AudioEngine] Vocal stem failed to load, continuing without it: ${audioEl.src}`)
@@ -206,6 +248,7 @@ export class AudioEngine {
                 this._syncVocalToOffset()
                 this.vocalAudio.play().catch(() => { })
             }
+            this._startFill()
         }
     }
 
@@ -213,6 +256,7 @@ export class AudioEngine {
         this._intendedPlayState = false
         this.audio.pause()
         if (this.vocalAudio) this.vocalAudio.pause()
+        this._stopFill()
     }
 
     seek(timeMs: number) {
@@ -222,12 +266,33 @@ export class AudioEngine {
             const vocalT = Math.max(0, t + this._vocalOffsetMs / 1000)
             this.vocalAudio.currentTime = Math.min(vocalT, this.vocalAudio.duration || vocalT)
         }
+        if (this.fillAudio && this._fillActive()) {
+            this.fillAudio.currentTime = Math.min(t, this.fillAudio.duration || t)
+            // Shut the gate across the jump; the tick reopens it (with a fade)
+            // once both elements are playing in step at the new position.
+            this._fillGain = 0
+            this._fillSyncTicks = 0
+            this._fillLagTicks = 0
+            this._applyFillVolume()
+        }
         if (this.onTimeUpdate) this.onTimeUpdate(t * 1000)
     }
 
     setVolume(vol: number) {
         const clamped = Math.max(0, Math.min(1, vol))
         this.audio.volume = clamped
+        this._trackVolume = clamped
+        this._applyFillVolume()
+    }
+
+    /** Parts nobody claimed, as time ranges (computeFillSegments). [] turns fill-in off. */
+    setFillSegments(segments: FillSegment[]) {
+        this._fillSegments = segments
+        if (!this._fillActive()) {
+            this._stopFill()
+            return
+        }
+        if (this._intendedPlayState && this._loaded) this._startFill()
     }
 
     setVocalVolume(vol: number) {
@@ -238,9 +303,97 @@ export class AudioEngine {
     }
 
     setMainSinkId(deviceId: string) {
+        this._mainSinkId = deviceId
         if (typeof (this.audio as any).setSinkId === 'function') {
             ; (this.audio as any).setSinkId(deviceId).catch((e: any) => console.warn('Failed to set main sinkId', e))
         }
+        // Fill-in vocals are part of the song mix: same device as the track.
+        if (this.fillAudio) this._applySink(this.fillAudio, deviceId)
+    }
+
+    private _applySink(el: HTMLAudioElement, deviceId: string) {
+        const e = el as unknown as { setSinkId?: (id: string) => Promise<void>; sinkId?: string }
+        if (typeof e.setSinkId !== 'function' || e.sinkId === deviceId) return
+        e.setSinkId(deviceId).catch((err: unknown) => console.warn('Failed to set fill-in sinkId', err))
+    }
+
+    private _fillActive(): boolean {
+        return !!this.fillAudio && this._hasVocals && this._fillSegments.length > 0
+    }
+
+    private _applyFillVolume() {
+        if (this.fillAudio) this.fillAudio.volume = Math.max(0, Math.min(1, this._trackVolume * this._fillGain))
+    }
+
+    private _startFill() {
+        if (!this.fillAudio || !this._fillActive() || !this._intendedPlayState) return
+        const t = this.audio.currentTime
+        this.fillAudio.currentTime = Math.min(t, this.fillAudio.duration || t)
+        // Start shut: play() takes tens of ms to get going, so opening at once
+        // would put the vocal audibly behind the track. The tick opens it once
+        // the two are in sync.
+        this._fillGain = 0
+        this._fillSyncTicks = 0
+        this._fillLagTicks = 0
+        this._applyFillVolume()
+        this.fillAudio.play().catch(() => { })
+        if (!this._fillTimer) this._fillTimer = setInterval(() => this._tickFill(), FILL_TICK_MS)
+    }
+
+    private _stopFill() {
+        if (this._fillTimer) {
+            clearInterval(this._fillTimer)
+            this._fillTimer = null
+        }
+        this._fillGain = 0
+        if (this.fillAudio) {
+            this.fillAudio.pause()
+            this.fillAudio.volume = 0
+        }
+    }
+
+    // Runs every FILL_TICK_MS while playing (both windows disable background
+    // throttling, so this keeps time even when the main window is hidden).
+    private _tickFill() {
+        const fill = this.fillAudio
+        if (!fill || !this._intendedPlayState || !this._fillActive()) return
+        if (fill.paused && !this.audio.paused) fill.play().catch(() => { })
+        const t = this.audio.currentTime
+        // Sync is judged only on ticks where the fill element's clock actually
+        // advanced: media currentTime updates in ~25-50 ms steps, so on many
+        // ticks it hasn't moved yet (neutral, not "out of sync"). A starting or
+        // seeking element isn't judged at all — re-seeking it then just
+        // restarts its wait.
+        const moved = fill.currentTime !== this._lastFillPos
+        this._lastFillPos = fill.currentTime
+        if (fill.paused || fill.seeking || fill.readyState < 3) {
+            this._fillSyncTicks = 0
+        } else if (moved) {
+            const drift = Math.abs(fill.currentTime - t)
+            if (drift <= FILL_SYNC_TOLERANCE_S) {
+                this._fillSyncTicks++
+                this._fillLagTicks = 0
+            } else {
+                this._fillSyncTicks = 0
+                this._fillLagTicks++
+                // Re-align while the gate is shut (inaudible); only force it
+                // mid-phrase if the drift is obvious.
+                if (this._fillGain === 0 || drift > 0.2) fill.currentTime = Math.min(t, fill.duration || t)
+            }
+        }
+        // Never let an out-of-step vocal be heard — that's an echo. Opening
+        // needs a stable in-sync stretch (an element started on its own can
+        // look aligned for a moment, then lag by its startup latency); a lag
+        // that shows up while open dips the gate, re-aligns while silent
+        // (above), and reopens.
+        const wantOpen = inFillSegment(this._fillSegments, t * 1000)
+        const lagging = this._fillLagTicks >= 3
+        const target = wantOpen && !lagging && (this._fillGain > 0 || this._fillSyncTicks >= 5) ? 1 : 0
+        const step = FILL_TICK_MS / FILL_FADE_MS
+        this._fillGain = target > this._fillGain
+            ? Math.min(target, this._fillGain + step)
+            : Math.max(target, this._fillGain - step)
+        this._applyFillVolume()
     }
 
     setVocalSinkId(deviceId: string) {
@@ -312,6 +465,8 @@ export class AudioEngine {
         this.onEnded = null
         this.audio.removeAttribute('src')
         this.audio.load() // resets the element
+        this._fillSegments = []
+        if (this.fillAudio) this.fillAudio.removeAttribute('src')
         if (this.vocalAudio) {
             // **Keep the element alive across song boundaries.** Pause + clear
             // src, but don't null the reference and don't call .load() with

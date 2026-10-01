@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useApp } from '../context/AppContext'
 import { getEngine } from '../audio/playback'
+import { computeFillSegments } from '../audio/fillVocals'
 import { useAudioDevices, parseDeviceId } from './useAudioDevices'
 
 export interface AudioSyncState {
@@ -148,6 +149,21 @@ export function useAudioSync(): AudioSyncState {
             setLoaded(true)
         }).catch(err => console.error('[AudioSync] Audio load failed:', err))
     }, [stemsKey, monitorDeviceIdsStr, track?.duration_ms, state.vocalOffsetMs, dispatch, handleSongEnded])
+
+    // Fill-in vocals: the parts nobody claimed, recomputed when the singers'
+    // role picks (or the song's lyrics/roles) change. Applied once the song is
+    // loaded — load() clears the previous song's segments.
+    const fillKey = state.fillVocals && np && np.stemsPath?.vocals
+        ? JSON.stringify([np.id, np.roles, (np.singers || []).map(s => s.roleIndices ?? null), np.lyrics?.length ?? 0])
+        : ''
+    useEffect(() => {
+        if (isStage) return
+        const segments = fillKey && loaded && np
+            ? computeFillSegments(np.lyrics, np.roles, np.singers)
+            : []
+        getEngine().setFillSegments(segments)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [fillKey, loaded, isStage])
 
     // Keep vocal offset in sync
     useEffect(() => {

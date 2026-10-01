@@ -155,6 +155,8 @@ export interface AppState {
     duration: number
     volume: number
     vocalVolume: number
+    /** Original artist sings the parts no singer claimed (audio/fillVocals.ts). */
+    fillVocals: boolean
     stageMode: StageMode
     // Processing
     processingStatus: ProcessingStatus
@@ -314,6 +316,15 @@ function loadLobbyPrefs(): LobbyPrefs {
 }
 const savedLobbyPrefs = loadLobbyPrefs()
 
+function loadFillVocals(): boolean {
+    try {
+        if (typeof localStorage === 'undefined') return true
+        return localStorage.getItem('fillVocals') !== '0'
+    } catch {
+        return true
+    }
+}
+
 const initialState: AppState = {
     spotifyToken: null,
     currentTrack: null,
@@ -330,6 +341,7 @@ const initialState: AppState = {
     duration: 0,
     volume: 0.8,
     vocalVolume: 1.0,
+    fillVocals: loadFillVocals(),
     stageMode: 'idle',
     processingStatus: { stage: 'idle', progress: 0, message: '' },
     stemsPath: null,
@@ -378,6 +390,7 @@ type Action =
     | { type: 'SET_DURATION'; payload: number }
     | { type: 'SET_VOLUME'; payload: number }
     | { type: 'SET_VOCAL_VOLUME'; payload: number }
+    | { type: 'SET_FILL_VOCALS'; payload: boolean }
     | { type: 'SET_PROCESSING'; payload: ProcessingStatus }
     | { type: 'SET_STEMS_PATH'; payload: { vocals?: string; instrumental?: string } }
     | { type: 'SET_SONG_PATH'; payload: string }
@@ -662,6 +675,8 @@ function reducer(state: AppState, action: Action): AppState {
             return { ...state, volume: action.payload }
         case 'SET_VOCAL_VOLUME':
             return { ...state, vocalVolume: action.payload }
+        case 'SET_FILL_VOCALS':
+            return { ...state, fillVocals: action.payload }
         case 'SET_PROCESSING':
             return { ...state, processingStatus: action.payload }
         case 'SET_STEMS_PATH':
@@ -1070,6 +1085,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
             }))
         } catch { /* localStorage may be unavailable; ignore */ }
     }, [state.lobbyMode, state.lobbyCycleThemes])
+
+    useEffect(() => {
+        if (window.electronAPI?.isStageWindow) return
+        try { localStorage.setItem('fillVocals', state.fillVocals ? '1' : '0') } catch { /* ignore */ }
+    }, [state.fillVocals])
 
     // Persist the per-device vocal offset map across app restarts.
     useEffect(() => {

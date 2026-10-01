@@ -5,7 +5,8 @@ import { getEngine } from '../audio/playback'
 import { VoiceEffects } from '../audio/VoiceEffectsTypes'
 import { useAudioDevices } from '../hooks/useAudioDevices'
 import { VocalOffsetCalibrator } from '../components/VocalOffsetCalibrator'
-import { ArtTile, Button, Card, Fader, Icon, Led, PageHeader, Select, Spinner } from '../components/ui'
+import { ArtTile, Button, Card, Fader, Icon, Led, PageHeader, Select, Spinner, Toggle } from '../components/ui'
+import { computeFillSegments } from '../audio/fillVocals'
 import { LobbyModeBanner } from '../components/LobbyModeCard'
 
 function formatTime(ms: number): string {
@@ -199,6 +200,12 @@ function AudioMixPanel() {
     const voiceEffects = np?.voiceEffects || null
     const hasVocals = !!np?.stemsPath?.vocals
     const vocalOutputId = state.monitorDeviceIds.length > 0 ? state.monitorDeviceIds[0] : ''
+    // Parts the original artist will sing for this song (roles with lines,
+    // nobody picked them) — empty when every part is taken.
+    const fillRoles = hasVocals && np && computeFillSegments(np.lyrics, np.roles, np.singers).length > 0
+        ? (np.roles || []).filter((_, ri) =>
+            !singers.some(s => s.roleIndices?.includes(ri)) && (np.lyrics || []).some(l => l.roleIndex === ri))
+        : []
 
     // Show all persisted mic slots, at least as many as current singers, plus
     // one empty row to add another. Every configured mic stays live during a
@@ -285,6 +292,26 @@ function AudioMixPanel() {
                         />
                         <span className="adm-mono" style={{ fontSize: 10.5, color: 'var(--adm-text-3)', minWidth: 34, textAlign: 'right' }}>
                             {Math.round((state.vocalVolume ?? 1.0) * 100)}%
+                        </span>
+                    </div>
+                </div>
+
+                {/* Fill-in vocals */}
+                <div style={{ ...rowStyle, opacity: hasVocals ? 1 : 0.4 }}>
+                    <div style={{ ...labelStyle, color: 'var(--adm-text)' }}>Fill-in Parts</div>
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                        <Toggle
+                            on={state.fillVocals}
+                            disabled={!hasVocals}
+                            onToggle={() => dispatch({ type: 'SET_FILL_VOCALS', payload: !state.fillVocals })}
+                            title="Original artist sings the parts nobody picked"
+                        />
+                        <span style={{ fontSize: 11.5, color: 'var(--adm-text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {!state.fillVocals
+                                ? 'Off: unclaimed parts play instrumental only'
+                                : fillRoles.length > 0
+                                    ? `Original vocals for ${fillRoles.join(', ')}`
+                                    : 'Original artist sings any part nobody picked'}
                         </span>
                     </div>
                 </div>
