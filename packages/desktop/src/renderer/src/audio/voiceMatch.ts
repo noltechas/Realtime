@@ -41,8 +41,10 @@ export interface VoiceMatchResult<T> {
 }
 
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+/** Nearest note name. Measured pitches are fractional MIDI, so round first. */
 export function noteName(midi: number): string {
-    return `${NOTE_NAMES[((midi % 12) + 12) % 12]}${Math.floor(midi / 12) - 1}`
+    const n = Math.round(midi)
+    return `${NOTE_NAMES[((n % 12) + 12) % 12]}${Math.floor(n / 12) - 1}`
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
@@ -131,9 +133,9 @@ export function applyVoiceMatch<T extends MatchableEffects>(
     const pr = part?.range, sr = singer.range
     if (pr && sr) {
         if (pr.medianMidi > sr.highMidi) {
-            rangeHint = `This part centers on ${noteName(pr.medianMidi)}, above the highest note in your voice check (${noteName(sr.highMidi)}) — try it an octave down.`
+            rangeHint = `This part centers on ${noteName(pr.medianMidi)}, above the highest note in your voice check (${noteName(sr.highMidi)}). Try it an octave down.`
         } else if (pr.medianMidi < sr.lowMidi) {
-            rangeHint = `This part centers on ${noteName(pr.medianMidi)}, below your lowest note (${noteName(sr.lowMidi)}) — try it an octave up.`
+            rangeHint = `This part centers on ${noteName(pr.medianMidi)}, below your lowest note (${noteName(sr.lowMidi)}). Try it an octave up.`
         }
     }
     return { effects: out, notes, rangeHint }

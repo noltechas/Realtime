@@ -4,17 +4,37 @@ import type { AudioInputDevice } from '../hooks/useAudioDevices'
 import { parseDeviceId } from '../hooks/useAudioDevices'
 import { useVoiceProfiles } from '../hooks/useVoiceMatch'
 import { noteName } from '../audio/voiceMatch'
+import { createCaptureNode } from '../audio/captureWorklet'
+import {
+    PitchTracker, VOICE_CHECK_SECONDS, VOICE_CHECK_STEPS, detectPitch, hzToMidi, stepAt,
+    type VoiceCheckResult, type VoiceCheckUpdate,
+} from '../audio/voiceCheckScript'
 
-// Voice check: a singer sings ~20 s into a karaoke mic; the take is measured
-// (range, pitch steadiness, tone, level) and saved under their name, so the
-// stage can tune their mic to each song's part (audio/voiceMatch.ts).
+// Voice check: a singer follows a guided ~30 s script (audio/voiceCheckScript.ts)
+// into a karaoke mic while the stage shows them exactly what to sing
+// (VoiceCheckStage.tsx, fed live pitch from here). The take is measured (range,
+// pitch steadiness, tone, level) and saved under their name, so the stage can
+// tune their mic to each song's part (audio/voiceMatch.ts).
 
-const TAKE_SECONDS = 20
-const MIN_SECONDS = 8
+const COUNTDOWN_SECONDS = 3
+// Done early is allowed once the range steps (hold + both slides) are in.
+const MIN_SECONDS = VOICE_CHECK_STEPS.slice(0, 3).reduce((n, s) => n + s.seconds, 0)
+const RESULT_SHOWN_MS = 8000
+const ERROR_SHOWN_MS = 6000
 
-type Phase = 'idle' | 'recording' | 'analyzing' | 'done' | 'error'
+type Phase = 'idle' | 'countdown' | 'recording' | 'analyzing' | 'done' | 'error'
 
-// Raw mic capture — same constraints as VoiceEffectsEngine (no browser
+interface Live {
+    elapsed: number
+    level: number
+    midi: number | null
+    lowMidi: number | null
+    highMidi: number | null
+}
+
+const NO_LIVE: Live = { elapsed: 0, level: 0, midi: null, lowMidi: null, highMidi: null }
+
+// Raw mic capture, same constraints as VoiceEffectsEngine (no browser
 // processing), one channel of a multi-channel interface when selected.
 async function openMic(deviceId: string) {
     const { realDeviceId, channelIndex } = parseDeviceId(deviceId)
@@ -42,17 +62,35 @@ function encodeWav(samples: Float32Array, sampleRate: number): Uint8Array {
     return new Uint8Array(buf)
 }
 
-function describe(m: VoiceMeasurements): string[] {
-    const out: string[] = []
-    if (m.range) out.push(`range ${noteName(m.range.lowMidi)}–${noteName(m.range.highMidi)}`)
+function summarize(m: VoiceMeasurements): VoiceCheckResult {
     const mad = m.tuning?.madCents
-    if (typeof mad === 'number') out.push(mad <= 10 ? 'very steady pitch' : mad <= 18 ? 'steady pitch' : mad <= 26 ? 'some pitch wander' : 'pitch wanders — autotune will help more')
     const s = m.spectrum
-    if (s && s.length === 6) {
-        const air = (s[4] + s[5]) / 2
-        out.push(air > -14 ? 'bright tone' : air < -24 ? 'warm / dark tone' : 'balanced tone')
+    const air = s && s.length === 6 ? (s[4] + s[5]) / 2 : null
+    return {
+        lowMidi: m.range?.lowMidi ?? null,
+        highMidi: m.range?.highMidi ?? null,
+        pitch: typeof mad !== 'number' ? null : mad <= 10 ? 'very-steady' : mad <= 18 ? 'steady' : mad <= 26 ? 'some-wander' : 'wanders',
+        tone: air == null ? null : air > -14 ? 'bright' : air < -24 ? 'warm' : 'balanced',
     }
+}
+
+const PITCH_TEXT = { 'very-steady': 'very steady pitch', steady: 'steady pitch', 'some-wander': 'some pitch wander', wanders: 'pitch wanders, autotune will help more' }
+const TONE_TEXT = { bright: 'bright tone', warm: 'warm, dark tone', balanced: 'balanced tone' }
+
+function describe(m: VoiceMeasurements): string[] {
+    const r = summarize(m)
+    const out: string[] = []
+    if (r.lowMidi != null && r.highMidi != null) out.push(`comfortable range ${noteName(r.lowMidi)} to ${noteName(r.highMidi)}`)
+    if (r.pitch) out.push(PITCH_TEXT[r.pitch])
+    if (r.tone) out.push(TONE_TEXT[r.tone])
     return out
+}
+
+// Streams the guide's state to the stage window (main relays it).
+function stage(u: Partial<VoiceCheckUpdate> & Pick<VoiceCheckUpdate, 'phase' | 'name'>): void {
+    window.electronAPI?.sendVoiceCheck?.({
+        elapsed: 0, level: 0, midi: null, lowMidi: null, highMidi: null, wobbleCents: null, ...u,
+    })
 }
 
 export function VoiceCheckCard({ guests, mics, defaultMicId }: {
@@ -64,21 +102,27 @@ export function VoiceCheckCard({ guests, mics, defaultMicId }: {
     const [name, setName] = useState('')
     const [micId, setMicId] = useState(defaultMicId)
     const [phase, setPhase] = useState<Phase>('idle')
-    const [level, setLevel] = useState(0)
-    const [elapsed, setElapsed] = useState(0)
+    const [live, setLive] = useState<Live>(NO_LIVE)
     const [message, setMessage] = useState('')
     // Live take controls: cancel discards it, done keeps it (>= MIN_SECONDS).
     const cancelRef = useRef<(() => void) | null>(null)
     const doneRef = useRef<(() => void) | null>(null)
+    // Pending "close the stage guide" after a result/error; a new check cancels it.
+    const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
     useEffect(() => { if (!micId && defaultMicId) setMicId(defaultMicId) }, [defaultMicId, micId])
-    useEffect(() => () => cancelRef.current?.(), [])
+    useEffect(() => () => {
+        cancelRef.current?.()
+        if (closeTimer.current) { clearTimeout(closeTimer.current); stage({ phase: 'closed', name: '' }) }
+    }, [])
 
     const guestId = guests.find(g => g.name.trim().toLowerCase() === name.trim().toLowerCase())?.id ?? null
 
     const start = async () => {
-        if (!name.trim() || !micId) return
+        const who = guests.find(g => g.id === guestId)?.name ?? name.trim()
+        if (!who || !micId) return
         setMessage('')
+        if (closeTimer.current) { clearTimeout(closeTimer.current); closeTimer.current = null }
         let mic
         try {
             mic = await openMic(micId)
@@ -88,61 +132,109 @@ export function VoiceCheckCard({ guests, mics, defaultMicId }: {
             return
         }
         const ctx = new AudioContext()
+        void ctx.resume()
         const src = ctx.createMediaStreamSource(mic.stream)
-        const proc = ctx.createScriptProcessor(4096, 2, 1)
+        let cap: AudioWorkletNode | null = null
+        const tracker = new PitchTracker(Math.round(ctx.sampleRate / 4096))
         const chunks: Float32Array[] = []
-        const startedAt = performance.now()
+        let countdownAt = performance.now()
+        let singingAt = 0
         let finished = false
+        const closeLater = (ms: number) => {
+            closeTimer.current = setTimeout(() => { closeTimer.current = null; stage({ phase: 'closed', name: who }) }, ms)
+        }
         const finish = async (keep: boolean) => {
             if (finished) return
             finished = true
             cancelRef.current = null
             doneRef.current = null
-            proc.disconnect(); src.disconnect()
+            if (cap) { cap.port.onmessage = null; cap.disconnect() }
+            src.disconnect()
             mic.stream.getTracks().forEach(t => t.stop())
             const sampleRate = ctx.sampleRate
             void ctx.close()
-            setLevel(0)
-            if (!keep) { setPhase('idle'); return }
+            setLive(NO_LIVE)
+            if (!keep || chunks.length === 0) { setPhase('idle'); stage({ phase: 'closed', name: who }); return }
             const total = chunks.reduce((n, c) => n + c.length, 0)
             const samples = new Float32Array(total)
             let o = 0
             for (const c of chunks) { samples.set(c, o); o += c.length }
             setPhase('analyzing')
-            const res = await window.electronAPI.voiceAnalyze({
-                wav: encodeWav(samples, sampleRate),
-                name: name.trim(),
-                guestId,
-                micLabel: mics.find(m => m.deviceId === micId)?.label ?? null,
-            })
+            const analyzing = { phase: 'analyzing' as const, name: who, elapsed: VOICE_CHECK_SECONDS }
+            stage(analyzing)
+            // Heartbeat so the stage knows the host is still working (it hides a
+            // guide that goes quiet).
+            const beat = setInterval(() => stage(analyzing), 2000)
+            let res: Awaited<ReturnType<typeof window.electronAPI.voiceAnalyze>>
+            try {
+                res = await window.electronAPI.voiceAnalyze({
+                    wav: encodeWav(samples, sampleRate),
+                    name: who,
+                    guestId,
+                    micLabel: mics.find(m => m.deviceId === micId)?.label ?? null,
+                })
+            } catch (e: any) {
+                res = { error: e?.message || String(e) }
+            } finally {
+                clearInterval(beat)
+            }
             if (res.error || !res.profile) {
                 setPhase('error')
                 setMessage(res.error || 'Analysis failed')
+                stage({ phase: 'error', name: who, error: res.error || 'Analysis failed' })
+                closeLater(ERROR_SHOWN_MS)
             } else {
                 setPhase('done')
                 setMessage(`Saved ${res.profile.name}: ${describe(res.profile.measurements).join(' · ')}`)
                 setName('')
+                stage({ phase: 'result', name: who, result: summarize(res.profile.measurements) })
+                closeLater(RESULT_SHOWN_MS)
             }
         }
-        proc.onaudioprocess = (ev) => {
-            const inp = ev.inputBuffer
-            const ch = mic.channelIndex !== undefined && mic.channelIndex < inp.numberOfChannels ? mic.channelIndex : 0
-            const data = new Float32Array(inp.getChannelData(ch))
-            chunks.push(data)
+        const onChunk = (data: Float32Array) => {
+            if (finished) return
             let peak = 0
             for (let i = 0; i < data.length; i++) peak = Math.max(peak, Math.abs(data[i]))
-            setLevel(peak)
-            const secs = (performance.now() - startedAt) / 1000
-            setElapsed(secs)
-            if (secs >= TAKE_SECONDS) void finish(true)
+            const now = performance.now()
+            if (!singingAt && (now - countdownAt) / 1000 >= COUNTDOWN_SECONDS) {
+                singingAt = now
+                setPhase('recording')
+            }
+            const singing = singingAt > 0
+            if (singing) chunks.push(data)
+            const hz = detectPitch(data, ctx.sampleRate)
+            const midi = tracker.push(hz == null ? null : hzToMidi(hz), singing)
+            const elapsed = singing ? (now - singingAt) / 1000 : (now - countdownAt) / 1000
+            const next: Live = { elapsed, level: peak, midi, lowMidi: tracker.lowMidi, highMidi: tracker.highMidi }
+            setLive(next)
+            stage({
+                phase: singing ? 'singing' : 'countdown', name: who, ...next,
+                wobbleCents: singing && stepAt(elapsed).index === 0 ? tracker.wobbleCents() : null,
+            })
+            if (singing && elapsed >= VOICE_CHECK_SECONDS) void finish(true)
         }
-        src.connect(proc)
-        proc.connect(ctx.destination)  // ScriptProcessor only runs while connected; it outputs silence
+        try {
+            cap = await createCaptureNode(ctx, onChunk, { channel: mic.channelIndex ?? 0, chunk: 4096 })
+        } catch (e: any) {
+            mic.stream.getTracks().forEach(t => t.stop())
+            void ctx.close()
+            setPhase('error')
+            setMessage(`Couldn't start recording: ${e?.message || e}`)
+            return
+        }
+        src.connect(cap)
+        countdownAt = performance.now()
         cancelRef.current = () => void finish(false)
         doneRef.current = () => void finish(true)
-        setElapsed(0)
-        setPhase('recording')
+        setLive(NO_LIVE)
+        setPhase('countdown')
+        stage({ phase: 'countdown', name: who })
     }
+
+    const taking = phase === 'countdown' || phase === 'recording'
+    const { index: stepIndex, stepElapsed } = stepAt(live.elapsed)
+    const step = VOICE_CHECK_STEPS[stepIndex]
+    const lyricIdx = step.lyrics ? Math.min(step.lyrics.length - 1, Math.floor(stepElapsed / (step.seconds / step.lyrics.length))) : -1
 
     const list = Object.values(profiles).sort((a, b) => a.name.localeCompare(b.name))
 
@@ -152,7 +244,7 @@ export function VoiceCheckCard({ guests, mics, defaultMicId }: {
                 icon="mic"
                 label="Voices"
                 title="Voice Check"
-                desc="Each singer sings for 20 seconds once; the stage then tunes their mic to every song's part"
+                desc={`Each singer does a guided ${VOICE_CHECK_SECONDS}-second check once, following the stage screen; their mic then tunes itself to every song's part`}
             />
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
                 <Input
@@ -160,7 +252,7 @@ export function VoiceCheckCard({ guests, mics, defaultMicId }: {
                     placeholder="Singer's name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    disabled={phase === 'recording' || phase === 'analyzing'}
+                    disabled={taking || phase === 'analyzing'}
                     style={{ flex: '1 1 160px', minWidth: 140 }}
                 />
                 <datalist id="voice-check-guests">
@@ -169,18 +261,18 @@ export function VoiceCheckCard({ guests, mics, defaultMicId }: {
                 <Select
                     value={micId}
                     onChange={(e) => setMicId(e.target.value)}
-                    disabled={phase === 'recording' || phase === 'analyzing'}
+                    disabled={taking || phase === 'analyzing'}
                     style={{ flex: '1 1 180px', minWidth: 160 }}
                 >
                     <option value="">Choose a mic…</option>
                     {mics.map(m => <option key={m.deviceId} value={m.deviceId}>{m.label || 'Mic ' + m.deviceId.slice(0, 6)}</option>)}
                 </Select>
-                {phase === 'recording' ? (
+                {taking ? (
                     <>
                         <Button
                             variant="primary"
                             icon="check"
-                            disabled={elapsed < MIN_SECONDS}
+                            disabled={phase !== 'recording' || live.elapsed < MIN_SECONDS}
                             onClick={() => doneRef.current?.()}
                         >
                             Done
@@ -199,17 +291,46 @@ export function VoiceCheckCard({ guests, mics, defaultMicId }: {
                 )}
             </div>
 
-            {phase === 'recording' && (
+            {phase === 'countdown' && (
                 <div className="adm-well" style={{ marginTop: 12, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <div style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--adm-text-2)' }}>
-                        Sing any song you know well, at full karaoke volume. Somewhere in there, slide down to your lowest comfortable note and up to your highest.
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>
+                        Starting in {Math.max(1, Math.ceil(COUNTDOWN_SECONDS - live.elapsed))}. First, hold any comfortable note on “{VOICE_CHECK_STEPS[0].sing}”
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <Meter value={Math.min(1, level * 1.4)} />
-                        <span className="adm-mono" style={{ fontSize: 11, color: 'var(--adm-text-3)', minWidth: 44, textAlign: 'right' }}>
-                            {Math.max(0, TAKE_SECONDS - elapsed).toFixed(0)}s
+                        <Meter value={Math.min(1, live.level * 1.4)} />
+                        <span style={{ fontSize: 11, color: 'var(--adm-text-3)' }}>mic check</span>
+                    </div>
+                </div>
+            )}
+            {phase === 'recording' && (
+                <div className="adm-well" style={{ marginTop: 12, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+                        <span className="adm-mono" style={{ fontSize: 10.5, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--adm-cyan)' }}>
+                            Step {stepIndex + 1}/{VOICE_CHECK_STEPS.length} · {step.title}
+                        </span>
+                        <span className="adm-mono" style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--adm-text-3)' }}>
+                            {Math.max(0, Math.ceil(step.seconds - stepElapsed))}s
                         </span>
                     </div>
+                    {step.lyrics ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            {step.lyrics.map((l, i) => (
+                                <div key={i} style={{ fontSize: 13, fontWeight: i === lyricIdx ? 700 : 400, color: i === lyricIdx ? 'var(--adm-text)' : 'var(--adm-text-3)' }}>{l}</div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--adm-text-2)' }}>
+                            Sing <b style={{ color: 'var(--adm-text)' }}>“{step.sing}”</b>. {step.detail}
+                        </div>
+                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <Meter value={Math.min(1, live.level * 1.4)} />
+                        <span className="adm-mono" style={{ fontSize: 11, color: 'var(--adm-text-3)', minWidth: 150, textAlign: 'right' }}>
+                            {live.midi != null ? noteName(Math.round(live.midi)) : '-'}
+                            {live.lowMidi != null && live.highMidi != null ? ` · ${noteName(Math.round(live.lowMidi))} to ${noteName(Math.round(live.highMidi))}` : ''}
+                        </span>
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--adm-text-3)' }}>The stage screen is showing {name.trim() || 'the singer'} what to sing.</div>
                 </div>
             )}
             {phase === 'analyzing' && (

@@ -11,6 +11,7 @@ import QueuePage from './pages/QueuePage'
 import AdminPage from './pages/AdminPage'
 import ControlsPage from './pages/ControlsPage'
 import SessionPage from './pages/SessionPage'
+import { VoiceCheckStage } from './components/VoiceCheckStage'
 import './styles/globals.css'
 import './styles/admin.css'
 import './styles/karaoke.css'
@@ -130,7 +131,7 @@ class StageErrorBoundary extends Component<{ children: ReactNode }, { hasError: 
     }
 
     componentDidCatch(error: Error, info: ErrorInfo): void {
-        console.error('[Stage] Render crash — auto-recovering in 2s:', error, info.componentStack)
+        console.error('[Stage] Render crash, auto-recovering in 2s:', error, info.componentStack)
     }
 
     componentDidUpdate(_: unknown, prevState: { hasError: boolean }): void {
@@ -167,6 +168,7 @@ function StageKaraokePage() {
         <StageErrorBoundary>
             <StageThemeProvider themeName={stageTheme}>
                 <KaraokePage />
+                <VoiceCheckStage />
             </StageThemeProvider>
         </StageErrorBoundary>
     )

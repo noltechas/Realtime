@@ -128,6 +128,10 @@ export type ElectronAPI = {
     perfReplay: (id: string) => Promise<void>
     onPerfUpdate: (callback: (list: PerformanceSummary[]) => void) => any
     offPerfUpdate: (handler: any) => void
+    // Guided voice check, host → stage (renderer audio/voiceCheckScript.ts VoiceCheckUpdate)
+    sendVoiceCheck: (update: any) => void
+    onVoiceCheck: (callback: (update: any) => void) => any
+    offVoiceCheck: (handler: any) => void
 }
 
 const api: ElectronAPI = {
@@ -305,7 +309,14 @@ const api: ElectronAPI = {
         ipcRenderer.on('perf:update', handler)
         return handler
     },
-    offPerfUpdate: (handler) => ipcRenderer.removeListener('perf:update', handler)
+    offPerfUpdate: (handler) => ipcRenderer.removeListener('perf:update', handler),
+    sendVoiceCheck: (update) => ipcRenderer.send('voicecheck:update', update),
+    onVoiceCheck: (callback) => {
+        const handler = (_e: any, update: any) => callback(update)
+        ipcRenderer.on('voicecheck:update', handler)
+        return handler
+    },
+    offVoiceCheck: (handler) => ipcRenderer.removeListener('voicecheck:update', handler)
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

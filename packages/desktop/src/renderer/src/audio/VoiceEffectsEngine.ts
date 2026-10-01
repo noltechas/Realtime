@@ -1,4 +1,5 @@
 import { VoiceEffects, DEFAULT_VOICE_EFFECTS } from './VoiceEffectsTypes'
+import { createCaptureNode } from './captureWorklet'
 import { PITCH_CORRECTION_PROCESSOR_CODE } from './pitch-correction-worklet'
 import { NOISE_GATE_PROCESSOR_CODE } from './noise-gate-worklet'
 import { VOCODER_PROCESSOR_CODE } from './vocoder-worklet'
@@ -1173,7 +1174,7 @@ export class VoiceEffectsEngine {
                 await new Promise(r => setTimeout(r, 50))
             }
             if (!this.pitchCorrectionReady) {
-                console.warn('[VoiceEffectsEngine] Pitch correction worklet not ready after 2s — proceeding with bypass path')
+                console.warn('[VoiceEffectsEngine] Pitch correction worklet not ready after 2s, proceeding with bypass path')
             }
         }
 
@@ -1524,8 +1525,9 @@ export class VoiceEffectsEngine {
     // conversion wants (separate from the Audition Booth's MediaRecorder
     // snippet recorder above). `drySamples` is read by the stage's recorder to
     // log a sample → song-time map.
-    private dryTap: ScriptProcessorNode | null = null
-    private dryTapSink: GainNode | null = null
+    private dryTap: AudioWorkletNode | null = null
+    private dryStarting = false
+    private dryCancelled = false
     private dryChunks: Float32Array[] = []
     // The finished take, kept after stopDryTake()/destroy(): when a song
     // leaves the stage, React tears the singers' mic engines down BEFORE the
@@ -1534,35 +1536,37 @@ export class VoiceEffectsEngine {
     public drySamples = 0
 
     public startDryTake(): void {
-        if (this.dryTap || this.ctx.state === 'closed') return
+        if (this.dryTap || this.dryStarting || this.ctx.state === 'closed') return
         this.dryTake = null
         this.dryChunks = []
         this.drySamples = 0
-        const rec = this.ctx.createScriptProcessor(4096, 1, 1)
-        rec.onaudioprocess = (ev) => {
-            const ch = new Float32Array(ev.inputBuffer.getChannelData(0))
+        this.dryStarting = true
+        this.dryCancelled = false
+        // AudioWorklet capture (audio/captureWorklet.ts); a ScriptProcessor
+        // here crashed the stage renderer.
+        createCaptureNode(this.ctx, (ch) => {
             this.dryChunks.push(ch)
             this.drySamples += ch.length
-        }
-        // A ScriptProcessor only runs while connected to the destination.
-        const sink = this.ctx.createGain()
-        sink.gain.value = 0
-        this.inputHighPass.connect(rec)
-        rec.connect(sink)
-        sink.connect(this.ctx.destination)
-        this.dryTap = rec
-        this.dryTapSink = sink
+        }).then(node => {
+            this.dryStarting = false
+            // Stopped or torn down while the worklet module was loading.
+            if (this.dryCancelled || this.ctx.state === 'closed') { node.port.onmessage = null; return }
+            this.inputHighPass.connect(node)
+            this.dryTap = node
+        }).catch(err => {
+            this.dryStarting = false
+            console.warn('[VoiceFX] Dry take capture failed:', err)
+        })
     }
 
     /** Stop and return the dry take (mono). Repeat calls return the same take; null if none. */
     public stopDryTake(): { samples: Float32Array; sampleRate: number } | null {
+        if (this.dryStarting) this.dryCancelled = true
         if (!this.dryTap) return this.dryTake
         try { this.inputHighPass.disconnect(this.dryTap) } catch { /* ignore */ }
+        this.dryTap.port.onmessage = null
         try { this.dryTap.disconnect() } catch { /* ignore */ }
-        try { this.dryTapSink?.disconnect() } catch { /* ignore */ }
-        this.dryTap.onaudioprocess = null
         this.dryTap = null
-        this.dryTapSink = null
         const samples = new Float32Array(this.drySamples)
         let o = 0
         for (const c of this.dryChunks) { samples.set(c, o); o += c.length }

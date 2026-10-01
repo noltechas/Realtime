@@ -76,6 +76,7 @@ background.
 - **No component library**: All UI is custom-built. Do not introduce Material UI, Chakra, shadcn, or similar.
 - **Fonts**: Space Grotesk for display/headings, DM Sans for body text.
 - **Color palette**: Neon-on-dark aesthetic. Use `NEON_COLORS` array from AppContext for singer/accent colors.
+- **No em dashes, ever**, in any user-visible text (desktop, stage, companion site, mobile). Use a comma, period, colon or two sentences; write ranges as "E2 to A4". A spaced hyphen or en dash standing in for one doesn't count as a fix.
 
 ## State Management
 
@@ -346,7 +347,8 @@ Spotify track → YouTube Music audio (same master) → local RoFormer vocal sep
 
   Run it with `node scripts/autogen/song-tool.js profile <trackId> [--apply]`. `generate-song.js` stores it after every generation, and `scripts/autogen/profile-library.js` backfills the library (measurement only, never touches hand-tuned effects).
 - **Only autotune strength is applied automatically**, through a curve calibrated against the hand-tuned library (`validate-profiles.py`: held-out error 22.6 vs 26.8 for a constant guess). Reverb, width and echo measured from separated stems did NOT track the hand-tuned settings (separation alters them), so they're stored as weak hints for the Claude pass, not applied. Re-run `validate-profiles.py` before trusting a new measurement.
-- **Singer voice profiles** (`~/.realtime-karaoke/voices.json`, `src/main/voices.ts`): Admin → Guests → Voice Check records ~20 s from a karaoke mic and measures it with the same code (`autogen.py voicecheck`). Profiles are keyed by normalized singer name so they persist across sessions (guest ids are per-session).
+- **Singer voice profiles** (`~/.realtime-karaoke/voices.json`, `src/main/voices.ts`): Admin → Guests → Voice Check runs a guided 31 s take from a karaoke mic and measures it with the same code (`autogen.py voicecheck`). Profiles are keyed by normalized singer name so they persist across sessions (guest ids are per-session).
+- **Guided voice check** (`renderer/src/audio/voiceCheckScript.ts`): the script (hold a note, slide down, slide up, sing "Twinkle, Twinkle") lives in one place and is shared by the host card (`components/VoiceCheckCard.tsx`, which records, runs live YIN pitch through `PitchTracker` and streams `VoiceCheckUpdate`s at ~12 Hz over `voicecheck:update`) and the stage (`components/VoiceCheckStage.tsx`, mounted in `App.tsx` `StageKaraokePage`). Change the steps there and both sides follow. The stage screen is a **strip-chart recorder**: the whole script is pre-printed on scrolling chart paper so each instruction reaches the pen when it should be sung, the red pen traces pitch, the blue pen traces level, an "examiner" marks up the chart in marker, and the result is rubber-stamped onto the overview. It is one fixed physical object (paper, inks, steel, tape), deliberately not themed. Scrolling, pens and ink run in a rAF loop on refs (ink is written straight into the DOM, chunked); keep live SVG filters out of the scrolling layer (textures are pre-rasterized data-URI images). Copy rule for this and every screen: no em dashes.
 - **Matching** (`renderer/src/audio/voiceMatch.ts`, applied in `KaraokePage` before the FX toggles, memoized per singer):
   - a 6-band `matchEq` at half the record-vs-singer tone difference (±6 dB)
   - a `formant` nudge (up to ±2.5 st) when the part centers 7+ semitones from the singer's voice

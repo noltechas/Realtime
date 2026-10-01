@@ -256,6 +256,14 @@ ipcMain.on('reaction:send', (_event, reaction) => {
     }
 })
 
+// Voice check relay (main window → stage): the guided voice-check screen the
+// singer follows on the big screen (renderer components/VoiceCheckStage.tsx).
+ipcMain.on('voicecheck:update', (_event, update) => {
+    if (stageWindow && !stageWindow.isDestroyed()) {
+        stageWindow.webContents.send('voicecheck:update', update)
+    }
+})
+
 // Stage notice relay (main → stage). Ephemeral "something just happened"
 // events the stage announces during Lobby Mode — currently song requests,
 // which have no queue row for the stage to notice on its own.

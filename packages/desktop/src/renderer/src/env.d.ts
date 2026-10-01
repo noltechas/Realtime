@@ -135,6 +135,9 @@ interface PerformanceSummary {
 }
 
 interface ElectronAPI {
+    sendVoiceCheck: (update: import('./audio/voiceCheckScript').VoiceCheckUpdate) => void
+    onVoiceCheck: (callback: (update: import('./audio/voiceCheckScript').VoiceCheckUpdate) => void) => any
+    offVoiceCheck: (handler: any) => void
     perfSave: (payload: { trackId: string; name: string; artist: string; singers: { name: string; guestId: string | null; roleIndices: number[]; sampleRate: number; timeMap: [number, number][]; wav: Uint8Array }[] }) => Promise<{ id: string }>
     perfList: () => Promise<{ performances: PerformanceSummary[]; available: boolean; reason?: string }>
     perfDelete: (id: string) => Promise<void>
