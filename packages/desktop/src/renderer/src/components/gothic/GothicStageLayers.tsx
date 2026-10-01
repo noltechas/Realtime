@@ -63,15 +63,15 @@ export function GothicLinePane() {
  *  is one colour; a shared line runs its singers' glass across the window. */
 export function gothLineFill(colors: string[]): string {
     const tone = (c: string, k: number) =>
-        [`color-mix(in srgb, ${c}, white 60%)`, `color-mix(in srgb, ${c}, white 20%)`, c, `color-mix(in srgb, ${c}, black 18%)`][k]
+        [`color-mix(in srgb, ${c}, white 30%)`, c, c, `color-mix(in srgb, ${c}, black 24%)`][k]
     if (colors.length <= 1) {
         const c = colors[0] || GOTH.CANDLE
-        return `linear-gradient(180deg, ${tone(c, 0)} 0%, ${tone(c, 1)} 42%, ${tone(c, 2)} 70%, ${tone(c, 3)} 100%)`
+        return `linear-gradient(180deg, ${tone(c, 0)} 0%, ${tone(c, 1)} 38%, ${tone(c, 2)} 74%, ${tone(c, 3)} 100%)`
     }
     // Panes side by side, hard edged: glass is cut, not blended.
     const n = colors.length
     const stops = colors
-        .map((c, i) => `color-mix(in srgb, ${c}, white 18%) ${(i / n) * 100}% ${((i + 1) / n) * 100}%`)
+        .map((c, i) => `${c} ${(i / n) * 100}% ${((i + 1) / n) * 100}%`)
         .join(', ')
     return `linear-gradient(90deg, ${stops})`
 }

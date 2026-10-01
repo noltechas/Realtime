@@ -6719,15 +6719,15 @@ export default function KaraokePage() {
                                             // the warm sepia backdrop or a bright music video.
                                             inlineStyle.textShadow = '0 0.05em 0.35em rgba(6, 4, 2, 0.85)'
                                         } else if (theme.name === 'gothic') {
-                                            // Upcoming lines are bone with only a tint of the
-                                            // singer's glass: they're unlit, and the lit window is
-                                            // the one place colour should burn.
+                                            // Upcoming lines are in the singer's own colour (a
+                                            // fifth softened toward bone, so dark picks stay
+                                            // readable): a singer should see their colour coming.
                                             if (activeColors.length > 1) {
-                                                inlineStyle.backgroundImage = `linear-gradient(90deg, ${activeColors.map((c: string) => `color-mix(in srgb, ${c}, #E8DFCC 45%)`).join(', ')})`
+                                                inlineStyle.backgroundImage = `linear-gradient(90deg, ${activeColors.map((c: string) => `color-mix(in srgb, ${c}, #E8DFCC 20%)`).join(', ')})`
                                                 inlineStyle.filter = 'drop-shadow(0 0.05em 0.1em rgba(0,0,0,0.95))'
                                             } else {
                                                 const gc = line.singerIndex !== undefined && singers[line.singerIndex]?.color
-                                                inlineStyle.color = gc ? `color-mix(in srgb, ${gc}, #E8DFCC 52%)` : '#CFC5B3'
+                                                inlineStyle.color = gc ? `color-mix(in srgb, ${gc}, #E8DFCC 20%)` : '#CFC5B3'
                                                 inlineStyle.textShadow = '0 0.05em 0 rgba(0,0,0,0.9), 0 0 0.5em rgba(0,0,0,0.7)'
                                             }
                                         }

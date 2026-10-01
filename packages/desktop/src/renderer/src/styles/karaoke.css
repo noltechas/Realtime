@@ -2745,7 +2745,10 @@
     opacity: 1;
 }
 [data-theme="gothic"] .k-line--gothic .k-syl--future .k-syl__word {
-    color: color-mix(in srgb, var(--syl-glass, var(--goth-glass, #E3B04B)), #C9BFAE 74%);
+    /* Mostly the singer's own colour, softened toward stone: it has to read as
+       THEIR colour (a singer who picked red should see red), and stay readable
+       on the dark pane, while plainly not lit. */
+    color: color-mix(in srgb, var(--syl-glass, var(--goth-glass, #E3B04B)), #B8AE9B 30%);
 }
 [data-theme="gothic"] .k-line--gothic .k-syl--future .k-syl__word::before {
     z-index: -1;
@@ -2766,21 +2769,21 @@
     background-image:
         repeating-linear-gradient(104deg, rgba(255, 255, 255, 0) 0 0.22em, rgba(255, 255, 255, 0.14) 0.22em 0.26em),
         linear-gradient(180deg,
-            color-mix(in srgb, var(--syl-glass, var(--goth-glass)), white 62%) 0%,
-            color-mix(in srgb, var(--syl-glass, var(--goth-glass)), white 22%) 42%,
-            var(--syl-glass, var(--goth-glass)) 70%,
-            color-mix(in srgb, var(--syl-glass, var(--goth-glass)), black 18%) 100%);
+            color-mix(in srgb, var(--syl-glass, var(--goth-glass)), white 30%) 0%,
+            var(--syl-glass, var(--goth-glass)) 38%,
+            var(--syl-glass, var(--goth-glass)) 74%,
+            color-mix(in srgb, var(--syl-glass, var(--goth-glass)), black 24%) 100%);
     -webkit-background-clip: text;
     background-clip: text;
 }
 /* Sung, and the light has moved on: still its colour, cooler and dimmer. */
 [data-theme="gothic"] .k-line--gothic .k-syl--past .k-syl__word {
-    filter: brightness(0.9) saturate(0.95);
+    filter: brightness(0.8) saturate(1.05);
 }
 [data-theme="gothic"] .k-line--gothic .k-syl--past .k-syl__word::before {
     text-shadow:
-        0 0 0.22em color-mix(in srgb, var(--syl-glass, var(--goth-glass)), transparent 52%),
-        0 0 0.6em color-mix(in srgb, var(--syl-glass, var(--goth-glass)), transparent 82%);
+        0 0 0.18em color-mix(in srgb, var(--syl-glass, var(--goth-glass)), transparent 62%),
+        0 0 0.5em color-mix(in srgb, var(--syl-glass, var(--goth-glass)), transparent 88%);
 }
 
 /* The syllable being sung: struck. */
@@ -2788,7 +2791,7 @@
     0%   { filter: brightness(1); transform: translateY(0); }
     16%  { filter: brightness(2.5) saturate(0.4); transform: translateY(-0.035em); }
     55%  { filter: brightness(1.32) saturate(1.05); transform: translateY(0); }
-    100% { filter: brightness(1.14) saturate(1.1); transform: translateY(0); }
+    100% { filter: brightness(1.04) saturate(1.12); transform: translateY(0); }
 }
 @keyframes goth-pane-ring {
     0%   { text-shadow:
