@@ -10,6 +10,7 @@ import { resyncLyrics } from '../utils/resyncSyllables'
 import { SyllableEditor } from '../components/SyllableEditor'
 import { LobbyModeCard } from '../components/LobbyModeCard'
 import { AutogenJobLine, AutogenQueueCard, AutogenRowStatus } from '../components/AutogenPanel'
+import { VoiceCheckCard } from '../components/VoiceCheckCard'
 import { isAutogenActive, useAutogen, useAutogenSongReady } from '../hooks/useAutogen'
 import {
     ArtTile, Avatar, Button, Card, CardHeader, Chip, EmptyState, FaderRow, Field,
@@ -2180,6 +2181,11 @@ export default function AdminPage() {
             {/* ═══ Guests Tab ═══ */}
             {adminTab === 'guests' && (
                 <div>
+                    <VoiceCheckCard
+                        guests={guests}
+                        mics={mics}
+                        defaultMicId={state.micSlots.find(s => s.micDeviceId)?.micDeviceId || ''}
+                    />
                     {!state.karaokeSessionId ? (
                         <Card>
                             <EmptyState

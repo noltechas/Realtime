@@ -104,7 +104,32 @@ interface AutogenTrackInput {
     agentOnly?: boolean
 }
 
+// Singer voice profiles — mirrors src/main/voices.ts.
+interface VoiceMeasurements {
+    seconds: number
+    spectrum?: number[] | null
+    loudnessRangeDb?: number | null
+    levelDb?: number | null
+    tuning?: { madCents?: number; flatnessCents?: number | null; sustainedRatio?: number } | null
+    range?: { lowMidi: number; medianMidi: number; highMidi: number } | null
+}
+
+interface VoiceProfile {
+    key: string
+    name: string
+    guestId: string | null
+    recordedAt: string
+    micLabel: string | null
+    measurements: VoiceMeasurements
+}
+
 interface ElectronAPI {
+    voiceList: () => Promise<Record<string, VoiceProfile>>
+    voiceAnalyze: (args: { wav: Uint8Array; name: string; guestId?: string | null; micLabel?: string | null }) => Promise<{ profile?: VoiceProfile; error?: string }>
+    voiceDelete: (key: string) => Promise<void>
+    onVoiceUpdated: (callback: (profiles: Record<string, VoiceProfile>) => void) => any
+    offVoiceUpdated: (handler: any) => void
+    getVocalProfile: (trackId: string) => Promise<any | null>
     autogenStatus: () => Promise<AutogenStatus>
     autogenEnqueue: (input: AutogenTrackInput) => Promise<AutogenStatus>
     autogenCancel: (trackId: string) => Promise<void>

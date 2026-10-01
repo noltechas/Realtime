@@ -530,6 +530,7 @@ import {
     cancelAutogen, retryAutogen, dismissAutogen, setAutogenSettings,
     AutogenSettings, AutogenTrackInput,
 } from './autogen'
+import { registerVoiceHandlers } from './voices'
 
 // ----- Karaoke Session State -----
 let activeSession: { id: string; code: string } | null = null
@@ -878,6 +879,7 @@ app.whenReady().then(() => {
     })
 
     registerAudioHandlers()
+    registerVoiceHandlers()
     initAutogen({
         isInLibrary: isSongInLibrary,
         onSongReady: async (trackId) => {

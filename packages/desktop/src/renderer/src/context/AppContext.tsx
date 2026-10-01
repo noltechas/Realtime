@@ -157,6 +157,8 @@ export interface AppState {
     vocalVolume: number
     /** Original artist sings the parts no singer claimed (audio/fillVocals.ts). */
     fillVocals: boolean
+    /** Adjust each singer's mic chain from their voice check (audio/voiceMatch.ts). */
+    voiceMatch: boolean
     stageMode: StageMode
     // Processing
     processingStatus: ProcessingStatus
@@ -316,10 +318,10 @@ function loadLobbyPrefs(): LobbyPrefs {
 }
 const savedLobbyPrefs = loadLobbyPrefs()
 
-function loadFillVocals(): boolean {
+function loadFlag(key: string): boolean {
     try {
         if (typeof localStorage === 'undefined') return true
-        return localStorage.getItem('fillVocals') !== '0'
+        return localStorage.getItem(key) !== '0'
     } catch {
         return true
     }
@@ -341,7 +343,8 @@ const initialState: AppState = {
     duration: 0,
     volume: 0.8,
     vocalVolume: 1.0,
-    fillVocals: loadFillVocals(),
+    fillVocals: loadFlag('fillVocals'),
+    voiceMatch: loadFlag('voiceMatch'),
     stageMode: 'idle',
     processingStatus: { stage: 'idle', progress: 0, message: '' },
     stemsPath: null,
@@ -391,6 +394,7 @@ type Action =
     | { type: 'SET_VOLUME'; payload: number }
     | { type: 'SET_VOCAL_VOLUME'; payload: number }
     | { type: 'SET_FILL_VOCALS'; payload: boolean }
+    | { type: 'SET_VOICE_MATCH'; payload: boolean }
     | { type: 'SET_PROCESSING'; payload: ProcessingStatus }
     | { type: 'SET_STEMS_PATH'; payload: { vocals?: string; instrumental?: string } }
     | { type: 'SET_SONG_PATH'; payload: string }
@@ -677,6 +681,8 @@ function reducer(state: AppState, action: Action): AppState {
             return { ...state, vocalVolume: action.payload }
         case 'SET_FILL_VOCALS':
             return { ...state, fillVocals: action.payload }
+        case 'SET_VOICE_MATCH':
+            return { ...state, voiceMatch: action.payload }
         case 'SET_PROCESSING':
             return { ...state, processingStatus: action.payload }
         case 'SET_STEMS_PATH':
@@ -1088,8 +1094,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         if (window.electronAPI?.isStageWindow) return
-        try { localStorage.setItem('fillVocals', state.fillVocals ? '1' : '0') } catch { /* ignore */ }
-    }, [state.fillVocals])
+        try {
+            localStorage.setItem('fillVocals', state.fillVocals ? '1' : '0')
+            localStorage.setItem('voiceMatch', state.voiceMatch ? '1' : '0')
+        } catch { /* ignore */ }
+    }, [state.fillVocals, state.voiceMatch])
 
     // Persist the per-device vocal offset map across app restarts.
     useEffect(() => {

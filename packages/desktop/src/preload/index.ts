@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { AutogenSettings, AutogenStatus, AutogenTrackInput } from '../main/autogen'
+import type { VoiceProfile } from '../main/voices'
 
 export type ElectronAPI = {
     // Window controls
@@ -111,6 +112,14 @@ export type ElectronAPI = {
     /** A generated song just landed in the library — reload the catalog. */
     onAutogenSongReady: (callback: (trackId: string) => void) => any
     offAutogenSongReady: (handler: any) => void
+    // Singer voice profiles (main/voices.ts)
+    voiceList: () => Promise<Record<string, VoiceProfile>>
+    voiceAnalyze: (args: { wav: Uint8Array; name: string; guestId?: string | null; micLabel?: string | null }) => Promise<{ profile?: VoiceProfile; error?: string }>
+    voiceDelete: (key: string) => Promise<void>
+    onVoiceUpdated: (callback: (profiles: Record<string, VoiceProfile>) => void) => any
+    offVoiceUpdated: (handler: any) => void
+    /** meta.vocalProfile of one song (measured parts), or null. */
+    getVocalProfile: (trackId: string) => Promise<any | null>
 }
 
 const api: ElectronAPI = {
@@ -268,7 +277,17 @@ const api: ElectronAPI = {
         ipcRenderer.on('autogen:song-ready', handler)
         return handler
     },
-    offAutogenSongReady: (handler) => ipcRenderer.removeListener('autogen:song-ready', handler)
+    offAutogenSongReady: (handler) => ipcRenderer.removeListener('autogen:song-ready', handler),
+    voiceList: () => ipcRenderer.invoke('voice:list'),
+    voiceAnalyze: (args) => ipcRenderer.invoke('voice:analyze', args),
+    voiceDelete: (key) => ipcRenderer.invoke('voice:delete', key),
+    onVoiceUpdated: (callback) => {
+        const handler = (_e: any, profiles: Record<string, VoiceProfile>) => callback(profiles)
+        ipcRenderer.on('voice:updated', handler)
+        return handler
+    },
+    offVoiceUpdated: (handler) => ipcRenderer.removeListener('voice:updated', handler),
+    getVocalProfile: (trackId) => ipcRenderer.invoke('audio:vocal-profile', trackId)
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

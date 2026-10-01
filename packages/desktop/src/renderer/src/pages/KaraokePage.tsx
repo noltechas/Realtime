@@ -14,6 +14,8 @@ import { PSY, psyDyeBleed, psyPoured, psyStroke } from '../styles/psychedelic'
 
 import { VoiceEffectsEngine } from '../audio/VoiceEffectsEngine'
 import { DEFAULT_VOICE_EFFECTS } from '../audio/VoiceEffectsTypes'
+import { applyVoiceMatch, partTarget } from '../audio/voiceMatch'
+import { findVoiceProfile, useSongVocalProfile, useVoiceProfiles } from '../hooks/useVoiceMatch'
 import { parseDeviceId } from '../hooks/useAudioDevices'
 import OSCARS_MUSIC_URL from '../assets/oscars.mp3'
 
@@ -4433,6 +4435,21 @@ export default function KaraokePage() {
     const guestsMap = useGuestsMap()
     const roles = np?.roles || []
     const voiceEffects = np?.voiceEffects || null
+    // Singer matching: a singer with a voice check gets their part's chain
+    // nudged toward the record for their voice (audio/voiceMatch.ts). Memoized
+    // — a fresh effects object every render would re-apply the mic chain.
+    const voiceProfiles = useVoiceProfiles()
+    const songVocalProfile = useSongVocalProfile(track?.id)
+    const matchedEffects = useMemo(() => {
+        const out = new Map<number, VoiceEffects>()
+        if (!state.voiceMatch || !voiceEffects) return out
+        for (const s of singers) {
+            const vp = findVoiceProfile(voiceProfiles, s, s.guestId ? guestsMap.get(s.guestId)?.name : undefined)
+            const base = vp ? resolveSingerEffects(voiceEffects, s) : null
+            if (vp && base) out.set(s.id, applyVoiceMatch(base, vp.measurements, partTarget(songVocalProfile, s.roleIndices)).effects)
+        }
+        return out
+    }, [state.voiceMatch, voiceEffects, singers, voiceProfiles, songVocalProfile, guestsMap])
     const art = track?.album.images[0]?.url
     const ytId = np?.backgroundVideoPath ? extractYouTubeId(np.backgroundVideoPath) : null
     // A music-video snippet preview is showing on the "Up Next" screen: song is
@@ -5815,6 +5832,7 @@ export default function KaraokePage() {
                                 const index = s.roleIndices && s.roleIndices.length > 0 ? s.roleIndices[0] : 0
                                 singerEffects = singerEffects[index] || singerEffects[0]
                             }
+                            if (micActive && matchedEffects.has(s.id)) singerEffects = matchedEffects.get(s.id)!
                             // Per-mic FX/autotune toggle: a guest's mobile toggle
                             // is keyed by their singer key and applies to THIS mic
                             // only. Fall back to the session-wide host toggle, then

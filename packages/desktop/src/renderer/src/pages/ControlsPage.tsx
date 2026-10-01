@@ -7,6 +7,8 @@ import { useAudioDevices } from '../hooks/useAudioDevices'
 import { VocalOffsetCalibrator } from '../components/VocalOffsetCalibrator'
 import { ArtTile, Button, Card, Fader, Icon, Led, PageHeader, Select, Spinner, Toggle } from '../components/ui'
 import { computeFillSegments } from '../audio/fillVocals'
+import { applyVoiceMatch, partTarget } from '../audio/voiceMatch'
+import { findVoiceProfile, useSongVocalProfile, useVoiceProfiles } from '../hooks/useVoiceMatch'
 import { LobbyModeBanner } from '../components/LobbyModeCard'
 
 function formatTime(ms: number): string {
@@ -200,6 +202,21 @@ function AudioMixPanel() {
     const voiceEffects = np?.voiceEffects || null
     const hasVocals = !!np?.stemsPath?.vocals
     const vocalOutputId = state.monitorDeviceIds.length > 0 ? state.monitorDeviceIds[0] : ''
+    // Singer matching summary: what each singer with a voice check gets.
+    const voiceProfiles = useVoiceProfiles()
+    const songVocalProfile = useSongVocalProfile(np?.track?.id)
+    const matchRows = singers.map(s => {
+        const name = (s.guestId && state.guests.find(g => g.id === s.guestId)?.name) || s.name
+        const vp = findVoiceProfile(voiceProfiles, s, name)
+        if (!vp) return { name, text: 'no voice check yet', hint: null as string | null }
+        const base = Array.isArray(voiceEffects)
+            ? voiceEffects[s.roleIndices?.[0] ?? 0] || voiceEffects[0]
+            : voiceEffects
+        if (!base) return { name, text: 'matched — song has no effect chain', hint: null }
+        const r = applyVoiceMatch(base, vp.measurements, partTarget(songVocalProfile, s.roleIndices))
+        return { name, text: r.notes.length ? r.notes.join(' · ') : 'already a close match', hint: r.rangeHint }
+    })
+
     // Parts the original artist will sing for this song (roles with lines,
     // nobody picked them) — empty when every part is taken.
     const fillRoles = hasVocals && np && computeFillSegments(np.lyrics, np.roles, np.singers).length > 0
@@ -313,6 +330,29 @@ function AudioMixPanel() {
                                     ? `Original vocals for ${fillRoles.join(', ')}`
                                     : 'Original artist sings any part nobody picked'}
                         </span>
+                    </div>
+                </div>
+
+                {/* Singer matching */}
+                <div style={{ ...rowStyle, alignItems: 'flex-start' }}>
+                    <div style={{ ...labelStyle, color: 'var(--adm-text)', paddingTop: 4 }}>Voice Match</div>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <Toggle
+                                on={state.voiceMatch}
+                                onToggle={() => dispatch({ type: 'SET_VOICE_MATCH', payload: !state.voiceMatch })}
+                                title="Tune each singer's mic to this song's part from their voice check"
+                            />
+                            <span style={{ fontSize: 11.5, color: 'var(--adm-text-3)' }}>
+                                {state.voiceMatch ? 'Tunes each singer with a voice check (Admin → Guests)' : 'Off: everyone gets the part\'s settings as-is'}
+                            </span>
+                        </div>
+                        {state.voiceMatch && matchRows.map((r, i) => (
+                            <div key={i} style={{ fontSize: 11.5, lineHeight: 1.45, color: 'var(--adm-text-2)' }}>
+                                <span style={{ fontWeight: 650, color: 'var(--adm-text)' }}>{r.name}</span>: {r.text}
+                                {r.hint && <div style={{ color: 'var(--adm-amber-bright)' }}>{r.hint}</div>}
+                            </div>
+                        ))}
                     </div>
                 </div>
 

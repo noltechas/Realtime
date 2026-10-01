@@ -330,6 +330,21 @@ Spotify track → YouTube Music audio (same master) → local RoFormer vocal sep
 - **Migration**: `supabase/migrations/20261001150000_song_request_generation.sql` adds the `generation_*` columns. Until it's applied, requests still auto-generate and resolve, but guests only see "Waiting for the host" instead of live progress.
 - The desktop `scripts/` folder is gitignored (local-only), so a fresh clone has no generator. `autogen.ts` reports it unavailable instead of crashing.
 
+## Vocal Profiles & Singer Matching
+
+- **Part profiles** (`meta.vocalProfile`): `scripts/autogen/vocal_profile.py` measures each part of a record from the separated vocal, on that part's SOLO lines only (the per-line role tags say who sings when, so no acoustic speaker separation). It measures:
+  - autotune flatness
+  - sustained-note ratio
+  - range
+  - 6-band tone
+  - loudness range
+  - reverb tail, echo and stereo width
+
+  Run it with `node scripts/autogen/song-tool.js profile <trackId> [--apply]`. `generate-song.js` stores it after every generation, and `scripts/autogen/profile-library.js` backfills the library (measurement only, never touches hand-tuned effects).
+- **Only autotune strength is applied automatically**, through a curve calibrated against the hand-tuned library (`validate-profiles.py`: held-out error 22.6 vs 26.8 for a constant guess). Reverb, width and echo measured from separated stems did NOT track the hand-tuned settings (separation alters them), so they're stored as weak hints for the Claude pass, not applied. Re-run `validate-profiles.py` before trusting a new measurement.
+- **Singer voice profiles** (`~/.realtime-karaoke/voices.json`, `src/main/voices.ts`): Admin → Guests → Voice Check records ~20 s from a karaoke mic and measures it with the same code (`autogen.py voicecheck`). Profiles are keyed by normalized singer name so they persist across sessions (guest ids are per-session).
+- **Matching** (`renderer/src/audio/voiceMatch.ts`, applied in `KaraokePage` before the FX toggles, memoized per singer): EQ nudged 40% toward the record's tone (±4 dB), autotune adjusted for the singer's pitch steadiness, mic gain levelled, and a range hint when the part centers outside the singer's voice-check range. It's conservative by design, because the measurements are approximate. The Controls page has a Voice Match toggle that lists each singer's adjustments.
+
 ## Common Pitfalls
 
 - **Stem fingerprints (`meta.stems`)**: every song's `meta.json` records the sha256/size/duration of the audio verified to belong to it. `audio:list-catalog` refuses to serve a song whose on-disk stems don't match their fingerprint, and both import paths (`import-song.js`, `audio:import` IPC) refuse audio whose bytes already belong to another song or whose length doesn't match the track. Any script that writes/replaces stem files MUST update `meta.stems` (see `scripts/fingerprint-library.js`) or the song will vanish from the catalog. Stems in `~/Downloads` are matched by FILENAME (export named after the song), never by duration alone.
