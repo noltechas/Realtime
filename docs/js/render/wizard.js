@@ -158,7 +158,7 @@ export function renderWizardRoles(){
     '</div>';
   }
   return '<div class="wiz-hero">Who sings what?</div>'+
-    '<div class="wiz-hero-sub">Tap a singer for each part. Multi-select for duets \u2014 a singer can cover multiple parts too.</div>'+
+    '<div class="wiz-hero-sub">Tap a singer for each part. Multi-select for duets, and a singer can cover multiple parts too.</div>'+
     '<div class="wiz-role-list">'+roleRows+'</div>'+
     warnHtml;
 }
@@ -205,7 +205,7 @@ export function renderWizardStage(){
         '</span>'+
         '<span class="secret-toggle__text">'+
           '<span class="secret-toggle__label">Keep the song title hidden until I start</span>'+
-          '<span class="secret-toggle__hint">'+(S.hide_song?"Other guests won\u2019t see the song name until it plays":"Surprise everyone \u2014 the song name shows up only when it plays")+'</span>'+
+          '<span class="secret-toggle__hint">'+(S.hide_song?"Other guests won\u2019t see the song name until it plays":"Surprise everyone: the song name shows up only when it plays")+'</span>'+
         '</span>'+
       '</button>'+
     '</div>';

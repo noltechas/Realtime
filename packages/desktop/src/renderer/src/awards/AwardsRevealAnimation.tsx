@@ -154,8 +154,8 @@ function EncoreVote({ songs, totals, endsAt }: { songs: EncoreSong[]; totals: Re
     const max = Math.max(1, ...songs.map(s => totals[s.id] || 0))
     return (
         <div className="awards-reveal__encore-vote">
-            <div className="awards-reveal__encore-eyebrow">Encore — Vote Now!</div>
-            <div className="awards-reveal__encore-sub">Tap your phone to vote — the crowd favourite gets sung live</div>
+            <div className="awards-reveal__encore-eyebrow">Encore: Vote Now!</div>
+            <div className="awards-reveal__encore-sub">Tap your phone to vote, and the crowd favourite gets sung live</div>
             <EncoreCountdown endsAt={endsAt} />
             <div className="awards-reveal__encore-list">
                 {songs.map(s => {

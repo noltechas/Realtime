@@ -83,7 +83,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
         id: 'travis-scott',
         name: 'Travis Scott',
         category: 'hip-hop',
-        description: 'Heavy autotune, dark cavernous reverb, gritty slapback trails — delay does the "doubling"',
+        description: 'Heavy autotune, dark cavernous reverb, gritty slapback trails (delay does the "doubling")',
         artistId: '0Y5tJX1MQlPlqiwlOH1tJY',
         effects: {
             pitchCorrection: { enabled: true, strength: 95 },
@@ -584,7 +584,7 @@ export const BUILT_IN_PRESETS: VocalPreset[] = [
         id: 'daft-punk',
         name: 'Daft Punk',
         category: 'electronic',
-        description: 'True channel vocoder — voice replaces a synth chord with its vowels, talkbox formant character, tight room',
+        description: 'True channel vocoder: voice replaces a synth chord with its vowels, talkbox formant character, tight room',
         artistId: '4tZwfgrHOc3mvqYlEYSvVi',
         effects: {
             // pitchCorrection stays on so the singer's note is locked to scale

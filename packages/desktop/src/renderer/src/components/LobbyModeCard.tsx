@@ -117,7 +117,7 @@ export function LobbyModeCard() {
                     <h2 className="adm-h1" style={{ fontSize: 19, marginBottom: 4 }}>Lobby Mode</h2>
                     <div className="adm-sub" style={{ maxWidth: 620 }}>
                         {on
-                            ? 'The stage is holding the join screen. Nothing goes on deck — every song stays in the queue collecting votes until you start the show.'
+                            ? 'The stage is holding the join screen. Nothing goes on deck: every song stays in the queue collecting votes until you start the show.'
                             : 'Hold the stage on the join screen so the room can scan in and stack up songs. Nothing goes on deck while it\'s on.'}
                     </div>
                 </div>
@@ -193,7 +193,7 @@ export function LobbyModeBanner({ style }: { style?: React.CSSProperties }) {
                 Lobby mode
             </span>
             <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: 'var(--adm-text-2)' }}>
-                The stage is holding the join screen — nothing goes on deck while the room stacks up songs.
+                The stage is holding the join screen, so nothing goes on deck while the room stacks up songs.
             </span>
             <Button
                 size="sm"

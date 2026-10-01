@@ -162,7 +162,7 @@ export default function SessionPage() {
                     />
                 </Field>
 
-                <Field label="Starting stage theme" hint="How the big screen and companion app look — the console you're using now always stays the same." style={{ marginBottom: 24 }}>
+                <Field label="Starting stage theme" hint="How the big screen and companion app look. The console you're using now always stays the same." style={{ marginBottom: 24 }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 2 }}>
                         {THEME_LIST.map(item => {
                             const selected = selectedTheme === item.key

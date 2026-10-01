@@ -36,7 +36,7 @@ function NowPlaying() {
                 <span className="adm-label" style={{
                     color: status === 'playing' ? 'var(--adm-green)' : status === 'ready' ? 'var(--adm-amber-bright)' : undefined,
                 }}>
-                    {status === 'idle' ? 'No song loaded' : status === 'playing' ? 'Now playing' : 'Up next — ready'}
+                    {status === 'idle' ? 'No song loaded' : status === 'playing' ? 'Now playing' : 'Up next, ready'}
                 </span>
             </div>
 
@@ -213,7 +213,7 @@ function AudioMixPanel() {
         const base = Array.isArray(voiceEffects)
             ? voiceEffects[s.roleIndices?.[0] ?? 0] || voiceEffects[0]
             : voiceEffects
-        if (!base) return { name, text: 'matched — song has no effect chain', hint: null }
+        if (!base) return { name, text: 'matched, but the song has no effect chain', hint: null }
         const r = applyVoiceMatch(base, vp.measurements, partTarget(songVocalProfile, s.roleIndices))
         return { name, text: r.notes.length ? r.notes.join(' · ') : 'already a close match', hint: r.rangeHint }
     })
@@ -570,7 +570,7 @@ function AudioMixPanel() {
                                             {deviceLabel}
                                             {isOpenMic && (
                                                 <>
-                                                    {deviceLabel ? ' — ' : ''}
+                                                    {deviceLabel ? ' · ' : ''}
                                                     live all song, {singers[0] ? `${singers[0].name}'s` : 'the first singer’s'} vocal FX
                                                 </>
                                             )}

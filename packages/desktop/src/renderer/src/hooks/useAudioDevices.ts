@@ -73,7 +73,7 @@ function expandDevice(raw: MediaDeviceInfo, channelCount: number): AudioInputDev
     for (let i = 0; i < channelCount; i++) {
         entries.push({
             deviceId: `${raw.deviceId}#ch=${i}`,
-            label: `${baseLabel} \u2014 Ch ${i + 1}`,
+            label: `${baseLabel} · Ch ${i + 1}`,
             realDeviceId: raw.deviceId,
             channelIndex: i,
             channelCount,

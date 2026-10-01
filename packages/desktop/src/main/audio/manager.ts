@@ -68,7 +68,7 @@ function findFingerprintOwner(hash: string, ownTrackId: string): { trackId: stri
         const stems = meta.stems || {}
         for (const kind of ['instrumental', 'vocals'] as const) {
             if (stems[kind]?.sha256 === hash) {
-                return { trackId: d.name, name: `${meta.name} — ${meta.artist}`, kind }
+                return { trackId: d.name, name: `${meta.name} by ${meta.artist}`, kind }
             }
         }
     }
@@ -188,7 +188,7 @@ export function listCatalogSongs(): CatalogSong[] {
                     // trackId, so such a copy would serve THIS folder's audio
                     // under the other song's id (and title/lyrics).
                     if (meta.trackId !== dir.name) {
-                        console.error(`[audio:list-catalog] EXCLUDED [${dir.name}]: meta.json names trackId ${meta.trackId} ("${meta.name}") — it doesn't belong in this folder.`)
+                        console.error(`[audio:list-catalog] EXCLUDED [${dir.name}]: meta.json names trackId ${meta.trackId} ("${meta.name}"), so it doesn't belong in this folder.`)
                         continue
                     }
                     // A song whose on-disk audio no longer matches its
@@ -199,7 +199,7 @@ export function listCatalogSongs(): CatalogSong[] {
                     const instCheck = stemVerification(instrumental, meta.stems?.instrumental, meta.durationMs)
                     const vocCheck = vocals ? stemVerification(vocals, meta.stems?.vocals, meta.durationMs) : 'ok'
                     if (instCheck === 'mismatch' || vocCheck === 'mismatch') {
-                        console.error(`[audio:list-catalog] EXCLUDED "${meta.name} — ${meta.artist}" [${dir.name}]: ${instCheck === 'mismatch' ? 'instrumental' : 'vocals'} doesn't match its verified fingerprint. Re-import the stems or run scripts/fingerprint-library.js.`)
+                        console.error(`[audio:list-catalog] EXCLUDED "${meta.name}" by ${meta.artist} [${dir.name}]: ${instCheck === 'mismatch' ? 'instrumental' : 'vocals'} doesn't match its verified fingerprint. Re-import the stems or run scripts/fingerprint-library.js.`)
                         continue
                     }
                     catalog.push({ ...meta, instrumentalPath: instrumental, vocalsPath: vocals || undefined })
@@ -229,7 +229,7 @@ export function registerAudioHandlers() {
             if (typeof args.expectedDurationMs === 'number' && args.expectedDurationMs > 0 && durMs != null) {
                 const diff = Math.abs(durMs - args.expectedDurationMs)
                 if (diff > DURATION_TOLERANCE_MS) {
-                    return { error: `"${srcName}" is ${sec(durMs)} of audio but this song is ${sec(args.expectedDurationMs)} (off by ${sec(diff)}) — it looks like a different song's file. Import refused.` }
+                    return { error: `"${srcName}" is ${sec(durMs)} of audio but this song is ${sec(args.expectedDurationMs)} (off by ${sec(diff)}). It looks like a different song's file. Import refused.` }
                 }
             }
 
@@ -237,7 +237,7 @@ export function registerAudioHandlers() {
             const hash = sha256File(args.sourcePath)
             const owner = findFingerprintOwner(hash, args.trackId)
             if (owner) {
-                return { error: `"${srcName}" is byte-identical to the ${owner.kind} stem of "${owner.name}" — it's that song's audio, not this one's. Import refused.` }
+                return { error: `"${srcName}" is byte-identical to the ${owner.kind} stem of "${owner.name}". It's that song's audio, not this one's. Import refused.` }
             }
 
             const songDir = getSongDir(args.trackId)
@@ -290,7 +290,7 @@ export function registerAudioHandlers() {
                         // These bytes belong to a different song — never bless
                         // them. Keeping the stale fingerprint (when there is
                         // one) makes the catalog exclude this song until fixed.
-                        console.error(`[audio:save-meta] refusing to fingerprint ${kind} of "${meta.name}" — file is byte-identical to the ${owner.kind} of "${owner.name}" [${owner.trackId}]`)
+                        console.error(`[audio:save-meta] refusing to fingerprint ${kind} of "${meta.name}": file is byte-identical to the ${owner.kind} of "${owner.name}" [${owner.trackId}]`)
                         if (prev) stems[kind] = prev
                     } else {
                         stems[kind] = fp

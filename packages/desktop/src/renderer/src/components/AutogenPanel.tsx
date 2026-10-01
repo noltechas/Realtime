@@ -7,8 +7,8 @@ type Autogen = ReturnType<typeof useAutogen>
 function agentNote(job: AutogenJob): { text: string; tone: 'green' | 'amber' } | null {
     if (job.stage !== 'ready' || job.alreadyInLibrary) return null
     if (job.agent === 'done') return { text: 'Singers, lyrics and effects tuned by Claude', tone: 'green' }
-    if (job.agent === 'skipped') return { text: `Playable on default effects — ${job.agentReason || 'Claude pass skipped'}`, tone: 'amber' }
-    if (job.agent === 'failed') return { text: `Playable on default effects — Claude pass failed: ${job.agentReason || 'unknown error'}`, tone: 'amber' }
+    if (job.agent === 'skipped') return { text: `Playable on default effects (${job.agentReason || 'Claude pass skipped'})`, tone: 'amber' }
+    if (job.agent === 'failed') return { text: `Playable on default effects (Claude pass failed: ${job.agentReason || 'unknown error'})`, tone: 'amber' }
     return null
 }
 

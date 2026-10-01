@@ -103,7 +103,7 @@ export function buildCandidates(opts: {
                     subjectKey: p.queueRowId,
                     subjectType: 'group' as const,
                     label: rs.map(s => s.name).join(' & '),
-                    subtitle: p.trackName + ' — ' + p.trackArtist,
+                    subtitle: p.trackName + ' · ' + p.trackArtist,
                     avatarUrl: p.trackArtUrl,
                     singers: rs,
                     trackName: p.trackName,
@@ -696,16 +696,16 @@ export function buildRevealStoryboard(
 // A short human label for a slide — shown in the admin's reveal control panel.
 export function describeRevealSlide(step: RevealStep): string {
     switch (step.phase) {
-        case 'opening': return 'Opening — "Tonight’s Awards"'
-        case 'overview': return `Overview — all ${step.overview?.length ?? 0} awards`
+        case 'opening': return 'Opening: "Tonight’s Awards"'
+        case 'overview': return `Overview: all ${step.overview?.length ?? 0} awards`
         case 'intro': return `Intro · ${step.award?.title ?? 'Award'}`
         case 'finalist': return `Finalist ${(step.finalist?.order ?? 0) + 1}/${step.finalist?.count ?? 0} · ${step.award?.title ?? ''}`
         case 'lineup': return `The finalists · ${step.award?.title ?? ''}`
-        case 'winner': return `Winner${step.winners && step.winners.length ? ' — speech' : ''} · ${step.award?.title ?? ''}`
-        case 'finale': return 'Finale — all winners'
-        case 'encore-buildup': return 'Encore — build-up (auto ~10s)'
-        case 'encore-vote': return 'Encore — live vote (auto 45s)'
-        case 'encore-winner': return 'Encore — winning song'
+        case 'winner': return `Winner${step.winners && step.winners.length ? ' (speech)' : ''} · ${step.award?.title ?? ''}`
+        case 'finale': return 'Finale: all winners'
+        case 'encore-buildup': return 'Encore: build-up (auto ~10s)'
+        case 'encore-vote': return 'Encore: live vote (auto 45s)'
+        case 'encore-winner': return 'Encore: winning song'
         default: return step.phase
     }
 }

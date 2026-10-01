@@ -6,7 +6,7 @@ export function hiddenLabel(){
   return"Secret Song";
 }
 export function hiddenSubtitle(){
-  return"surprise pick \u2014 revealed when it plays";
+  return"surprise pick, revealed when it plays";
 }
 export function hiddenArtInner(){
   return '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="10.5" width="17" height="10.5" rx="2.5"/><path d="M7 10.5 V7 a5 5 0 0 1 10 0 v3.5"/></svg>';
@@ -68,7 +68,7 @@ export function renderQueue(){
     if(isLocked){
       voteCol=
         '<div class="queue-vote-col queue-vote-col--locked">'+
-          '<div class="queue-lock-badge" title="Locked in \u2014 next to play">'+
+          '<div class="queue-lock-badge" title="Locked in, next to play">'+
             '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>'+
             '<span class="queue-lock-label">Next Up<br>Locked</span>'+
           '</div>'+

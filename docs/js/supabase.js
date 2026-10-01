@@ -46,7 +46,7 @@ export function runRequestSearch(){
 export function submitSongRequest(item){
   if(!S.sessionId||S.requestSubmittingId)return;
   if(S.catalog.some(function(c){return c.track_id===item.trackId;})){
-    S.requestConfirm={title:"Already in the library",sub:"This song is already available — search for it on the Songs page."};
+    S.requestConfirm={title:"Already in the library",sub:"This song is already available. Search for it on the Songs page."};
     render();scheduleConfirmDismiss();
     return;
   }
@@ -127,7 +127,7 @@ function onRequestRowChange(pl){
     // Anyone's request landing means a new song for everyone.
     mergeNewCatalog().then(function(){
       if(mine&&becameReady){
-        S.requestConfirm={title:"\u201C"+(row.track_name||"Your song")+"\u201D is ready!",sub:"It's in the library now — tap here to sing it.",trackId:row.track_id};
+        S.requestConfirm={title:"\u201C"+(row.track_name||"Your song")+"\u201D is ready!",sub:"It's in the library now. Tap here to sing it.",trackId:row.track_id};
         scheduleConfirmDismiss(7000);
       }
       render();
@@ -512,7 +512,7 @@ export async function updateMyAward(awardId,fields){
 export async function deleteMyAward(awardId){
   // Count votes first — companion guests can only delete if 0 votes.
   var c=await sb.from("karaoke_award_votes").select("id",{count:"exact",head:true}).eq("award_id",awardId);
-  if(c.count&&c.count>0){alert("You can't delete this award — it already has votes. Ask the host to delete it instead.");return;}
+  if(c.count&&c.count>0){alert("You can't delete this award because it already has votes. Ask the host to delete it instead.");return;}
   var r=await sb.from("karaoke_awards").delete().eq("id",awardId);
   if(r.error){alert("Failed to delete award.");return;}
   S.awards=S.awards.filter(function(a){return a.id!==awardId;});

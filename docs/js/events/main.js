@@ -573,7 +573,7 @@ export function bindEvents(){
       var row=S.queue.find(function(q){return q.id===id;});
       if(!row)return;
       var track=S.catalog.find(function(c){return c.track_id===row.track_id;});
-      if(!track){alert("Can't edit yet — the song catalog is still loading.");return;}
+      if(!track){alert("Can't edit yet. The song catalog is still loading.");return;}
       initWizardFromQueueItem(track,row);
       render();
     });

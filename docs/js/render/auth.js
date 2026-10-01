@@ -29,7 +29,7 @@ export function renderDownloadPrompt(){
         'Download for iOS</a>';
     }else{
       primaryHtml='<button class="join-btn dl-btn-primary" id="dl-ios-soon" disabled style="opacity:0.5;cursor:not-allowed">iOS app coming soon</button>';
-      helper="iOS app isn't published yet — use the browser link below for now.";
+      helper="iOS app isn't published yet. Use the browser link below for now.";
     }
   }else{
     helper="The app is mobile-only. Scan the QR code from your phone to get it.";

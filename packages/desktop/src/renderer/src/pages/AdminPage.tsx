@@ -1419,7 +1419,7 @@ export default function AdminPage() {
                                 })}
                                 style={{ flex: 1, minWidth: 0, padding: '5px 26px 5px 9px', fontSize: 11.5 }}
                             >
-                                <option value="">Singer {i + 1} — None</option>
+                                <option value="">Singer {i + 1}: None</option>
                                 {mics.map(m => (
                                     <option key={m.deviceId} value={m.deviceId}>
                                         {m.label || 'Mic ' + m.deviceId.slice(0, 6)}
@@ -1556,8 +1556,8 @@ export default function AdminPage() {
                                                                 })
                                                                 : undefined}
                                                             title={song.autogen.agent?.status !== 'done'
-                                                                ? `Auto-generated${song.autogen.agent?.reason ? ` — ${song.autogen.agent.reason}` : ''}. Click to have Claude tag the singers, check the lyrics and tune the effects.`
-                                                                : 'Auto-generated from a clean edit — give it a listen and check the lyrics'}
+                                                                ? `Auto-generated${song.autogen.agent?.reason ? ` (${song.autogen.agent.reason})` : ''}. Click to have Claude tag the singers, check the lyrics and tune the effects.`
+                                                                : 'Auto-generated from a clean edit. Give it a listen and check the lyrics'}
                                                         >
                                                             Review
                                                         </Chip>
@@ -2255,8 +2255,8 @@ export default function AdminPage() {
                                                 <div style={{ fontSize: 12.5, fontWeight: 650 }}>N-Word Pass</div>
                                                 <div style={{ fontSize: 11, color: 'var(--adm-text-3)' }}>
                                                     {guest.hasNwordPass
-                                                        ? 'On — their assigned lyrics are shown uncensored'
-                                                        : 'Off — affected words are replaced with “fella(s)”'}
+                                                        ? 'On: their assigned lyrics are shown uncensored'
+                                                        : 'Off: affected words are replaced with “fella(s)”'}
                                                 </div>
                                             </div>
                                         </div>
@@ -2369,7 +2369,7 @@ export default function AdminPage() {
                                             <AutogenJobLine job={genJob} autogen={autogen} />
                                         ) : isPendingReq && req.generationStatus === 'failed' ? (
                                             <div style={{ fontSize: 11.5, color: 'var(--adm-red)' }}>
-                                                Generation failed{req.generationError ? ` — ${req.generationError}` : ''}
+                                                Generation failed{req.generationError ? `: ${req.generationError}` : ''}
                                             </div>
                                         ) : null}
 
@@ -2564,7 +2564,7 @@ export default function AdminPage() {
                         {/* Autotune key / mode */}
                         <Field
                             label="Autotune target scale"
-                            hint={<><strong>Chromatic</strong> snaps every note to the nearest semitone — classic T-Pain, works regardless of what you're singing. Picking a <strong>Key + Mode</strong> restricts snap targets to that scale's notes only (more musical, more natural-sounding for melodies). Selecting a Song Role above will auto-load that song's stored key.</>}
+                            hint={<><strong>Chromatic</strong> snaps every note to the nearest semitone: classic T-Pain, works regardless of what you're singing. Picking a <strong>Key + Mode</strong> restricts snap targets to that scale's notes only (more musical, more natural-sounding for melodies). Selecting a Song Role above will auto-load that song's stored key.</>}
                         >
                             <div style={{ display: 'flex', gap: 8 }}>
                                 <Select
@@ -2603,7 +2603,7 @@ export default function AdminPage() {
                                     const song = catalog.find(s => s.trackId === auditionSongTrackId)
                                     const roles = (song?.roles && song.roles.length) ? song.roles : [song?.artist || 'Main']
                                     const roleName = roles[auditionSongRoleIdx] || 'Main'
-                                    label = `${roleName} — ${song?.name || ''}`
+                                    label = song?.name ? `${roleName} on ${song.name}` : roleName
                                 }
                                 return (
                                     <span>

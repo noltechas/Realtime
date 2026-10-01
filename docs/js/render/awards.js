@@ -86,7 +86,7 @@ export function buildAwardCandidates(award){
       return {
         key:p.queueRowId,type:"group",
         label:singers.map(function(s){return s.name;}).join(" & "),
-        subtitle:p.trackName+" — "+p.trackArtist,
+        subtitle:p.trackName+" · "+p.trackArtist,
         avatar:p.trackArtUrl,
         singers:singers,
         bannedNames:singers.map(function(s){return s.name;}),
@@ -213,7 +213,7 @@ export function renderAwardDetail(aw){
     '</div>'+
     (aw.description?'<div class="awards-detail-citation">'+esc(aw.description)+'</div>':"");
   if(candidates.length===0){
-    var emptyMsg=aw.subject_type==="singer"?"No singers yet — once someone takes the mic they'll appear here.":aw.subject_type==="group"?"No multi-singer performances yet.":"No performances yet — check back after a song plays.";
+    var emptyMsg=aw.subject_type==="singer"?"No singers yet. Once someone takes the mic they'll appear here.":aw.subject_type==="group"?"No multi-singer performances yet.":"No performances yet. Check back after a song plays.";
     html+='<div class="awards-empty-state">'+esc(emptyMsg)+'</div>';
   }else{
     // The ballot — three ranked slots
@@ -279,7 +279,7 @@ export function renderCandidateAvatarBlock(c){
 // ---------------------------------------------------------------------
 var WIZARD_STEP_META={
   1:{title:"Name your award",caption:"What shall the world call this honor?"},
-  2:{title:"Describe the honor",caption:"A line in the program — the kind that gets read aloud."},
+  2:{title:"Describe the honor",caption:"A line in the program, the kind that gets read aloud."},
   3:{title:"Choose its subject",caption:"Who or what will it celebrate?"},
   4:{title:"Bestow it a face",caption:"Pick an icon or upload a photograph."}
 };
@@ -644,7 +644,7 @@ export function renderRevealOverlay(){
       '</button>';
     }
     inner='<div class="awards-reveal__encore-votewrap">'+
-      '<div class="awards-reveal__encore-big">Encore — Vote!</div>'+
+      '<div class="awards-reveal__encore-big">Encore: Vote!</div>'+
       '<div class="awards-reveal__encore-sub">Tap a song as many times as you want</div>'+
       '<div class="awards-reveal__encore-taplist">'+rows+'</div>'+
     '</div>';

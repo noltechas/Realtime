@@ -63,7 +63,7 @@ export function ArtistReplaysCard() {
             )}
             {list.length === 0 ? (
                 <div style={{ fontSize: 12.5, color: 'var(--adm-text-3)' }}>
-                    {state.recordPerformances ? 'No performances yet — they show up here after each song.' : 'Turn on recording to make replays.'}
+                    {state.recordPerformances ? 'No performances yet. They show up here after each song.' : 'Turn on recording to make replays.'}
                 </div>
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -103,7 +103,7 @@ export function ArtistReplaysCard() {
                 </div>
             )}
             <div style={{ fontSize: 11, color: 'var(--adm-text-3)', marginTop: 12, lineHeight: 1.45 }}>
-                Replays are AI voice conversion (Seed-VC) of a real artist's voice — just for fun here; please don't post them. A replay takes a few minutes per song.
+                Replays are AI voice conversion (Seed-VC) of a real artist's voice. They're just for fun here; please don't post them. A replay takes a few minutes per song.
             </div>
         </Card>
     )

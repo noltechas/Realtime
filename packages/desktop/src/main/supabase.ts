@@ -955,7 +955,7 @@ export async function updateSongRequestGeneration(ids: string[], fields: {
             return
         }
         generationColumnsMissing = true
-        console.warn('[autogen] karaoke_song_requests has no generation_* columns — apply supabase/migrations/*_song_request_generation.sql. Falling back to status-only updates.')
+        console.warn('[autogen] karaoke_song_requests has no generation_* columns. Apply supabase/migrations/*_song_request_generation.sql. Falling back to status-only updates.')
     }
     if (Object.keys(base).length === 0) return
     const { error } = await supabase.from('karaoke_song_requests').update(base).in('id', ids)

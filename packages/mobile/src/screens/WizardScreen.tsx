@@ -1429,7 +1429,7 @@ function RolesStep({
           marginBottom: 16,
         }}
       >
-        Tap a singer for each part. Multi-select for duets — a singer can cover multiple parts too.
+        Tap a singer for each part. Multi-select for duets, and a singer can cover multiple parts too.
       </Text>
 
       {roles.map((roleName, ri) => (
@@ -1776,7 +1776,7 @@ function StageStep({
             <Text style={{ fontFamily: tokens.name === 'tropical' ? 'FloridaVibes' : tokens.fontBody, fontSize: tokens.name === 'tropical' ? 16 : 12, lineHeight: tokens.name === 'tropical' ? 23 : undefined, color: woodMutedColor(tokens), marginTop: 4 }}>
               {hideSong
                 ? "Other guests won’t see the song name until it plays"
-                : "Surprise everyone — the song name shows up only when it plays"}
+                : "Surprise everyone: the song name shows up only when it plays"}
             </Text>
           </View>
         </View>

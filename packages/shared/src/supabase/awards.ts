@@ -291,7 +291,7 @@ export async function deleteMyAward(
     .eq('award_id', awardId)
   if (c.count && c.count > 0) {
     throw new Error(
-      "You can't delete this award — it already has votes. Ask the host to delete it instead.",
+      "You can't delete this award because it already has votes. Ask the host to delete it instead.",
     )
   }
   const { error } = await client.from('karaoke_awards').delete().eq('id', awardId)
@@ -360,7 +360,7 @@ export function buildAwardCandidates(
           key: p.queueRowId,
           type: 'group' as const,
           label: singers.map((s) => s.name).join(' & '),
-          subtitle: `${p.trackName} — ${p.trackArtist}`,
+          subtitle: `${p.trackName} · ${p.trackArtist}`,
           avatar: p.trackArtUrl,
           singers,
           bannedNames: singers.map((s) => s.name || ''),

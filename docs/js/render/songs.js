@@ -55,7 +55,7 @@ export function renderRequestCta(){
     '</span>'+
     '<span class="request-song-cta-body">'+
       '<span class="request-song-cta-title">Request a Song to be Added</span>'+
-      '<span class="request-song-cta-sub">Anything on Spotify — new songs build themselves in a few minutes.</span>'+
+      '<span class="request-song-cta-sub">Anything on Spotify. New songs build themselves in a few minutes.</span>'+
     '</span>'+
     '<span class="request-song-cta-chevron">'+
       '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>'+
@@ -106,7 +106,7 @@ export function renderRequest(){
   var disabled=!S.spotifyToken;
   var body="";
   if(disabled){
-    body='<div class="req-disabled-note">Song requests aren’t available right now — the host needs to be on the Admin page so the song search is live. Try again in a minute.</div>';
+    body='<div class="req-disabled-note">Song requests aren’t available right now. The host needs to be on the Admin page so the song search is live. Try again in a minute.</div>';
   }else if(S.requestSearching){
     body='<div class="req-loading"><div class="spinner"></div></div>';
   }else if(!(S.requestQuery||"").trim()){
@@ -175,7 +175,7 @@ var GEN_LABELS={
 };
 function requestView(r){
   if(r.status==="dismissed")return{label:"The host passed on this one",tone:"muted"};
-  if(r.status==="added"||r.generation_status==="ready")return{label:"Ready to sing \u2014 tap to open",tone:"ready"};
+  if(r.status==="added"||r.generation_status==="ready")return{label:"Ready to sing, tap to open",tone:"ready"};
   if(r.generation_status==="failed")return{label:r.generation_error||"Couldn\u2019t build this one",tone:"failed"};
   if(r.generation_status&&GEN_LABELS[r.generation_status]){
     var pct=typeof r.generation_progress==="number"?r.generation_progress:null;
@@ -221,7 +221,7 @@ export function renderSongs(){
   var safe=isSafeMode();
   var fl=safe?[]:filterCatalog();
   var cards=safe
-    ? '<div class="song-empty" style="grid-column:1/-1;padding:32px 16px;line-height:1.5;">Safe mode — song grid skipped. Use the bottom nav to reach other screens, then remove <code>?safemode</code> from the URL to restore.</div>'
+    ? '<div class="song-empty" style="grid-column:1/-1;padding:32px 16px;line-height:1.5;">Safe mode: song grid skipped. Use the bottom nav to reach other screens, then remove <code>?safemode</code> from the URL to restore.</div>'
     : renderSongCards(fl);
   return '<div class="screen">'+
     '<div class="songs-header" id="songs-header">'+

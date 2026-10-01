@@ -492,7 +492,7 @@ export function useKaraokeSession() {
                 const catalog = await window.electronAPI?.listCatalog().catch(() => null)
                 const entry = (catalog || []).find((s: CatalogSong) => s.trackId === trackId)
                 if (!entry) {
-                    console.warn('[Karaoke] Cannot restore now-playing — track not in catalog:', trackId)
+                    console.warn('[Karaoke] Cannot restore now-playing, track not in catalog:', trackId)
                     finish(null)
                     return
                 }

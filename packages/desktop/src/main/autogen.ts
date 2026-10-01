@@ -181,7 +181,7 @@ function syncRows(job: AutogenJob, force = false): void {
 function friendlyError(job: AutogenJob): string {
     switch (job.errorCode) {
         case 'no-match': return "Couldn't find an official recording of this song to work from."
-        case 'download': return "Couldn't download this song right now — the host can retry."
+        case 'download': return "Couldn't download this song right now. The host can retry."
         case 'setup': return 'Song generation is not set up on the host computer.'
         case 'cancelled': return 'The host cancelled this one.'
         default: return 'Something went wrong generating this song.'
@@ -319,7 +319,7 @@ function start(job: AutogenJob): void {
         if (job.stage !== 'ready' && job.stage !== 'failed') {
             job.stage = 'failed'
             job.errorCode = wasCancelled ? 'cancelled' : (job.errorCode || 'internal')
-            job.error = wasCancelled ? 'Cancelled' : (job.error || `Generator exited with code ${code}${stderrTail ? ` — ${stderrTail.trim().split('\n').pop()}` : ''}`)
+            job.error = wasCancelled ? 'Cancelled' : (job.error || `Generator exited with code ${code}${stderrTail ? `: ${stderrTail.trim().split('\n').pop()}` : ''}`)
             job.finishedAt = Date.now()
             syncRows(job, true)
         }

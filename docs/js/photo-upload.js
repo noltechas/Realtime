@@ -39,7 +39,7 @@ function ensureInput() {
       const cb = _pendingCallback;
       _pendingCallback = null;
       if (!cb) {
-        if (window.__logErr) window.__logErr('global photo-upload: file picked but no pending callback — ignoring');
+        if (window.__logErr) window.__logErr('global photo-upload: file picked but no pending callback, ignoring');
         return;
       }
       resizeImage(file, 128, 0.8, (url) => {

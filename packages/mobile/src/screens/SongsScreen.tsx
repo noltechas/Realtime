@@ -174,7 +174,7 @@ export function SongsScreen() {
               </Text>
               <Text style={[ui.styles.muted, { textAlign: 'center', marginBottom: 18 }]}>
                 {query
-                  ? 'Not in the library yet — ask the host to add it.'
+                  ? 'Not in the library yet. Ask the host to add it.'
                   : 'Ask the host to add some songs from their desktop app.'}
               </Text>
               <View style={{ alignSelf: 'stretch' }}>

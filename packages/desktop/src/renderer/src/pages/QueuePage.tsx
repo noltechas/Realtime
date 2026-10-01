@@ -365,7 +365,7 @@ function SetupPanel() {
                                 </div>
                             ) : (
                                 <div style={{ fontSize: 12.5, color: 'var(--adm-text-3)', marginBottom: 16 }}>
-                                    {state.guests.length === 0 ? 'No one has joined yet — add a custom name below.' : 'Everyone who has joined is already added.'}
+                                    {state.guests.length === 0 ? 'No one has joined yet. Add a custom name below.' : 'Everyone who has joined is already added.'}
                                 </div>
                             )}
 
@@ -509,7 +509,7 @@ function HiddenQueueItem({ addedBy }: { addedBy?: string | null }) {
                     Hidden Song
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--adm-text-3)', marginTop: 2 }}>
-                    Surprise pick — revealed on stage
+                    Surprise pick, revealed on stage
                 </div>
                 {addedBy && (
                     <div style={{ fontSize: 11.5, color: 'var(--adm-amber-bright)', fontWeight: 600, marginTop: 2 }}>

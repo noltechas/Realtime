@@ -577,7 +577,7 @@ function UrbanUpNext({
                             margin: '12px 0 0', textTransform: 'uppercase', letterSpacing: '0.32em',
                         }}>
                             {track.artists.map((a: any) => a.name).join(', ')}
-                            {dur ? `  —  ${dur}` : ''}
+                            {dur ? `  /  ${dur}` : ''}
                         </p>
                     )}
                 </div>
@@ -3121,7 +3121,7 @@ function IdleStageScreen({ theme, qrUrl, sessionCode }: {
                                 fontFamily: "'Share Tech Mono', monospace", fontSize: stageFont(13),
                                 letterSpacing: '0.26em', color: '#4E5C6D', margin: '0 0 10px',
                             }}>
-                                SYS/LAUNCH — STANDING BY
+                                SYS/LAUNCH: STANDING BY
                             </p>
                             <h1 style={{
                                 fontFamily: "'Chakra Petch', sans-serif", fontSize: stageFont(58), color: '#DCE6F2',
@@ -3867,7 +3867,7 @@ function IdleStageScreen({ theme, qrUrl, sessionCode }: {
                     fontFamily: URB_STENCIL, fontWeight: 300, fontSize: stageFont(16), color: URB_ASH,
                     letterSpacing: '0.42em', textTransform: 'uppercase', marginBottom: 44,
                 }}>
-                    Scan the flyer — run the queue
+                    Scan the flyer, run the queue
                 </p>
 
                 {/* Wheatpasted QR flyer */}
@@ -6035,7 +6035,7 @@ export default function KaraokePage() {
                             }}>
                                 <NbEq color="#FF3B30" fontSize={stageFont(24)} />
                                 <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(24), color: NB_INK, letterSpacing: '0.04em' }}>
-                                    NO LYRICS — FREESTYLE IT
+                                    NO LYRICS. FREESTYLE IT
                                 </span>
                             </div>
                         </div>
@@ -6045,7 +6045,7 @@ export default function KaraokePage() {
                                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 16, padding: '2px 6px' }}>
                                     <NbEq color="#0A0A0A" fontSize={stageFont(22)} />
                                     <span style={{ fontFamily: URB_STENCIL, fontWeight: 700, fontSize: stageFont(23), letterSpacing: '0.24em', textTransform: 'uppercase' }}>
-                                        No Lyrics — Freestyle
+                                        No Lyrics: Freestyle
                                     </span>
                                 </span>
                             </UrbanSprayPlate>
@@ -6060,7 +6060,7 @@ export default function KaraokePage() {
                                 <SteamRivets />
                                 <NbNote size={26} color={STM_BRASS} />
                                 <span style={{ fontFamily: STM_SERIF, fontStyle: 'italic', fontWeight: 600, fontSize: stageFont(25), color: STM_PARCH, textShadow: '0 0 12px rgba(200,151,62,0.25)' }}>
-                                    No libretto — improvise!
+                                    No libretto. Improvise!
                                 </span>
                             </div>
                         </div>
@@ -6073,7 +6073,7 @@ export default function KaraokePage() {
                             }}>
                                 <ZenEnso size={34} color={ZEN_VERM} strokeWidth={7} progress={1} />
                                 <span style={{ fontFamily: ZEN_SERIF, fontStyle: 'italic', fontWeight: 600, fontSize: stageFont(26), color: ZEN_INK }}>
-                                    No lyrics — sing from the heart
+                                    No lyrics, sing from the heart
                                 </span>
                             </div>
                         </div>

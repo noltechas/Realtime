@@ -478,7 +478,7 @@ export function AdminAwardsTab() {
                                 <Icon name="mic" size={14} style={{ color: 'var(--adm-amber-bright)' }} />
                                 <span>
                                     The main mic is live for the winner's speech. Tap <strong>Next</strong> when they're done.
-                                    {!state.micSlots?.[0]?.micDeviceId && ' (No main mic configured in Controls — assign mic slot 1 to enable it.)'}
+                                    {!state.micSlots?.[0]?.micDeviceId && ' (No main mic configured in Controls. Assign mic slot 1 to enable it.)'}
                                 </span>
                             </div>
                         )}

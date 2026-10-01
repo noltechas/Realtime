@@ -501,7 +501,7 @@ function hiddenSubtitleFor(name: string): string {
         case 'zen': return 'concealed'
         case 'space': return 'transmission encrypted'
         case 'steampunk': return 'sealed by the archivist'
-        case 'retrowave': return 'track.dat — error 404'
+        case 'retrowave': return 'track.dat: error 404'
         case 'tropical': return 'washed up from who-knows-where'
         case 'neo-brutal':
         default: return 'surprise pick!'

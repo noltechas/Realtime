@@ -293,7 +293,7 @@ export function SyllableEditor({ line, nextLineStartMs, instrumentalPath, onChan
                     const width = (s.durMs / windowSpan) * 100
                     const active = tapMode && i < armed
                     return (
-                        <div key={i} title={`${trimmed(s.text) || '·'} — ${fmtTime(s.startMs)} (${s.durMs}ms)`}
+                        <div key={i} title={`${trimmed(s.text) || '·'} at ${fmtTime(s.startMs)} (${s.durMs}ms)`}
                             style={{
                                 position: 'absolute', top: 3, bottom: 3, left: `${left}%`, width: `${Math.max(0.6, width)}%`,
                                 background: active ? 'var(--adm-amber)' : 'rgba(76,195,232,0.35)',
@@ -383,7 +383,7 @@ export function SyllableEditor({ line, nextLineStartMs, instrumentalPath, onChan
                         <Button size="sm" onClick={() => stopTapMode({ commitTaps: true })}>Stop &amp; keep</Button>
                         <Button variant="ghost" size="sm" onClick={() => stopTapMode({ commitTaps: false })}>Cancel</Button>
                         <span style={{ fontSize: 12, color: 'var(--adm-text-2)' }}>
-                            {armed < syls.length ? `Tap syllable ${armed + 1} / ${syls.length}: “${trimmed(syls[armed]?.text) || '·'}”` : 'All tapped — stopping…'}
+                            {armed < syls.length ? `Tap syllable ${armed + 1} / ${syls.length}: “${trimmed(syls[armed]?.text) || '·'}”` : 'All tapped. Stopping…'}
                         </span>
                     </>
                 )}
@@ -399,7 +399,7 @@ export function SyllableEditor({ line, nextLineStartMs, instrumentalPath, onChan
                 >
                     Reset line
                 </button>
-                {!hasAudio && <span style={{ fontSize: 11, color: 'var(--adm-text-3)' }}>No instrumental — numeric fine-tune only.</span>}
+                {!hasAudio && <span style={{ fontSize: 11, color: 'var(--adm-text-3)' }}>No instrumental, so numeric fine-tune only.</span>}
                 {hasAudio && !audioReady && !tapMode && <span style={{ fontSize: 11, color: 'var(--adm-text-3)' }}>Loading audio…</span>}
             </div>
 

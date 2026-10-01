@@ -73,7 +73,7 @@ export function VocalOffsetCalibrator({ onClose }: Props) {
             cancelRun()
             setPhase('idle')
             setActiveBeat(-1)
-            setError('Vocal Out device changed — run cancelled.')
+            setError('Vocal Out device changed. Run cancelled.')
         }
     }, [monitorId, phase, cancelRun])
 

@@ -19,7 +19,7 @@ export function render(){
     queue:1,stage:1,profile:1,youreup:1,awards:1,error:1
   };
   if(!VALID_SCREENS[S.screen]){
-    if(window.__pushErr)window.__pushErr({time:new Date().toISOString(),message:'render: unknown screen '+JSON.stringify(S.screen)+' — bailing',source:'',line:0,col:0,stack:''});
+    if(window.__pushErr)window.__pushErr({time:new Date().toISOString(),message:'render: unknown screen '+JSON.stringify(S.screen)+', bailing',source:'',line:0,col:0,stack:''});
     return;
   }
   trackScreen();

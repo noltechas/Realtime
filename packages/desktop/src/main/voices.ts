@@ -93,7 +93,7 @@ export function registerVoiceHandlers(): void {
             fs.writeFileSync(tmp, Buffer.from(args.wav))
             const measurements = await runVoiceCheck(tmp)
             if (!measurements.seconds || measurements.seconds < 4) {
-                return { error: 'Not enough singing was picked up — sing closer to the mic, for at least 10 seconds.' }
+                return { error: 'Not enough singing was picked up. Sing closer to the mic, for at least 10 seconds.' }
             }
             const profiles = load()
             const key = voiceKey(name)

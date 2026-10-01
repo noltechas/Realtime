@@ -1360,12 +1360,12 @@ function AwardDetail({
   // can vote for — explain that rather than implying the category is empty.
   const selfOnly = candidates.length > 0 && votableCandidates.length === 0
   const emptyMsg = selfOnly
-    ? "You're the only nominee here so far — you can't vote for yourself, but everyone else can vote for you."
+    ? "You're the only nominee here so far. You can't vote for yourself, but everyone else can vote for you."
     : award.subject_type === 'singer'
-      ? "No singers yet — once someone takes the mic they'll appear here."
+      ? "No singers yet. Once someone takes the mic they'll appear here."
       : award.subject_type === 'group'
         ? 'No multi-singer performances yet.'
-        : 'No performances yet — check back after a song plays.'
+        : 'No performances yet. Check back after a song plays.'
 
   const toggle = (c: AwardCandidate) => {
     if (finalized) return
