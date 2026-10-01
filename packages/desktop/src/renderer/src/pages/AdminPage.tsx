@@ -1542,17 +1542,25 @@ export default function AdminPage() {
                                                         <div style={{ fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{song.name}</div>
                                                         <div style={{ fontSize: 11.5, color: 'var(--adm-text-3)' }}>{song.artist}</div>
                                                     </div>
-                                                    {song.autogen?.needsReview && (
+                                                    {song.autogen?.needsReview && (isAutogenActive(autogen.jobFor(song.trackId)) ? (
+                                                        <AutogenRowStatus job={autogen.jobFor(song.trackId)!} />
+                                                    ) : (
                                                         <Chip
                                                             tone="amber"
                                                             style={{ fontSize: 10.5, flexShrink: 0 }}
-                                                            title={song.autogen.agent?.reason
-                                                                ? `Auto-generated — ${song.autogen.agent.reason}`
-                                                                : 'Auto-generated — give it a listen and check the lyrics'}
+                                                            onClick={song.autogen.agent?.status !== 'done' && autogen.status?.available
+                                                                ? () => autogen.enqueue({
+                                                                    trackId: song.trackId, name: song.name, artist: song.artist,
+                                                                    artUrl: song.artUrl, agentOnly: true,
+                                                                })
+                                                                : undefined}
+                                                            title={song.autogen.agent?.status !== 'done'
+                                                                ? `Auto-generated${song.autogen.agent?.reason ? ` — ${song.autogen.agent.reason}` : ''}. Click to have Claude tag the singers, check the lyrics and tune the effects.`
+                                                                : 'Auto-generated from a clean edit — give it a listen and check the lyrics'}
                                                         >
                                                             Review
                                                         </Chip>
-                                                    )}
+                                                    ))}
                                                     {hasSyllables && (
                                                         <span
                                                             title="Word-level karaoke timing"

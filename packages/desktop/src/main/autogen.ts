@@ -33,6 +33,8 @@ export interface AutogenJob {
     /** karaoke_song_requests rows waiting on this track (several guests can ask). */
     requestIds: string[]
     requestedBy: string | null
+    /** Only re-run the Claude pass on a song that's already generated. */
+    agentOnly?: boolean
     stage: AutogenStage
     /** 0-100 across the whole pipeline. */
     overall: number
@@ -70,6 +72,7 @@ export interface AutogenTrackInput {
     /** Carry over every waiting request (retry). */
     requestIds?: string[]
     requestedBy?: string | null
+    agentOnly?: boolean
 }
 
 interface AutogenHooks {
@@ -212,6 +215,7 @@ export function enqueueAutogen(input: AutogenTrackInput): AutogenJob {
         requestIds: [...(input.requestIds ?? []), ...(input.requestId ? [input.requestId] : [])]
             .filter((id, i, all) => all.indexOf(id) === i),
         requestedBy: input.requestedBy ?? null,
+        agentOnly: !!input.agentOnly,
         stage: 'queued',
         overall: 0,
         createdAt: Date.now(),
@@ -247,7 +251,7 @@ export function retryAutogen(trackId: string): void {
     if (!job || job.stage !== 'failed') return
     enqueueAutogen({
         trackId: job.trackId, name: job.name, artist: job.artist, artUrl: job.artUrl,
-        requestIds: job.requestIds, requestedBy: job.requestedBy,
+        requestIds: job.requestIds, requestedBy: job.requestedBy, agentOnly: job.agentOnly,
     })
 }
 
@@ -287,7 +291,8 @@ function pump(): void {
 function start(job: AutogenJob): void {
     job.startedAt = Date.now()
     job.stage = 'resolving'
-    const child = spawn(process.execPath, [scriptPath(), job.trackId, '--events'], {
+    const args = [scriptPath(), job.trackId, '--events', ...(job.agentOnly ? ['--agent-only'] : [])]
+    const child = spawn(process.execPath, args, {
         cwd: repoRoot(),
         // process.execPath is Electron; run it as plain Node for the script.
         env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },

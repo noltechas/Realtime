@@ -120,7 +120,8 @@ export function AutogenQueueCard({ autogen }: { autogen: Autogen }) {
                                 <div style={{ minWidth: 0 }}>
                                     <div style={{ fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{job.name}</div>
                                     <div style={{ fontSize: 11.5, color: 'var(--adm-text-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                        {job.artist}{job.requestedBy ? ` · requested by ${job.requestedBy}` : ''}
+                                        {job.artist}
+                                        {job.agentOnly ? ' · Claude pass' : job.requestedBy ? ` · requested by ${job.requestedBy}` : ''}
                                     </div>
                                 </div>
                                 <AutogenJobLine job={job} autogen={autogen} />

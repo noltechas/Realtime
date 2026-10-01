@@ -66,6 +66,7 @@ interface AutogenJob {
     artUrl: string | null
     requestIds: string[]
     requestedBy: string | null
+    agentOnly?: boolean
     stage: AutogenStage
     overall: number
     message?: string
@@ -100,6 +101,7 @@ interface AutogenTrackInput {
     requestId?: string | null
     requestIds?: string[]
     requestedBy?: string | null
+    agentOnly?: boolean
 }
 
 interface ElectronAPI {
