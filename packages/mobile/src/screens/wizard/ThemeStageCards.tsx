@@ -19,6 +19,7 @@ import { BrassFrame } from './SteampunkWizardChrome'
 import { NeonFrame } from './RetrowaveWizardChrome'
 import { Gear } from '../../theme/themes/steampunk/atoms/_steam'
 import { Hibiscus3D, TimberDetail, useSize } from '../../theme/themes/tropical/atoms/_tropical'
+import { Candle as GothCandle, GlassDot, FRAKTUR, RUBY, SAPPHIRE } from '../../theme/themes/gothic/atoms/_gothic'
 
 // The deep-sea theme's actual bubble PNG (same asset its backdrop + tab bar
 // use) — rendered un-tinted so the 3D highlight reads.
@@ -922,6 +923,56 @@ function TropicalCard({ label, selected, onPress }: CardProps) {
   )
 }
 
+// 13. Gothic: a slab of black limestone with a moonlit top edge and a
+//     candle-warm lower lip, the name cut in Fraktur, a lit candle standing at
+//     the end and two little roundels of ruby and sapphire glass.
+function GothicCard({ label, selected, onPress }: CardProps) {
+  return (
+    <BaseCard
+      selected={selected}
+      onPress={onPress}
+      bg="#15121A"
+      radius={3}
+      border={{ width: 1, color: 'rgba(175,195,234,0.28)' }}
+      glowColor="#E3B04B"
+      glowRadius={8}
+      accent="#E3B04B"
+      badge={{ bg: '#E3B04B', fg: '#140E06', ring: '#3B3645' }}
+    >
+      <LinearGradient
+        pointerEvents="none"
+        colors={['#2A2632', '#17141C', '#120F15', '#2A1C12']}
+        locations={[0, 0.3, 0.8, 1]}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+      />
+      <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, backgroundColor: 'rgba(196,210,238,0.5)' }} />
+      <View pointerEvents="none" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 1, backgroundColor: 'rgba(227,176,75,0.55)' }} />
+      <Row>
+        <View style={{ flexDirection: 'row', gap: 3, marginRight: 7 }}>
+          <GlassDot color={RUBY} size={11} />
+          <GlassDot color={SAPPHIRE} size={11} />
+        </View>
+        <CardLabel
+          text={label}
+          color="#E8DFCC"
+          font={FRAKTUR}
+          style={{
+            flex: 1,
+            fontSize: 21,
+            lineHeight: 25,
+            textShadowColor: 'rgba(0,0,0,0.85)',
+            textShadowOffset: { width: 0, height: 1.5 },
+            textShadowRadius: 2,
+          }}
+        />
+        <View style={{ marginTop: -8 }}>
+          <GothCandle width={8} height={18} seed={2} halo={1.1} />
+        </View>
+      </Row>
+    </BaseCard>
+  )
+}
+
 // ── Dispatcher ───────────────────────────────────────────────────────────────
 interface CardProps {
   label: string
@@ -942,6 +993,7 @@ const CARD_BY_KEY: Record<string, React.ComponentType<CardProps>> = {
   retrowave: RetrowaveCard,
   'comic-book': ComicBookCard,
   tropical: TropicalCard,
+  gothic: GothicCard,
 }
 
 export function ThemeStageCard({

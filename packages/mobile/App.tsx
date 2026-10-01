@@ -50,6 +50,15 @@ const ZenKakuGothicNew_400Regular = require('@expo-google-fonts/zen-kaku-gothic-
 const Exo2_400Regular = require('@expo-google-fonts/exo-2/400Regular/Exo2_400Regular.ttf')
 const Exo2_700Bold = require('@expo-google-fonts/exo-2/700Bold/Exo2_700Bold.ttf')
 const Nunito_400Regular = require('@expo-google-fonts/nunito/400Regular/Nunito_400Regular.ttf')
+// Gothic theme: deep-required for the same reason: Grenze Gotisch ships nine
+// weights and Cormorant Garamond ten, and the theme renders three of each.
+const UnifrakturMaguntia_400Regular = require('@expo-google-fonts/unifrakturmaguntia/400Regular/UnifrakturMaguntia_400Regular.ttf')
+const GrenzeGotisch_600SemiBold = require('@expo-google-fonts/grenze-gotisch/600SemiBold/GrenzeGotisch_600SemiBold.ttf')
+const GrenzeGotisch_700Bold = require('@expo-google-fonts/grenze-gotisch/700Bold/GrenzeGotisch_700Bold.ttf')
+const GrenzeGotisch_800ExtraBold = require('@expo-google-fonts/grenze-gotisch/800ExtraBold/GrenzeGotisch_800ExtraBold.ttf')
+const CormorantGaramond_600SemiBold = require('@expo-google-fonts/cormorant-garamond/600SemiBold/CormorantGaramond_600SemiBold.ttf')
+const CormorantGaramond_600SemiBold_Italic = require('@expo-google-fonts/cormorant-garamond/600SemiBold_Italic/CormorantGaramond_600SemiBold_Italic.ttf')
+const CormorantGaramond_700Bold = require('@expo-google-fonts/cormorant-garamond/700Bold/CormorantGaramond_700Bold.ttf')
 
 // Error boundary so a crash anywhere in the render tree shows visibly on
 // screen instead of leaving us staring at a white screen with no logs.
@@ -138,6 +147,16 @@ export default function App() {
     // with the desktop/stage + web.
     FloridaVibes: require('./assets/fonts/FloridaVibes.ttf'),
     TheLastTrunks: require('./assets/fonts/TheLastTrunks.ttf'),
+    // Gothic theme: UnifrakturMaguntia (a true Fraktur, display moments only,
+    // never in capitals), Grenze Gotisch (the reading blackletter: titles and
+    // labels) and Cormorant Garamond (prose). Same faces as the stage.
+    UnifrakturMaguntia_400Regular,
+    GrenzeGotisch_600SemiBold,
+    GrenzeGotisch_700Bold,
+    GrenzeGotisch_800ExtraBold,
+    CormorantGaramond_600SemiBold,
+    CormorantGaramond_600SemiBold_Italic,
+    CormorantGaramond_700Bold,
   })
 
   // Render once fonts are loaded OR once we know they failed. Without the

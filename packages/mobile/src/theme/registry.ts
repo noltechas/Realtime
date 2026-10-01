@@ -11,6 +11,7 @@ import { STEAMPUNK_UI } from './themes/steampunk'
 import { RETROWAVE_UI } from './themes/retrowave'
 import { COMIC_BOOK_UI } from './themes/comic-book'
 import { TROPICAL_UI } from './themes/tropical'
+import { GOTHIC_UI } from './themes/gothic'
 
 // Active-theme dispatch. Picks the right ThemeUIModule per theme name.
 // Unknown / not-yet-implemented themes fall back to neo-brutal so the app
@@ -29,6 +30,7 @@ const THEME_UI_BY_NAME: Record<string, ThemeUIModule> = {
   retrowave:    RETROWAVE_UI,
   'comic-book': COMIC_BOOK_UI,
   tropical:     TROPICAL_UI,
+  gothic:       GOTHIC_UI,
 }
 
 export function resolveThemeUI(name: string | null | undefined): ThemeUIModule {

@@ -246,7 +246,7 @@ const GLOBAL_CSS = `
 // ── Theme export ─────────────────────────────────────────────────────────────
 export const TROPICAL: Theme = {
   name: 'tropical',
-  nextThemeName: 'neo-brutal', // new tail of the ring → loops back to the start
+  nextThemeName: 'gothic', // tropical → gothic, which loops back to neo-brutal
   displayName: 'Tropical',
   globalCss: GLOBAL_CSS,
 

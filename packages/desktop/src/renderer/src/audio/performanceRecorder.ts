@@ -18,6 +18,14 @@ export function unregisterMicEngine(deviceId: string, engine: VoiceEffectsEngine
     if (engines.get(deviceId) === engine) engines.delete(deviceId)
 }
 
+/** Every live singer mic engine on the stage. Read-only: visuals that react to
+ *  the room's voices (the gothic theme's candles) sample their analysers. */
+export function liveMicEngines(): VoiceEffectsEngine[] {
+    const out: VoiceEffectsEngine[] = []
+    engines.forEach((engine) => out.push(engine))
+    return out
+}
+
 export interface RecorderSinger {
     name: string
     guestId?: string

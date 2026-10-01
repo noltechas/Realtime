@@ -2491,3 +2491,375 @@
 .lobby-notice--leaving {
     animation: lobby-notice-out 0.52s ease forwards;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GOTHIC STAGE: "NOCTURNE", a cathedral at midnight in a storm
+   Stone, iron, stained glass and candle flame (see styles/gothic.ts). The
+   storm, the watching eyes and the candles are components in
+   components/gothic/; this section is their motion, plus the lyric panel.
+
+   THE LYRIC IDEA: the active line is a leaded window, and every syllable is a
+   pane that lights up as it is sung. Singer colours are glass, never paint, so
+   a word reads in its singer's colour only because light is coming through
+   it. A shared line alternates panes, singer by singer, the way a window
+   alternates its glass. Upcoming words are unlit glass: legible, dark, inert.
+
+   It does not wipe. Each syllable lights as a whole, with a one-shot flare of
+   white light bursting through before it settles into colour, and its glow
+   then rings for exactly as long as the note is held (--syl-dur).
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ---- Shared motion ---- */
+@keyframes goth-rise {
+    from { opacity: 0; transform: translateY(18px); filter: brightness(0.3) blur(3px); }
+    to   { opacity: 1; transform: translateY(0); filter: brightness(1) blur(0); }
+}
+.goth-rise { animation: goth-rise 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+@keyframes goth-plaque-in {
+    0%   { opacity: 0; transform: translateY(10px) scale(0.97); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.goth-plaque-in { animation: goth-plaque-in 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+/* The chapel scene coming back after a video stops showing. */
+@keyframes goth-scene-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+.goth-scene-in { animation: goth-scene-in 0.85s ease both; }
+
+/* Dust turning in the moonlight under the rose window. */
+@keyframes goth-mote {
+    0%   { transform: translate(0, 0); }
+    25%  { transform: translate(14px, -22px); }
+    50%  { transform: translate(-8px, -46px); }
+    75%  { transform: translate(10px, -70px); }
+    100% { transform: translate(0, -96px); }
+}
+.goth-mote {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(214, 224, 248, 0.9);
+    box-shadow: 0 0 6px rgba(175, 195, 234, 0.7);
+    animation: goth-mote 22s linear infinite alternate;
+}
+
+/* Fog that lies along the floor and drifts. Pre-softened radial gradients, no
+   blur filter: a blurred full-width layer is the most expensive thing a
+   stage can draw. */
+.goth-fog {
+    position: absolute;
+    bottom: -30%;
+    width: 160%;
+    height: 130%;
+    left: -30%;
+    background:
+        radial-gradient(ellipse 22% 38% at 18% 70%, rgba(150, 160, 195, 0.13) 0%, transparent 70%),
+        radial-gradient(ellipse 26% 34% at 46% 76%, rgba(150, 160, 195, 0.11) 0%, transparent 70%),
+        radial-gradient(ellipse 20% 40% at 74% 68%, rgba(150, 160, 195, 0.12) 0%, transparent 70%),
+        radial-gradient(ellipse 30% 30% at 92% 80%, rgba(150, 160, 195, 0.09) 0%, transparent 70%);
+}
+@keyframes goth-fog-drift {
+    0%   { transform: translateX(0); }
+    50%  { transform: translateX(9%); }
+    100% { transform: translateX(0); }
+}
+.goth-fog--a { animation: goth-fog-drift 46s ease-in-out infinite; }
+.goth-fog--b { animation: goth-fog-drift 63s ease-in-out -20s infinite reverse; opacity: 0.8; bottom: -42%; }
+.goth-fog--c { animation: goth-fog-drift 81s ease-in-out -41s infinite; opacity: 0.6; bottom: -18%; transform-origin: 30% 50%; }
+
+/* The bell: one heavy swing per toll, and a shock ring that rolls out. */
+@keyframes goth-bell-swing {
+    0%   { transform: rotate(0deg); }
+    18%  { transform: rotate(-17deg); }
+    44%  { transform: rotate(11deg); }
+    68%  { transform: rotate(-5deg); }
+    86%  { transform: rotate(2deg); }
+    100% { transform: rotate(0deg); }
+}
+.goth-bell-swing { animation: goth-bell-swing 0.95s cubic-bezier(0.3, 0.1, 0.3, 1) both; }
+
+@keyframes goth-toll-ring {
+    0%   { transform: translate(-50%, -50%) scale(0.35); opacity: 0.85; }
+    100% { transform: translate(-50%, -50%) scale(2.6); opacity: 0; }
+}
+.goth-toll-ring {
+    border-radius: 50%;
+    border: 2px solid rgba(246, 210, 126, 0.75);
+    box-shadow: 0 0 18px rgba(246, 210, 126, 0.4), inset 0 0 14px rgba(246, 210, 126, 0.25);
+    animation: goth-toll-ring 1.1s cubic-bezier(0.1, 0.6, 0.3, 1) both;
+    pointer-events: none;
+}
+.goth-toll-ring--late { animation-delay: 0.18s; border-width: 1px; }
+
+/* A numeral struck like the bell: a white flare, then bone. */
+@keyframes goth-toll-in {
+    0%   { transform: scale(1.32); opacity: 0; filter: brightness(3) blur(4px); }
+    22%  { transform: scale(0.96); opacity: 1; filter: brightness(2.2) blur(0); }
+    60%  { transform: scale(1.02); filter: brightness(1.2); }
+    100% { transform: scale(1); filter: brightness(1); }
+}
+.goth-toll-in { animation: goth-toll-in 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+/* Sand falling through the waist of the hourglass. */
+@keyframes goth-sand {
+    0%, 100% { opacity: 0.95; }
+    50%      { opacity: 0.55; }
+}
+.goth-sand-stream { animation: goth-sand 0.35s steps(2) infinite; }
+
+/* A seal is PRESSED: it lands too big, squashes, and settles. */
+@keyframes goth-seal-press {
+    0%   { transform: scale(1.7) rotate(-14deg); opacity: 0; }
+    55%  { transform: scale(0.9) rotate(2deg); opacity: 1; }
+    75%  { transform: scale(1.05) rotate(-1deg); }
+    100% { transform: scale(1) rotate(0deg); }
+}
+.goth-seal-press { animation: goth-seal-press 0.6s cubic-bezier(0.3, 0.7, 0.3, 1) both; }
+
+/* ---- Backdrop while a song plays ----
+   With no music video the album art is seen through the storm window (the
+   GothicStorm canvas inside .k-bg draws it), so the flat blurred image hides. */
+[data-theme="gothic"] .k-stage--goth-storm .k-bg__img,
+[data-theme="gothic"] .k-stage--goth-storm .k-bg__img--prev {
+    opacity: 0 !important;
+}
+[data-theme="gothic"] .k-bg__img,
+[data-theme="gothic"] .k-bg__img--prev {
+    filter: blur(60px) saturate(0.9) brightness(0.5) hue-rotate(-8deg);
+}
+[data-theme="gothic"] .k-bg__scrim {
+    background:
+        linear-gradient(180deg, rgba(7, 6, 10, 0.6) 0%, rgba(7, 6, 10, 0.08) 22%, rgba(7, 6, 10, 0.04) 62%, rgba(12, 7, 5, 0.6) 100%),
+        radial-gradient(ellipse 84% 76% at 50% 48%, transparent 46%, rgba(7, 6, 10, 0.55) 100%);
+}
+/* The storm window draws its own vignette and night grade. */
+[data-theme="gothic"] .k-stage--goth-storm .k-bg__scrim {
+    background:
+        linear-gradient(180deg, rgba(7, 6, 10, 0.4) 0%, transparent 20%, transparent 70%, rgba(12, 7, 5, 0.45) 100%);
+}
+
+/* ---- The lyric ladder ---- */
+[data-theme="gothic"] .k-line--future {
+    color: #CFC5B3;
+    transform: scale(0.9) translateY(4px);
+}
+[data-theme="gothic"] .k-line--past {
+    color: #5E5766;
+    opacity: 0.5;
+    text-shadow: none;
+    transform: scale(0.85);
+}
+
+/* ---- The active line: a leaded window ---- */
+[data-theme="gothic"] .k-line--gothic {
+    position: relative;
+    isolation: isolate;
+    border-radius: 0;
+    /* Room for the pointed ogee ends, which the pane draws OUTSIDE the box. */
+    margin: 0.14em 0.86em;
+    text-shadow: none;
+}
+
+/* The pane: [ogee cap][body][ogee cap], absolutely behind the words. */
+.goth-pane {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -0.8em;
+    right: -0.8em;
+    z-index: -1;
+    display: flex;
+    pointer-events: none;
+    animation: goth-pane-in 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    filter: drop-shadow(0 0.18em 0.4em rgba(0, 0, 0, 0.75));
+}
+.goth-pane__cap {
+    flex: 0 0 0.8em;
+    height: 100%;
+    display: block;
+    overflow: visible;
+}
+.goth-pane__body {
+    flex: 1 1 auto;
+    /* overlap the caps by a hair so no seam shows between them */
+    margin: 0 -0.5px;
+    background:
+        /* iron frame, top and bottom, with a pewter catch-light on its upper edge */
+        linear-gradient(180deg,
+            #6A6474 0, #2A2730 1.4%, #0C0B0F 4.6%, transparent 4.6%,
+            transparent 95.4%, #0C0B0F 95.4%, #2A2730 98.4%, #4E3C2A 100%),
+        /* faint leading across the smoked glass */
+        repeating-linear-gradient(60deg, transparent 0 1.5em, rgba(4, 3, 6, 0.32) 1.5em 1.55em),
+        repeating-linear-gradient(-60deg, transparent 0 1.5em, rgba(4, 3, 6, 0.32) 1.5em 1.55em),
+        /* lightning lights the glass from behind, under the leading, so the
+           leads go black against the flash */
+        linear-gradient(180deg,
+            rgba(190, 205, 255, calc(var(--goth-flash, 0) * 0.6)),
+            rgba(150, 170, 240, calc(var(--goth-flash, 0) * 0.3))),
+        /* the singer's light pooling low in the pane */
+        radial-gradient(ellipse 70% 90% at 50% 120%, color-mix(in srgb, var(--goth-glass, #E3B04B), transparent 78%) 0%, transparent 70%),
+        /* smoked glass */
+        linear-gradient(180deg, #1A1520 0%, #0D0B11 55%, #140E0F 100%);
+}
+@keyframes goth-pane-in {
+    0%   { opacity: 0; transform: scaleX(0.94); filter: brightness(2.4) drop-shadow(0 0.18em 0.4em rgba(0, 0, 0, 0.75)); }
+    100% { opacity: 1; transform: scaleX(1); filter: brightness(1) drop-shadow(0 0.18em 0.4em rgba(0, 0, 0, 0.75)); }
+}
+
+/* Each word is a pane of glass, drawn in three layers of the SAME glyphs:
+     the word itself     lays out the glyphs (and, unlit, is the dark glass)
+     ::before            the lead came (a heavy dark stroke) and the glow
+     ::after             the lit glass fill, background-clipped to the letters
+   Both pseudos are positioned with z-index auto, so they paint in tree order
+   (before, then after) whether or not the word is a stacking context. That
+   matters: the strike animation's filter and transform make the word one, and
+   a negative z-index layer inside a stacking context paints OVER that
+   element's own background, which is how the first version of this rendered
+   every lit word as solid black. */
+[data-theme="gothic"] .k-line--gothic .k-syl__word {
+    position: relative;
+    display: inline-block;
+}
+[data-theme="gothic"] .k-line--gothic .k-syl__word::before,
+[data-theme="gothic"] .k-line--gothic .k-syl--past .k-syl__word::after,
+[data-theme="gothic"] .k-line--gothic .k-syl--now .k-syl__word::after {
+    content: attr(data-text);
+    position: absolute;
+    left: 0;
+    top: 0;
+    white-space: pre;
+    pointer-events: none;
+}
+[data-theme="gothic"] .k-line--gothic .k-syl__word::before {
+    color: #060508;
+    /* Thin enough that a blackletter hairline keeps its glass: the lead only
+       needs to read as an edge, not swallow the letter. */
+    -webkit-text-stroke: 0.065em #060508;
+}
+
+/* Not yet sung: unlit glass. Dark, tinted, readable, clearly inert. The word
+   is NOT a stacking context here, so its lead can sit behind it at z -1. */
+[data-theme="gothic"] .k-line--gothic .k-syl--future {
+    opacity: 1;
+}
+[data-theme="gothic"] .k-line--gothic .k-syl--future .k-syl__word {
+    color: color-mix(in srgb, var(--syl-glass, var(--goth-glass, #E3B04B)), #C9BFAE 74%);
+}
+[data-theme="gothic"] .k-line--gothic .k-syl--future .k-syl__word::before {
+    z-index: -1;
+}
+
+/* Lit (now) and sung (past): the word's own glyphs go clear, the layers draw. */
+[data-theme="gothic"] .k-line--gothic .k-syl--past,
+[data-theme="gothic"] .k-line--gothic .k-syl--now {
+    opacity: 1;
+}
+[data-theme="gothic"] .k-line--gothic .k-syl--past .k-syl__word,
+[data-theme="gothic"] .k-line--gothic .k-syl--now .k-syl__word {
+    color: transparent;
+}
+[data-theme="gothic"] .k-line--gothic .k-syl--past .k-syl__word::after,
+[data-theme="gothic"] .k-line--gothic .k-syl--now .k-syl__word::after {
+    color: transparent;
+    background-image:
+        repeating-linear-gradient(104deg, rgba(255, 255, 255, 0) 0 0.22em, rgba(255, 255, 255, 0.14) 0.22em 0.26em),
+        linear-gradient(180deg,
+            color-mix(in srgb, var(--syl-glass, var(--goth-glass)), white 62%) 0%,
+            color-mix(in srgb, var(--syl-glass, var(--goth-glass)), white 22%) 42%,
+            var(--syl-glass, var(--goth-glass)) 70%,
+            color-mix(in srgb, var(--syl-glass, var(--goth-glass)), black 18%) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+/* Sung, and the light has moved on: still its colour, cooler and dimmer. */
+[data-theme="gothic"] .k-line--gothic .k-syl--past .k-syl__word {
+    filter: brightness(0.9) saturate(0.95);
+}
+[data-theme="gothic"] .k-line--gothic .k-syl--past .k-syl__word::before {
+    text-shadow:
+        0 0 0.22em color-mix(in srgb, var(--syl-glass, var(--goth-glass)), transparent 52%),
+        0 0 0.6em color-mix(in srgb, var(--syl-glass, var(--goth-glass)), transparent 82%);
+}
+
+/* The syllable being sung: struck. */
+@keyframes goth-pane-strike {
+    0%   { filter: brightness(1); transform: translateY(0); }
+    16%  { filter: brightness(2.5) saturate(0.4); transform: translateY(-0.035em); }
+    55%  { filter: brightness(1.32) saturate(1.05); transform: translateY(0); }
+    100% { filter: brightness(1.14) saturate(1.1); transform: translateY(0); }
+}
+@keyframes goth-pane-ring {
+    0%   { text-shadow:
+              0 0 0.12em #FFF8EC,
+              0 0 0.42em var(--syl-glass, var(--goth-glass)),
+              0 0 1.1em var(--syl-glass, var(--goth-glass)),
+              0 0 2.2em color-mix(in srgb, var(--syl-glass, var(--goth-glass)), transparent 50%); }
+    100% { text-shadow:
+              0 0 0.08em color-mix(in srgb, var(--syl-glass, var(--goth-glass)), white 30%),
+              0 0 0.32em color-mix(in srgb, var(--syl-glass, var(--goth-glass)), transparent 30%),
+              0 0 0.85em color-mix(in srgb, var(--syl-glass, var(--goth-glass)), transparent 62%),
+              0 0 1.6em color-mix(in srgb, var(--syl-glass, var(--goth-glass)), transparent 84%); }
+}
+[data-theme="gothic"] .k-line--gothic .k-syl--now {
+    font-weight: inherit;
+    letter-spacing: inherit;
+}
+[data-theme="gothic"] .k-line--gothic .k-syl--now .k-syl__word {
+    animation: goth-pane-strike 320ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+[data-theme="gothic"] .k-line--gothic .k-syl--now .k-syl__word::before {
+    animation: goth-pane-ring var(--syl-dur, 400ms) ease-out forwards;
+}
+
+/* LRC-only lines have no syllables: the whole window lights at once. Same
+   three-layer construction as a word, on the line's own pseudos (the pane is
+   a z -1 child, so it stays underneath both). */
+[data-theme="gothic"] .k-line--gothic-full {
+    color: transparent !important;
+    animation: goth-line-strike 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+[data-theme="gothic"] .k-line--gothic-full::before,
+[data-theme="gothic"] .k-line--gothic-full::after {
+    content: attr(data-text);
+    position: absolute;
+    inset: 0;
+    padding: inherit;
+    pointer-events: none;
+}
+[data-theme="gothic"] .k-line--gothic-full::before {
+    color: #060508;
+    -webkit-text-stroke: 0.065em #060508;
+    text-shadow:
+        0 0 0.24em color-mix(in srgb, var(--goth-glass), transparent 40%),
+        0 0 0.8em color-mix(in srgb, var(--goth-glass), transparent 70%);
+}
+[data-theme="gothic"] .k-line--gothic-full::after {
+    color: transparent;
+    background-image:
+        repeating-linear-gradient(104deg, rgba(255, 255, 255, 0) 0 0.22em, rgba(255, 255, 255, 0.14) 0.22em 0.26em),
+        var(--goth-fill);
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+@keyframes goth-line-strike {
+    0%   { filter: brightness(2.6) saturate(0.4); }
+    100% { filter: brightness(1.1) saturate(1.1); }
+}
+
+[data-theme="gothic"] .k-stage--paused .k-syl--now .k-syl__word,
+[data-theme="gothic"] .k-stage--paused .k-syl--now .k-syl__word::before,
+[data-theme="gothic"] .k-stage--paused .goth-fog,
+[data-theme="gothic"] .k-stage--paused .k-nb-countin--exit {
+    animation-play-state: paused;
+}
+
+/* ---- Count-in exit: the plaque sinks into the dark ---- */
+[data-theme="gothic"] .k-nb-countin--exit {
+    animation: goth-countin-exit 0.9s cubic-bezier(0.5, 0, 0.75, 0) 0.25s forwards;
+}
+@keyframes goth-countin-exit {
+    from { opacity: 1; transform: translateY(0); filter: brightness(1); }
+    to   { opacity: 0; transform: translateY(-140%); filter: brightness(0.2); }
+}

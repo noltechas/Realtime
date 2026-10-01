@@ -11,6 +11,7 @@ import {
   RETROWAVE_TOKENS,
   COMIC_BOOK_TOKENS,
   TROPICAL_TOKENS,
+  GOTHIC_TOKENS,
   resolveThemeTokens,
   type ThemeTokens,
 } from '@karaoke/shared'
@@ -165,6 +166,19 @@ export const TROPICAL_MOBILE: ThemeTokens = withMobileFonts(
   'Quicksand_700Bold',
 )
 
+// Gothic-Mobile: "Nocturne". The same three faces as the stage: Grenze Gotisch
+// (a hybrid blackletter drawn for reading) carries every display role that a
+// screen reaches through the token, because a true Fraktur in a 13px label or
+// set in capitals is unreadable. The Fraktur itself (UnifrakturMaguntia) is
+// reached for directly by the gothic UI module for headline moments (`FRAKTUR`
+// in themes/gothic/atoms/_gothic.tsx), always in title case. Cormorant Garamond
+// carries prose.
+export const GOTHIC_MOBILE: ThemeTokens = withMobileFonts(
+  GOTHIC_TOKENS,
+  'GrenzeGotisch_700Bold',
+  'CormorantGaramond_600SemiBold',
+)
+
 const MOBILE_BY_NAME: Record<string, ThemeTokens> = {
   'neo-brutal': NEO_BRUTAL_MOBILE,
   cyberpunk: CYBERPUNK_MOBILE,
@@ -178,6 +192,7 @@ const MOBILE_BY_NAME: Record<string, ThemeTokens> = {
   retrowave: RETROWAVE_MOBILE,
   'comic-book': COMIC_BOOK_MOBILE,
   tropical: TROPICAL_MOBILE,
+  gothic: GOTHIC_MOBILE,
 }
 
 // Resolve a session theme name to the mobile-flavored token bundle. Falls

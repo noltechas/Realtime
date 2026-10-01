@@ -11,6 +11,15 @@ import FlowerLayer, { FLOWER_EMOJI } from '../components/FlowerLayer'
 import { SpaceOutboard } from '../components/SpaceOutboard'
 import { LiquidLight } from '../components/LiquidLight'
 import { PSY, psyDyeBleed, psyPoured, psyStroke } from '../styles/psychedelic'
+import { GOTH, gothCusp } from '../styles/gothic'
+import { GothicStorm } from '../components/gothic/GothicStorm'
+import {
+    GothicIdle, GothicUpNext, GothicCountIn, GothicBreak, GothicPaused, GothicNoLyrics,
+    GothicQrCard, GothicSongChip, GothicSingerPlaque, GothicMicBody,
+} from '../components/gothic/GothicScreens'
+import { GothicAtmosphere, GothicLinePane, gothLineFill } from '../components/gothic/GothicStageLayers'
+import { GothFlameMeter } from '../components/gothic/GothicParts'
+import { GothicCandle } from '../components/gothic/GothicCandle'
 
 import { VoiceEffectsEngine } from '../audio/VoiceEffectsEngine'
 import { DEFAULT_VOICE_EFFECTS } from '../audio/VoiceEffectsTypes'
@@ -2097,6 +2106,11 @@ function MicMeter({ singer, active, effects, vocalFx = true, autotune = true, ma
     const pic = guest?.profile_picture ?? null
     const displayName = guest?.name ?? singer.name
 
+    // Gothic: the level is a votive flame beside the singer's glass, not bars.
+    if (theme.name === 'gothic') {
+        return <GothicMicBody name={displayName} picture={pic} color={singer.color} meter={<GothFlameMeter level={level} color={singer.color} />} />
+    }
+
     // Fallback for dark bars if background is bright
     const inactiveColor = theme.appBg === '#FFF8EE' || theme.appBg === '#faf4ed' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.08)'
 
@@ -2436,6 +2450,14 @@ function IdleStageScreen({ theme, qrUrl, sessionCode }: {
     qrUrl: string | null
     sessionCode: string | null
 }) {
+
+    // ---- Gothic idle ----
+    // The chapel at midnight: a rose window with the moon behind it, two
+    // lancets full of storm, the join code pinned up as a vellum register
+    // between two altar candles, and something in the dark watching the code.
+    if (theme.name === 'gothic') {
+        return <GothicIdle qrUrl={qrUrl} sessionCode={sessionCode} />
+    }
 
     // ---- Neo-Brutal idle ----
     // A printed gig poster at rest: print grid + halftone fields, floating
@@ -3949,7 +3971,14 @@ interface NoticeSkin {
     chip: (color: string) => React.CSSProperties
     rule: string
     decor: ReactNode
+    /** Optional wrapper around the card. Gothic needs one: its card is CUSPED
+     *  with a mask, and a mask clips the card's own shadow, so the shadow is
+     *  drawn by a filter on this wrapper instead. */
+    shell?: React.CSSProperties
 }
+
+// The notice tablet's cusped mask (computed once; it never changes).
+const gothNoticeCusp = gothCusp(13)
 
 function noticeSkin(theme: Theme): NoticeSkin {
     const sharp = theme.cornerStyle === 'sharp'
@@ -4079,6 +4108,45 @@ function noticeSkin(theme: Theme): NoticeSkin {
             skin.rule = 'rgba(205,168,90,0.6)'
             skin.decor = <TropHibiscus size={40} rotate={16} style={{ position: 'absolute', top: -13, right: -11 }} />
             break
+        // A carved notice tablet: cusped stone, moon on its top edge and candle on
+        // its lower one, a candle burning at its corner.
+        case 'gothic': {
+            const cusp = gothNoticeCusp
+            skin.shell = { filter: 'drop-shadow(0 22px 34px rgba(0,0,0,0.8)) drop-shadow(0 8px 22px rgba(227,150,60,0.18))' }
+            // The card itself stays unmasked (so the candle can stand above it);
+            // the cusped tablet is a masked layer behind its content.
+            skin.card = {
+                ...skin.card,
+                border: 'none', borderRadius: 0, boxShadow: 'none', background: 'transparent',
+                padding: '16px 28px 16px 16px', isolation: 'isolate',
+            }
+            skin.label = { ...skin.label, fontFamily: GOTH.FONT_FRAKTUR, fontWeight: 400, fontSize: stageFont(17), letterSpacing: '0.01em', textTransform: 'none', color: GOTH.CANDLE }
+            skin.title = { ...skin.title, fontFamily: GOTH.FONT_GOTHIC, fontWeight: 700, color: GOTH.BONE, textTransform: 'none', letterSpacing: '0.01em' }
+            skin.meta = { ...skin.meta, fontFamily: GOTH.FONT_SERIF, fontStyle: 'italic', fontWeight: 600, color: GOTH.PEWTER }
+            skin.art = { ...skin.art, borderRadius: 0, border: 'none', boxShadow: '0 0 0 2px #060508, 0 0 0 3.5px rgba(175,195,234,0.25), 0 10px 22px rgba(0,0,0,0.7)' }
+            skin.chip = (color: string) => ({
+                border: `1px solid color-mix(in srgb, ${color}, transparent 55%)`,
+                background: `color-mix(in srgb, ${color}, transparent 86%)`,
+                color: GOTH.BONE, borderRadius: 0, fontFamily: GOTH.FONT_GOTHIC, fontWeight: 600,
+            })
+            skin.rule = 'rgba(175,195,234,0.22)'
+            skin.decor = (
+                <>
+                    <span aria-hidden style={{
+                        position: 'absolute', inset: 0, zIndex: -1,
+                        background:
+                            'linear-gradient(180deg, rgba(196,210,238,0.5) 0, rgba(196,210,238,0.5) 1.5px, transparent 1.5px), ' +
+                            'linear-gradient(0deg, rgba(227,176,75,0.55) 0, rgba(227,176,75,0.55) 1.5px, transparent 1.5px), ' +
+                            `linear-gradient(176deg, #24202B 0%, ${GOTH.STONE} 46%, #120F15 100%)`,
+                        ...cusp,
+                    }} />
+                    <span aria-hidden style={{ position: 'absolute', top: -52, right: 24 }}>
+                        <GothicCandle height={36} width={13} wax="ivory" seed={0.44} glow={0.8} />
+                    </span>
+                </>
+            )
+            break
+        }
         // Hand-drawn note: sketchy off-square border, marker underline.
         case 'sketch':
             skin.card = {
@@ -4137,6 +4205,7 @@ function LobbyNoticeCard({ notice, theme, guests }: {
         // live on the card inside it or the keyframes would wipe it out. The
         // content then counter-skews so text and art stay upright.
         <div className={'lobby-notice' + (notice.leaving ? ' lobby-notice--leaving' : '')}>
+            <div style={skin.shell}>
             <div style={{
                 position: 'relative', minWidth: 420, maxWidth: '44vw',
                 transform: skin.skew ? `skewX(${skin.skew}deg)` : undefined,
@@ -4202,6 +4271,7 @@ function LobbyNoticeCard({ notice, theme, guests }: {
                         ) : null}
                     </div>
                 </div>
+            </div>
             </div>
         </div>
     )
@@ -4922,7 +4992,12 @@ export default function KaraokePage() {
     }
 
     const qrOverlay = state.karaokeQrDataUrl ? (
-        theme.name === 'tropical' ? (
+        theme.name === 'gothic' ? (
+        // A vellum notice nailed up by the door.
+        <div style={{ position: 'fixed', top: 'calc(100vh - 184px)', left: 80, zIndex: 9999 }}>
+            <GothicQrCard qr={state.karaokeQrDataUrl} />
+        </div>
+        ) : theme.name === 'tropical' ? (
             <div style={{ position: 'fixed', left: 0, top: 'calc(100vh - 252px)', zIndex: 9999, width: 180, height: 240 }}>
                 {/* bamboo cane jutting out from the left edge of the screen */}
                 <div style={{ position: 'absolute', top: 0, left: 0, width: 156, height: 18, borderRadius: '0 9px 9px 0', overflow: 'hidden', background: 'linear-gradient(180deg, #E2C684, #CDA85A 55%, #9A7536)', boxShadow: '0 5px 12px rgba(0,0,0,0.4)' }}>
@@ -5118,6 +5193,23 @@ export default function KaraokePage() {
         const count = Math.ceil(remaining / 1000)
         const barPct = remaining > 0 ? Math.min(100, (elapsed / nbFirstStart) * 100) : 100
         const exitCls = 'k-nb-countin' + (remaining <= 0 ? ' k-nb-countin--exit' : '')
+
+        // ── Gothic: THE BELLS TOLL. A stone plaque: a candle burns down to the
+        // first line, the bell tolls the last three seconds in as III, II, I,
+        // and "Sing" lands with a lightning strike. ──
+        if (theme.name === 'gothic') {
+            return (
+                <GothicCountIn
+                    remaining={remaining}
+                    count={count}
+                    barPct={barPct}
+                    trackName={track.name}
+                    className={exitCls}
+                    innerRef={countInRef}
+                    stageFont={stageFont}
+                />
+            )
+        }
 
         // ── Cyberpunk: BOOT SEQUENCE — clipped HUD terminal plate, neon-green
         // mono glyphs that glitch in, a magenta prompt label, scanline bar. ──
@@ -5579,12 +5671,28 @@ export default function KaraokePage() {
         )
     })() : null
 
+    // Whether the YouTube backdrop is actually ON SCREEN right now (the iframe is
+    // revealed only once YouTube reports it playing; see the yt-wrap below).
+    // Hidden until YouTube confirms it's actually playing (state 1): -1 unstarted,
+    // 2 paused and 5 cued all show the YT centre play-button overlay. During the
+    // Up Next snippet preview buffering (3) also counts, so the re-seek between
+    // slices every 4s doesn't flash the blurred art.
+    const ytVisible =
+        (state.isPlaying && ytPlayState === 1) ||
+        (videoPreviewActive && (ytPlayState === 1 || ytPlayState === 3))
+
+    // Gothic: with no music video, the song is watched through the storm window
+    // (its album art refracted by the rain on the glass). Only while playing;
+    // on deck, the up-next chapel brings its own storm.
+    const gothStorm = theme.name === 'gothic' && !ytId && state.stageMode === 'playing'
+
     return (
         <>
         <div
             className={
                 'karaoke-stage' +
                 (ytId ? ' k-stage--video' : '') +
+                (gothStorm ? ' k-stage--goth-storm' : '') +
                 (state.stageMode === 'playing' && !state.isPlaying ? ' k-stage--paused' : '')
             }
             onMouseMove={handleMouse}
@@ -5608,11 +5716,7 @@ export default function KaraokePage() {
                             // user never sees it. During the Up Next snippet preview we
                             // also keep it visible through buffering (3) so the re-seek
                             // between slices every 4s doesn't flash the blurred art.
-                            opacity:
-                                (state.isPlaying && ytPlayState === 1) ||
-                                (videoPreviewActive && (ytPlayState === 1 || ytPlayState === 3))
-                                    ? 1
-                                    : 0,
+                            opacity: ytVisible ? 1 : 0,
                             transition: 'opacity 0.4s ease',
                             // pointer-events: none so user clicks can't summon YT's UI overlay
                             pointerEvents: 'none',
@@ -5640,6 +5744,7 @@ export default function KaraokePage() {
                     screen. When art or video IS present that art is the backdrop and a
                     second moving colour field would only fight the words. */}
                 {theme.name === 'psychedelic' && !art && !ytId && <LiquidLight performing />}
+                {gothStorm && <GothicStorm art={art ?? null} performing />}
                 <div className="k-bg__scrim" style={{ opacity: state.stageMode === 'playing' ? 1 : 0 }} />
             </div>
 
@@ -5657,6 +5762,10 @@ export default function KaraokePage() {
 
             {/* Steampunk ambience — faint corner gears + venting steam wisps */}
             {theme.name === 'steampunk' && state.stageMode === 'playing' && <SteamAmbient />}
+
+            {/* Gothic: the great arch we watch through, a watcher at the edge,
+                candles at the column bases and fog on the floor */}
+            {theme.name === 'gothic' && state.stageMode === 'playing' && <GothicAtmosphere video={!!ytId} />}
 
             {/* Hidden SVG for Filters */}
             <svg style={{ position: 'fixed', pointerEvents: 'none', width: 0, height: 0 }}>
@@ -5677,7 +5786,12 @@ export default function KaraokePage() {
             </svg>
 
             {/* Song chip (top-left) — suppressed while a hidden song waits in ready state */}
-            {!(np?.isHidden && state.stageMode === 'ready') && (
+            {!(np?.isHidden && state.stageMode === 'ready') && theme.name === 'gothic' && (
+                <div className="k-song-chip" style={{ position: 'absolute', opacity: 1, top: 24, left: 30 }}>
+                    <GothicSongChip art={art} title={track.name} artist={track.artists.map((a: any) => a.name).join(', ')} />
+                </div>
+            )}
+            {!(np?.isHidden && state.stageMode === 'ready') && theme.name !== 'gothic' && (
             <div className="k-song-chip" style={{
                 background: theme.appBg, ...theme.stickerLabel, position: 'absolute', opacity: 1,
                 ...(theme.name === 'psychedelic' ? {
@@ -5779,7 +5893,17 @@ export default function KaraokePage() {
             {singers.length > 0 && (
                 <div className="k-singers" style={{ opacity: 1, flexDirection: 'column', alignItems: 'flex-end' }}>
                     {singers.map((s: any, singerIdx: number) => {
-                        const spaceSingerStyle = theme.name === 'psychedelic' ? {
+                        const spaceSingerStyle = theme.name === 'gothic' ? {
+                            // The plaque is drawn by GothicSingerPlaque inside; the tag
+                            // itself is only a positioned slot.
+                            background: 'transparent',
+                            border: 'none',
+                            boxShadow: 'none',
+                            backdropFilter: 'none',
+                            padding: 0,
+                            textTransform: 'none',
+                            letterSpacing: 'normal',
+                        } as React.CSSProperties : theme.name === 'psychedelic' ? {
                             // Ink-filled with the singer's colour as a fat spine. Ink fill
                             // rather than the singer's own colour, because singer colours are
                             // user-picked and one of them will eventually match the plate it
@@ -5874,7 +5998,13 @@ export default function KaraokePage() {
                             const autotune = ov?.autotune ?? state.sessionFx?.autotune ?? true
                             return (
                                 <div key={s.id} className="k-singer-tag" style={{ background: theme.appBg, ...theme.stickerLabel, position: 'relative', padding: '4px 12px', ...spaceSingerStyle }}>
-                                    <MicMeter singer={s} active={micActive} effects={singerEffects} vocalFx={vocalFx} autotune={autotune} mainOutputId={state.mainOutputId} theme={theme} />
+                                    {theme.name === 'gothic' ? (
+                                        <GothicSingerPlaque color={s.color} index={singerIdx}>
+                                            <MicMeter singer={s} active={micActive} effects={singerEffects} vocalFx={vocalFx} autotune={autotune} mainOutputId={state.mainOutputId} theme={theme} />
+                                        </GothicSingerPlaque>
+                                    ) : (
+                                        <MicMeter singer={s} active={micActive} effects={singerEffects} vocalFx={vocalFx} autotune={autotune} mainOutputId={state.mainOutputId} theme={theme} />
+                                    )}
                                 </div>
                             )
                         } else {
@@ -5886,8 +6016,16 @@ export default function KaraokePage() {
                             const tagGuest = s.guestId ? guestsMap.get(s.guestId) : undefined
                             return (
                                 <div key={s.id} className="k-singer-tag" style={{ background: theme.appBg, ...theme.stickerLabel, position: 'relative', padding: '4px 12px', ...spaceSingerStyle }}>
-                                    <span style={{ color: 'inherit', fontFamily: theme.fontDisplay }}>{tagGuest?.name ?? s.name}</span>
-                                    <div className="k-singer-tag__dot" style={{ background: s.color, ...(theme.name === 'space' ? { boxShadow: '0 0 6px ' + s.color } : {}) }} />
+                                    {theme.name === 'gothic' ? (
+                                        <GothicSingerPlaque color={s.color} index={singerIdx}>
+                                            <GothicMicBody name={tagGuest?.name ?? s.name} picture={tagGuest?.profile_picture ?? null} color={s.color} meter={null} />
+                                        </GothicSingerPlaque>
+                                    ) : (
+                                        <>
+                                            <span style={{ color: 'inherit', fontFamily: theme.fontDisplay }}>{tagGuest?.name ?? s.name}</span>
+                                            <div className="k-singer-tag__dot" style={{ background: s.color, ...(theme.name === 'space' ? { boxShadow: '0 0 6px ' + s.color } : {}) }} />
+                                        </>
+                                    )}
                                 </div>
                             )
                         }
@@ -5928,6 +6066,12 @@ export default function KaraokePage() {
                     <SteampunkUpNext theme={theme} art={art} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} showVideo={showVideoBehindArt} />
                   ) : theme.name === 'psychedelic' ? (
                     <PsyUpNext theme={theme} art={art} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} />
+                  ) : theme.name === 'gothic' ? (
+                    // The chapel only gives way once the clip is really on screen. Keying it
+                    // off "this song has a video" alone left the up-next sitting on bare
+                    // blurred album art while YouTube loaded, or for good when a video
+                    // can't be embedded.
+                    <GothicUpNext art={art ?? null} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} showVideo={showVideoBehindArt && ytVisible} />
                   ) : (
                     <div className="anim-enter k-upnext" style={{ width: '100%', maxWidth: 1100, margin: '0 auto', padding: '0 48px' }}>
                         <div style={{
@@ -6064,6 +6208,8 @@ export default function KaraokePage() {
                                 </span>
                             </div>
                         </div>
+                    ) : theme.name === 'gothic' ? (
+                        <GothicNoLyrics stageFont={stageFont} />
                     ) : theme.name === 'zen' ? (
                         <div style={{ textAlign: 'center', animation: 'zen-scroll-in 0.55s ease-out both' }}>
                             <div style={{
@@ -6098,6 +6244,11 @@ export default function KaraokePage() {
                                     // Psychedelic only: the active plate gets a faint layer of the
                                     // projector footage over its colour, behind the words.
                                     let psyFilm = false
+                                    // Gothic only: the active line is a leaded window
+                                    // (GothicLinePane) whose panes are the syllables.
+                                    let gothPane = false
+                                    let gothGlass: string[] | null = null
+                                    let lineDataText: string | undefined
                                     let inlineStyle: React.CSSProperties = {
                                         fontFamily: theme.fontDisplay
                                     }
@@ -6463,6 +6614,34 @@ export default function KaraokePage() {
                                                 `repeating-linear-gradient(180deg, rgba(0,0,0,0.13) 0 2px, transparent 2px 13px)`
                                             inlineStyle.border = '3px solid #C99A54'
                                             inlineStyle.boxShadow = '0 10px 26px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.25)'
+                                        } else if (theme.name === 'gothic') {
+                                            // ── A leaded window ──────────────────────────
+                                            // The plate is GothicLinePane (smoked glass in an
+                                            // iron frame, ogee points at each end), injected as
+                                            // the first child. Every syllable is a pane that
+                                            // lights in its singer's glass as it is sung (see
+                                            // GOTHIC STAGE in karaoke.css). A shared line
+                                            // alternates panes singer by singer, the way a
+                                            // window alternates its glass.
+                                            cls += ' k-line--gothic k-line--gothic-active'
+                                            const gColors = activeColors.length > 1 ? activeColors : [activeSingerColor]
+                                            const gVars = inlineStyle as Record<string, string>
+                                            gothPane = true
+                                            gothGlass = gColors
+                                            if (!(line.syllables && line.syllables.length > 0)) {
+                                                // No syllable timing: the whole window lights at once.
+                                                cls += ' k-line--gothic-full'
+                                                gVars['--goth-fill'] = gothLineFill(gColors)
+                                                lineDataText = '__words__'
+                                            }
+                                            // Reassign the shorthand in place: React writes inline
+                                            // styles in key order, and a later reset key would
+                                            // wipe a class-set background.
+                                            inlineStyle.background = 'transparent'
+                                            inlineStyle.color = GOTH.BONE
+                                            inlineStyle.padding = '0.22em 0.5em 0.28em'
+                                            inlineStyle.textShadow = 'none'
+                                            gVars['--goth-glass'] = gColors[0]
                                         } else {
                                             inlineStyle.padding = '0.18em 0.75em'
                                             inlineStyle.borderRadius = '8px'
@@ -6539,6 +6718,18 @@ export default function KaraokePage() {
                                             // Soot shadow: keeps singer-colored type legible over
                                             // the warm sepia backdrop or a bright music video.
                                             inlineStyle.textShadow = '0 0.05em 0.35em rgba(6, 4, 2, 0.85)'
+                                        } else if (theme.name === 'gothic') {
+                                            // Upcoming lines are bone with only a tint of the
+                                            // singer's glass: they're unlit, and the lit window is
+                                            // the one place colour should burn.
+                                            if (activeColors.length > 1) {
+                                                inlineStyle.backgroundImage = `linear-gradient(90deg, ${activeColors.map((c: string) => `color-mix(in srgb, ${c}, #E8DFCC 45%)`).join(', ')})`
+                                                inlineStyle.filter = 'drop-shadow(0 0.05em 0.1em rgba(0,0,0,0.95))'
+                                            } else {
+                                                const gc = line.singerIndex !== undefined && singers[line.singerIndex]?.color
+                                                inlineStyle.color = gc ? `color-mix(in srgb, ${gc}, #E8DFCC 52%)` : '#CFC5B3'
+                                                inlineStyle.textShadow = '0 0.05em 0 rgba(0,0,0,0.9), 0 0 0.5em rgba(0,0,0,0.7)'
+                                            }
                                         }
                                         inlineStyle.opacity = 1
                                     }
@@ -6606,16 +6797,23 @@ export default function KaraokePage() {
                                                 <span
                                                     key={k}
                                                     className={sylCls}
-                                                    style={{ ['--syl-dur' as string]: `${Math.max(80, syl.durMs)}ms` } as React.CSSProperties}
+                                                    style={{
+                                                        ['--syl-dur' as string]: `${Math.max(80, syl.durMs)}ms`,
+                                                        // Gothic: a shared line alternates its glass pane by pane.
+                                                        ...(gothGlass && gothGlass.length > 1 ? { ['--syl-glass' as string]: gothGlass[k % gothGlass.length] } : {}),
+                                                    } as React.CSSProperties}
                                                 >
-                                                    <span className="k-syl__word">{word}</span>{trail}
+                                                    {/* data-text lets a theme redraw the glyphs on a
+                                                        pseudo-element (gothic's lead came + glow). */}
+                                                    <span className="k-syl__word" data-text={word}>{word}</span>{trail}
                                                 </span>
                                             )
                                         })
                                     }
 
                                     return (
-                                        <div key={j} className={cls} style={inlineStyle}>
+                                        <div key={j} className={cls} style={inlineStyle} data-text={lineDataText ? displayWords : undefined}>
+                                            {gothPane && <GothicLinePane key="goth-pane" />}
                                             {/* FIRST child, so it paints under the line's inline
                                                 content (see .psy-film). Keyed so React reuses the
                                                 same <video> as long as the same line stays active,
@@ -6642,7 +6840,9 @@ export default function KaraokePage() {
             {nbBreak && state.stageMode === 'playing' &&
                 elapsed > nbBreak.start + 1000 && elapsed < nbBreak.end - 800 && (
                 <div style={{ position: 'absolute', bottom: 64, left: 0, right: 0, zIndex: 22, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
-                {theme.name === 'cyberpunk' ? (
+                {theme.name === 'gothic' ? (
+                    <GothicBreak progress={Math.min(1, Math.max(0, (elapsed - nbBreak.start) / (nbBreak.end - nbBreak.start)))} />
+                ) : theme.name === 'cyberpunk' ? (
                     <div style={{ animation: 'cyber-glitch 0.35s steps(2) both' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '10px 24px', background: '#0b0b1c', clipPath: 'polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)', boxShadow: '0 0 20px rgba(0,255,136,0.22), inset 0 0 0 1.5px rgba(0,255,136,0.5)' }}>
                             <NbEq color="#00ff88" fontSize={18} />
@@ -6808,7 +7008,9 @@ export default function KaraokePage() {
             {/* PAUSED stamp */}
             {hasStageFurniture && state.stageMode === 'playing' && !state.isPlaying && (
                 <div style={{ position: 'absolute', top: '13%', left: 0, right: 0, zIndex: 25, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
-                {theme.name === 'cyberpunk' ? (
+                {theme.name === 'gothic' ? (
+                    <GothicPaused stageFont={stageFont} />
+                ) : theme.name === 'cyberpunk' ? (
                     <div style={{ animation: 'cyber-glitch 0.4s steps(2) both' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 30px', background: '#0b0b1c', clipPath: 'polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)', boxShadow: '0 0 26px rgba(0,255,136,0.28), inset 0 0 0 1.5px rgba(0,255,136,0.55)' }}>
                             <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(15), letterSpacing: '0.3em', color: '#ff00aa', textShadow: '0 0 10px rgba(255,0,170,0.6)' }}>||</span>

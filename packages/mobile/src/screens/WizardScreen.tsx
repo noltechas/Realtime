@@ -97,6 +97,7 @@ const STAGE_THEMES = [
   { key: 'retrowave', label: 'Retrowave' },
   { key: 'comic-book', label: 'Comic Book' },
   { key: 'tropical', label: 'Tropical' },
+  { key: 'gothic', label: 'Gothic' },
 ]
 
 function formatDuration(ms: number | null | undefined): string {
@@ -202,6 +203,25 @@ function wizardCardStyle(tokens: ThemeTokens, color?: string, overrides?: any, i
       borderLeftColor: 'rgba(212,184,90,0.35)',
       borderRightColor: 'rgba(212,184,90,0.35)',
       borderRadius: 0,
+      ...overrides,
+    }
+  }
+  if (tokens.name === 'gothic') {
+    // Gothic: a slab of dark limestone: a moonlit hairline round it, a heavier
+    // candle-warm lip along the bottom edge (the room's two lights), nearly
+    // square corners. A singer card's lip takes the singer's colour, as if their
+    // glass were lit beneath it.
+    return {
+      backgroundColor: 'rgba(24,21,30,0.94)',
+      borderWidth: 1,
+      borderColor: 'rgba(175,195,234,0.22)',
+      borderBottomWidth: 2.5,
+      borderBottomColor: color || 'rgba(227,176,75,0.6)',
+      borderRadius: 3,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.55,
+      shadowRadius: 10,
       ...overrides,
     }
   }
