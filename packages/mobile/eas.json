@@ -42,7 +42,8 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "noltechas@yahoo.com"
+        "appleId": "noltechas@yahoo.com",
+        "ascAppId": "6781926955"
       },
       "android": {
         "track": "internal"
