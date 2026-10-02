@@ -1,214 +1,146 @@
 import React, { useMemo } from 'react'
-import {
-  View,
-  Text,
-  Pressable,
-  Image,
-  type TextStyle,
-  type ViewStyle,
-  type ImageStyle,
-} from 'react-native'
+import { Image, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import type { SingerConfig, KaraokeQueueRow } from '@karaoke/shared'
-import { useTheme } from '../../../ThemeContext'
-import { hashKey } from '../../../helpers'
+import type { KaraokeQueueRow, SingerConfig } from '@karaoke/shared'
 import type { QueueRowProps } from '../../../types'
+import {
+  BLUE,
+  FORM,
+  GRAPHITE,
+  GRAPHITE_SOFT,
+  IMG,
+  INK,
+  LETTER_B,
+  Mark,
+  PencilBox,
+  Press,
+  RED,
+  RingAround,
+  SHEET,
+  TapeStrip,
+  TapedPrint,
+  letter,
+  note,
+  printed,
+  wobble,
+} from './_pencil'
 
-// Sketch queue row — paper-card with hand-drawn rotation. Album art is matted,
-// singer pills are post-it yellow, upvote/downvote buttons are tilted in
-// opposite directions so the row feels like little stickers stacked together.
-export function QueueRow({
-  item,
-  position,
-  voted,
-  guestName,
-  guestId,
-  guests,
-  onVote,
-  onEdit,
-}: QueueRowProps) {
-  const { tokens } = useTheme()
+// Sketch queue row: a strip of the animator's EXPOSURE SHEET. Printed teal
+// rules and column heads (FR., REF., ACTION, VOTE); the song's place written
+// in pencil in the frame column (ringed in red when it's next up), its art
+// taped up as reference, the title lettered in ink, and each singer
+// underlined in their own coloured pencil. A secret song has masking tape
+// over its title. Votes are two pencilled boxes.
+const RULE = 'rgba(79,138,132,0.55)'
+
+export function QueueRow({ item, position, voted, guestName, guestId, guests, onVote, onEdit }: QueueRowProps) {
   const score = (item.score ?? 0) + (item.bonus_points ?? 0)
   const singers = useMemo<SingerConfig[]>(
     () =>
-      (Array.isArray(item.singer_configs) ? item.singer_configs : []).map(
-        (sc) => {
-          // Resolve the singer's LIVE name + avatar from the canonical guest
-          // record (so profile edits propagate). Name-only singers pass through.
-          const g = sc.guestId ? guests.get(sc.guestId) : undefined
-          return g
-            ? { ...sc, name: g.name, profilePicture: g.profile_picture ?? undefined }
-            : sc
-        },
-      ),
+      (Array.isArray(item.singer_configs) ? item.singer_configs : []).map((config) => {
+        // Live name + avatar from the canonical guest record, so profile edits
+        // propagate. Name-only singers pass through.
+        const guest = config.guestId ? guests.get(config.guestId) : undefined
+        return guest ? { ...config, name: guest.name, profilePicture: guest.profile_picture ?? undefined } : config
+      }),
     [item.singer_configs, guests],
   )
-  const isLocked = item.locked && position === 1
+  const isLocked = !!item.locked && position === 1
   const inSong = useMemo(() => {
     if (guestId && singers.some((s) => s.guestId === guestId)) return true
-    const gn = (guestName || '').toLowerCase()
-    return !!gn && singers.some((s) => (s.name || '').toLowerCase() === gn)
+    const name = (guestName || '').toLowerCase()
+    return !!name && singers.some((s) => (s.name || '').toLowerCase() === name)
   }, [singers, guestName, guestId])
   const isMine = !isLocked && !!guestId && item.added_by_guest_id === guestId
   const isHidden = !!item.is_hidden
-
-  const hash = hashKey(item.track_name) + position
-  const angle = (hash % 2 === 0 ? 1 : -1) * (0.3 + (hash % 5) * 0.1)
-
-  const rowStyle: ViewStyle = {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 14,
-    backgroundColor: '#FDFBF7',
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.1)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 5,
-    borderBottomLeftRadius: 3,
-    borderBottomRightRadius: 6,
-    borderTopLeftRadius: 1,
-    borderTopRightRadius: 2,
-    transform: [{ rotate: `${angle}deg` }] as any,
-  }
-
-  // Counter-rotate the inner content so labels and art stay legible while the
-  // surrounding card maintains its hand-placed feel.
-  const unskew = [{ rotate: `${-angle}deg` }]
+  const status = isLocked ? 'next up!' : inSong ? "you're singing" : isMine ? 'your song' : null
 
   return (
-    <View style={rowStyle}>
-      <PaperLines />
-      <Text style={positionStyle(tokens.fontDisplay, tokens.black)}>{position}</Text>
-      <View style={{ transform: unskew as any }}>
-        {isHidden ? (
-          <View style={hiddenArtStyle}>
-            <Text style={hiddenArtGlyphStyle(tokens.fontDisplay)}>?</Text>
-          </View>
-        ) : item.track_art_url ? (
-          <Image source={{ uri: item.track_art_url }} style={artStyle} />
-        ) : (
-          <View style={[artStyle as ViewStyle, { backgroundColor: tokens.creamDark }]} />
-        )}
+    <View style={styles.strip}>
+      {/* FR.: the frame column, its number pencilled in */}
+      <View style={[styles.col, { width: 46, alignItems: 'center' }]}>
+        <Text style={styles.head}>Fr.</Text>
+        <View style={{ marginTop: 8, paddingHorizontal: 4 }}>
+          {isLocked ? <RingAround color={RED} variant={position} padX={9} padY={6} /> : null}
+          <Text style={note(32, isLocked ? RED : GRAPHITE, { textAlign: 'center' })}>{position}</Text>
+        </View>
       </View>
-      <View style={{ flex: 1, minWidth: 0, transform: unskew as any }}>
-        <Text style={titleStyle(tokens.fontDisplay, tokens.black)} numberOfLines={1}>
-          {isHidden ? 'HIDDEN SONG' : item.track_name}
-        </Text>
-        {isHidden ? null : (
-          <Text style={artistStyle(tokens.fontBody, tokens.muted)} numberOfLines={1}>
-            {item.track_artist}
-          </Text>
+      <View style={styles.vrule} />
+
+      {/* REF.: the art, taped up */}
+      <View style={[styles.col, { width: 70, alignItems: 'center' }]}>
+        <Text style={[styles.head, { alignSelf: 'flex-start', marginLeft: 6 }]}>Ref.</Text>
+        <TapedPrint uri={isHidden ? null : item.track_art_url} size={52} seed={item.id} tape="top" border={3} style={{ marginTop: 8 }}>
+          {isHidden ? (
+            <View style={{ flex: 1, backgroundColor: '#F3EFE6', alignItems: 'center', justifyContent: 'center' }}>
+              <Mark src={IMG.scribble} color={GRAPHITE} width={36} height={10} style={{ opacity: 0.8 }} />
+              <Text style={letter(20, RED, { lineHeight: 22 })}>?</Text>
+            </View>
+          ) : null}
+        </TapedPrint>
+      </View>
+      <View style={styles.vrule} />
+
+      {/* ACTION: the scene itself */}
+      <View style={[styles.col, { flex: 1, paddingLeft: 10, paddingRight: 6 }]}>
+        <Text style={styles.head}>Action</Text>
+        {isHidden ? (
+          <TapeStrip height={32} style={{ marginTop: 5, marginLeft: -6, marginRight: 8, transform: [{ rotate: `${wobble(item.id, 3) * 1.6}deg` }] }}>
+            <Text style={note(21, GRAPHITE)}>a secret scene</Text>
+          </TapeStrip>
+        ) : (
+          <>
+            <Text numberOfLines={1} style={letter(16.5, INK, { marginTop: 3, lineHeight: 21 })}>
+              {item.track_name}
+            </Text>
+            <Text numberOfLines={1} style={note(19, GRAPHITE_SOFT)}>
+              {item.track_artist}
+            </Text>
+          </>
         )}
         {singers.length > 0 ? (
-          <View style={singerPillsStyle}>
-            {singers.map((singer, i) => (
-              <SingerPill key={`${item.id}-${i}-${singer.name}`} singer={singer} />
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, rowGap: 4, marginTop: 5 }}>
+            {singers.map((s, i) => (
+              <View key={`${item.id}-${i}-${s.name}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                {s.profilePicture ? (
+                  <View style={{ width: 18, height: 18, borderRadius: 9, overflow: 'hidden' }}>
+                    <Image source={{ uri: s.profilePicture }} style={{ width: '100%', height: '100%' }} />
+                  </View>
+                ) : null}
+                <View>
+                  <Text numberOfLines={1} style={letter(13, INK, { maxWidth: 100, lineHeight: 17 }, LETTER_B)}>
+                    {s.name || 'Singer'}
+                  </Text>
+                  <Mark src={IMG.under[i % 2]} color={s.color || RED} width={Math.min(100, Math.max(26, (s.name || 'Singer').length * 7.4))} height={7} style={{ marginTop: -3 }} />
+                </View>
+              </View>
             ))}
           </View>
         ) : null}
+        {status ? <Text style={note(18, isLocked ? RED : BLUE, { marginTop: 3 })}>{status}</Text> : null}
       </View>
-      <View style={{ transform: unskew as any }}>
-        {isMine ? (
-          <EditButton onPress={() => onEdit(item)} />
-        ) : (
-          <VoteColumn
-            row={item}
-            score={score}
-            voted={voted}
-            isLocked={isLocked}
-            inSong={inSong}
-            onVote={onVote}
-          />
-        )}
+      <View style={styles.vrule} />
+
+      {/* VOTE */}
+      <View style={[styles.col, { width: 58, alignItems: 'center' }]}>
+        <Text style={styles.head}>Vote</Text>
+        <View style={{ flex: 1, justifyContent: 'center', paddingVertical: 4 }}>
+          {isMine ? (
+            <Press onPress={() => onEdit(item)} hitSlop={6} accessibilityLabel="Edit your song">
+              <PencilBox border={11} fill={SHEET} contentStyle={{ width: 26, height: 26, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="create-outline" size={18} color={INK} />
+              </PencilBox>
+            </Press>
+          ) : (
+            <Votes row={item} score={score} voted={voted} isLocked={isLocked} inSong={inSong} onVote={onVote} />
+          )}
+        </View>
       </View>
     </View>
   )
 }
 
-// Ruled writing-paper backdrop — faint sketch-blue horizontal rules across the
-// whole card plus a single red margin line down the left, so the row reads as a
-// torn-off notebook page rather than a plain white panel. Absolutely filling
-// the card with its own clipping wrapper (overflow:'hidden') keeps the lines
-// inside the rounded corners without stripping the card's drop shadow (a shadow
-// + overflow:'hidden' on the same view cancels the shadow on iOS). Sits behind
-// all content; the inner content tilts independently, but the rules ride with
-// the paper. Lines past the bottom edge are clipped, so one fixed set covers
-// rows of any height.
-const RULE_SPACING = 16
-const RULE_COLOR = 'rgba(45,93,161,0.16)' // faint SKETCH_BLUE
-const MARGIN_X = 40
-const MARGIN_COLOR = 'rgba(255,77,77,0.4)' // SOFT_RED margin rule
-
-function PaperLines() {
-  const lines = Array.from({ length: 16 }, (_, i) => (i + 1) * RULE_SPACING)
-  return (
-    <View
-      pointerEvents="none"
-      style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        overflow: 'hidden',
-        borderTopLeftRadius: 1,
-        borderTopRightRadius: 2,
-        borderBottomLeftRadius: 3,
-        borderBottomRightRadius: 6,
-      }}
-    >
-      {lines.map((y) => (
-        <View
-          key={y}
-          style={{ position: 'absolute', left: 0, right: 0, top: y, height: 1, backgroundColor: RULE_COLOR }}
-        />
-      ))}
-      <View
-        style={{ position: 'absolute', top: 0, bottom: 0, left: MARGIN_X, width: 1.5, backgroundColor: MARGIN_COLOR }}
-      />
-    </View>
-  )
-}
-
-function EditButton({ onPress }: { onPress: () => void }) {
-  const { tokens } = useTheme()
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityLabel="Edit song"
-      style={({ pressed }) => [
-        editBtnStyle,
-        pressed ? { transform: [{ translateX: 2 }, { translateY: 2 }] as any, shadowOpacity: 0 } : null,
-      ]}
-    >
-      <Ionicons name="create-outline" size={22} color={tokens.black} />
-    </Pressable>
-  )
-}
-
-function SingerPill({ singer }: { singer: SingerConfig }) {
-  const { tokens } = useTheme()
-  const initial = (singer.name || '?').charAt(0).toUpperCase()
-  return (
-    <View style={singerPillStyle}>
-      <View style={[singerDotStyle, { backgroundColor: singer.color || tokens.vividYellow }]}>
-        {singer.profilePicture ? (
-          <Image source={{ uri: singer.profilePicture }} style={{ width: '100%', height: '100%' }} />
-        ) : (
-          <Text style={singerInitialStyle(tokens.black)}>{initial}</Text>
-        )}
-      </View>
-      <Text style={singerNameStyle(tokens.fontDisplay, tokens.black)} numberOfLines={1}>
-        {singer.name || 'Singer'}
-      </Text>
-    </View>
-  )
-}
-
-function VoteColumn({
+function Votes({
   row,
   score,
   voted,
@@ -223,321 +155,76 @@ function VoteColumn({
   inSong: boolean
   onVote: (row: KaraokeQueueRow, value: 1 | -1) => void
 }) {
-  const { tokens } = useTheme()
   if (isLocked) {
     return (
-      <View style={lockBadgeStyle}>
-        <Ionicons name="lock-closed" size={18} color={tokens.black} />
-        <Text style={lockLabelStyle(tokens.fontDisplay, tokens.black)}>
-          Next Up{'\n'}Locked
-        </Text>
+      <View style={{ alignItems: 'center', gap: 1 }}>
+        <Ionicons name="lock-closed-outline" size={17} color={GRAPHITE} />
+        <Text style={note(17, RED)}>held</Text>
       </View>
     )
   }
-
   if (inSong) {
-    if (score === 0) return null
-    return (
-      <View style={voteColStyle}>
-        <ScoreLabel score={score} />
-      </View>
-    )
+    return score !== 0 ? <Score score={score} /> : null
   }
-
   if (voted) {
+    const up = voted > 0
     return (
-      <View style={voteColStyle}>
-        {score !== 0 ? <ScoreLabel score={score} /> : null}
-        <View style={votedPillStyle}>
-          <Ionicons name="checkmark" size={11} color={tokens.black} />
-          <Text style={votedPillLabelStyle(tokens.fontDisplay, tokens.black)}>
-            {voted > 0 ? 'Voted Up' : 'Voted Down'}
-          </Text>
+      <View style={{ alignItems: 'center', gap: 2 }}>
+        {score !== 0 ? <Score score={score} /> : null}
+        <View style={{ paddingHorizontal: 3 }}>
+          <RingAround color={RED} variant={up ? 1 : 2} padX={7} padY={5} />
+          <Ionicons name={up ? 'arrow-up' : 'arrow-down'} size={17} color={INK} />
         </View>
+        <Text style={note(16, GRAPHITE_SOFT)}>{up ? 'voted up' : 'voted down'}</Text>
       </View>
     )
   }
-
   return (
-    <View style={voteColStyle}>
-      {score !== 0 ? <ScoreLabel score={score} /> : null}
-      <View style={voteButtonsStyle}>
-        <Pressable
-          onPress={() => onVote(row, 1)}
-          style={({ pressed }) => [
-            voteBtnStyle('up'),
-            pressed ? { transform: [{ translateX: 2 }, { translateY: 2 }] as any, shadowOpacity: 0 } : null,
-          ]}
-          accessibilityLabel="Upvote"
-        >
-          <Ionicons name="chevron-up" size={18} color={tokens.black} />
-        </Pressable>
-        <Pressable
-          onPress={() => onVote(row, -1)}
-          style={({ pressed }) => [
-            voteBtnStyle('down'),
-            pressed ? { transform: [{ translateX: 2 }, { translateY: 2 }] as any, shadowOpacity: 0 } : null,
-          ]}
-          accessibilityLabel="Downvote"
-        >
-          <Ionicons name="chevron-down" size={18} color={tokens.black} />
-        </Pressable>
-      </View>
+    <View style={{ alignItems: 'center', gap: 2 }}>
+      <VoteBox up onPress={() => onVote(row, 1)} />
+      {score !== 0 ? <Score score={score} /> : <View style={{ height: 4 }} />}
+      <VoteBox up={false} onPress={() => onVote(row, -1)} />
     </View>
   )
 }
 
-function ScoreLabel({ score }: { score: number }) {
-  const { tokens } = useTheme()
-  const color = score > 0 ? tokens.mintGreen : score < 0 ? tokens.hotRed : tokens.black
-  return <Text style={[scoreStyle(tokens.fontDisplay), { color }]}>{score}</Text>
+function VoteBox({ up, onPress }: { up: boolean; onPress: () => void }) {
+  return (
+    <Press onPress={onPress} hitSlop={6} accessibilityLabel={up ? 'Vote up' : 'Vote down'}>
+      <PencilBox border={10} color={up ? GRAPHITE : GRAPHITE_SOFT} fill={SHEET} contentStyle={{ width: 26, height: 20, alignItems: 'center', justifyContent: 'center' }}>
+        <Ionicons name={up ? 'chevron-up' : 'chevron-down'} size={16} color={up ? INK : GRAPHITE_SOFT} />
+      </PencilBox>
+    </Press>
+  )
 }
 
-// ─── styles ───────────────────────────────────────────────────────────────
-
-function positionStyle(font: string, color: string): TextStyle {
-  return {
-    fontFamily: font,
-    fontWeight: 'normal',
-    fontSize: 24,
-    color,
-    opacity: 0.7,
-    minWidth: 22,
-    textAlign: 'center',
-  }
+function Score({ score }: { score: number }) {
+  return <Text style={note(24, score > 0 ? INK : RED)}>{score > 0 ? `+${score}` : score}</Text>
 }
 
-const artStyle: ImageStyle = {
-  width: 48,
-  height: 48,
-  borderRadius: 2,
-  borderBottomLeftRadius: 5,
-  borderTopRightRadius: 4,
-  borderWidth: 1,
-  borderColor: 'rgba(0,0,0,0.15)',
-}
-
-const hiddenArtStyle: ViewStyle = {
-  width: 48,
-  height: 48,
-  borderRadius: 2,
-  borderBottomLeftRadius: 5,
-  borderTopRightRadius: 4,
-  borderWidth: 1,
-  borderColor: 'rgba(0,0,0,0.15)',
-  backgroundColor: '#f7f4ec',
-  alignItems: 'center',
-  justifyContent: 'center',
-}
-
-function hiddenArtGlyphStyle(font: string): TextStyle {
-  return {
-    color: 'rgba(0,0,0,0.3)',
-    fontFamily: font,
-    fontSize: 24,
-    fontWeight: 'normal',
-    lineHeight: 28,
-  }
-}
-
-function titleStyle(font: string, color: string): TextStyle {
-  return {
-    fontFamily: font,
-    fontWeight: '800',
-    fontSize: 14,
-    color,
-  }
-}
-
-function artistStyle(font: string, color: string): TextStyle {
-  return {
-    fontFamily: font,
-    fontWeight: '500',
-    fontSize: 12,
-    color,
-    marginTop: 1,
-  }
-}
-
-const singerPillsStyle: ViewStyle = {
-  flexDirection: 'row',
-  flexWrap: 'wrap',
-  gap: 6,
-  marginTop: 8,
-}
-
-const singerPillStyle: ViewStyle = {
-  flexDirection: 'row',
-  alignItems: 'center',
-  gap: 5,
-  paddingHorizontal: 8,
-  paddingLeft: 3,
-  paddingVertical: 2,
-  backgroundColor: '#FEF9DA',
-  borderWidth: 1,
-  borderColor: 'rgba(0,0,0,0.15)',
-  borderRadius: 2,
-  borderBottomLeftRadius: 3,
-  borderTopRightRadius: 4,
-  transform: [{ rotate: '1deg' }] as any,
-}
-
-const singerDotStyle: ViewStyle = {
-  width: 16,
-  height: 16,
-  borderRadius: 99,
-  alignItems: 'center',
-  justifyContent: 'center',
-  overflow: 'hidden',
-}
-
-function singerInitialStyle(color: string): TextStyle {
-  return {
-    color,
-    fontWeight: '800',
-    fontSize: 10,
-  }
-}
-
-function singerNameStyle(font: string, color: string): TextStyle {
-  return {
-    color,
-    fontFamily: font,
-    fontWeight: '700',
-    fontSize: 11,
-  }
-}
-
-const voteColStyle: ViewStyle = {
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: 6,
-  marginLeft: 4,
-  alignSelf: 'center',
-}
-
-function scoreStyle(font: string): TextStyle {
-  return {
-    fontFamily: font,
-    fontWeight: '900',
-    fontSize: 16,
-    minWidth: 28,
-    textAlign: 'center',
-    // Handwritten display fonts have tall ascenders; lineHeight 18 used to
-    // clip the top of the digit. 24 gives the glyph room without changing
-    // the visual baseline meaningfully.
-    lineHeight: 24,
-    paddingTop: 2,
-  }
-}
-
-const voteButtonsStyle: ViewStyle = {
-  flexDirection: 'row',
-  alignItems: 'center',
-  gap: 6,
-}
-
-function voteBtnStyle(dir: 'up' | 'down'): ViewStyle {
-  return {
-    width: 32,
-    height: 32,
-    borderRadius: 2,
-    borderBottomLeftRadius: 4,
-    borderTopRightRadius: 3,
-    borderBottomRightRadius: 1,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: dir === 'up' ? '#FEF9DA' : '#fceceb',
-    shadowColor: '#000',
+const styles = StyleSheet.create({
+  // a strip of the exposure sheet, laid on the desk
+  strip: {
+    flexDirection: 'row',
+    minHeight: 104,
+    backgroundColor: SHEET,
+    borderWidth: 1.2,
+    borderColor: RULE,
+    shadowColor: '#2A2218',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12,
-    shadowRadius: 3,
-    transform: [{ rotate: dir === 'up' ? '-2deg' : '2deg' }] as any,
-  }
-}
-
-const votedPillStyle: ViewStyle = {
-  flexDirection: 'row',
-  alignItems: 'center',
-  gap: 4,
-  paddingHorizontal: 8,
-  paddingVertical: 3,
-  backgroundColor: '#FEF9DA',
-  borderWidth: 1,
-  borderColor: 'rgba(0,0,0,0.15)',
-  borderRadius: 2,
-  borderBottomRightRadius: 6,
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.12,
-  shadowRadius: 3,
-  transform: [{ rotate: '-1.5deg' }] as any,
-}
-
-function votedPillLabelStyle(font: string, color: string): TextStyle {
-  return {
-    color,
-    fontFamily: font,
-    fontWeight: '800',
-    fontSize: 9,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  }
-}
-
-const lockBadgeStyle: ViewStyle = {
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: 2,
-  paddingHorizontal: 8,
-  paddingVertical: 6,
-  backgroundColor: '#FEF9DA',
-  borderWidth: 1,
-  borderColor: 'rgba(0,0,0,0.15)',
-  borderRadius: 2,
-  borderBottomRightRadius: 8,
-  marginLeft: 4,
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 3 },
-  shadowOpacity: 0.15,
-  shadowRadius: 4,
-  transform: [{ rotate: '2deg' }] as any,
-}
-
-function lockLabelStyle(font: string, color: string): TextStyle {
-  return {
-    color,
-    fontFamily: font,
-    fontWeight: '800',
-    fontSize: 9,
-    lineHeight: 11,
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-    textAlign: 'center',
-  }
-}
-
-const editBtnStyle: ViewStyle = {
-  width: 40,
-  height: 40,
-  borderTopLeftRadius: 2,
-  borderTopRightRadius: 7,
-  borderBottomLeftRadius: 6,
-  borderBottomRightRadius: 3,
-  borderWidth: 1,
-  borderColor: 'rgba(0,0,0,0.18)',
-  backgroundColor: '#FEF9DA',
-  alignItems: 'center',
-  justifyContent: 'center',
-  marginLeft: 4,
-  alignSelf: 'center',
-  shadowColor: '#000',
-  shadowOffset: { width: 1, height: 2 },
-  shadowOpacity: 0.14,
-  shadowRadius: 3,
-  transform: [{ rotate: '-2deg' }] as any,
-}
+    shadowRadius: 4,
+  },
+  col: {
+    paddingTop: 5,
+    paddingBottom: 8,
+  },
+  vrule: {
+    width: 1,
+    backgroundColor: RULE,
+  },
+  head: {
+    ...printed(7.5, FORM),
+    opacity: 0.85,
+  },
+})

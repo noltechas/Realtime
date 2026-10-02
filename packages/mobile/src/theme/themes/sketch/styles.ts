@@ -1,108 +1,95 @@
-import { StyleSheet, type ViewStyle, type TextStyle } from 'react-native'
+import { StyleSheet } from 'react-native'
 import type { ThemeTokens } from '@karaoke/shared'
 import type { ThemeUIStyles } from '../../types'
-import { blobCornerRadii } from '../../helpers'
+import { FORM, GRAPHITE, GRAPHITE_SOFT, INK, LETTER, LETTER_M, SHEET } from './atoms/_pencil'
 
-// Sketch-specific stylesheet. Mirrors the legacy `mobileStyles(t)` `isSketch`
-// branch — cream paper bg, asymmetric blob corner radii on cards and inputs,
-// dashed border on inputs (so the field reads as "fill-in-the-blank"), Pencil
-// Trace for display, Thin Pencil Handwriting for body. Hard offset shadow so
-// cards float just above the paper like a Polaroid pinned to a corkboard.
+// Sketch stylesheet: ink lettering on transparent screens.
+//
+// TRANSPARENT `screen` AND `page` ARE LOAD-BEARING: the sheet of animation
+// bond is a single SceneLayer mounted once behind the whole navigator. If
+// these painted `appBg` they would cover its paper.
 export function buildSketchStyles(t: ThemeTokens): ThemeUIStyles {
-  // Paper shadow — soft drop, like a card resting on the page. Not the hard
-  // pixel offset neo-brutal uses; sketch wants a slightly diffuse feel.
-  const paperShadow: ViewStyle = {
-    shadowColor: '#000',
-    shadowOffset: { width: 2, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 5,
-    elevation: 3,
-  }
-
-  const sheet = StyleSheet.create({
+  return StyleSheet.create({
     screen: {
       flex: 1,
-      backgroundColor: t.appBg,
+      backgroundColor: 'transparent',
     },
     page: {
-      paddingHorizontal: 24,
-      paddingTop: 24,
+      paddingHorizontal: 20,
+      paddingTop: 20,
       paddingBottom: 48,
-      backgroundColor: t.appBg,
+      backgroundColor: 'transparent',
       flexGrow: 1,
     },
     h1: {
-      fontFamily: t.fontDisplay,
-      fontSize: 32,
-      fontWeight: '700',
-      color: t.black,
-      letterSpacing: -0.5,
+      fontFamily: LETTER,
+      fontSize: 34,
+      lineHeight: 42,
+      color: INK,
     },
     h2: {
-      fontFamily: t.fontDisplay,
+      fontFamily: LETTER,
       fontSize: 22,
-      fontWeight: '700',
-      color: t.black,
+      lineHeight: 28,
+      color: INK,
     },
     body: {
-      fontFamily: t.fontBody,
-      fontSize: 16,
-      color: t.black,
-      // No explicit lineHeight: the Thin Pencil Handwriting face has tall
-      // ascenders that a tight 22px line box clips at the top (visible on song
-      // titles). Letting it use the font's natural metrics — like `muted` and
-      // the SongCard title already do for this same font — renders them whole.
+      fontFamily: LETTER_M,
+      fontSize: 15.5,
+      color: INK,
+      lineHeight: 23,
     },
     muted: {
-      fontFamily: t.fontBody,
+      fontFamily: LETTER_M,
       fontSize: 14,
-      color: t.muted,
+      color: GRAPHITE_SOFT,
+      lineHeight: 20,
     },
+    // Plain-View fallback for screens that style a card directly: a fresh
+    // sheet laid on the desk.
     card: {
-      backgroundColor: t.white,
-      borderWidth: t.cardBorderWidth,
-      borderColor: t.black,
-      ...blobCornerRadii('baseCard'),
+      backgroundColor: SHEET,
+      borderRadius: 2,
       padding: 16,
-      ...paperShadow,
+      shadowColor: '#2A2218',
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.16,
+      shadowRadius: 6,
+      elevation: 3,
     },
+    // A field filled in by hand: the line you write on.
     input: {
-      backgroundColor: t.creamDark,
-      borderWidth: 2,
-      borderColor: t.dimBorder,
-      borderStyle: 'dashed',
-      ...blobCornerRadii('input'),
-      paddingHorizontal: 14,
-      paddingVertical: 12,
-      fontSize: 18,
-      fontFamily: t.fontBody,
-      color: t.black,
-    } as ViewStyle & TextStyle,
+      backgroundColor: 'rgba(250,248,242,0.7)',
+      borderBottomWidth: 2,
+      borderBottomColor: GRAPHITE,
+      borderRadius: 0,
+      paddingHorizontal: 6,
+      paddingVertical: 10,
+      fontFamily: LETTER_M,
+      fontSize: 16,
+      color: INK,
+    },
     pillBox: {
-      borderRadius: 999,
-      borderWidth: 2,
-      borderColor: t.black,
-      paddingHorizontal: 10,
-      paddingVertical: 4,
+      borderWidth: 1.5,
+      borderColor: 'rgba(60,60,65,0.55)',
+      borderRadius: 2,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      backgroundColor: 'rgba(250,248,242,0.6)',
     },
     pillText: {
-      fontFamily: t.fontDisplay,
-      fontWeight: '700',
-      fontSize: 12,
-      color: t.black,
-      letterSpacing: 0.5,
+      fontFamily: LETTER_M,
+      fontSize: 14,
+      color: GRAPHITE,
     },
+    // The exposure sheet's printed labels.
     sectionLabel: {
-      fontFamily: t.fontDisplay,
+      fontFamily: 'System',
       fontWeight: '700',
-      fontSize: 12,
-      letterSpacing: 1,
+      fontSize: 11,
+      letterSpacing: 1.8,
       textTransform: 'uppercase',
-      color: t.black,
-      opacity: 0.55,
-      marginBottom: 12,
+      color: FORM,
     },
   })
-
-  return sheet
 }

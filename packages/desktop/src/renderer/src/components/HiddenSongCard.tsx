@@ -1,4 +1,5 @@
 import { ART } from './steampunk/parts'
+import { ART as SKETCH_ART } from './sketch/parts'
 import React from 'react'
 import { Theme } from '../styles/theme'
 
@@ -166,11 +167,12 @@ function HiddenTileMotif({ theme }: ThemeProps) {
             )
         case 'sketch':
             return (
-                <svg width="48" height="48" viewBox="0 0 48 48" style={{ position: 'absolute', inset: 0 }} className="hs-wiggle">
-                    <path d="M14 18 Q 14 10 24 10 Q 34 10 34 18 Q 34 24 24 27 L 24 33" stroke="#2d2d2d" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                    <circle cx="24" cy="38" r="1.8" fill="#2d2d2d" />
-                    <path d="M 7 41 q 2 -3 4 0 q 2 3 4 0" stroke="#ff4d4d" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-                </svg>
+                <>
+                    {/* a sheet turned face down: scribbled over, a red question mark */}
+                    <div style={{ position: 'absolute', inset: 6, background: '#FAF8F2', boxShadow: '0 1px 2px rgba(40,34,24,0.3)' }} />
+                    <span style={{ position: 'absolute', left: 8, right: 8, top: 12, height: 12, background: '#3C3C41', opacity: 0.7, WebkitMaskImage: `url(${SKETCH_ART.scribble})`, WebkitMaskSize: '100% 100%' }} />
+                    <div style={{ ...centered, color: '#CF4540', fontFamily: "'Shantell Sans', cursive", fontWeight: 800, fontSize: 24, paddingTop: 8 }}>?</div>
+                </>
             )
         case 'urban':
             return (
@@ -272,17 +274,14 @@ function HiddenStageMotif({ theme }: ThemeProps) {
             )
         case 'sketch':
             return (
-                <div style={{ ...stageFill, background: '#fdfbf7' }}>
-                    <svg width="340" height="340" viewBox="0 0 340 340" style={{ position: 'absolute', inset: 0 }} className="hs-wiggle">
-                        <path d="M 95 130 Q 95 70 170 70 Q 245 70 245 130 Q 245 175 170 195 L 170 240" stroke="#2d2d2d" strokeWidth="8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                        <circle cx="170" cy="268" r="9" fill="#2d2d2d" />
-                        <path d="M 50 290 q 10 -12 20 0 q 10 12 20 0 q 10 -12 20 0" stroke="#ff4d4d" strokeWidth="3" fill="none" strokeLinecap="round" />
-                        <path d="M 250 290 q 10 -12 20 0 q 10 12 20 0" stroke="#2d5da1" strokeWidth="3" fill="none" strokeLinecap="round" />
-                        <circle cx="60" cy="70" r="18" stroke="#fff9c4" strokeWidth="4" strokeDasharray="4 3" fill="none" />
-                        <path d="M 270 60 l 15 -8 l -5 16 l 12 -5 l -8 14" stroke="#ff4d4d" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    <div style={{ position: 'absolute', bottom: 22, left: 0, right: 0, textAlign: 'center', fontFamily: theme.fontBody, color: '#2d5da1', fontSize: 28, transform: 'rotate(-3deg)' }}>
-                        shhh…
+                <div style={{ ...stageFill, background: '#EFEBE2' }}>
+                    {/* a sheet turned face down, taped to the desk: scribbled over, a red question mark */}
+                    <div style={{ position: 'absolute', inset: 30, background: 'linear-gradient(180deg, #FAF8F2, #F3F0E7)', boxShadow: '0 1px 1px rgba(40,34,24,0.2), 0 10px 22px rgba(40,34,24,0.18)', transform: 'rotate(-2deg)' }} />
+                    <span style={{ position: 'absolute', left: 70, right: 70, top: 78, height: 60, background: '#3C3C41', opacity: 0.8, WebkitMaskImage: `url(${SKETCH_ART.scribble})`, WebkitMaskSize: '100% 100%' }} />
+                    <div style={{ position: 'absolute', left: 0, right: 0, top: 120, textAlign: 'center', color: '#CF4540', fontFamily: "'Shantell Sans', cursive", fontWeight: 800, fontSize: 120, lineHeight: 1 }}>?</div>
+                    <img src={SKETCH_ART.tape[0]} alt="" style={{ position: 'absolute', width: 120, top: 14, left: 110, transform: 'rotate(-4deg)' }} />
+                    <div style={{ position: 'absolute', bottom: 46, left: 0, right: 0, textAlign: 'center', fontFamily: "'Just Another Hand', cursive", color: '#3C3C41', fontSize: 30 }}>
+                        no peeking
                     </div>
                 </div>
             )
@@ -466,7 +465,7 @@ const stageFill: React.CSSProperties = {
 function hiddenLabelFor(name: string): string {
     switch (name) {
         case 'cyberpunk': return '[REDACTED]'
-        case 'sketch': return 'shhh…'
+        case 'sketch': return 'A secret scene'
         case 'urban': return 'UNKNOWN'
         case 'deep-sea': return 'Lost in the deep'
         case 'psychedelic': return 'Mystery Jam'
@@ -484,7 +483,7 @@ function hiddenLabelFor(name: string): string {
 function hiddenSubtitleFor(name: string): string {
     switch (name) {
         case 'cyberpunk': return '// access denied'
-        case 'sketch': return 'it\'s a secret!'
+        case 'sketch': return 'revealed when it plays'
         case 'urban': return 'track redacted'
         case 'deep-sea': return 'a song from the abyss'
         case 'psychedelic': return 'guess the groove'
@@ -614,7 +613,7 @@ function tileExtras(theme: Theme): React.CSSProperties {
         case 'cyberpunk':
             return { background: '#060610', borderColor: '#00ff88' }
         case 'sketch':
-            return { background: '#fdfbf7', borderColor: '#2d2d2d' }
+            return { background: '#EFEBE2', borderColor: 'rgba(28,27,31,0.3)' }
         case 'urban':
             return { background: '#0a0a0a', borderColor: '#D4FF00' }
         case 'deep-sea':

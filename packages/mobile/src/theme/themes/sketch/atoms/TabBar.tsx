@@ -1,14 +1,26 @@
 import React, { useEffect, useRef } from 'react'
-import { View, Text, Pressable, Animated, Easing } from 'react-native'
+import { Animated, Easing, Pressable, Text, View, useWindowDimensions } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import Svg, { Path, Circle } from 'react-native-svg'
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs'
-import { useTheme } from '../../../ThemeContext'
+import { TAB_ICONS, type TabIconComponent } from '../../../../navigation/TabIcons'
 import { useSession } from '../../../../hooks/useSession'
 import { useSessionRow, guestIsUp } from '../../../../hooks/useSessionRow'
+import { SKETCH_MOBILE } from '../../../tokens'
+import { Ball, INK, SHEET, ballSprite, note } from './_pencil'
 
-const AnimatedPath = Animated.createAnimatedComponent(Path)
-const AnimatedCircle = Animated.createAnimatedComponent(Circle)
+// Sketch tab bar: the foot of the EXPOSURE SHEET, its printed teal rules
+// ruling a column for each tab. The ball sits on the sheet's top edge over
+// the active tab; choose another and it HOPS there: across at a steady speed,
+// up and down under gravity, squashing as it lands. The active glyph and
+// label are inked; every other tab shares one pencil grey (house rule).
+// Glyphs are the shared Ionicons set.
+
+const BAR_H = 60
+const FG = SKETCH_MOBILE.tabBarFg
+const RULE = 'rgba(79,138,132,0.5)'
+const D = 17
+const S = ballSprite(D)
+const PAD = (S - D) / 2
 
 function useStageLabel(): string {
   const { session } = useSession()
@@ -16,336 +28,111 @@ function useStageLabel(): string {
   return guestIsUp(row, session?.guestName, session?.guestId) ? 'Stage' : 'React'
 }
 
-// Hand-drawn sketch icons — single-stroke marker paths over a 24×24 grid.
-// Custom SVGs (rather than Ionicons) so they match the rest of the sketch
-// theme's marker-on-paper aesthetic.
-function SketchHomeIcon({ color }: { color: string }) {
-  return (
-    <Svg width={24} height={24} viewBox="0 0 24 24">
-      <Path
-        d="M 3 10 L 12 3 L 21 10 M 5 9 L 5 20 L 19 20 L 19 9 M 10 20 L 10 14 L 14 14 L 14 20"
-        fill="none"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  )
-}
-
-function SketchProfileIcon({ color }: { color: string }) {
-  return (
-    <Svg width={24} height={24} viewBox="0 0 24 24">
-      <Path
-        d="M 12 12 C 14.5 12 16.5 10 16.5 7.5 C 16.5 5 14.5 3 12 3 C 9.5 3 7.5 5 7.5 7.5 C 7.5 10 9.5 12 12 12 Z M 5 21 C 5 17 8 14 12 14 C 16 14 19 17 19 21"
-        fill="none"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  )
-}
-
-function SketchQueueIcon({ color }: { color: string }) {
-  return (
-    <Svg width={24} height={24} viewBox="0 0 24 24">
-      <Path
-        d="M 5 6 L 19 6 M 5 12 L 15 12 M 5 18 L 17 18"
-        fill="none"
-        stroke={color}
-        strokeWidth={2.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  )
-}
-
-function SketchSongsIcon({ color }: { color: string }) {
-  return (
-    <Svg width={24} height={24} viewBox="0 0 24 24">
-      <Path
-        d="M 11 17 C 8.5 17 6.5 15.5 6.5 13 C 6.5 10.5 8.5 9 11 9 C 13.5 9 15.5 10.5 15.5 13 C 15.5 15.5 13.5 17 11 17 Z M 15.5 13 L 15.5 3 L 20 2 L 20 7 L 15.5 8"
-        fill="none"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  )
-}
-
-function SketchStageIcon({ color }: { color: string }) {
-  return (
-    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <Path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-      <Path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-      <Path d="M12 19v4" />
-      <Path d="M8 23h8" />
-    </Svg>
-  )
-}
-
-function SketchReactIcon({ color }: { color: string }) {
-  return (
-    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <Circle cx="12" cy="12" r="10" />
-      <Path d="M8 14s1.5 2 4 2 4-2 4-2" />
-      <Path d="M9 9h.01" />
-      <Path d="M15 9h.01" />
-    </Svg>
-  )
-}
-
-function SketchAwardsIcon({ color }: { color: string }) {
-  return (
-    <Svg width={24} height={24} viewBox="0 0 24 24">
-      <Path
-        d="M 7 5 L 17 5 M 7 5 L 7 10 C 7 13 9 15 12 15 C 15 15 17 13 17 10 L 17 5 M 4 5 L 7 5 M 4 5 L 4 8 C 4 10 5.5 11 7 10.5 M 20 5 L 17 5 M 20 5 L 20 8 C 20 10 18.5 11 17 10.5 M 12 15 L 12 20 M 9 20 L 15 20"
-        fill="none"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  )
-}
-
-const SKETCH_ICONS: Record<string, React.FC<{ color: string }>> = {
-  Home: SketchHomeIcon,
-  Profile: SketchProfileIcon,
-  Queue: SketchQueueIcon,
-  Songs: SketchSongsIcon,
-  Stage: SketchStageIcon,
-  React: SketchReactIcon,
-  Awards: SketchAwardsIcon,
-}
-
 export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets()
-  const { tokens } = useTheme()
+  const { width } = useWindowDimensions()
   const stageLabel = useStageLabel()
+  const n = state.routes.length
+  const slot = width / n
 
-  const totalHeight = 84 + insets.bottom
+  const x = useRef(new Animated.Value(state.index)).current
+  const hop = useRef(new Animated.Value(0)).current
+  const land = useRef(new Animated.Value(0)).current
+  const last = useRef(state.index)
+  useEffect(() => {
+    if (last.current === state.index) return
+    const dist = Math.abs(state.index - last.current)
+    last.current = state.index
+    const t = 300 + dist * 70
+    hop.setValue(0)
+    Animated.parallel([
+      Animated.timing(x, { toValue: state.index, duration: t, easing: Easing.linear, useNativeDriver: true }),
+      Animated.sequence([
+        Animated.timing(hop, { toValue: 1, duration: t / 2, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+        Animated.timing(hop, { toValue: 0, duration: t / 2, easing: Easing.in(Easing.quad), useNativeDriver: true }),
+      ]),
+    ]).start(({ finished }) => {
+      if (!finished) return
+      land.setValue(1)
+      Animated.spring(land, { toValue: 0, stiffness: 420, damping: 11, mass: 0.6, useNativeDriver: true }).start()
+    })
+  }, [state.index, x, hop, land])
 
+  const rise = 26 + Math.min(3, n) * 4
+  const totalH = BAR_H + Math.max(insets.bottom, 10)
   return (
-    <View
-      pointerEvents="box-none"
-      style={{
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        bottom: 0,
-        height: totalHeight,
-      }}
-    >
-      <TornEdge color={tokens.tabBarBg} accent={tokens.black} />
-
+    <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: totalH + S }}>
+      {/* the sheet's foot */}
       <View
         style={{
-          flex: 1,
-          marginTop: 13,
-          backgroundColor: tokens.tabBarBg,
-          paddingBottom: insets.bottom,
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: totalH,
+          backgroundColor: SHEET,
+          borderTopWidth: 1.5,
+          borderTopColor: RULE,
+          shadowColor: '#2A2218',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 5,
         }}
       >
-        <View
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            top: 4,
-            height: 1,
-            backgroundColor: 'rgba(45,45,45,0.08)',
-          }}
-        />
-
-        <View
-          style={{
-            flexDirection: 'row',
-            paddingTop: 8,
-            paddingBottom: 6,
-            flex: 1,
-            position: 'relative',
-          }}
-        >
-          {state.routes.map((route, i) => {
-            const focused = state.index === i
-            const label = route.name === 'Stage' ? stageLabel : route.name
-            const tint = focused ? tokens.tabBarPill : tokens.tabBarFg
-
-            const Icon = SKETCH_ICONS[label] || SKETCH_ICONS[route.name] || SketchHomeIcon
-
-            const onPress = () => {
-              const event = navigation.emit({
-                type: 'tabPress',
-                target: route.key,
-                canPreventDefault: true,
-              })
-              if (!focused && !event.defaultPrevented) {
-                navigation.navigate(route.name)
-              }
-            }
-            const onLongPress = () => {
-              navigation.emit({ type: 'tabLongPress', target: route.key })
-            }
-
-            const baseRotate = labelTilt(route.name)
-
-            return (
-              <Pressable
-                key={route.key}
-                onPress={onPress}
-                onLongPress={onLongPress}
-                hitSlop={4}
-                style={({ pressed }) => ({
-                  flex: 1,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  paddingHorizontal: 4,
-                  transform: [
-                    { rotate: pressed ? `${baseRotate + 2}deg` : `${baseRotate}deg` },
-                    { scale: pressed ? 0.96 : 1 },
-                  ],
-                })}
-              >
-                <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-                  <MarkerDraw color={tokens.black} active={focused} />
-
-                  <View
-                    style={{
-                      width: 28,
-                      height: 28,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <Icon color={tint} />
-                  </View>
-                  <Text
-                    style={{
-                      marginTop: 4,
-                      color: tint,
-                      fontFamily: tokens.fontDisplay,
-                      fontWeight: focused ? '700' : '600',
-                      fontSize: 14,
-                      letterSpacing: 0.2,
-                    }}
-                  >
-                    {label}
-                  </Text>
-                </View>
-              </Pressable>
-            )
-          })}
-        </View>
+        <View style={{ position: 'absolute', left: 0, right: 0, top: 3, height: 1, backgroundColor: RULE }} />
+        {Array.from({ length: n - 1 }, (_, i) => (
+          <View key={i} style={{ position: 'absolute', left: slot * (i + 1), top: 4, height: BAR_H - 12, width: 1, backgroundColor: RULE }} />
+        ))}
       </View>
-    </View>
-  )
-}
 
-function MarkerDraw({ color, active }: { color: string; active: boolean }) {
-  const drawProgress = useRef(new Animated.Value(active ? 1 : 0)).current
-
-  useEffect(() => {
-    Animated.timing(drawProgress, {
-      toValue: active ? 1 : 0,
-      duration: active ? 350 : 200,
-      easing: active ? Easing.out(Easing.cubic) : Easing.in(Easing.ease),
-      useNativeDriver: true,
-    }).start()
-  }, [active, drawProgress])
-
-  const circleOffset = drawProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [120, 0],
-  })
-
-  const lineOffset = drawProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [80, 0],
-  })
-
-  return (
-    <View style={{ position: 'absolute', width: 64, height: 60, top: -4, alignItems: 'center' }} pointerEvents="none">
-      <Animated.View style={{ position: 'absolute', top: 0, width: 44, height: 38, transform: [{ rotate: '-4deg' }], opacity: drawProgress }}>
-        <Svg width="100%" height="100%" viewBox="0 0 44 38">
-          <AnimatedCircle
-            cx={22}
-            cy={19}
-            r={17}
-            stroke={color}
-            strokeWidth={2.2}
-            fill="none"
-            strokeLinecap="round"
-            strokeDasharray="120"
-            strokeDashoffset={circleOffset}
-          />
-        </Svg>
+      {/* the ball, sitting on the top edge over the active tab */}
+      <Animated.View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          left: slot / 2 - S / 2,
+          bottom: totalH - PAD,
+          width: S,
+          height: S,
+          transform: [
+            { translateX: x.interpolate({ inputRange: [0, Math.max(1, n - 1)], outputRange: [0, slot * Math.max(1, n - 1)] }) },
+            { translateY: hop.interpolate({ inputRange: [0, 1], outputRange: [0, -rise] }) },
+            { translateY: S / 2 - PAD },
+            { scaleX: land.interpolate({ inputRange: [-1, 0, 1], outputRange: [0.9, 1, 1.3] }) },
+            { scaleY: land.interpolate({ inputRange: [-1, 0, 1], outputRange: [1.1, 1, 0.72] }) },
+            { translateY: -(S / 2 - PAD) },
+          ],
+        }}
+      >
+        <Ball d={D} color={SKETCH_MOBILE.hotRed} />
       </Animated.View>
-      <Animated.View style={{ position: 'absolute', bottom: -2, width: 56, height: 10, opacity: drawProgress }}>
-        <Svg width="100%" height="100%" viewBox="0 0 64 10">
-          <AnimatedPath
-            d="M 2 6 Q 10 1 18 5 T 34 6 T 50 4 T 62 6"
-            stroke={color}
-            strokeWidth={2.2}
-            fill="none"
-            strokeLinecap="round"
-            strokeDasharray="80"
-            strokeDashoffset={lineOffset}
-          />
-        </Svg>
-      </Animated.View>
+
+      <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: totalH - BAR_H, height: BAR_H, flexDirection: 'row' }}>
+        {state.routes.map((route, i) => {
+          const Icon: TabIconComponent | undefined = TAB_ICONS[route.name]
+          const options = descriptors[route.key]?.options
+          const overrideIcon = options?.tabBarIcon as ((p: { color: string; size?: number; focused: boolean }) => React.ReactNode) | undefined
+          const label = route.name === 'Stage' ? stageLabel : route.name
+          const focused = state.index === i
+          const color = focused ? INK : FG
+          const onPress = () => {
+            const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true })
+            if (!focused && !event.defaultPrevented) navigation.navigate(route.name)
+          }
+          return (
+            <Pressable key={route.key} onPress={onPress} accessibilityLabel={label} hitSlop={4} style={{ flex: 1, alignItems: 'center', paddingTop: 9 }}>
+              <View style={{ height: 26, alignItems: 'center', justifyContent: 'center' }}>
+                {overrideIcon ? overrideIcon({ color, size: 22, focused }) : Icon ? <Icon color={color} size={22} /> : null}
+              </View>
+              <Text numberOfLines={1} style={note(17, focused ? INK : FG, { marginTop: 1 })}>
+                {label}
+              </Text>
+            </Pressable>
+          )
+        })}
+      </View>
+      <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: Math.max(insets.bottom, 10), borderTopWidth: 1, borderTopColor: 'rgba(79,138,132,0.2)' }} />
     </View>
   )
 }
 
-function TornEdge({ color, accent }: { color: string; accent: string }) {
-  return (
-    <View
-      pointerEvents="none"
-      style={{
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        top: 0,
-        height: 14,
-      }}
-    >
-      <Svg width="100%" height="100%" viewBox="0 0 600 14" preserveAspectRatio="none">
-        <Path
-          d="M 0 4 L 14 1 L 28 5 L 42 2 L 56 6 L 70 3 L 84 5 L 98 1 L 112 4 L 126 6 L 140 2 L 154 5 L 168 3 L 182 6 L 196 1 L 210 4 L 224 6 L 238 2 L 252 5 L 266 1 L 280 4 L 294 6 L 308 2 L 322 5 L 336 3 L 350 6 L 364 1 L 378 4 L 392 6 L 406 2 L 420 5 L 434 3 L 448 6 L 462 1 L 476 4 L 490 6 L 504 2 L 518 5 L 532 1 L 546 4 L 560 6 L 574 2 L 588 5 L 600 3"
-          stroke="rgba(0,0,0,0.06)"
-          strokeWidth={4}
-          fill="none"
-          strokeLinejoin="round"
-        />
-        <Path
-          d="M 0 4 L 14 1 L 28 5 L 42 2 L 56 6 L 70 3 L 84 5 L 98 1 L 112 4 L 126 6 L 140 2 L 154 5 L 168 3 L 182 6 L 196 1 L 210 4 L 224 6 L 238 2 L 252 5 L 266 1 L 280 4 L 294 6 L 308 2 L 322 5 L 336 3 L 350 6 L 364 1 L 378 4 L 392 6 L 406 2 L 420 5 L 434 3 L 448 6 L 462 1 L 476 4 L 490 6 L 504 2 L 518 5 L 532 1 L 546 4 L 560 6 L 574 2 L 588 5 L 600 3 L 600 14 L 0 14 Z"
-          fill={color}
-        />
-        <Path
-          d="M 0 4 L 14 1 L 28 5 L 42 2 L 56 6 L 70 3 L 84 5 L 98 1 L 112 4 L 126 6 L 140 2 L 154 5 L 168 3 L 182 6 L 196 1 L 210 4 L 224 6 L 238 2 L 252 5 L 266 1 L 280 4 L 294 6 L 308 2 L 322 5 L 336 3 L 350 6 L 364 1 L 378 4 L 392 6 L 406 2 L 420 5 L 434 3 L 448 6 L 462 1 L 476 4 L 490 6 L 504 2 L 518 5 L 532 1 L 546 4 L 560 6 L 574 2 L 588 5 L 600 3"
-          stroke={accent}
-          strokeWidth={1}
-          strokeOpacity={0.35}
-          fill="none"
-          strokeLinejoin="round"
-        />
-      </Svg>
-    </View>
-  )
-}
-
-function labelTilt(name: string): number {
-  let h = 0
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0
-  const choices = [-1.5, -0.5, 0.5, 1.5]
-  return choices[((h % choices.length) + choices.length) % choices.length]
-}

@@ -50,6 +50,14 @@ import {
   SteampunkAddCrewButton,
 } from './wizard/SteampunkWizardChrome'
 import {
+  SheetTape as SketchSheetTape,
+  BounceTrail as SketchBounceTrail,
+  AvatarPrint as SketchAvatarPrint,
+  PencilSwatch as SketchPencilSwatch,
+  SketchAddSingerButton,
+  SKETCH_HEADING,
+} from './wizard/SketchWizardChrome'
+import {
   NeonFrame as RetrowaveNeonFrame,
   SunsetTrail as RetrowaveSunsetTrail,
   AvatarChromeRing as RetrowaveAvatarChromeRing,
@@ -114,7 +122,7 @@ function formatDuration(ms: number | null | undefined): string {
 // existing flags. Per-theme structural feel:
 //   - zen                                    → tatami binding: vermillion top/bottom bands with gold-hairline sides
 //   - space                                  → black glass, gold hairline, registration ticks
-//   - sketch (cardShape: 'blob' + offset)   → post-it note: warm paper, slight rotation, blob radii
+//   - sketch                                 → a fresh sheet taped to the desk (SketchSheetTape)
 //   - psychedelic (cardShape: 'blob' + glow) → translucent purple panel with asymmetric blob corners + pink halo
 //   - urban  (cardBorderWidth: 0)            → parallelogram skew with accent edge
 //   - dark   (cyberpunk, deep-sea)           → translucent panel with accent glow
@@ -237,6 +245,24 @@ function wizardCardStyle(tokens: ThemeTokens, color?: string, overrides?: any, i
       shadowOffset: { width: 0, height: 6 },
       shadowOpacity: 0.55,
       shadowRadius: 10,
+      ...overrides,
+    }
+  }
+  if (tokens.name === 'sketch') {
+    // Sketch ("Follow the Bouncing Ball"): a fresh sheet laid on the desk,
+    // a scrap of masking tape holding it down (SketchSheetTape). A singer's
+    // card carries their colour as a pencil rule along its foot.
+    return {
+      backgroundColor: '#FAF8F2',
+      borderWidth: 1,
+      borderColor: 'rgba(28,27,31,0.1)',
+      borderBottomWidth: color ? 3 : 1,
+      borderBottomColor: color || 'rgba(28,27,31,0.1)',
+      borderRadius: 2,
+      shadowColor: '#2A2218',
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.14,
+      shadowRadius: 6,
       ...overrides,
     }
   }
@@ -367,6 +393,18 @@ function steamHeadingExtras(tokens: ThemeTokens): any {
     textShadowRadius: 0.5,
     textShadowOffset: { width: 0, height: 1.5 },
   }
+}
+
+// Sketch step titles are lettered in ink.
+function sketchHeadingExtras(tokens: ThemeTokens): any {
+  if (tokens.name !== 'sketch') return null
+  return SKETCH_HEADING
+}
+
+// Sketch small chrome: a pencil-grey edge.
+function sketchChromeExtras(tokens: ThemeTokens): any {
+  if (tokens.name !== 'sketch') return null
+  return { borderColor: 'rgba(28,27,31,0.5)' }
 }
 
 // Steampunk small chrome (icon buttons, the close button, modal input chips):
@@ -767,6 +805,7 @@ function WizardBody() {
               justifyContent: 'center',
               ...(psyChromeExtras(tokens) ?? {}),
               ...(steamChromeExtras(tokens) ?? {}),
+              ...(sketchChromeExtras(tokens) ?? {}),
               ...(retroChromeExtras(tokens) ?? {}),
             }}
           >
@@ -781,6 +820,12 @@ function WizardBody() {
               />
             ) : tokens.name === 'steampunk' ? (
               <SteampunkConveyorTrail
+                current={step === 4 ? stepCount : step - 1}
+                total={stepCount}
+                label={stepLabel}
+              />
+            ) : tokens.name === 'sketch' ? (
+              <SketchBounceTrail
                 current={step === 4 ? stepCount : step - 1}
                 total={stepCount}
                 label={stepLabel}
@@ -818,6 +863,7 @@ function WizardBody() {
                     marginTop: 2,
                     ...(psyHeadingExtras(tokens) ?? {}),
                     ...(steamHeadingExtras(tokens) ?? {}),
+                    ...(sketchHeadingExtras(tokens) ?? {}),
                     ...(retroHeadingExtras(tokens) ?? {}),
                     ...(spaceHeadingExtras(tokens) ?? {}),
                   }}
@@ -845,6 +891,8 @@ function WizardBody() {
             <SpaceHudBrackets size={10} thickness={1.2} inset={2} />
           ) : tokens.name === 'steampunk' ? (
             <SteampunkBrassFrame size={8} filigree />
+          ) : tokens.name === 'sketch' ? (
+            <SketchSheetTape />
           ) : tokens.name === 'retrowave' ? (
             <RetrowaveNeonFrame size={10} thickness={1.2} inset={2} />
           ) : tokens.name === 'tropical' ? (
@@ -1105,6 +1153,7 @@ function SingersStep({
           letterSpacing: tokens.name === 'tropical' ? 0 : -0.5,
           marginBottom: 16,
           ...(steamHeadingExtras(tokens) ?? {}),
+          ...(sketchHeadingExtras(tokens) ?? {}),
           ...(retroHeadingExtras(tokens) ?? {}),
           ...(spaceHeadingExtras(tokens) ?? {}),
         }}
@@ -1125,6 +1174,8 @@ function SingersStep({
             <SpaceHudBrackets size={10} thickness={1} inset={3} topColor={s.color} />
           ) : tokens.name === 'steampunk' ? (
             <SteampunkBrassFrame size={9} filigree />
+          ) : tokens.name === 'sketch' ? (
+            <SketchSheetTape seed={i + 1} />
           ) : tokens.name === 'retrowave' ? (
             <RetrowaveNeonFrame size={10} thickness={1.4} inset={3} topColor={s.color} bottomColor="#00F0FF" />
           ) : tokens.name === 'tropical' ? (
@@ -1174,6 +1225,28 @@ function SingersStep({
                     </Text>
                   )}
                 </SteampunkAvatarGearWreath>
+              </View>
+            ) : tokens.name === 'sketch' ? (
+              <View style={{ marginRight: 12 }}>
+                <SketchAvatarPrint size={44} color={s.color}>
+                  {s.profilePicture ? (
+                    <Image
+                      source={{ uri: s.profilePicture }}
+                      style={{ width: '100%', height: '100%' }}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Text
+                      style={{
+                        fontFamily: 'ShantellSans_800ExtraBold',
+                        fontSize: 22,
+                        color: s.color,
+                      }}
+                    >
+                      {(s.name?.[0] ?? '?').toUpperCase()}
+                    </Text>
+                  )}
+                </SketchAvatarPrint>
               </View>
             ) : tokens.name === 'retrowave' ? (
               <View style={{ marginRight: 12 }}>
@@ -1349,6 +1422,18 @@ function SingersStep({
                     />
                   )
                 }
+                if (tokens.name === 'sketch') {
+                  return (
+                    <SketchPencilSwatch
+                      key={c.color}
+                      color={c.color}
+                      selected={selected}
+                      takenByOther={takenByOther}
+                      seed={ci}
+                      onPress={() => setColor(i, c.color, c.colorGlow)}
+                    />
+                  )
+                }
                 if (tokens.name === 'steampunk') {
                   return (
                     <SteampunkJewelBezelSwatch
@@ -1418,6 +1503,8 @@ function SingersStep({
           <SpaceAddCrewButton onPress={onAddPress} />
         ) : tokens.name === 'steampunk' ? (
           <SteampunkAddCrewButton onPress={onAddPress} />
+        ) : tokens.name === 'sketch' ? (
+          <SketchAddSingerButton onPress={onAddPress} />
         ) : tokens.name === 'retrowave' ? (
           <RetrowaveAddCrewButton onPress={onAddPress} />
         ) : (
@@ -1518,6 +1605,7 @@ function RolesStep({
           color: tokens.black,
           letterSpacing: tokens.name === 'tropical' ? 0 : -0.5,
           ...(steamHeadingExtras(tokens) ?? {}),
+          ...(sketchHeadingExtras(tokens) ?? {}),
           ...(retroHeadingExtras(tokens) ?? {}),
           ...(spaceHeadingExtras(tokens) ?? {}),
         }}
@@ -1576,6 +1664,8 @@ function RolesStep({
             <SpaceHudBrackets size={10} thickness={1.2} inset={3} />
           ) : tokens.name === 'steampunk' ? (
             <SteampunkBrassFrame size={9} filigree />
+          ) : tokens.name === 'sketch' ? (
+            <SketchSheetTape seed={7} />
           ) : tokens.name === 'retrowave' ? (
             <RetrowaveNeonFrame size={10} thickness={1.4} inset={3} />
           ) : null}
@@ -1785,6 +1875,7 @@ function StageStep({
           color: tokens.black,
           letterSpacing: tokens.name === 'tropical' ? 0 : -0.5,
           ...(steamHeadingExtras(tokens) ?? {}),
+          ...(sketchHeadingExtras(tokens) ?? {}),
           ...(retroHeadingExtras(tokens) ?? {}),
           ...(spaceHeadingExtras(tokens) ?? {}),
         }}
@@ -1969,6 +2060,7 @@ function SingerPicker({
             color: tokens.black,
             marginBottom: 16,
             ...(steamHeadingExtras(tokens) ?? {}),
+            ...(sketchHeadingExtras(tokens) ?? {}),
             ...(retroHeadingExtras(tokens) ?? {}),
             ...(spaceHeadingExtras(tokens) ?? {}),
           }}
@@ -2092,6 +2184,7 @@ function SingerPicker({
               color: tokens.black,
               ...(psyChromeExtras(tokens) ?? {}),
               ...(steamChromeExtras(tokens) ?? {}),
+              ...(sketchChromeExtras(tokens) ?? {}),
               ...(retroChromeExtras(tokens) ?? {}),
             }}
             returnKeyType="done"
@@ -2110,6 +2203,7 @@ function SingerPicker({
               opacity: customName.trim() ? 1 : 0.5,
               ...(customName.trim() ? psyChromeExtras(tokens) ?? {} : {}),
               ...(customName.trim() ? steamChromeExtras(tokens) ?? {} : {}),
+              ...(customName.trim() ? sketchChromeExtras(tokens) ?? {} : {}),
               ...(customName.trim() ? retroChromeExtras(tokens) ?? {} : {}),
             }}
           >

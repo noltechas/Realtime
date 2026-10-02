@@ -179,7 +179,7 @@ export function renderWizardStage(){
   var tiles=[
     {k:"neo-brutal",label:"Default",c:["#FFF8EE","#FF3B30","#FFD60A"]},
     {k:"cyberpunk",label:"Cyberpunk",c:["#060610","#00FF88","#00E5FF"]},
-    {k:"sketch",label:"Sketch",c:["#FDFBF7","#2D5DA1","#2D2D2D"]},
+    {k:"sketch",label:"Sketch",c:["#EFEBE2","#CF4540","#4F8FD0"]},
     {k:"urban",label:"Urban",c:["#0A0A0A","#D4FF00","#F5F5F5"]},
     {k:"deep-sea",label:"Deep Sea",c:["#040918","#00FFC8","#B44DFF"]},
     {k:"psychedelic",label:"Psychedelic",c:["#1A0A2E","#FF2D95","#B6FF2D"]},

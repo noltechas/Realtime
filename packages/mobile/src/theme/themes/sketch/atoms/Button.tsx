@@ -1,102 +1,47 @@
 import React from 'react'
-import { Pressable, Text, ActivityIndicator, View, type ViewStyle, type TextStyle } from 'react-native'
-import { useTheme } from '../../../ThemeContext'
-import { blobCornerRadii, sketchAngle, sketchWobble } from '../../../helpers'
+import { ActivityIndicator, Text, View } from 'react-native'
 import type { ButtonProps } from '../../../types'
+import { GRAPHITE, IMG, INK, LETTER_B, Mark, PencilBox, Press, SHEET, TapeStrip, letter, useMeasured } from './_pencil'
 
-// Sketch button — blob corner radii, hand-drawn rotation per label, and a
-// slide-on-press wobble so it feels like a marker tapping paper. Mirrors the
-// branch that used to live in PrimaryButton.tsx for the sketch theme.
-export function Button({
-  label,
-  onPress,
-  variant = 'primary',
-  loading,
-  disabled,
-}: ButtonProps) {
-  const { tokens } = useTheme()
-
-  const angle = sketchAngle(label)
-
-  // Variant fills — sketch keeps the marker-blue / paper-yellow / red palette
-  // so primary "circles" the action in pen, secondary stamps it in highlighter,
-  // and outline is a faint pencil border.
-  const fill =
-    variant === 'primary'
-      ? tokens.hotRed
-      : variant === 'secondary'
-      ? tokens.accentA
-      : 'transparent'
-  const borderColor =
-    variant === 'outline' ? tokens.hotRed : tokens.black
-  const fg =
-    variant === 'primary'
-      ? tokens.white
-      : variant === 'secondary'
-      ? tokens.white
-      : tokens.hotRed
-  const borderWidth = tokens.cardBorderWidth
-
-  const boxStyle: ViewStyle = {
-    backgroundColor: fill,
-    borderWidth,
-    borderColor,
-    ...blobCornerRadii(`btn-${variant}-${label}`),
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 2, height: 3 },
-    shadowOpacity: 0.13,
-    shadowRadius: 4,
-    elevation: 3,
+// Sketch button:
+//   primary    a strip of masking tape across the sheet, the legend inked on it
+//   secondary  a box pencilled round the legend
+//   outline    the legend alone, underlined fast in pencil
+export function Button({ label, onPress, variant = 'primary', loading, disabled }: ButtonProps) {
+  const dead = disabled || loading
+  const [size, onLayout] = useMeasured()
+  const legend = (color: string, sz = 17) =>
+    loading ? (
+      <ActivityIndicator color={GRAPHITE} />
+    ) : (
+      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={letter(sz, color, { textAlign: 'center' }, LETTER_B)}>
+        {label}
+      </Text>
+    )
+  if (variant === 'primary') {
+    return (
+      <Press onPress={onPress} disabled={dead} style={{ opacity: dead ? 0.5 : 1 }}>
+        <TapeStrip height={56} contentStyle={{ paddingHorizontal: 34 }}>
+          {legend(INK, 18)}
+        </TapeStrip>
+      </Press>
+    )
   }
-
-  const labelStyle: TextStyle = {
-    color: fg,
-    fontFamily: tokens.fontDisplay,
-    fontWeight: '800',
-    fontSize: 18,
-    letterSpacing: 0.5,
+  if (variant === 'secondary') {
+    return (
+      <Press onPress={onPress} disabled={dead} style={{ opacity: dead ? 0.5 : 1 }}>
+        <PencilBox border={14} fill={SHEET} contentStyle={{ minHeight: 30, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 }}>
+          {legend(INK, 16)}
+        </PencilBox>
+      </Press>
+    )
   }
-
   return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled || loading}
-      style={({ pressed }) => {
-        const sketchRotate = { rotate: `${angle}deg` } as const
-        if (!pressed) {
-          return [
-            boxStyle,
-            (disabled || loading) ? { opacity: 0.5 } : null,
-            { transform: [sketchRotate, { translateX: 0 }, { translateY: 0 }] as any },
-          ]
-        }
-        // Slide into the shadow + extra wobble — the press feels like the
-        // marker briefly digging into the paper.
-        const slideX = { translateX: 2 } as const
-        const slideY = { translateY: 2 } as const
-        return [
-          boxStyle,
-          (disabled || loading) ? { opacity: 0.5 } : null,
-          {
-            transform: [
-              sketchRotate,
-              slideX,
-              slideY,
-              ...sketchWobble(`${variant}-${label}`),
-            ] as any,
-            shadowOpacity: 0,
-            elevation: 0,
-          },
-        ]
-      }}
-    >
-      <View>
-        {loading ? <ActivityIndicator color={fg} /> : <Text style={labelStyle}>{label}</Text>}
+    <Press onPress={onPress} disabled={dead} style={{ opacity: dead ? 0.45 : 1 }}>
+      <View style={{ minHeight: 48, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 }}>
+        <View onLayout={onLayout}>{legend(GRAPHITE, 16)}</View>
+        {size ? <Mark src={IMG.under[1]} color={GRAPHITE} width={size.w + 10} height={9} style={{ marginTop: -2 }} /> : null}
       </View>
-    </Pressable>
+    </Press>
   )
 }

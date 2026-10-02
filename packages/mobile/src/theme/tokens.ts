@@ -45,15 +45,13 @@ export const CYBERPUNK_MOBILE: ThemeTokens = withMobileFonts(
   'Glitch',
 )
 
-// Sketch-Mobile — custom hand-drawn pencil faces loaded via expo-font in
-// App.tsx. Display = "Pencil Trace" (PencilTrace-Regular.otf, a traced/outline
-// pencil face) for headings; body = "Thin Pencil Handwriting"
-// (ThinPencilHandwriting-Regular.ttf), a light handwritten face. Both have full
-// glyph coverage. (Previously the Google font Kalam.)
+// Sketch-Mobile ("Follow the Bouncing Ball"): Shantell Sans for lettering
+// (extra bold) and reading (medium), deep-required in App.tsx. The animator's
+// pencil notes (Just Another Hand) are applied by the theme's own atoms.
 export const SKETCH_MOBILE: ThemeTokens = withMobileFonts(
   SKETCH_TOKENS,
-  'PencilTrace',
-  'ThinPencil',
+  'ShantellSans_800ExtraBold',
+  'ShantellSans_500Medium',
 )
 
 // Urban-Mobile — display headings use BomberUrban (a heavy graffiti/bomber

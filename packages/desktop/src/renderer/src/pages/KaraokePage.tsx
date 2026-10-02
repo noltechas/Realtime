@@ -21,6 +21,13 @@ import {
     EngineQrCard, EngineSongChip, EngineSingerTag, EngineMicBody, EngineGaugeMeter,
 } from '../components/steampunk/EngineScreens'
 import { EngineFrame, EngineLinePlate } from '../components/steampunk/EngineStageLayers'
+import { SK } from '../styles/sketch'
+import {
+    SketchIdle, SketchUpNext, SketchCountIn, SketchBreak, SketchPaused, SketchNoLyrics,
+    SketchQrCard, SketchSongChip, SketchSingerTag, SketchMicBody, SketchMeter,
+} from '../components/sketch/SketchScreens'
+import { SketchBall, SketchFrame } from '../components/sketch/SketchStageLayers'
+import { Tape } from '../components/sketch/PencilParts'
 import { LiquidLight } from '../components/LiquidLight'
 import { PSY, psyDyeBleed, psyPoured, psyStroke } from '../styles/psychedelic'
 import { GOTH, gothCusp } from '../styles/gothic'
@@ -1799,6 +1806,10 @@ function MicMeter({ singer, active, effects, vocalFx = true, autotune = true, ma
     if (theme.name === 'steampunk') {
         return <EngineMicBody name={displayName} picture={pic} color={singer.color} meter={<EngineGaugeMeter level={level} color={singer.color} />} />
     }
+    // Sketch: the level is tally marks in the singer's own pencil.
+    if (theme.name === 'sketch') {
+        return <SketchMicBody name={displayName} picture={pic} color={singer.color} meter={<SketchMeter level={level} color={singer.color} />} />
+    }
     // Space: the level is the singer's star, its spikes reaching out as they sing.
     if (theme.name === 'space') {
         return <SpaceMicBody name={displayName} picture={pic} color={singer.color} meter={<SpaceStarMeter level={level} color={singer.color} />} />
@@ -2307,71 +2318,12 @@ function IdleStageScreen({ theme, qrUrl, sessionCode }: {
         )
     }
 
-    // ---- Sketch (Hand-Drawn) idle ----
+    // ---- Sketch: "Follow the Bouncing Ball" ----
+    // A sheet on the light table: the title roughed in blue and inked syllable
+    // by syllable as the ball bounces across it, the classic bouncing-ball
+    // spacing chart along the foot, the join code taped to the sheet.
     if (theme.name === 'sketch') {
-        return (
-            <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
-                background: '#fdfbf7', position: 'relative', overflow: 'hidden',
-            }}>
-                {/* Dot paper background */}
-                <div style={{
-                    position: 'absolute', inset: 0, opacity: 0.3,
-                    backgroundImage: 'radial-gradient(circle, #2d2d2d 1px, transparent 1px)',
-                    backgroundSize: '24px 24px',
-                }} />
-
-                {/* Hand-drawn doodle decorations */}
-                <svg style={{ position: 'absolute', top: 80, left: 100, width: 60, height: 60, opacity: 0.2 }} viewBox="0 0 60 60">
-                    <path d="M30 5 L35 20 L50 20 L38 30 L42 45 L30 36 L18 45 L22 30 L10 20 L25 20 Z" fill="none" stroke="#2d2d2d" strokeWidth="2" strokeLinejoin="round" />
-                </svg>
-                <svg style={{ position: 'absolute', bottom: 100, right: 120, width: 50, height: 50, opacity: 0.15 }} viewBox="0 0 50 50">
-                    <circle cx="25" cy="25" r="20" fill="none" stroke="#ff4d4d" strokeWidth="2.5" strokeDasharray="4 3" />
-                </svg>
-                <svg style={{ position: 'absolute', top: 160, right: 180, width: 40, height: 40, opacity: 0.2 }} viewBox="0 0 40 40">
-                    <path d="M5 35 Q10 5 20 20 Q30 35 35 8" fill="none" stroke="#2d5da1" strokeWidth="2.5" strokeLinecap="round" />
-                </svg>
-                <svg style={{ position: 'absolute', bottom: 140, left: 200, width: 45, height: 30, opacity: 0.2 }} viewBox="0 0 45 30">
-                    <path d="M5 15 Q12 2 22 15 Q32 28 40 12" fill="none" stroke="#ff4d4d" strokeWidth="2" strokeLinecap="round" />
-                </svg>
-
-                <div style={{ textAlign: 'center', zIndex: 1 }}>
-                    <h1 style={{
-                        fontFamily: 'Kalam, cursive', fontSize: stageFont(68), fontWeight: 700, color: '#2d2d2d',
-                        lineHeight: 1.2, marginBottom: 8,
-                        transform: 'rotate(-1.5deg)',
-                    }}>
-                        Add a song!
-                    </h1>
-                    <p style={{
-                        fontFamily: 'Patrick Hand, cursive', fontSize: stageFont(22), color: '#2d2d2d', opacity: theme.name === 'sketch' ? 0.9 : 0.5,
-                        marginBottom: 44, transform: 'rotate(0.5deg)',
-                    }}>
-                        Scan this to pick your tune
-                    </p>
-                    {qrUrl && (
-                        <div style={{
-                            display: 'inline-block', padding: 16,
-                            background: 'white', border: '3px solid #2d2d2d',
-                            borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px',
-                            boxShadow: '4px 4px 0 rgba(0,0,0,0.12)',
-                            transform: 'rotate(1deg)',
-                        }}>
-                            <img src={qrUrl} alt="QR" style={{ width: 200, height: 200, display: 'block', borderRadius: 4 }} />
-                        </div>
-                    )}
-                    {sessionCode && (
-                        <p style={{
-                            fontFamily: 'Kalam, cursive', fontSize: stageFont(26), fontWeight: 700, color: '#2d5da1',
-                            letterSpacing: '0.2em', textTransform: 'uppercase', marginTop: 20,
-                            transform: 'rotate(-0.8deg)',
-                        }}>
-                            {sessionCode}
-                        </p>
-                    )}
-                </div>
-            </div>
-        )
+        return <SketchIdle qrUrl={qrUrl} sessionCode={sessionCode} />
     }
 
     // ---- Deep Sea idle ----
@@ -3624,13 +3576,26 @@ function noticeSkin(theme: Theme): NoticeSkin {
                 </span>
             )
             break
-        // Hand-drawn note: sketchy off-square border, marker underline.
+        // A fresh sheet taped onto the light table, filled in in pencil; the
+        // art a taped-up print, each singer underlined in their own pencil.
         case 'sketch':
             skin.card = {
-                ...skin.card, borderRadius: '20px 8px 22px 10px',
-                boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
+                ...skin.card,
+                background: `linear-gradient(180deg, ${SK.SHEET} 0%, #F4F1E8 100%)`,
+                border: 'none', borderRadius: 1,
+                boxShadow: '0 1px 1px rgba(40,34,24,0.2), 0 14px 30px rgba(40,34,24,0.2)',
             }
-            skin.art = { ...skin.art, borderRadius: '12px 5px 14px 6px' }
+            skin.label = { ...skin.label, fontFamily: SK.FONT_NOTE, fontWeight: 400, fontSize: stageFont(24), letterSpacing: '0.04em', textTransform: 'none', color: SK.RED }
+            skin.title = { ...skin.title, fontFamily: SK.FONT_LETTER, fontWeight: 800, color: SK.INK, textTransform: 'none', letterSpacing: '0' }
+            skin.meta = { ...skin.meta, fontFamily: SK.FONT_NOTE, fontSize: stageFont(22), color: SK.GRAPHITE_SOFT }
+            skin.art = { ...skin.art, borderRadius: 0, border: '4px solid #FBFAF6', boxShadow: '0 1px 1px rgba(40,34,24,0.22), 0 6px 14px rgba(40,34,24,0.16)' }
+            skin.chip = (color: string) => ({
+                border: 'none', background: 'transparent', color: SK.INK,
+                borderRadius: 0, fontFamily: SK.FONT_LETTER, fontWeight: 700,
+                boxShadow: `inset 0 -3px 0 ${color}`,
+            })
+            skin.rule = 'rgba(79,138,132,0.55)'
+            skin.decor = <Tape width={120} angle={-3} variant={1} style={{ top: -20, left: 'calc(50% - 60px)' }} />
             break
         default:
             break
@@ -4604,6 +4569,11 @@ export default function KaraokePage() {
         <div style={{ position: 'fixed', top: 'calc(100vh - 236px)', left: 34, zIndex: 9999 }}>
             <EngineQrCard qr={state.karaokeQrDataUrl} />
         </div>
+        ) : theme.name === 'sketch' ? (
+        // A card taped to the corner of the sheet, the join code on it.
+        <div style={{ position: 'fixed', top: 'calc(100vh - 190px)', left: 44, zIndex: 9999 }}>
+            <SketchQrCard qr={state.karaokeQrDataUrl} />
+        </div>
         ) : (
         <div style={{
             position: 'fixed', top: 'calc(100vh - 150px)', left: 80, zIndex: 9999,
@@ -4724,34 +4694,20 @@ export default function KaraokePage() {
             )
         }
 
-        // ── Sketch: GET READY! — wobbly white notebook plate, hand-inked border
-        // + offset shadow, Kalam numbers over a yellow highlighter swipe. ──
+        // ── Sketch: the ball bounces over the count, inking each number as
+        // it lands, and lands on "Sing!" ──
         if (theme.name === 'sketch') {
-            const skBig = (label: string, key: string | number, size = 72) => (
-                <div key={key} style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(size), lineHeight: 1.05, color: '#2d2d2d', marginTop: 6, position: 'relative', display: 'inline-block' }}>
-                    <span style={{ position: 'absolute', left: -6, right: -6, top: '56%', bottom: '6%', background: '#fff9c4', zIndex: -1, transform: 'rotate(-1.5deg)' }} />
-                    {label}
-                </div>
-            )
-            let skCenter: React.ReactNode
-            if (remaining <= 0) skCenter = skBig('SING!', 'go', 52)
-            else if (count <= 3) skCenter = skBig(String(count), count)
-            else skCenter = (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginTop: 12, color: '#2d2d2d' }}>
-                    <NbNote size={24} color="#ff4d4d" />
-                    <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(23), maxWidth: 520, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.name}</span>
-                </div>
-            )
             return (
-                <div ref={countInRef} className={exitCls} style={{ display: 'flex', justifyContent: 'center', width: '100%', margin: '11vh 0 5vh' }}>
-                    <div style={{ position: 'relative', minWidth: 340, textAlign: 'center', padding: '22px 44px', background: '#ffffff', border: '2.5px solid #2d2d2d', borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px', boxShadow: '4px 4px 0 rgba(45,45,45,0.9)', transform: 'rotate(-1.4deg)', animation: 'urban-spray-in 0.4s ease-out both' }}>
-                        <p style={{ margin: 0, fontFamily: theme.fontBody, fontWeight: 700, fontSize: stageFont(15), letterSpacing: '0.18em', textTransform: 'uppercase', color: '#2d2d2d' }}>Get Ready!</p>
-                        {skCenter}
-                        <div style={{ marginTop: 16, height: 10, border: '2px solid #2d2d2d', borderRadius: 999, background: '#fff', position: 'relative', overflow: 'hidden' }}>
-                            <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: `${barPct}%`, background: '#ff4d4d', transition: 'width 0.28s linear' }} />
-                        </div>
-                    </div>
-                </div>
+                <SketchCountIn
+                    remaining={remaining}
+                    count={count}
+                    barPct={barPct}
+                    trackName={track.name}
+                    art={art ?? null}
+                    className={exitCls}
+                    innerRef={countInRef}
+                    stageFont={stageFont}
+                />
             )
         }
 
@@ -5205,6 +5161,10 @@ export default function KaraokePage() {
                 and gauge driven by the room's voice. */}
             {theme.name === 'steampunk' && state.stageMode === 'playing' && <EngineFrame video={!!ytId} />}
 
+            {/* Sketch: the sheet on the light table (any video traced under
+                it), a pencil on the desk, the drawing number in the corner */}
+            {theme.name === 'sketch' && state.stageMode === 'playing' && <SketchFrame video={!!ytId} drawing={lineIdx + 1} />}
+
             {/* Gothic: the great arch we watch through, a watcher at the edge,
                 candles at the column bases and fog on the floor */}
             {theme.name === 'gothic' && state.stageMode === 'playing' && <GothicAtmosphere video={!!ytId} />}
@@ -5223,14 +5183,6 @@ export default function KaraokePage() {
                     <filter id="urban-rough-filter">
                         <feTurbulence type="fractalNoise" baseFrequency="0.04 0.15" numOctaves="3" result="noise" />
                         <feDisplacementMap in="SourceGraphic" in2="noise" scale="12" xChannelSelector="R" yChannelSelector="G" />
-                    </filter>
-                    <filter id="sketch-rough-filter">
-                        <feTurbulence type="fractalNoise" baseFrequency="0.018 0.035" numOctaves="2" seed="3" result="noise" />
-                        <feDisplacementMap in="SourceGraphic" in2="noise" scale="5" xChannelSelector="R" yChannelSelector="G" />
-                    </filter>
-                    <filter id="sketch-rough-filter-b">
-                        <feTurbulence type="fractalNoise" baseFrequency="0.022 0.04" numOctaves="2" seed="11" result="noise" />
-                        <feDisplacementMap in="SourceGraphic" in2="noise" scale="6" xChannelSelector="R" yChannelSelector="G" />
                     </filter>
                 </defs>
             </svg>
@@ -5257,7 +5209,13 @@ export default function KaraokePage() {
                     <EngineSongChip art={art} title={track.name} artist={track.artists.map((a: any) => a.name).join(', ')} />
                 </div>
             )}
-            {!(np?.isHidden && state.stageMode === 'ready') && theme.name !== 'gothic' && theme.name !== 'barbie' && theme.name !== 'space' && theme.name !== 'steampunk' && (
+            {/* Sketch: on deck the exposure sheet says it all, so the chip waits */}
+            {state.stageMode !== 'ready' && theme.name === 'sketch' && (
+                <div className="k-song-chip" style={{ position: 'absolute', opacity: 1, top: 66, left: 40 }}>
+                    <SketchSongChip art={art} title={track.name} artist={track.artists.map((a: any) => a.name).join(', ')} />
+                </div>
+            )}
+            {!(np?.isHidden && state.stageMode === 'ready') && theme.name !== 'gothic' && theme.name !== 'barbie' && theme.name !== 'space' && theme.name !== 'steampunk' && theme.name !== 'sketch' && (
             <div className="k-song-chip" style={{
                 background: theme.appBg, ...theme.stickerLabel, position: 'absolute', opacity: 1,
                 ...(theme.name === 'psychedelic' ? {
@@ -5340,7 +5298,7 @@ export default function KaraokePage() {
             {singers.length > 0 && (
                 <div className="k-singers" style={{ opacity: 1, flexDirection: 'column', alignItems: 'flex-end', ...(theme.name === 'barbie' && state.stageMode === 'ready' ? { top: 'calc(14.5vh + 8px)' } : {}) }}>
                     {singers.map((s: any, singerIdx: number) => {
-                        const spaceSingerStyle = theme.name === 'gothic' || theme.name === 'barbie' || theme.name === 'space' || theme.name === 'steampunk' ? {
+                        const spaceSingerStyle = theme.name === 'gothic' || theme.name === 'barbie' || theme.name === 'space' || theme.name === 'steampunk' || theme.name === 'sketch' ? {
                             // The plaque is drawn by GothicSingerPlaque inside; the tag
                             // itself is only a positioned slot.
                             background: 'transparent',
@@ -5443,6 +5401,10 @@ export default function KaraokePage() {
                                         <EngineSingerTag color={s.color} index={singerIdx}>
                                             <MicMeter singer={s} active={micActive} effects={singerEffects} vocalFx={vocalFx} autotune={autotune} mainOutputId={state.mainOutputId} theme={theme} />
                                         </EngineSingerTag>
+                                    ) : theme.name === 'sketch' ? (
+                                        <SketchSingerTag color={s.color} index={singerIdx}>
+                                            <MicMeter singer={s} active={micActive} effects={singerEffects} vocalFx={vocalFx} autotune={autotune} mainOutputId={state.mainOutputId} theme={theme} />
+                                        </SketchSingerTag>
                                     ) : (
                                         <MicMeter singer={s} active={micActive} effects={singerEffects} vocalFx={vocalFx} autotune={autotune} mainOutputId={state.mainOutputId} theme={theme} />
                                     )}
@@ -5473,6 +5435,10 @@ export default function KaraokePage() {
                                         <EngineSingerTag color={s.color} index={singerIdx}>
                                             <EngineMicBody name={tagGuest?.name ?? s.name} picture={tagGuest?.profile_picture ?? null} color={s.color} meter={null} />
                                         </EngineSingerTag>
+                                    ) : theme.name === 'sketch' ? (
+                                        <SketchSingerTag color={s.color} index={singerIdx}>
+                                            <SketchMicBody name={tagGuest?.name ?? s.name} picture={tagGuest?.profile_picture ?? null} color={s.color} meter={null} />
+                                        </SketchSingerTag>
                                     ) : (
                                         <>
                                             <span style={{ color: 'inherit', fontFamily: theme.fontDisplay }}>{tagGuest?.name ?? s.name}</span>
@@ -5498,6 +5464,18 @@ export default function KaraokePage() {
                 active={state.stageMode === 'playing' || state.stageMode === 'ready'}
             />
 
+            {/* Sketch: the bouncing ball, landing on each syllable as it's sung */}
+            {theme.name === 'sketch' && state.stageMode === 'playing' && lyrics.length > 0 && (
+                <SketchBall
+                    lyricsRef={lyricsRef}
+                    timeAnchorRef={timeAnchorRef}
+                    lyrics={lyrics}
+                    lineIdx={lineIdx}
+                    playing={state.isPlaying}
+                    fallbackColor={singers[0]?.color || SK.RED}
+                />
+            )}
+
             {/* Lyrics & Stage Centerpiece */}
             <div
                 className="k-lyrics"
@@ -5518,6 +5496,9 @@ export default function KaraokePage() {
                   ) : theme.name === 'steampunk' ? (
                     // The next song in the engine's porthole, its singers at the controls.
                     <EngineUpNext art={art ?? null} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} showVideo={showVideoBehindArt && ytVisible} />
+                  ) : theme.name === 'sketch' ? (
+                    // The next song as a scene on the exposure sheet, its art taped up as reference.
+                    <SketchUpNext art={art ?? null} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} showVideo={showVideoBehindArt && ytVisible} />
                   ) : theme.name === 'psychedelic' ? (
                     <PsyUpNext theme={theme} art={art} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} />
                   ) : theme.name === 'gothic' ? (
@@ -5657,6 +5638,8 @@ export default function KaraokePage() {
                         </div>
                     ) : theme.name === 'steampunk' ? (
                         <EngineNoLyrics stageFont={stageFont} />
+                    ) : theme.name === 'sketch' ? (
+                        <SketchNoLyrics stageFont={stageFont} />
                     ) : theme.name === 'gothic' ? (
                         <GothicNoLyrics stageFont={stageFont} />
                     ) : theme.name === 'barbie' ? (
@@ -5714,6 +5697,11 @@ export default function KaraokePage() {
                                     // line, and the colours a shared line heats singer by singer.
                                     let stPlate = false
                                     let stTints: string[] | null = null
+                                    // Sketch only: the singer's pencil colour for the line, and
+                                    // per syllable on a shared line (the ball and the underline
+                                    // take the colour of whoever sings the word).
+                                    let skTint: string | null = null
+                                    let skTints: string[] | null = null
                                     let lineDataText: string | undefined
                                     let inlineStyle: React.CSSProperties = {
                                         fontFamily: theme.fontDisplay
@@ -5774,13 +5762,29 @@ export default function KaraokePage() {
                                             inlineStyle.boxShadow = '0.17em 0.17em 0 rgba(20, 20, 20, 0.95)'
                                             inlineStyle.margin = '0.06em 0'
                                         } else if (theme.name === 'sketch') {
-                                            cls += ' k-line--sketch-active'
-                                            inlineStyle.padding = '0.22em 0.95em'
+                                            // ── Inked as the ball lands ───────────────────
+                                            // No plate: the words are lettered straight onto
+                                            // the sheet. Each syllable goes from blue rough to
+                                            // ink the moment the ball (SketchBall) lands on it,
+                                            // and is underlined in its singer's pencil for as
+                                            // long as it's held (PENCIL TEST STAGE in
+                                            // karaoke.css). A shared line colours word by word.
+                                            cls += ' k-line--sk-now'
+                                            const skColors = activeColors.length > 1 ? activeColors : [activeSingerColor]
+                                            skTint = skColors[0]
+                                            skTints = skColors
                                             inlineStyle.background = 'transparent'
-                                            inlineStyle.color = '#2d2d2d'
-                                            inlineStyle.transform = 'rotate(-1deg)'
-                                            // @ts-ignore (CSS variables)
-                                            inlineStyle['--sketch-fill'] = activeHighlight
+                                            inlineStyle.color = SK.INK
+                                            inlineStyle.padding = '0.06em 0.4em 0.1em'
+                                            inlineStyle.textShadow = 'none'
+                                            ;(inlineStyle as Record<string, string>)['--sk-tint'] = skColors[0]
+                                            if (!(line.syllables && line.syllables.length > 0)) {
+                                                // No syllable timing: the ink runs along the line.
+                                                cls += ' k-line--sk-full'
+                                                const skNext = groupedLyrics[i + 1]?.[0]?.startTimeMs
+                                                const skDur = typeof skNext === 'number' ? skNext - group[0].startTimeMs : 0
+                                                ;(inlineStyle as Record<string, string>)['--nb-line-dur'] = `${Math.max(1200, Math.min(9000, skDur * 0.9))}ms`
+                                            }
                                         } else if (theme.name === 'cyberpunk') {
                                             cls += ' k-line--cyber k-line--cyber-active'
                                             inlineStyle.padding = '0.2em 1em'
@@ -6187,6 +6191,18 @@ export default function KaraokePage() {
                                             inlineStyle.WebkitTextFillColor = undefined
                                             ;(inlineStyle as Record<string, string>)['--st-tint'] = activeColors.length > 0 ? activeColors[0] : sc || ST.PARCHMENT
                                             if (activeColors.length > 1) stTints = activeColors
+                                        } else if (theme.name === 'sketch') {
+                                            // Upcoming lines are blue-pencil roughs on lettering
+                                            // guidelines, whoever sings them: the colour comes
+                                            // with the ink. The gradient fill above is undone.
+                                            cls += ' k-line--sk-future'
+                                            const sc = line.singerIndex !== undefined && singers[line.singerIndex]?.color
+                                            inlineStyle.backgroundImage = undefined
+                                            inlineStyle.WebkitBackgroundClip = undefined
+                                            inlineStyle.WebkitTextFillColor = undefined
+                                            inlineStyle.color = undefined
+                                            skTint = activeColors.length > 0 ? activeColors[0] : sc || null
+                                            if (activeColors.length > 1) skTints = activeColors
                                         } else if (theme.name === 'space') {
                                             // Upcoming lines are starlight tinted by their singer's
                                             // star. A shared line tints word by word, as it will light;
@@ -6301,7 +6317,10 @@ export default function KaraokePage() {
                                                         ...(spStars && spStars.length > 1 ? { ['--syl-star' as string]: spStars[k % spStars.length], ['--sp-star' as string]: spStars[k % spStars.length] } : {}),
                                                         // Steampunk: a shared line heats singer by singer.
                                                         ...(stTints && stTints.length > 1 ? { ['--syl-tint' as string]: stTints[k % stTints.length], ['--st-tint' as string]: stTints[k % stTints.length] } : {}),
+                                                        // Sketch: a shared line underlines singer by singer.
+                                                        ...(skTints && skTints.length > 1 ? { ['--syl-tint' as string]: skTints[k % skTints.length] } : {}),
                                                     } as React.CSSProperties}
+                                                    data-tint={skTints && skTints.length > 1 ? skTints[k % skTints.length] : undefined}
                                                 >
                                                     {/* data-text lets a theme redraw the glyphs on a
                                                         pseudo-element (gothic's lead came + glow). */}
@@ -6312,7 +6331,15 @@ export default function KaraokePage() {
                                     }
 
                                     return (
-                                        <div key={j} className={cls} style={inlineStyle} data-text={lineDataText ? displayWords : undefined}>
+                                        <div
+                                            key={j}
+                                            className={cls}
+                                            style={inlineStyle}
+                                            data-text={lineDataText ? displayWords : undefined}
+                                            // Sketch: the ball finds its words by line, and its colour by singer.
+                                            data-li={theme.name === 'sketch' ? line.originalIndex : undefined}
+                                            data-tint={skTint ?? undefined}
+                                        >
                                             {gothPane && <GothicLinePane key="goth-pane" />}
                                             {barbCloud && <BarbieLineCloud key="barb-cloud" seed={i} />}
                                             {spPlate && <SpaceLinePlate key="sp-plate" seed={i} />}
@@ -6358,15 +6385,7 @@ export default function KaraokePage() {
                         </div>
                     </div>
                 ) : theme.name === 'sketch' ? (
-                    <div style={{ animation: 'urban-spray-in 0.35s ease-out both', transform: 'rotate(-1.5deg)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 24px', background: '#ffffff', border: '2.5px solid #2d2d2d', borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px', boxShadow: '4px 4px 0 rgba(45,45,45,0.9)' }}>
-                            <NbNote size={20} color="#ff4d4d" />
-                            <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 16, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#2d2d2d' }}>Doodle Break</span>
-                            <div style={{ width: 120, height: 8, border: '2px solid #2d2d2d', borderRadius: 999, background: '#fff', position: 'relative', overflow: 'hidden' }}>
-                                <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: `${Math.min(100, Math.max(0, ((elapsed - nbBreak.start) / (nbBreak.end - nbBreak.start)) * 100))}%`, background: '#ff4d4d', transition: 'width 0.3s linear' }} />
-                            </div>
-                        </div>
-                    </div>
+                    <SketchBreak progress={Math.min(1, Math.max(0, (elapsed - nbBreak.start) / (nbBreak.end - nbBreak.start)))} />
                 ) : theme.name === 'deep-sea' ? (
                     <div style={{ animation: 'urban-spray-in 0.35s ease-out both' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '10px 24px', borderRadius: 999, background: 'rgba(4,9,24,0.82)', backdropFilter: 'blur(10px)', boxShadow: '0 0 22px rgba(0,255,200,0.25), inset 0 0 0 1.5px rgba(0,255,200,0.4)' }}>
@@ -6497,11 +6516,7 @@ export default function KaraokePage() {
                         </div>
                     </div>
                 ) : theme.name === 'sketch' ? (
-                    <div style={{ animation: 'urban-spray-in 0.35s ease-out both', transform: 'rotate(-2deg)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 30px', background: '#fff9c4', border: '2.5px solid #2d2d2d', borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px', boxShadow: '4px 4px 0 rgba(45,45,45,0.9)' }}>
-                            <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(28), letterSpacing: '0.08em', textTransform: 'uppercase', color: '#2d2d2d' }}>Paused</span>
-                        </div>
-                    </div>
+                    <SketchPaused stageFont={stageFont} />
                 ) : theme.name === 'deep-sea' ? (
                     <div style={{ animation: 'urban-spray-in 0.35s ease-out both' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 30px', borderRadius: 999, background: 'rgba(4,9,24,0.85)', backdropFilter: 'blur(10px)', boxShadow: '0 0 28px rgba(0,255,200,0.28), inset 0 0 0 1.5px rgba(0,255,200,0.45)' }}>

@@ -437,9 +437,9 @@
    that dim. The non-active lines simply use the base .k-syl--* rules.
 
    Selector pattern:   [data-theme="X"] .k-line--now .k-syl--past/--now/--future
-   Sketch has its syllable rules co-located in sketch.ts to match the existing
-   convention there. Urban's stage rules live in the URBAN STAGE section below
-   (moved out of urban.ts so they aren't wiped/re-injected per song). */
+   Sketch's stage rules live in the PENCIL TEST STAGE section at the end.
+   Urban's stage rules live in the URBAN STAGE section below (moved out of
+   urban.ts so they aren't wiped/re-injected per song). */
 
 /* ═══════════════════════════════════════════════════════════════════════════
    NEO-BRUTAL STAGE — riso-print karaoke
@@ -599,15 +599,6 @@
     100% { opacity: 0; transform: translateY(-165%) skewX(0); }
 }
 [data-theme="cyberpunk"] .k-stage--paused .k-nb-countin--exit { animation-play-state: paused; }
-
-[data-theme="sketch"] .k-nb-countin--exit {
-    animation: sketch-countin-exit 0.7s var(--ease) 0.15s forwards;
-}
-@keyframes sketch-countin-exit {
-    from { opacity: 1; transform: translateY(0) rotate(-1.4deg); }
-    to   { opacity: 0; transform: translateY(-160%) rotate(-6deg); }
-}
-[data-theme="sketch"] .k-stage--paused .k-nb-countin--exit { animation-play-state: paused; }
 
 [data-theme="deep-sea"] .k-nb-countin--exit {
     animation: deepsea-countin-exit 0.9s ease 0.15s forwards;
@@ -1890,14 +1881,6 @@
     animation: hs-glitch 2.1s steps(6, end) infinite;
 }
 
-@keyframes hs-wiggle {
-    0%, 100% { transform: rotate(-1.5deg); }
-    50%      { transform: rotate(1.5deg); }
-}
-.hs-wiggle {
-    animation: hs-wiggle 3.2s ease-in-out infinite;
-    transform-origin: center;
-}
 
 @keyframes hs-ds-glow {
     0%, 100% { filter: drop-shadow(0 0 4px rgba(0, 255, 200, 0.35)); }
@@ -3354,4 +3337,222 @@
 }
 @keyframes st-countin-exit {
     to { opacity: 0; transform: translateY(-36px); filter: blur(5px); }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PENCIL TEST STAGE (sketch): follow the bouncing ball.
+   The stage is a sheet of animation bond on a light table (the paper is the
+   stage background, styles/sketch.ts). The drawn parts are sprites
+   (components/sketch/parts.ts); the ball is driven per frame by ballRig.tsx.
+
+   THE LYRIC IDEA: lines still to come are BLUE-PENCIL ROUGHS on lettering
+   guidelines. The ball lands on each syllable exactly as it's sung, and the
+   word is INKED as it lands; the singer's coloured pencil underlines it for
+   as long as it's held (--syl-dur). Sung lines stay inked and fade to
+   graphite. A music video plays under the sheet, traced like live action on
+   a light box.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ---- Shared motion ---- */
+@keyframes sk-in {
+    from { opacity: 0; translate: 0 12px; }
+    to   { opacity: 1; translate: 0 0; }
+}
+.sk-in { animation: sk-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+/* Ink going down over a blue rough. */
+@keyframes sk-ink-in {
+    0%   { color: #4F8FD0; filter: blur(0.7px); }
+    100% { filter: none; }
+}
+.sk-ink-in { animation: sk-ink-in 0.24s ease-out both; }
+
+/* The idle title, roughed in and inked as the ball lands. */
+.sk-idle-syl { white-space: pre; display: inline-block; }
+.sk-idle-syl.sk-rough {
+    color: #4F8FD0;
+    -webkit-mask-image: var(--sk-grain);
+    -webkit-mask-size: 256px 256px;
+}
+.sk-idle-syl.sk-ink { color: #1C1B1F; animation: sk-ink-in 0.24s ease-out both; }
+
+/* A ball waiting its turn: small hops on the spot, squashing on each contact.
+   Up decelerates, down accelerates (gravity), and it squashes on the ground. */
+@keyframes sk-wait {
+    0%   { transform: translateY(0) scale(1.14, 0.86); animation-timing-function: ease-out; }
+    10%  { transform: translateY(0) scale(0.96, 1.05); animation-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+    48%  { transform: translateY(-16px) scale(1, 1); animation-timing-function: cubic-bezier(0.55, 0.085, 0.68, 0.53); }
+    86%  { transform: translateY(0) scale(1, 1); }
+    100% { transform: translateY(0) scale(1.14, 0.86); }
+}
+.sk-wait { animation: sk-wait 1.15s infinite; transform-origin: 50% 0; }
+
+/* One hop of the count-in: across at a steady speed (the parent's transition),
+   up and down under gravity here, then the squash on landing. */
+@keyframes sk-hop {
+    0%   { transform: translateY(0) scale(1, 1); animation-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+    42%  { transform: translateY(-92px) scale(0.94, 1.07); animation-timing-function: cubic-bezier(0.55, 0.085, 0.68, 0.53); }
+    84%  { transform: translateY(0) scale(1.24, 0.76); animation-timing-function: ease-out; }
+    93%  { transform: translateY(0) scale(0.95, 1.05); }
+    100% { transform: translateY(0) scale(1, 1); }
+}
+.sk-hop { animation: sk-hop 0.52s both; transform-origin: 50% 0; }
+
+/* ---- Backdrop: the sheet, with any video traced underneath it ---- */
+[data-theme="sketch"] .k-bg__img,
+[data-theme="sketch"] .k-bg__img--prev,
+[data-theme="sketch"] .k-bg__scrim,
+[data-theme="sketch"] .k-bg__yt-mask {
+    display: none;
+}
+[data-theme="sketch"] .k-bg__yt-wrap {
+    filter: grayscale(1) contrast(0.62) brightness(1.32) blur(1.4px);
+}
+
+/* ---- The lyric ladder ---- */
+[data-theme="sketch"] .k-line {
+    border-radius: 0;
+    text-shadow: none;
+}
+[data-theme="sketch"] .k-line--lg {
+    font-size: clamp(40px, 6.3vh, 124px);
+}
+/* below the desk's steel edge */
+[data-theme="sketch"] .k-singers {
+    top: 64px !important;
+}
+/* Lettering guidelines, ruled in blue before any lettering goes down:
+   ascender line, x-height and baseline. */
+[data-theme="sketch"] .k-line--sk-future,
+[data-theme="sketch"] .k-line--sk-now {
+    position: relative;
+    isolation: isolate;
+}
+[data-theme="sketch"] .k-line--sk-future::before,
+[data-theme="sketch"] .k-line--sk-now::before {
+    content: '';
+    position: absolute;
+    left: 0.15em;
+    right: 0.15em;
+    top: 0;
+    bottom: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+        linear-gradient(rgba(79, 143, 208, 0.5), rgba(79, 143, 208, 0.5)) 0 24% / 100% 2px no-repeat,
+        repeating-linear-gradient(90deg, rgba(79, 143, 208, 0.4) 0 0.3em, transparent 0.3em 0.48em) 0 47% / 100% 2px no-repeat,
+        linear-gradient(rgba(79, 143, 208, 0.55), rgba(79, 143, 208, 0.55)) 0 78% / 100% 2px no-repeat;
+    -webkit-mask-image: var(--sk-grain);
+    -webkit-mask-size: 256px 256px;
+}
+[data-theme="sketch"] .k-line--future {
+    color: #4F8FD0;
+    transform: scale(0.88) translateY(4px);
+}
+/* Still to come: blue pencil, the paper's tooth showing through. */
+[data-theme="sketch"] .k-line--sk-future {
+    color: #4F8FD0;
+    -webkit-mask-image: var(--sk-grain);
+    -webkit-mask-size: 256px 256px;
+}
+[data-theme="sketch"] .k-line--sk-future .k-syl--future {
+    opacity: 1;
+}
+/* Sung: inked, and fading back to graphite as it scrolls away. */
+[data-theme="sketch"] .k-line--past {
+    color: #76757A;
+    opacity: 0.5;
+    transform: scale(0.86);
+}
+
+/* ---- The active line: inked as the ball lands ---- */
+@keyframes sk-line-in {
+    from { opacity: 0.6; }
+    to   { opacity: 1; }
+}
+[data-theme="sketch"] .k-line--sk-now {
+    color: #1C1B1F;
+    background: transparent;
+    /* headroom for the ball's hops, so it never climbs into the line above */
+    margin: 1.85em 1em 0.35em;
+    animation: sk-line-in 0.35s ease-out both;
+}
+[data-theme="sketch"] .k-line--sk-now::before {
+    opacity: 0.7;
+}
+[data-theme="sketch"] .k-line--sk-now .k-syl {
+    opacity: 1;
+}
+[data-theme="sketch"] .k-line--sk-now .k-syl--now {
+    font-weight: inherit;
+    letter-spacing: inherit;
+}
+[data-theme="sketch"] .k-line--sk-now .k-syl__word {
+    position: relative;
+    display: inline-block;
+}
+[data-theme="sketch"] .k-line--sk-now .k-syl--future .k-syl__word {
+    color: #4F8FD0;
+    -webkit-mask-image: var(--sk-grain);
+    -webkit-mask-size: 256px 256px;
+}
+[data-theme="sketch"] .k-line--sk-now .k-syl--past .k-syl__word,
+[data-theme="sketch"] .k-line--sk-now .k-syl--now .k-syl__word {
+    color: #1C1B1F;
+}
+[data-theme="sketch"] .k-line--sk-now .k-syl--now .k-syl__word {
+    animation: sk-ink-in 0.22s ease-out both;
+}
+/* The singer's coloured pencil underlines a word for as long as it's held. */
+@keyframes sk-under {
+    from { clip-path: inset(0 100% 0 0); }
+    to   { clip-path: inset(0 0 0 0); }
+}
+[data-theme="sketch"] .k-line--sk-now .k-syl--past .k-syl__word::after,
+[data-theme="sketch"] .k-line--sk-now .k-syl--now .k-syl__word::after {
+    content: '';
+    position: absolute;
+    left: -0.05em;
+    right: -0.07em;
+    bottom: -0.04em;
+    height: 0.2em;
+    pointer-events: none;
+    background: var(--syl-tint, var(--sk-tint, #CF4540));
+    -webkit-mask-image: var(--sk-underline-0);
+    -webkit-mask-size: 100% 100%;
+}
+[data-theme="sketch"] .k-line--sk-now .k-syl:nth-child(even) .k-syl__word::after {
+    -webkit-mask-image: var(--sk-underline-1);
+}
+[data-theme="sketch"] .k-line--sk-now .k-syl--now .k-syl__word::after {
+    animation: sk-under var(--syl-dur, 400ms) linear both;
+}
+
+/* LRC-only lines have no syllables: the ink runs along the line over its time. */
+@keyframes sk-sweep {
+    from { background-position: 100% 0; }
+    to   { background-position: 0 0; }
+}
+[data-theme="sketch"] .k-line--sk-full {
+    color: transparent !important;
+    background: linear-gradient(90deg, #1C1B1F 0 50%, #4F8FD0 50% 100%) 100% 0 / 200% 100% no-repeat !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    animation: sk-line-in 0.35s ease-out both, sk-sweep var(--nb-line-dur, 3s) linear both !important;
+}
+
+[data-theme="sketch"] .k-stage--paused .k-syl--now .k-syl__word::after,
+[data-theme="sketch"] .k-stage--paused .k-line--sk-full,
+[data-theme="sketch"] .k-stage--paused .sk-wait,
+[data-theme="sketch"] .k-stage--paused .k-nb-countin--exit {
+    animation-play-state: paused;
+}
+
+/* ---- Count-in exit: the sheet is turned ---- */
+[data-theme="sketch"] .k-nb-countin--exit {
+    animation: sk-countin-exit 0.6s ease 0.25s forwards;
+}
+@keyframes sk-countin-exit {
+    to { opacity: 0; translate: 0 -30px; }
 }

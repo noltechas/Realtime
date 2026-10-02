@@ -1,94 +1,25 @@
 import React from 'react'
-import { View, Text, Pressable, type ViewStyle, type TextStyle } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
-import { useTheme } from '../../../ThemeContext'
-import { hashKey } from '../../../helpers'
+import { Text, View } from 'react-native'
 import type { ToggleBoxProps } from '../../../types'
+import { BLUE, GRAPHITE, GRAPHITE_SOFT, IMG, INK, Mark, PencilBox, Press, SHEET, letter, note } from './_pencil'
 
-// Sketch toggle — paper-rotated card with a hand-drawn checkbox. Active state
-// fills with paper-yellow (post-it) and the checkmark gets a soft graphite
-// stroke so it reads as a marker tick rather than a digital check.
+// Sketch toggle: a box on the form, ticked in pencil when it's on, left
+// empty when it's off. The tick is drawn, never a glyph.
 export function StageToggleBox({ label, on, onPress }: ToggleBoxProps) {
-  const { tokens } = useTheme()
-  const hash = hashKey(label)
-  const angle = (hash % 2 === 0 ? -1 : 1) * (1 + (hash % 3) * 0.4)
-
-  const activeBg = '#FEF9DA'
-  const idleBg = '#FDFBF7'
-
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        toggleBtnStyle(angle),
-        { backgroundColor: on ? activeBg : idleBg },
-        pressed
-          ? {
-              transform: [{ rotate: `${angle}deg` }, { translateX: 2 }, { translateY: 2 }] as any,
-              shadowOpacity: 0,
-              elevation: 0,
-            }
-          : null,
-      ]}
-    >
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <View
-          style={[
-            toggleCheckBoxStyle,
-            { backgroundColor: on ? '#FEF9DA' : 'transparent' },
-          ]}
-        >
-          {on ? <Ionicons name="checkmark" size={16} color="rgba(0,0,0,0.7)" /> : null}
+    <Press onPress={onPress} accessibilityRole="switch" accessibilityState={{ checked: on }} outerStyle={{ flex: 1 }} style={{ flex: 1 }}>
+      <PencilBox border={14} fill={SHEET} style={{ flex: 1 }} contentStyle={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 2, paddingHorizontal: 4 }}>
+        <View style={{ width: 34, height: 34 }}>
+          <PencilBox border={10} color={GRAPHITE} contentStyle={{ width: 20, height: 20 }} />
+          {on ? <Mark src={IMG.check} color={INK} width={36} height={36} style={{ position: 'absolute', left: 4, top: -8 }} /> : null}
         </View>
-        <Text style={toggleLabelStyle(tokens.fontDisplay, tokens.black)}>{label}</Text>
-      </View>
-    </Pressable>
+        <View style={{ flex: 1 }}>
+          <Text numberOfLines={1} style={letter(16.5, INK, { lineHeight: 21 })}>
+            {label}
+          </Text>
+          <Text style={note(18, on ? BLUE : GRAPHITE_SOFT)}>{on ? 'on' : 'off'}</Text>
+        </View>
+      </PencilBox>
+    </Press>
   )
-}
-
-function toggleBtnStyle(angle: number): ViewStyle {
-  return {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderTopLeftRadius: 3,
-    borderTopRightRadius: 6,
-    borderBottomLeftRadius: 7,
-    borderBottomRightRadius: 2,
-    borderColor: 'rgba(0,0,0,0.15)',
-    shadowColor: '#000',
-    shadowOffset: { width: 1, height: 3 },
-    shadowOpacity: 0.13,
-    shadowRadius: 4,
-    elevation: 3,
-    transform: [{ rotate: `${angle}deg` }] as any,
-  }
-}
-
-const toggleCheckBoxStyle: ViewStyle = {
-  width: 22,
-  height: 22,
-  borderTopLeftRadius: 2,
-  borderTopRightRadius: 5,
-  borderBottomLeftRadius: 4,
-  borderBottomRightRadius: 2,
-  borderWidth: 1.5,
-  borderColor: 'rgba(0,0,0,0.5)',
-  alignItems: 'center',
-  justifyContent: 'center',
-  transform: [{ rotate: '-2deg' }] as any,
-}
-
-function toggleLabelStyle(font: string, color: string): TextStyle {
-  return {
-    fontFamily: font,
-    fontWeight: '800',
-    fontSize: 13,
-    color,
-    letterSpacing: 0.3,
-  }
 }

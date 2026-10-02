@@ -17,6 +17,7 @@ import Svg, {
 import { HudBrackets } from './SpaceWizardChrome'
 import { GoldenRecord, SKY_IMAGE as SPACE_SKY, Star as SpaceStar } from '../../theme/themes/space/atoms/_record'
 import { BrassFrame } from './SteampunkWizardChrome'
+import { Ball as SketchBall, IMG as SKETCH_IMG, Mark as SketchMark } from '../../theme/themes/sketch/atoms/_pencil'
 import { NeonFrame } from './RetrowaveWizardChrome'
 import { GEAR_IMG as STEAM_GEARS, Porthole as SteamPorthole } from '../../theme/themes/steampunk/atoms/_engine'
 import { Hibiscus3D, TimberDetail, useSize } from '../../theme/themes/tropical/atoms/_tropical'
@@ -330,25 +331,22 @@ function SketchCard({ label, selected, onPress }: CardProps) {
     <BaseCard
       selected={selected}
       onPress={onPress}
-      bg="#fdfbf7"
-      radius={12}
-      offset={{ w: 0, h: 3, color: '#000', radius: 5, opacity: 0.16 }}
-      transform={[{ rotate: '-1.4deg' }]}
-      accent="#2d5da1"
-      badge={{ bg: '#2d5da1', fg: '#fdfbf7', ring: '#fdfbf7' }}
-      innerStyle={{
-        borderWidth: 2,
-        borderColor: '#2d5da1',
-        borderStyle: 'dashed',
-        borderTopLeftRadius: 16,
-        borderTopRightRadius: 6,
-        borderBottomLeftRadius: 8,
-        borderBottomRightRadius: 16,
-      }}
+      bg="#FAF8F2"
+      radius={2}
+      offset={{ w: 0, h: 3, color: '#2A2218', radius: 6, opacity: 0.16 }}
+      transform={[{ rotate: '-0.8deg' }]}
+      accent="#CF4540"
+      badge={{ bg: '#CF4540', fg: '#FAF8F2', ring: '#FAF8F2' }}
     >
+      {/* a fresh sheet, the ball sitting on its title, a red swash under it */}
+      <View pointerEvents="none" style={{ position: 'absolute', left: 14, right: 60, bottom: 8 }}>
+        <SketchMark src={SKETCH_IMG.underline[2]} color="#CF4540" width={120} height={12} />
+      </View>
       <Row>
-        <CardLabel text={label} color="#2d5da1" font="PencilTrace" style={{ flex: 1, fontSize: 18 }} />
-        <SketchStar />
+        <CardLabel text={label} color="#1C1B1F" font="ShantellSans_800ExtraBold" style={{ fontSize: 19, lineHeight: 25 }} />
+        <View style={{ marginLeft: 6, marginTop: -8 }}>
+          <SketchBall d={16} color="#CF4540" />
+        </View>
       </Row>
     </BaseCard>
   )
@@ -738,20 +736,6 @@ function EqualizerBars({ heights, colors }: { heights: number[]; colors: string[
         />
       ))}
     </View>
-  )
-}
-
-function SketchStar() {
-  return (
-    <Svg width={22} height={22} viewBox="0 0 26 26">
-      <Path
-        d="M13 2 L16 9.5 L24 10 L18 15 L20 23 L13 18.5 L6 23 L8 15 L2 10 L10 9.5 Z"
-        stroke="#2d5da1"
-        strokeWidth={1.8}
-        fill="none"
-        strokeLinejoin="round"
-      />
-    </Svg>
   )
 }
 

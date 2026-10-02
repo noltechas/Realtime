@@ -1,70 +1,42 @@
-import React from 'react'
-import { View, Text, Pressable } from 'react-native'
+import React, { useEffect, useRef } from 'react'
+import { Animated, Pressable, Text, View } from 'react-native'
 import { UNIVERSAL_SINGER_COLORS } from '@karaoke/shared'
-import { useTheme } from '../../../ThemeContext'
-import { blobCornerRadii, sketchAngle } from '../../../helpers'
 import type { ColorPickerProps } from '../../../types'
+import { FORM, GRAPHITE, IMG, Mark, PencilBox, SHEET, printed, wobble } from './_pencil'
 
-// Sketch color picker — universal palette, blob-shaped swatches with a slight
-// per-color rotation so the chips read as paint chips taped to a page rather
-// than a uniform row of circles.
-//
-// A wrapping grid rather than a horizontal scroller — a scroller cut the last
-// chips off at the screen edge. 40 + 10 fits seven per row, so 13 lands as a
-// clean 7 + 6, which suits the taped-to-a-page look better than a strip anyway.
-export function ColorPicker({ value, onChange, label = 'Your Color' }: ColorPickerProps) {
-  const { tokens } = useTheme()
+// Sketch colour picker: a test sheet of coloured pencils, one worked swatch
+// per colour. Yours is ringed in graphite and ticked.
+export function ColorPicker({ value, onChange, label }: ColorPickerProps) {
+  const colors = UNIVERSAL_SINGER_COLORS
   return (
     <View>
-      <Text
-        style={{
-          fontFamily: tokens.fontDisplay,
-          fontWeight: '800',
-          fontSize: 11,
-          letterSpacing: 2,
-          color: tokens.muted,
-          textTransform: 'uppercase',
-          marginBottom: 10,
-          paddingHorizontal: 24,
-        }}
-      >
-        {label}
-      </Text>
-      <View
-        style={{
-          paddingHorizontal: 24,
-          flexDirection: 'row',
-          flexWrap: 'wrap',
-          columnGap: 10,
-          rowGap: 12,
-        }}
-      >
-        {UNIVERSAL_SINGER_COLORS.map((c, i) => {
-          const selected = i === value
-          const angle = sketchAngle(c.color)
-          return (
-            <Pressable
-              key={c.color}
-              onPress={() => onChange(i)}
-              hitSlop={6}
-              style={{
-                width: 40,
-                height: 40,
-                ...blobCornerRadii(c.color),
-                backgroundColor: c.color,
-                borderWidth: selected ? 3 : 2,
-                borderColor: selected ? tokens.black : tokens.dimBorder,
-                transform: [{ rotate: `${angle}deg` }] as any,
-                shadowColor: '#000',
-                shadowOffset: { width: 1, height: 2 },
-                shadowOpacity: selected ? 0.18 : 0.1,
-                shadowRadius: selected ? 4 : 2,
-                elevation: selected ? 3 : 1,
-              }}
-            />
-          )
-        })}
-      </View>
+      {label ? <Text style={printed(10.5, FORM, { marginBottom: 6, marginLeft: 4 })}>{label}</Text> : null}
+      <PencilBox border={14} fill={SHEET} contentStyle={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 4, paddingVertical: 4 }}>
+        {colors.map((c, i) => (
+          <Swatch key={c.color} color={c.color} index={i} chosen={i === value} onPress={() => onChange(i)} />
+        ))}
+      </PencilBox>
     </View>
+  )
+}
+
+function Swatch({ color, index, chosen, onPress }: { color: string; index: number; chosen: boolean; onPress: () => void }) {
+  const grow = useRef(new Animated.Value(chosen ? 1 : 0)).current
+  useEffect(() => {
+    Animated.spring(grow, { toValue: chosen ? 1 : 0, stiffness: 240, damping: chosen ? 12 : 18, mass: 0.7, useNativeDriver: true }).start()
+  }, [chosen, grow])
+  const S = 44
+  return (
+    <Pressable onPress={onPress} hitSlop={3} accessibilityRole="button" accessibilityState={{ selected: chosen }} style={{ width: S, height: S, alignItems: 'center', justifyContent: 'center' }}>
+      <Animated.View style={{ transform: [{ scale: grow.interpolate({ inputRange: [0, 1], outputRange: [0.86, 1.04] }) }, { rotate: `${wobble(index, 9) * 40}deg` }] }}>
+        <Mark src={IMG.swatch} color={color} width={S - 6} height={S - 6} />
+      </Animated.View>
+      {chosen ? (
+        <>
+          <Mark src={IMG.ringRound} color={GRAPHITE} width={S + 6} height={S + 6} style={{ position: 'absolute', left: -3, top: -3 }} />
+          <Mark src={IMG.check} color={GRAPHITE} width={22} height={22} style={{ position: 'absolute', right: -6, top: -8 }} />
+        </>
+      ) : null}
+    </Pressable>
   )
 }

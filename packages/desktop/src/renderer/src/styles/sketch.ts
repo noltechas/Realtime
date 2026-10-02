@@ -1,294 +1,235 @@
-// Hand-Drawn / Sketch Design System
-// Organic wobbly borders, handwritten typography, paper textures.
+// Sketch: "FOLLOW THE BOUNCING BALL". An animator's pencil test on a light
+// table.
+//
+// The stage is a sheet of animation bond pinned on the pegbar and lit from
+// underneath. A ball drawn in graphite (its colour worked in with the singer's
+// coloured pencil) bounces from syllable to syllable over the lyrics, exactly
+// the way the old bouncing-ball sing-along cartoons did, its onion skins and
+// spacing chart drawn in blue pencil behind it. Lines still to come are
+// blue-pencil roughs on lettering guidelines; each word is inked the moment
+// the ball lands on it, and underlined in the singer's colour while it's sung.
+// A music video plays UNDER the sheet, the way an animator traces live action
+// on a light table (rotoscoping).
+//
+// Every mark is a drawn sprite (packages/mobile/scripts/generate-sketch-
+// assets.py): pencil strokes with pressure, wobble and paper tooth, a steel
+// pegbar, real pencils, masking tape. The blob radii and SVG wobble filter of
+// the earlier version were what made it look generic.
+//
+// Type: Shantell Sans (an artist's marker hand: legible across a room) for
+// lyrics and lettering; Just Another Hand for the animator's pencil notes.
+//
+// Kept in sync with packages/shared/src/themes/sketch.ts.
 
 import type { Theme } from './theme'
+import { SKETCH_TOKENS } from '@karaoke/shared'
+import grain from '../assets/sketch/grain.png'
+import under0 from '../assets/sketch/under-0.png'
+import under1 from '../assets/sketch/under-1.png'
+import paper from '../assets/sketch/paper.jpg'
 
-const BLACK = '#2d2d2d'
-const WHITE = '#ffffff'
-const PAPER = '#fdfbf7'
-const MUTED = '#e5e0d8'
-const RED   = '#ff4d4d'
-const BLUE  = '#2d5da1'
-const YELLOW= '#fff9c4'
+// ── Palette ──────────────────────────────────────────────────────────────────
+export const SK = {
+    PAPER: '#EFEBE2',
+    PAPER_HI: '#F7F4EC',
+    PAPER_LO: '#E2DDD1',
+    SHEET: '#FAF8F2',
+    INK: '#1C1B1F',
+    GRAPHITE: '#3C3C41',
+    GRAPHITE_SOFT: '#76757A',
+    BLUE: '#4F8FD0',
+    BLUE_PALE: '#9DC1E6',
+    RED: '#CF4540',
+    FORM: '#4F8A84',
+    LACQUER: '#F2B51E',
+    DESK: '#2E3331',
+    FONT_LETTER: "'Shantell Sans', 'Chalkboard SE', 'Comic Neue', cursive",
+    FONT_NOTE: "'Just Another Hand', 'Shantell Sans', cursive",
+} as const
 
-const WOBBLY = '255px 15px 225px 15px / 15px 225px 15px 255px'
-const WOBBLY_MD = '25px 225px 15px 255px / 255px 15px 225px 15px'
-
-const GLOBAL_CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Kalam:wght@700&family=Patrick+Hand&display=swap');
-
-/* ── Hand-Drawn Overrides ──────────────────────────────────────────────── */
-[data-theme="sketch"] {
-  --font-display: 'Kalam', cursive;
-  --font-body: 'Patrick Hand', cursive;
+/** Deterministic 0..1 from a string, for stable per-item variation. */
+export function skHash(key: string, salt = 0): number {
+    let h = 2166136261 ^ salt
+    for (let i = 0; i < key.length; i++) {
+        h ^= key.charCodeAt(i)
+        h = Math.imul(h, 16777619)
+    }
+    return ((h >>> 0) % 100000) / 100000
 }
+
+// ── Global CSS ───────────────────────────────────────────────────────────────
+// Stage-window only (see ThemeContext). The stage's lyric treatment lives in
+// karaoke.css under PENCIL TEST STAGE.
+//
+// NOTE: no backticks anywhere in this string (a stray one ends the template
+// literal early and globalCss silently becomes NaN).
+const GLOBAL_CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Shantell+Sans:ital,wght@0,400;0,500;0,700;0,800;1,500&family=Just+Another+Hand&display=swap');
 
 [data-theme="sketch"] * {
-  transition: transform 0.1s, box-shadow 0.1s, background-color 0.1s, color 0.1s;
+  font-family: ${SK.FONT_LETTER};
 }
 
-/* Base button hovers since theme interface does not support inline hover for buttons directly */
-[data-theme="sketch"] button:hover {
-  background-color: ` + RED + ` !important;
-  color: ` + WHITE + ` !important;
-  box-shadow: 2px 2px 0px 0px ` + BLACK + ` !important;
-  transform: translate(2px, 2px);
+/* The lyrics are lettered by hand. The descendant selector matters: the
+   glyphs live in .k-syl__word, which the universal rule above matches. */
+[data-theme="sketch"] .k-line,
+[data-theme="sketch"] .k-line * {
+  font-family: ${SK.FONT_LETTER};
+  font-weight: 800;
+  letter-spacing: 0.005em;
 }
 
-[data-theme="sketch"] button:active {
-  box-shadow: 0px 0px 0px 0px transparent !important;
-  transform: translate(4px, 4px);
+[data-theme="sketch"] .karaoke-stage {
+  background: ${SK.PAPER} url("${paper}") center / cover no-repeat;
 }
 
-[data-theme="sketch"] input:focus,
-[data-theme="sketch"] select:focus {
-  border-color: ` + BLUE + ` !important;
-  outline: none !important;
-  box-shadow: 0 0 0 2px rgba(45, 93, 161, 0.2) !important;
+/* Drawn parts karaoke.css needs (it can't import assets). */
+:root {
+  --sk-grain: url("${grain}");
+  --sk-underline-0: url("${under0}");
+  --sk-underline-1: url("${under1}");
 }
 
-[data-theme="sketch"] .topnav a:hover {
-  text-decoration: underline;
-  text-decoration-style: wavy;
-}
-
-[data-theme="sketch"] .topnav a[aria-current="page"] {
-  color: ` + RED + ` !important;
-  text-decoration: underline;
-  text-decoration-style: wavy;
-}
-
-/* Subtle bounce for decorations */
-@keyframes sketchBounce {
-  0%, 100% { transform: translateY(0) rotate(1deg); }
-  50% { transform: translateY(-5px) rotate(-1deg); }
-}
-
-/* ── Active lyric line: hand-drawn rough rectangle + retraced outline ────── */
-[data-theme="sketch"] .k-line--sketch-active {
-  position: relative;
-  isolation: isolate;
-}
-
-/* Filled colored rectangle with rough wavy edges (highlighter look) */
-[data-theme="sketch"] .k-line--sketch-active::before {
-  content: '';
-  position: absolute;
-  inset: -4px;
-  background: var(--sketch-fill, ` + YELLOW + `);
-  border: 4px solid ` + BLACK + `;
-  border-radius: 12px;
-  filter: url(#sketch-rough-filter);
-  z-index: -2;
-  pointer-events: none;
-}
-
-/* Retraced black outline, slightly offset and re-roughened — gives the
-   classic "drew it twice and it doesn't quite match" hand-drawn feel */
-[data-theme="sketch"] .k-line--sketch-active::after {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  border: 2.5px solid ` + BLACK + `;
-  border-radius: 14px;
-  background: transparent;
-  filter: url(#sketch-rough-filter-b);
-  transform: translate(2.5px, 1.5px) rotate(0.4deg);
-  z-index: -1;
-  pointer-events: none;
-}
-
-/* ── Sketch per-syllable highlighting ───────────────────────────────────────
-   Past = pencil-shaded ink, settled
-   Now  = bold marker stroke with a hand-drawn highlighter swipe behind it
-   Future = light pencil sketch (thinner stroke, lower contrast)
-   The highlighter swipe lives on .k-syl__word so it only covers the visible
-   word, not the trailing whitespace that YRC syllables carry inline. */
-[data-theme="sketch"] .k-line--now .k-syl--past {
-  opacity: 1;
-  color: ` + BLACK + `;
-  text-shadow: 0.6px 0 0 ` + BLACK + `;
-}
-[data-theme="sketch"] .k-line--now .k-syl--now {
-  color: ` + BLACK + `;
-  font-weight: 900;
-  text-shadow: 0.6px 0 0 ` + BLACK + `, 0 0.6px 0 ` + BLACK + `;
-}
-[data-theme="sketch"] .k-line--now .k-syl--now .k-syl__word {
-  background: linear-gradient(180deg, transparent 0 6%, rgba(255, 226, 90, 0.85) 6% 96%, transparent 96%);
-  -webkit-background-clip: padding-box;
-          background-clip: padding-box;
-  filter: url(#sketch-rough-filter);
-  padding: 0.04em 0.08em;
-  border-radius: 4px;
-  -webkit-box-decoration-break: clone;
-          box-decoration-break: clone;
-}
-[data-theme="sketch"] .k-line--now .k-syl--future {
-  opacity: 1;
-  color: rgba(45, 45, 45, 0.45);
-  -webkit-text-stroke: 0.4px rgba(45, 45, 45, 0.45);
-  text-shadow: none;
+[data-theme="sketch"] ::selection {
+  background: rgba(90,155,216,0.3);
+  color: ${SK.INK};
 }
 `
 
+// ── Theme export ─────────────────────────────────────────────────────────────
+const T = SKETCH_TOKENS
+
+const sheet = `linear-gradient(180deg, ${SK.SHEET} 0%, #F5F2EA 100%)`
+
 export const SKETCH: Theme = {
-  name: 'sketch',
-  nextThemeName: 'urban',
-  displayName: 'Hand-Drawn',
-  globalCss: GLOBAL_CSS,
+    ...T,
+    // The desktop ring and picker keep their own order and label.
+    nextThemeName: 'urban',
+    displayName: 'Hand-Drawn',
+    globalCss: GLOBAL_CSS,
+    fontDisplay: SK.FONT_LETTER,
+    fontBody: SK.FONT_LETTER,
 
-  black: BLACK,
-  white: WHITE,
-  cream: PAPER,
-  creamDark: MUTED,
-  hotRed: RED,
-  vividYellow: YELLOW,
-  softViolet: BLUE,
-  mintGreen: '#4caf50',
-  muted: BLACK,
-  faint: 'rgba(45,45,45,0.4)',
+    page: {
+        background: 'transparent',
+        color: SK.INK,
+        minHeight: '100%',
+        padding: '32px 40px 64px',
+        maxWidth: 1040,
+        margin: '0 auto',
+        fontFamily: SK.FONT_LETTER,
+        position: 'relative',
+        zIndex: 2,
+    },
 
-  accentA: RED,
-  accentB: BLUE,
-  accentC: YELLOW,
+    // A fresh sheet laid on the desk.
+    card: {
+        background: sheet,
+        border: '1px solid rgba(28,27,31,0.16)',
+        borderRadius: 2,
+        boxShadow: '0 1px 1px rgba(40,34,24,0.12), 0 6px 16px rgba(40,34,24,0.12)',
+        color: SK.INK,
+    },
 
-  appBg: PAPER,
-  titlebarBg: WHITE,
-  titlebarText: BLACK,
+    cardHover: {
+        boxShadow: '0 1px 1px rgba(40,34,24,0.14), 0 10px 22px rgba(40,34,24,0.18)',
+        transform: 'translateY(-1px)',
+    },
 
-  navBg: WHITE,
-  navBorderBottom: '3px solid ' + BLACK,
-  navLink: BLACK,
-  navLinkActive: RED,
-  navLinkActiveBg: 'transparent',
-  navLinkHoverBg: 'transparent',
+    input: {
+        background: SK.SHEET,
+        border: 'none',
+        borderBottom: `2px solid ${SK.GRAPHITE}`,
+        borderRadius: 0,
+        color: SK.INK,
+        fontFamily: SK.FONT_LETTER,
+        outline: 'none',
+        caretColor: SK.BLUE,
+    },
 
-  border: '3px solid ' + BLACK,
-  borderThin: '2px solid ' + BLACK,
-  borderLight: '2px dashed rgba(45,45,45,0.3)',
-  shadow: '4px 4px 0px 0px ' + BLACK,
-  shadowLift: '2px 2px 0px 0px ' + BLACK,
-  shadowPressed: 'none',
-  shadowColor: (color: string) => '4px 4px 0px 0px ' + color,
+    select: {
+        background: SK.SHEET,
+        border: `1px solid rgba(28,27,31,0.35)`,
+        borderRadius: 2,
+        color: SK.INK,
+        fontFamily: SK.FONT_LETTER,
+        outline: 'none',
+        cursor: 'pointer',
+        appearance: 'none' as const,
+    },
 
-  radius: 12,
-  radiusSmall: 8,
+    // A strip of masking tape with the legend inked on it.
+    btnPrimary: {
+        background: 'linear-gradient(180deg, #EDE5CD 0%, #E3D9BC 100%)',
+        color: SK.INK,
+        border: 'none',
+        boxShadow: '0 1px 2px rgba(40,34,24,0.25)',
+        borderRadius: 1,
+        fontFamily: SK.FONT_LETTER,
+        fontWeight: 700,
+        letterSpacing: '0.02em',
+        cursor: 'pointer',
+        transition: 'all 0.15s ease',
+    },
 
-  fontDisplay: "'Kalam', cursive",
-  fontBody: "'Patrick Hand', cursive",
+    btnSecondary: {
+        background: 'transparent',
+        color: SK.INK,
+        border: `2px solid ${SK.GRAPHITE}`,
+        boxShadow: 'none',
+        borderRadius: 2,
+        fontFamily: SK.FONT_LETTER,
+        fontWeight: 700,
+        cursor: 'pointer',
+        transition: 'all 0.15s ease',
+    },
 
-  spinnerBorder: 'rgba(45,45,45,0.15)',
-  spinnerBorderTop: RED,
+    btnOutline: {
+        background: 'transparent',
+        color: SK.GRAPHITE,
+        border: `1px solid rgba(28,27,31,0.4)`,
+        boxShadow: 'none',
+        borderRadius: 2,
+        fontFamily: SK.FONT_LETTER,
+        fontWeight: 600,
+        cursor: 'pointer',
+        transition: 'all 0.15s ease',
+    },
 
-  page: {
-    background: PAPER,
-    backgroundImage: 'radial-gradient(' + MUTED + ' 1px, transparent 1px)',
-    backgroundSize: '24px 24px',
-    color: BLACK,
-    minHeight: '100%',
-    padding: '32px 40px 64px',
-    maxWidth: 960,
-    margin: '0 auto',
-    fontFamily: "'Patrick Hand', cursive",
-  },
+    iconBtn: {
+        width: 42,
+        height: 42,
+        borderRadius: '50%',
+        border: `2px solid ${SK.GRAPHITE}`,
+        background: SK.SHEET,
+        color: SK.INK,
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        transition: 'all 0.15s ease',
+        boxShadow: 'none',
+    },
 
-  card: {
-    background: WHITE,
-    border: '2px solid ' + BLACK,
-    borderRadius: WOBBLY_MD,
-    boxShadow: '3px 3px 0px 0px rgba(45, 45, 45, 0.1)',
-  },
+    iconBtnHover: {
+        background: '#FFFFFF',
+        color: SK.BLUE,
+        border: `2px solid ${SK.BLUE}`,
+    },
 
-  cardHover: {
-    transform: 'rotate(1deg)',
-    boxShadow: '4px 4px 0px 0px ' + BLACK,
-  },
-
-  input: {
-    background: WHITE,
-    border: '2px solid ' + BLACK,
-    borderRadius: WOBBLY,
-    color: BLACK,
-    fontFamily: "'Patrick Hand', cursive",
-    outline: 'none',
-  },
-
-  select: {
-    background: WHITE,
-    border: '2px solid ' + BLACK,
-    borderRadius: WOBBLY,
-    color: BLACK,
-    fontFamily: "'Patrick Hand', cursive",
-    outline: 'none',
-    cursor: 'pointer',
-    appearance: 'none',
-  },
-
-  btnPrimary: {
-    background: WHITE,
-    color: BLACK,
-    border: '3px solid ' + BLACK,
-    boxShadow: '4px 4px 0px 0px ' + BLACK,
-    borderRadius: WOBBLY,
-    fontFamily: "'Patrick Hand', cursive",
-    fontWeight: 400,
-    cursor: 'pointer',
-  },
-
-  btnSecondary: {
-    background: MUTED,
-    color: BLACK,
-    border: '3px solid ' + BLACK,
-    boxShadow: '4px 4px 0px 0px ' + BLACK,
-    borderRadius: WOBBLY,
-    fontFamily: "'Patrick Hand', cursive",
-    fontWeight: 400,
-    cursor: 'pointer',
-  },
-
-  btnOutline: {
-    background: 'transparent',
-    color: BLACK,
-    border: '2px dashed ' + BLACK,
-    borderRadius: WOBBLY,
-    fontFamily: "'Patrick Hand', cursive",
-    fontWeight: 400,
-    cursor: 'pointer',
-  },
-
-  iconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: WOBBLY,
-    border: '2px solid ' + BLACK,
-    background: WHITE,
-    color: BLACK,
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    boxShadow: '4px 4px 0px 0px ' + BLACK,
-  },
-
-  iconBtnHover: {
-    backgroundColor: RED,
-    color: WHITE,
-    transform: 'translate(2px, 2px)',
-    boxShadow: '2px 2px 0px 0px ' + BLACK,
-  },
-
-  stickerLabel: {
-    position: 'absolute',
-    fontFamily: "'Patrick Hand', cursive",
-    fontSize: 14,
-    padding: '4px 12px',
-    border: '2px solid ' + BLACK,
-    boxShadow: '2px 2px 0px 0px ' + BLACK,
-    backgroundColor: YELLOW,
-    color: BLACK,
-    borderRadius: WOBBLY,
-    transform: 'rotate(-2deg)',
-  },
-
+    // A scrap of masking tape, pencilled on.
+    stickerLabel: {
+        position: 'absolute',
+        fontFamily: SK.FONT_NOTE,
+        fontWeight: 400,
+        fontSize: 18,
+        letterSpacing: '0.04em',
+        textTransform: 'uppercase',
+        padding: '2px 12px',
+        border: 'none',
+        boxShadow: '0 1px 2px rgba(40,34,24,0.25)',
+        color: SK.INK,
+        background: 'rgba(233,225,200,0.92)',
+        borderRadius: 1,
+    },
 }

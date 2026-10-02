@@ -1,166 +1,43 @@
-import React from 'react'
-import { View, Text, Pressable, Image } from 'react-native'
-import { useTheme } from '../../../ThemeContext'
-import { hashKey, sketchAngle } from '../../../helpers'
+import React, { memo } from 'react'
+import { Text, View } from 'react-native'
 import type { SongCardProps } from '../../../types'
+import { GRAPHITE, GRAPHITE_SOFT, IMG, INK, LETTER_B, Mark, Press, TapedPrint, letter, note, useMeasured, wobble } from './_pencil'
 
-function formatDuration(ms: number | null | undefined): string {
-  if (!ms || ms <= 0) return ''
-  const totalSec = Math.round(ms / 1000)
-  const m = Math.floor(totalSec / 60)
-  const s = totalSec % 60
-  return `${m}:${s.toString().padStart(2, '0')}`
-}
-
-// Sketch song card — a Polaroid/post-it pinned to the page. Each card gets
-// hash-based crease lines and a small per-track rotation so the grid reads as
-// a board of hand-placed cards rather than a uniform 2-up list. The art is
-// matted in cream so the album cover sits in a frame.
-export function SongCard({ track, onPress }: SongCardProps) {
-  const { tokens } = useTheme()
-  const duration = formatDuration(track.duration_ms)
-
-  const str = track.name || track.artist || ''
-  const hash = hashKey(str)
-  const angle = sketchAngle(str)
-
-  // Hash-based crease positions so each card has a unique paper texture
-  const creaseTop1 = 20 + (hash % 7) * 8   // 20–68%
-  const creaseTop2 = 55 + (hash % 5) * 6   // 55–79%
-  const creaseAngle1 = ((hash % 3) - 1) * 0.6
-  const creaseAngle2 = ((hash % 4) - 2) * 0.5
-
+// Sketch song card: the album art as a reference print taped up on the sheet
+// (each at its own slight angle, taped across the top or across two corners),
+// the title lettered underneath and the artist pencilled beside it.
+function SongCardImpl({ track, onPress, index = 0 }: SongCardProps) {
+  const [size, onLayout] = useMeasured()
+  const w = size?.w ?? 0
+  const P = w * 0.9
+  const key = track.track_id ?? track.name
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => ({
-        flex: 1,
-        marginBottom: 12,
-        transform: [
-          { rotate: `${angle}deg` },
-          { scale: pressed ? 0.96 : 1 },
-        ],
-      })}
-    >
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: '#FDFBF7',
-          borderWidth: 1,
-          borderColor: 'rgba(0,0,0,0.1)',
-          padding: 8,
-          paddingBottom: 16,
-          shadowColor: '#000',
-          shadowOffset: { width: 2, height: 4 },
-          shadowOpacity: 0.12,
-          shadowRadius: 5,
-          borderTopLeftRadius: 3,
-          borderTopRightRadius: 5,
-          borderBottomLeftRadius: 4,
-          borderBottomRightRadius: 2,
-          overflow: 'hidden',
-        }}
-      >
-        {/* Paper crease lines — hash-positioned so each card looks slightly
-            worn in a different spot. */}
-        <View
-          style={{
-            position: 'absolute',
-            left: '8%',
-            right: '5%',
-            top: `${creaseTop1}%`,
-            height: 1,
-            backgroundColor: 'rgba(0,0,0,0.055)',
-            transform: [{ rotate: `${creaseAngle1}deg` }],
-          }}
-        />
-        <View
-          style={{
-            position: 'absolute',
-            left: '3%',
-            right: '12%',
-            top: `${creaseTop2}%`,
-            height: 1,
-            backgroundColor: 'rgba(0,0,0,0.04)',
-            transform: [{ rotate: `${creaseAngle2}deg` }],
-          }}
-        />
-        <View
-          style={{
-            width: '100%',
-            aspectRatio: 1,
-            backgroundColor: tokens.creamDark,
-            borderWidth: 1,
-            borderColor: 'rgba(0,0,0,0.08)',
-            overflow: 'hidden',
-            borderTopLeftRadius: 1,
-            borderTopRightRadius: 3,
-            borderBottomLeftRadius: 2,
-            borderBottomRightRadius: 1,
-          }}
-        >
-          {track.art_url ? (
-            <Image
-              source={{ uri: track.art_url }}
-              style={{ width: '100%', height: '100%' }}
-              resizeMode="cover"
-            />
-          ) : (
-            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-              <NoteGlyph color={tokens.muted} />
-            </View>
-          )}
-        </View>
-        <Text
-          style={{
-            fontFamily: tokens.fontDisplay,
-            fontWeight: '700',
-            fontSize: 15,
-            color: tokens.black,
-            marginTop: 12,
-            textAlign: 'center',
-          }}
-          numberOfLines={2}
-        >
-          {track.name}
-        </Text>
-        <Text
-          style={{
-            fontFamily: tokens.fontBody,
-            fontSize: 13,
-            color: tokens.muted,
-            marginTop: 2,
-            textAlign: 'center',
-          }}
-          numberOfLines={1}
-        >
-          {track.artist}
-        </Text>
-        {duration ? (
-          <Text
-            style={{
-              fontFamily: tokens.fontDisplay,
-              fontWeight: '700',
-              fontSize: 11,
-              color: tokens.faint,
-              marginTop: 4,
-              textAlign: 'center',
-            }}
-          >
-            {duration}
+    <Press onPress={onPress} accessibilityRole="button" accessibilityLabel={`${track.name} by ${track.artist}`}>
+      <View onLayout={onLayout} style={{ paddingTop: 8 }}>
+        {w ? (
+          <View style={{ height: P + 6, alignItems: 'center' }}>
+            <TapedPrint uri={track.art_url} size={P} seed={key} tape={index % 3 === 1 ? 'corners' : 'top'}>
+              {!track.art_url ? (
+                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3EFE6' }}>
+                  <Mark src={IMG.note} color={GRAPHITE} width={P * 0.3} height={P * 0.42} />
+                </View>
+              ) : null}
+            </TapedPrint>
+          </View>
+        ) : (
+          <View style={{ aspectRatio: 1 / 0.96 }} />
+        )}
+        <View style={{ paddingHorizontal: 4, marginTop: 6, transform: [{ rotate: `${wobble(key, 7) * 0.8}deg` }] }}>
+          <Text numberOfLines={2} style={letter(15, INK, { lineHeight: 19 }, LETTER_B)}>
+            {track.name}
           </Text>
-        ) : null}
+          <Text numberOfLines={1} style={note(19, GRAPHITE_SOFT, { marginTop: 1 })}>
+            {track.artist}
+          </Text>
+        </View>
       </View>
-    </Pressable>
+    </Press>
   )
 }
 
-function NoteGlyph({ color }: { color: string }) {
-  return (
-    <View style={{ width: 28, height: 28 }}>
-      <View style={{ position: 'absolute', right: 8, top: 0, width: 3, height: 22, backgroundColor: color }} />
-      <View style={{ position: 'absolute', right: 8, top: 0, width: 8, height: 4, backgroundColor: color }} />
-      <View style={{ position: 'absolute', left: 0, bottom: 0, width: 12, height: 9, borderRadius: 999, backgroundColor: color }} />
-    </View>
-  )
-}
+export const SongCard = memo(SongCardImpl)

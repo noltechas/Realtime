@@ -44,6 +44,12 @@ const Jost_500Medium = require('@expo-google-fonts/jost/500Medium/Jost_500Medium
 const Jost_600SemiBold = require('@expo-google-fonts/jost/600SemiBold/Jost_600SemiBold.ttf')
 const IBMPlexMono_400Regular = require('@expo-google-fonts/ibm-plex-mono/400Regular/IBMPlexMono_400Regular.ttf')
 const IBMPlexMono_500Medium = require('@expo-google-fonts/ibm-plex-mono/500Medium/IBMPlexMono_500Medium.ttf')
+// Sketch ("Follow the Bouncing Ball"): Shantell Sans, an artist's marker hand,
+// for lettering and reading; Just Another Hand for the animator's pencil notes.
+const ShantellSans_500Medium = require('@expo-google-fonts/shantell-sans/500Medium/ShantellSans_500Medium.ttf')
+const ShantellSans_700Bold = require('@expo-google-fonts/shantell-sans/700Bold/ShantellSans_700Bold.ttf')
+const ShantellSans_800ExtraBold = require('@expo-google-fonts/shantell-sans/800ExtraBold/ShantellSans_800ExtraBold.ttf')
+const JustAnotherHand_400Regular = require('@expo-google-fonts/just-another-hand/400Regular/JustAnotherHand_400Regular.ttf')
 // Steampunk ("The Vox Engine"): Abril Fatface for display and numerals, Old
 // Standard TT for reading and engraved capitals.
 const AbrilFatface_400Regular = require('@expo-google-fonts/abril-fatface/400Regular/AbrilFatface_400Regular.ttf')
@@ -129,10 +135,10 @@ export default function App() {
     // Cyberpunk theme — glitch display + body faces (custom .ttf, fontspace).
     SDGlitch: require('./assets/fonts/SDGlitchDemo-Regular.ttf'),
     Glitch: require('./assets/fonts/Glitch-Regular.ttf'),
-    // Sketch theme — hand-drawn pencil faces (custom, fontspace). PencilTrace
-    // (outline/traced display) for headings, Thin Pencil Handwriting for body.
-    PencilTrace: require('./assets/fonts/PencilTrace-Regular.otf'),
-    ThinPencil: require('./assets/fonts/ThinPencilHandwriting-Regular.ttf'),
+    ShantellSans_500Medium,
+    ShantellSans_700Bold,
+    ShantellSans_800ExtraBold,
+    JustAnotherHand_400Regular,
     // Urban theme — heavy graffiti/bomber display face for headings.
     BomberUrban: require('./assets/fonts/BomberUrban-Regular.otf'),
     // Deep-sea theme — playful "Krabby Patty" display face for headings.

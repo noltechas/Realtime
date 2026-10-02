@@ -1,19 +1,10 @@
 import React from 'react'
-import type { ViewStyle } from 'react-native'
+import { Animated, type ViewStyle } from 'react-native'
+import { useEnter } from './_pencil'
 
-// Sketch doesn't animate list entry — the per-item rotation and hand-drawn
-// borders already give a "placed-by-hand" feel. Render children verbatim;
-// `style` and `delay` are accepted to match the ThemeUIModule contract.
-export function ItemFloater({
-  children,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  delay,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  style,
-}: {
-  delay?: number
-  style?: ViewStyle
-  children: React.ReactNode
-}) {
-  return <>{children}</>
+// Sketch item entry: each item is laid down on the sheet, a short drop and
+// settle.
+export function ItemFloater({ delay = 0, style, children }: { delay?: number; style?: ViewStyle; children: React.ReactNode }) {
+  const { opacity, translateY } = useEnter(delay, 10)
+  return <Animated.View style={[style, { opacity, transform: [{ translateY }] }]}>{children}</Animated.View>
 }
