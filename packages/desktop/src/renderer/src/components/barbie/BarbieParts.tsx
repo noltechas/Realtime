@@ -726,7 +726,12 @@ export function SkyBanner({ messages, top = 120, period = 30, style }: { message
         <div
             aria-hidden
             className="barb-fly"
-            onAnimationIteration={() => setK((v) => v + 1)}
+            // Only the flight itself counts. animationiteration BUBBLES, and the
+            // propeller (0.12 s) and the scarf loop inside the plane fire it
+            // constantly, which flicked the banner through every message.
+            onAnimationIteration={(e) => {
+                if (e.target === e.currentTarget && e.animationName === 'barb-fly') setK((v) => v + 1)
+            }}
             style={{ position: 'absolute', top, left: 0, display: 'flex', alignItems: 'center', animationDuration: `${period}s`, ...style }}
         >
             <Biplane size={150} />
@@ -741,8 +746,13 @@ export function SkyBanner({ messages, top = 120, period = 30, style }: { message
                 <path id={`${id}-mid`} d={mid(0)} fill="none">
                     <animate attributeName="d" dur="1.6s" repeatCount="indefinite" values={phases.map(mid).join(';')} />
                 </path>
+                {/* The face is set on the textPath itself: the theme's universal
+                    font rule matches it directly and would win over a face
+                    inherited from the text element. */}
                 <text style={{ fontFamily: BARB.FONT_DISPLAY, fontSize: 36, fill: BARB.PINK }}>
-                    <textPath href={`#${id}-mid`} startOffset="50%" textAnchor="middle">{msg}</textPath>
+                    <textPath href={`#${id}-mid`} startOffset="50%" textAnchor="middle" style={{ fontFamily: BARB.FONT_DISPLAY, fontWeight: 400 }}>
+                        {msg}
+                    </textPath>
                 </text>
                 {/* the pole at the leading edge */}
                 <rect x="-4" y="-6" width="4" height={H + 12} rx="2" fill={BARB.PLUM_SOFT} />
