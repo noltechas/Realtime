@@ -18,7 +18,7 @@ import {
 import type { RootStackParamList, SessionTabsParamList } from '../navigation/types'
 import { useTheme } from '../theme/ThemeContext'
 import { useSession } from '../hooks/useSession'
-import { useCatalog } from '../hooks/useCatalog'
+import { useCatalog, withCardCover } from '../hooks/useCatalog'
 import { useSongAdds } from '../hooks/useSongAdds'
 
 type SongsNav = CompositeNavigationProp<
@@ -74,7 +74,9 @@ export function SongsScreen() {
   const renderItem = useCallback(
     ({ item, index }: { item: KaraokeCatalogRow; index: number }) => (
       <ui.ItemFloater style={{ flex: 1, maxWidth: '50%' }}>
-        <ui.SongCard track={item} index={index} onPress={() => onTapSong(item)} />
+        {/* The card shows the 300px cover (a quarter of the bytes); the wizard
+            gets the original row, whose full-size art goes into the queue. */}
+        <ui.SongCard track={withCardCover(item)} index={index} onPress={() => onTapSong(item)} />
       </ui.ItemFloater>
     ),
     [ui, onTapSong],

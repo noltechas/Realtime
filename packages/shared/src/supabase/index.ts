@@ -61,6 +61,7 @@ export {
   computeGenreCounts,
   genreList,
   filterCatalog,
+  spotifyArtUrl,
   GENRE_ORDER,
 } from './catalog'
 export type { KaraokeCatalogRow, GenreCounts } from './catalog'

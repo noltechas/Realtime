@@ -39,17 +39,36 @@ export const GENRE_ORDER = [
   'Other',
 ]
 
+// Only the columns a client reads. `select('*')` also shipped the row id,
+// created_at and session_id on every row (a fifth of a 550-song payload);
+// session_id is the filter, so it's filled back in here instead of fetched.
+const CATALOG_COLUMNS =
+  'track_id,name,artist,art_url,album_name,duration_ms,roles,has_vocals,genres,offensive_role_indices,spotify_data'
+
 export async function listCatalog(
   client: KaraokeClient,
   sessionId: string,
 ): Promise<KaraokeCatalogRow[]> {
   const { data, error } = await client
     .from('karaoke_catalog')
-    .select('*')
+    .select(CATALOG_COLUMNS)
     .eq('session_id', sessionId)
 
   if (error) throw new Error(`Failed to load catalog: ${error.message}`)
-  return (data ?? []) as KaraokeCatalogRow[]
+  return ((data ?? []) as Omit<KaraokeCatalogRow, 'session_id'>[]).map((row) => ({ ...row, session_id: sessionId }))
+}
+
+// Spotify serves every album cover at three sizes, named by a fixed prefix on
+// the image id: 640px (ab67616d0000b273), 300px (ab67616d00001e02) and 64px
+// (ab67616d00004851). The catalog stores the 640px one, which is 60 to 180 KB;
+// the 300px one is a quarter of that and plenty for a grid card. Any URL that
+// isn't a Spotify cover is returned unchanged.
+const SPOTIFY_COVER = /^(https:\/\/i\.scdn\.co\/image\/)ab67616d0000(?:b273|1e02|4851)/
+const COVER_SIZE: Record<640 | 300 | 64, string> = { 640: 'b273', 300: '1e02', 64: '4851' }
+
+export function spotifyArtUrl(url: string | null | undefined, size: 640 | 300 | 64): string | null {
+  if (!url) return null
+  return SPOTIFY_COVER.test(url) ? url.replace(SPOTIFY_COVER, `$1ab67616d0000${COVER_SIZE[size]}`) : url
 }
 
 // Same shuffle the companion site uses so the catalog isn't biased toward
