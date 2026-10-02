@@ -1,115 +1,97 @@
-import { StyleSheet, type ViewStyle, type TextStyle } from 'react-native'
+import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native'
 import type { ThemeTokens } from '@karaoke/shared'
 import type { ThemeUIStyles } from '../../types'
+import { ABRIL, BRASS_DEEP, BRASS_HI, ENAMEL, OLD, OLD_B, PARCHMENT, PARCHMENT_DIM } from './atoms/_engine'
 
-// Steampunk stylesheet — the precision-instrument scaffold. Near-black iron
-// surfaces, thin brass hairlines, engraved Cinzel labels, IM Fell English
-// body text. Depth comes from dark shadows; amber glow is reserved for the
-// handful of genuinely lit elements (headings keep only a whisper of it).
-const IRON_DEEP = '#120C07'
-const IRON_PANEL = '#221711'
-const IRON_WELL = '#0D0805'
-const PARCH = '#EFE0BE'
-const PARCH_DIM = '#B49B72'
-const AMBER = '#E8A93B'
-const HAIRLINE = 'rgba(200,151,62,0.45)'
-
+// Steampunk stylesheet: the type of an engine's nameplates, on transparent
+// screens.
+//
+// TRANSPARENT `screen` AND `page` ARE LOAD-BEARING: the engine house (the
+// hall, the window and its airships, the gears along the foot) is a single
+// SceneLayer mounted once behind the whole navigator. If these painted
+// `appBg` they would cover it.
 export function buildSteampunkStyles(t: ThemeTokens): ThemeUIStyles {
-  const sheet = StyleSheet.create({
+  return StyleSheet.create({
     screen: {
       flex: 1,
-      backgroundColor: IRON_DEEP,
+      backgroundColor: 'transparent',
     },
     page: {
-      paddingHorizontal: 24,
-      paddingTop: 24,
+      paddingHorizontal: 20,
+      paddingTop: 20,
       paddingBottom: 48,
       backgroundColor: 'transparent',
       flexGrow: 1,
     },
     h1: {
-      fontFamily: t.fontDisplay,
-      fontSize: 27,
-      color: PARCH,
-      letterSpacing: 2.6,
-      textTransform: 'uppercase',
-      textShadowColor: 'rgba(232,169,59,0.35)',
-      textShadowRadius: 12,
-      textShadowOffset: { width: 0, height: 0 },
+      fontFamily: ABRIL,
+      fontSize: 32,
+      lineHeight: 40,
+      color: BRASS_HI,
+      textShadowColor: 'rgba(0,0,0,0.7)',
+      textShadowOffset: { width: 0, height: 1.5 },
+      textShadowRadius: 0.5,
     },
     h2: {
-      fontFamily: t.fontDisplay,
-      fontSize: 19,
-      color: PARCH,
-      letterSpacing: 1.8,
-      textTransform: 'uppercase',
-      textShadowColor: 'rgba(232,169,59,0.25)',
-      textShadowRadius: 8,
-      textShadowOffset: { width: 0, height: 0 },
+      fontFamily: ABRIL,
+      fontSize: 22,
+      lineHeight: 28,
+      color: t.black,
     },
     body: {
-      fontFamily: t.fontBody,
+      fontFamily: OLD,
       fontSize: 16,
-      color: '#DCC69C',
-      lineHeight: 24,
-      letterSpacing: 0.2,
+      color: t.black,
+      lineHeight: 23,
     },
     muted: {
-      fontFamily: t.fontBody,
+      fontFamily: OLD,
       fontSize: 14,
-      color: PARCH_DIM,
-      letterSpacing: 0.2,
+      color: PARCHMENT_DIM,
+      lineHeight: 20,
     },
-    // Default panel — an instrument plate: iron face, single brass hairline,
-    // dark depth shadow. Atoms add their own engraved rules + corner screws.
+    // Plain-View fallback for screens that style a card directly: an enamel
+    // panel with a brass edge.
     card: {
-      backgroundColor: IRON_PANEL,
-      borderWidth: 1,
-      borderColor: HAIRLINE,
-      borderRadius: 12,
+      backgroundColor: ENAMEL,
+      borderWidth: 2,
+      borderColor: BRASS_DEEP,
+      borderRadius: 6,
       padding: 16,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.45,
-      shadowRadius: 10,
-      elevation: 6,
-    },
-    // Recessed brass-rimmed well.
+    } as ViewStyle,
     input: {
-      backgroundColor: IRON_WELL,
-      borderWidth: 1,
-      borderColor: HAIRLINE,
-      borderRadius: 9,
+      backgroundColor: '#0C0907',
+      borderWidth: 1.5,
+      borderColor: BRASS_DEEP,
+      borderRadius: 6,
       paddingHorizontal: 16,
-      paddingVertical: 13,
-      fontSize: 16,
-      fontFamily: t.fontBody,
-      color: PARCH,
+      paddingVertical: 12,
+      fontSize: 17,
+      fontFamily: OLD,
+      color: PARCHMENT,
     } as ViewStyle & TextStyle,
     pillBox: {
-      borderRadius: 6,
+      borderRadius: 999,
       borderWidth: 1,
-      borderColor: HAIRLINE,
-      backgroundColor: 'rgba(200,151,62,0.10)',
-      paddingHorizontal: 12,
-      paddingVertical: 4,
+      borderColor: BRASS_DEEP,
+      backgroundColor: 'rgba(201,161,90,0.1)',
+      paddingHorizontal: 10,
+      paddingVertical: 3,
     },
     pillText: {
-      fontFamily: t.fontDisplay,
-      fontSize: 11,
-      color: AMBER,
-      letterSpacing: 1.8,
+      fontFamily: OLD_B,
+      fontSize: 10,
+      color: BRASS_HI,
+      letterSpacing: 2,
       textTransform: 'uppercase',
     },
     sectionLabel: {
-      fontFamily: t.fontDisplay,
-      fontSize: 11,
-      letterSpacing: 3.2,
-      color: AMBER,
-      marginBottom: 12,
+      fontFamily: OLD_B,
+      fontSize: 12,
+      letterSpacing: 3,
       textTransform: 'uppercase',
+      color: BRASS_HI,
+      marginBottom: 12,
     },
   })
-
-  return sheet
 }

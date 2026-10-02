@@ -1,0 +1,57 @@
+{
+ "gears": {
+  "gear-44": {
+   "file": "gear-44.png",
+   "shadow": "gear-44-shadow.png",
+   "teeth": 44,
+   "pitch": 286.0,
+   "size": 610
+  },
+  "gear-32": {
+   "file": "gear-32.png",
+   "shadow": "gear-32-shadow.png",
+   "teeth": 32,
+   "pitch": 208.0,
+   "size": 454
+  },
+  "gear-24": {
+   "file": "gear-24.png",
+   "shadow": "gear-24-shadow.png",
+   "teeth": 24,
+   "pitch": 156.0,
+   "size": 350
+  },
+  "gear-18": {
+   "file": "gear-18.png",
+   "shadow": "gear-18-shadow.png",
+   "teeth": 18,
+   "pitch": 117.0,
+   "size": 272
+  },
+  "gear-14": {
+   "file": "gear-14.png",
+   "shadow": "gear-14-shadow.png",
+   "teeth": 14,
+   "pitch": 91.0,
+   "size": 220
+  },
+  "gear-10": {
+   "file": "gear-10.png",
+   "shadow": "gear-10-shadow.png",
+   "teeth": 10,
+   "pitch": 65.0,
+   "size": 168
+  }
+ },
+ "frame": {
+  "file": "frame-brass.png",
+  "size": 180,
+  "border": 48
+ },
+ "rack": {
+  "file": "rack.png",
+  "pitch": 41,
+  "height": 34,
+  "root": 18.4
+ }
+}

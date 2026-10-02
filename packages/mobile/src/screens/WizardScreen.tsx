@@ -155,19 +155,18 @@ function wizardCardStyle(tokens: ThemeTokens, color?: string, overrides?: any, i
     }
   }
   if (tokens.name === 'steampunk') {
-    // Steampunk — dark mahogany panel with a thick brass rim and an amber
-    // gas-lamp glow. The visible corner rivets + filigree edges are layered
-    // in via SteampunkBrassFrame below. The color override drives the brass
-    // rim color so singer cards pick up their identity color in the chrome.
+    // Steampunk ("The Vox Engine"): a deep green enamel panel with a brass
+    // edge (a singer's own colour on their card); rendered rivets in the
+    // corners come from SteampunkBrassFrame.
     return {
-      backgroundColor: '#2A1A0E',
+      backgroundColor: '#16231D',
       borderWidth: 2,
-      borderColor: color || '#B8762D',
-      borderRadius: 8,
-      shadowColor: color || '#E8A93B',
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.55,
-      shadowRadius: 12,
+      borderColor: color || '#7E5A22',
+      borderRadius: 6,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.6,
+      shadowRadius: 9,
       ...overrides,
     }
   }
@@ -356,32 +355,26 @@ function psyHeadingExtras(tokens: ThemeTokens): any {
   }
 }
 
-// Steampunk wants its Cinzel headings to read as engraved brass plaques —
-// gas-lamp amber glow + extra letter spacing + uppercase. Returns a style
-// fragment for the wizard step titles ("Who's singing?", "Finish up", etc.).
+// Steampunk step titles ("Who's singing?", "Finish up", ...) are cast in brass
+// in the playbill's fat face.
 function steamHeadingExtras(tokens: ThemeTokens): any {
   if (tokens.name !== 'steampunk') return null
   return {
-    color: '#E8A93B',
-    letterSpacing: 2.4,
-    textTransform: 'uppercase',
-    textShadowColor: 'rgba(232,169,59,0.65)',
-    textShadowRadius: 8,
-    textShadowOffset: { width: 0, height: 0 },
+    color: '#E9C77F',
+    fontFamily: 'AbrilFatface_400Regular',
+    fontWeight: 'normal',
+    textShadowColor: 'rgba(0,0,0,0.7)',
+    textShadowRadius: 0.5,
+    textShadowOffset: { width: 0, height: 1.5 },
   }
 }
 
-// Steampunk wants small chrome (icon buttons, the close button, modal input
-// chips) to pick up a brass border + amber glow so they feel part of the
-// machinery. Returns null on every other theme.
+// Steampunk small chrome (icon buttons, the close button, modal input chips):
+// a brass edge, no glow.
 function steamChromeExtras(tokens: ThemeTokens): any {
   if (tokens.name !== 'steampunk') return null
   return {
-    borderColor: '#B8762D',
-    shadowColor: '#E8A93B',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.55,
-    shadowRadius: 8,
+    borderColor: '#C9A15A',
   }
 }
 
@@ -1131,7 +1124,7 @@ function SingersStep({
           {tokens.name === 'space' ? (
             <SpaceHudBrackets size={10} thickness={1} inset={3} topColor={s.color} />
           ) : tokens.name === 'steampunk' ? (
-            <SteampunkBrassFrame size={9} rivetColor={s.color} filigree />
+            <SteampunkBrassFrame size={9} filigree />
           ) : tokens.name === 'retrowave' ? (
             <RetrowaveNeonFrame size={10} thickness={1.4} inset={3} topColor={s.color} bottomColor="#00F0FF" />
           ) : tokens.name === 'tropical' ? (
@@ -1172,11 +1165,9 @@ function SingersStep({
                   ) : (
                     <Text
                       style={{
-                        fontFamily: tokens.fontDisplay,
-                        textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
-                        fontWeight: '900',
-                        fontSize: 18,
-                        color: '#1F1108',
+                        fontFamily: 'AbrilFatface_400Regular',
+                        fontSize: 20,
+                        color: '#1A120A',
                       }}
                     >
                       {(s.name?.[0] ?? '?').toUpperCase()}

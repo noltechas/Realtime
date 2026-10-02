@@ -15,6 +15,12 @@ import {
     SpaceQrCard, SpaceSongChip, SpaceSingerTag, SpaceMicBody, SpaceStarMeter,
 } from '../components/space/SpaceScreens'
 import { SpaceAtmosphere, SpaceLinePlate } from '../components/space/SpaceStageLayers'
+import { ST } from '../styles/steampunk'
+import {
+    EngineIdle, EngineUpNext, EngineCountIn, EngineBreak, EnginePaused, EngineNoLyrics,
+    EngineQrCard, EngineSongChip, EngineSingerTag, EngineMicBody, EngineGaugeMeter,
+} from '../components/steampunk/EngineScreens'
+import { EngineFrame, EngineLinePlate } from '../components/steampunk/EngineStageLayers'
 import { LiquidLight } from '../components/LiquidLight'
 import { PSY, psyDyeBleed, psyPoured, psyStroke } from '../styles/psychedelic'
 import { GOTH, gothCusp } from '../styles/gothic'
@@ -1454,199 +1460,6 @@ function ZenUpNext({
     )
 }
 
-// ── Steampunk / Victorian engine-room stage vocabulary ──────────────────────
-// The steampunk stage is a music-hall engine room: cast iron, riveted brass,
-// gaslight, and pressure gauges. The singer's color is treated as LIGHT — an
-// Edison-filament lettering color and an enamel indicator band on machinery —
-// so any color (or combination on shared lines) stays bright on dark iron.
-const STM_BRASS = '#C8973E'
-const STM_COPPER = '#E07040'
-const STM_RUST = '#B84030'
-const STM_PARCH = '#E8DCC8'
-const STM_MID = '#A89878'
-const STM_HEADING = "'Cinzel Decorative', 'Cinzel', serif"
-const STM_SERIF = "'Spectral', Georgia, serif"
-const STM_PLATE_BG = 'linear-gradient(180deg, #262019, #17130e)'
-
-// Shrink the display serif as titles get longer so any length fits the board.
-const stmFitFont = (base: number, text: string, min = 24): string =>
-    stageFont(Math.max(min, Math.round(base - Math.max(0, (text || '').length - 14) * 0.85)))
-
-// Point on a dial: angle in degrees measured clockwise from 12 o'clock.
-const stmPt = (deg: number, r: number, cx = 50, cy = 50): [number, number] => {
-    const rad = (deg * Math.PI) / 180
-    return [cx + Math.sin(rad) * r, cy - Math.cos(rad) * r]
-}
-
-// Toothed gear, spinning forever. Reused across the backdrop, ambience and
-// chrome; teeth/size/speed parametrized so neighbouring gears interlock.
-function SteamGear({ size = 120, color = STM_BRASS, teeth = 12, dur = 30, reverse = false, opacity = 0.08, style }: {
-    size?: number; color?: string; teeth?: number; dur?: number; reverse?: boolean; opacity?: number; style?: React.CSSProperties
-}) {
-    return (
-        <svg
-            width={size} height={size} viewBox="0 0 200 200"
-            style={{ opacity, animation: `${reverse ? 'steamGearSpinReverse' : 'steamGearSpin'} ${dur}s linear infinite`, ...style }}
-        >
-            <circle cx="100" cy="100" r="60" fill="none" stroke={color} strokeWidth="3" />
-            <circle cx="100" cy="100" r="25" fill="none" stroke={color} strokeWidth="2" />
-            <circle cx="100" cy="100" r="8" fill={color} fillOpacity="0.35" />
-            {Array.from({ length: teeth }).map((_, i) => {
-                const a = (i / teeth) * Math.PI * 2
-                return (
-                    <line
-                        key={i}
-                        x1={100 + Math.cos(a) * 60} y1={100 + Math.sin(a) * 60}
-                        x2={100 + Math.cos(a) * 78} y2={100 + Math.sin(a) * 78}
-                        stroke={color} strokeWidth="10" strokeLinecap="round"
-                    />
-                )
-            })}
-        </svg>
-    )
-}
-
-// Pressure gauge. `progress` (0..1) sweeps the copper needle from -120° to
-// +120° with a smooth glide between ticks; the last 30% of the dial is the
-// red zone, so the needle "hits red" right as the song lands.
-function SteamGauge({ size = 90, progress = 0, style }: { size?: number; progress?: number; style?: React.CSSProperties }) {
-    const p = Math.min(1, Math.max(0, progress))
-    const [rx1, ry1] = stmPt(48, 34)
-    const [rx2, ry2] = stmPt(120, 34)
-    return (
-        <svg width={size} height={size} viewBox="0 0 100 100" style={style}>
-            <circle cx="50" cy="50" r="45" fill="#1a1510" stroke={STM_BRASS} strokeWidth="3" />
-            <circle cx="50" cy="50" r="39" fill="none" stroke="rgba(200,151,62,0.25)" strokeWidth="1" />
-            <path d={`M ${rx1} ${ry1} A 34 34 0 0 1 ${rx2} ${ry2}`} fill="none" stroke={STM_RUST} strokeWidth="4" strokeLinecap="round" opacity="0.85" />
-            {Array.from({ length: 9 }).map((_, i) => {
-                const deg = -120 + i * 30
-                const [x1, y1] = stmPt(deg, 34)
-                const [x2, y2] = stmPt(deg, 39)
-                return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={STM_BRASS} strokeWidth="1.6" />
-            })}
-            <line
-                x1="50" y1="50" x2="50" y2="19" stroke={STM_COPPER} strokeWidth="3" strokeLinecap="round"
-                style={{ transformOrigin: '50px 50px', transform: `rotate(${-120 + p * 240}deg)`, transition: 'transform 0.28s linear' }}
-            />
-            <circle cx="50" cy="50" r="4.5" fill={STM_BRASS} />
-        </svg>
-    )
-}
-
-// Four brass corner rivets for iron plates.
-function SteamRivets({ inset = 7 }: { inset?: number }) {
-    const dot: React.CSSProperties = {
-        position: 'absolute', width: 7, height: 7, borderRadius: '50%',
-        background: 'radial-gradient(circle at 35% 30%, #F0DFBE 0%, #C8973E 40%, #6d4f1c 100%)',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.7)',
-    }
-    return (
-        <>
-            <div style={{ ...dot, top: inset, left: inset }} />
-            <div style={{ ...dot, top: inset, right: inset }} />
-            <div style={{ ...dot, bottom: inset, left: inset }} />
-            <div style={{ ...dot, bottom: inset, right: inset }} />
-        </>
-    )
-}
-
-// Brass pipe run with bolted joints and steam wisps rising from them.
-function SteamPipe({ bottom, joints }: { bottom: string; joints: string[] }) {
-    return (
-        <>
-            <div style={{ position: 'absolute', bottom, left: 0, width: '100%', height: 3, background: 'rgba(200,151,62,0.12)' }} />
-            {joints.map((x, i) => (
-                <div key={i} style={{ position: 'absolute', bottom: `calc(${bottom} - 4px)`, left: x, width: 11, height: 11, borderRadius: '50%', border: '1.5px solid rgba(200,151,62,0.2)', background: 'rgba(200,151,62,0.07)' }} />
-            ))}
-            {joints.map((x, i) => (
-                <div key={`w-${i}`} style={{
-                    position: 'absolute', bottom: `calc(${bottom} + 8px)`, left: x, width: 6, height: 6, borderRadius: '50%',
-                    background: 'rgba(212,206,192,0.16)', filter: 'blur(2px)',
-                    animation: `steamPuff 9s ease-out ${i * 2.3}s infinite`,
-                }} />
-            ))}
-        </>
-    )
-}
-
-// Full-bleed engine-room wall behind the Up Next lockup, portaled to <body>
-// so it paints between the blurred album backdrop (z 0) and the lyric/chrome
-// layers (z 10/20) — same trick as the other themed backdrops.
-function SteampunkUpNextBackdrop({ showVideo = false }: { showVideo?: boolean }) {
-    // Over a music video: keep the gaslit-boiler-room mood with a translucent
-    // iron scrim so the brass plates + gauges stay legible while the clip
-    // shows through. Gears, pipes and lanterns stay as framing.
-    const scene = (
-        <div style={{
-            position: 'fixed', inset: 0, zIndex: 2, pointerEvents: 'none', overflow: 'hidden',
-            background: showVideo
-                ? 'linear-gradient(180deg, rgba(14,11,9,0.62) 0%, rgba(20,17,15,0.4) 45%, rgba(16,13,10,0.66) 100%)'
-                : 'linear-gradient(180deg, #0e0b09 0%, #14110F 35%, #1a1510 65%, #100d0a 100%)',
-        }}>
-            <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at center, rgba(200,151,62,0.03) 0%, transparent 50%, rgba(0,0,0,0.45) 100%)' }} />
-            {/* interlocking gear train */}
-            <SteamGear size={290} teeth={12} dur={36} opacity={0.08} style={{ position: 'absolute', top: -70, right: -50 }} />
-            <SteamGear size={170} teeth={8} dur={24} reverse opacity={0.06} color={STM_COPPER} style={{ position: 'absolute', top: 96, right: 170 }} />
-            <SteamGear size={210} teeth={10} dur={30} reverse opacity={0.06} color={STM_COPPER} style={{ position: 'absolute', bottom: -40, left: -30 }} />
-            <SteamGear size={110} teeth={6} dur={18} opacity={0.05} color="#5A9E8F" style={{ position: 'absolute', bottom: 120, left: 150 }} />
-            {/* pipe run with venting joints */}
-            <SteamPipe bottom="16%" joints={['7%', '24%', '46%', '68%', '88%']} />
-            {/* scrollwork corners */}
-            <svg style={{ position: 'absolute', top: 20, left: 20, width: 80, height: 80, opacity: 0.1 }} viewBox="0 0 80 80">
-                <path d="M5 5 Q5 25 15 18 Q28 8 22 22 Q16 36 28 28 Q40 20 34 34" fill="none" stroke={STM_BRASS} strokeWidth="1.2" strokeLinecap="round" />
-                <circle cx="8" cy="8" r="2" fill="rgba(200,151,62,0.4)" />
-            </svg>
-            <svg style={{ position: 'absolute', bottom: 20, right: 20, width: 80, height: 80, opacity: 0.1, transform: 'rotate(180deg)' }} viewBox="0 0 80 80">
-                <path d="M5 5 Q5 25 15 18 Q28 8 22 22 Q16 36 28 28 Q40 20 34 34" fill="none" stroke={STM_BRASS} strokeWidth="1.2" strokeLinecap="round" />
-                <circle cx="8" cy="8" r="2" fill="rgba(200,151,62,0.4)" />
-            </svg>
-            {/* flanking gaslight lanterns */}
-            {(['8%', '92%'] as const).map((left, i) => (
-                <div key={i} style={{ position: 'absolute', top: '18%', left, width: 30, marginLeft: -15 }}>
-                    <div style={{
-                        position: 'absolute', top: 6, left: -20, width: 70, height: 70, borderRadius: '50%', filter: 'blur(4px)',
-                        background: 'radial-gradient(circle, rgba(232,184,76,0.22) 0%, rgba(232,184,76,0.07) 50%, transparent 70%)',
-                        animation: 'steamFlicker 4s ease-in-out infinite',
-                    }} />
-                    <svg width="30" height="50" viewBox="0 0 30 50" style={{ position: 'relative', opacity: 0.35 }}>
-                        <line x1="15" y1="0" x2="15" y2="10" stroke={STM_BRASS} strokeWidth="1.5" />
-                        <rect x="8" y="10" width="14" height="20" rx="2" fill="none" stroke={STM_BRASS} strokeWidth="1.5" />
-                        <ellipse cx="15" cy="22" rx="3" ry="5" fill="rgba(232,184,76,0.55)" style={{ animation: 'steamFlicker 3s ease-in-out infinite' }} />
-                        <line x1="6" y1="30" x2="24" y2="30" stroke={STM_BRASS} strokeWidth="1.5" />
-                    </svg>
-                </div>
-            ))}
-        </div>
-    )
-    return createPortal(scene, document.body)
-}
-
-// Quiet machinery over the LIVE steampunk stage: two faint slow gears in the
-// corners and steam wisps venting along the bottom. Above the art/video (z 0),
-// below the reactions (z 5) and lyrics (z 10).
-function SteamAmbient() {
-    return (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 3, pointerEvents: 'none', overflow: 'hidden' }}>
-            <SteamGear size={240} teeth={12} dur={44} opacity={0.05} style={{ position: 'absolute', top: -60, right: -60 }} />
-            <SteamGear size={170} teeth={8} dur={30} reverse opacity={0.04} color={STM_COPPER} style={{ position: 'absolute', bottom: -50, left: -40 }} />
-            {['12%', '34%', '58%', '80%'].map((x, i) => (
-                <div key={i} style={{
-                    position: 'absolute', bottom: 12, left: x, width: 7, height: 7, borderRadius: '50%',
-                    background: 'rgba(212,206,192,0.13)', filter: 'blur(2.5px)',
-                    animation: `steamPuff ${10 + i * 2}s ease-out ${i * 2.7}s infinite`,
-                }} />
-            ))}
-        </div>
-    )
-}
-
-// ── Steampunk "Up Next" stage screen ────────────────────────────────────────
-// A Victorian programme board in the engine room: gear train + pipe run
-// behind, a gaslit "UP NEXT" masthead, the album art bolted into a riveted
-// brass porthole, the title in candlelit Cinzel (auto-sized to any length),
-// a pipe divider, and each singer on an engraved brass nameplate with a
-// glowing enamel indicator lamp in their color. Everything rises in with a
-// mechanical stagger.
 // ── Psychedelic "Up Next" — the projector bill ──────────────────────────────
 // The song about to play, on the same plate the join screen uses: filled with the
 // liquid-light footage at its own offset, with the artwork punched into a dye-matted ink
@@ -1827,148 +1640,6 @@ function PsyUpNext({
     )
 }
 
-function SteampunkUpNext({
-    theme,
-    art,
-    track,
-    singers,
-    np,
-    roles,
-    guestsMap,
-    showVideo = false,
-}: {
-    theme: any
-    art: string | null
-    track: any
-    singers: any[]
-    np: any
-    roles: string[]
-    guestsMap: Map<string, any>
-    showVideo?: boolean
-}) {
-    const dur = track?.duration_ms
-        ? `${Math.floor(track.duration_ms / 60000)}:${Math.floor((track.duration_ms % 60000) / 1000).toString().padStart(2, '0')}`
-        : ''
-    return (
-        <div className="anim-enter" style={{ width: '100%', maxWidth: 1100, margin: '0 auto', padding: '0 48px', position: 'relative' }}>
-            <SteampunkUpNextBackdrop showVideo={showVideo} />
-            <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
-                {/* Masthead: brass rules + gaslit UP NEXT */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 18, width: 'min(620px, 84%)', animation: 'steam-rise 0.55s ease-out both' }}>
-                    <div style={{ flex: 1, height: 2, background: 'linear-gradient(90deg, transparent, rgba(200,151,62,0.5))', position: 'relative' }}>
-                        <div style={{ position: 'absolute', right: -3, top: -3, width: 8, height: 8, borderRadius: '50%', border: '1.5px solid rgba(200,151,62,0.5)' }} />
-                    </div>
-                    <span style={{
-                        fontFamily: STM_HEADING, fontWeight: 700, fontSize: stageFont(26), letterSpacing: '0.34em', marginRight: '-0.34em',
-                        textTransform: 'uppercase', color: STM_BRASS,
-                        textShadow: '0 0 14px rgba(200,151,62,0.45), 0 0 34px rgba(224,112,64,0.18)',
-                        animation: 'steamFlicker 4s ease-in-out infinite',
-                    }}>
-                        Up Next
-                    </span>
-                    <div style={{ flex: 1, height: 2, background: 'linear-gradient(90deg, rgba(200,151,62,0.5), transparent)', position: 'relative' }}>
-                        <div style={{ position: 'absolute', left: -3, top: -3, width: 8, height: 8, borderRadius: '50%', border: '1.5px solid rgba(200,151,62,0.5)' }} />
-                    </div>
-                </div>
-
-                {/* Album art bolted into a riveted brass porthole */}
-                <div style={{ position: 'relative', animation: 'steam-rise 0.6s ease-out 0.08s both' }}>
-                    <div style={{
-                        position: 'relative', width: 330, height: 330, borderRadius: '50%', padding: 15,
-                        background: 'conic-gradient(from 30deg, #8a6524, #E0B360, #C8973E, #7a5418, #D8AC5A, #8a6524)',
-                        boxShadow: '0 22px 50px rgba(0,0,0,0.6), 0 0 30px rgba(200,151,62,0.18), inset 0 2px 3px rgba(255,235,180,0.5), inset 0 -2px 3px rgba(0,0,0,0.6)',
-                    }}>
-                        {np?.isHidden ? (
-                            <div style={{
-                                width: 300, height: 300, borderRadius: '50%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4,
-                                background: 'radial-gradient(circle at 38% 32%, #2e3d38 0%, #1a2320 60%, #101614 100%)',
-                                boxShadow: 'inset 0 0 40px rgba(0,0,0,0.7)',
-                            }}>
-                                <span style={{ fontFamily: STM_HEADING, fontWeight: 700, fontSize: stageFont(120), color: 'rgba(90,158,143,0.75)', textShadow: '0 0 24px rgba(90,158,143,0.4)', lineHeight: 1 }}>?</span>
-                                <span style={{ fontFamily: STM_SERIF, fontStyle: 'italic', fontSize: stageFont(16), color: STM_MID, letterSpacing: '0.1em' }}>contents under pressure</span>
-                            </div>
-                        ) : art ? (
-                            <img src={art} alt="" style={{ width: 300, height: 300, borderRadius: '50%', objectFit: 'cover', display: 'block', boxShadow: 'inset 0 0 30px rgba(0,0,0,0.6)' }} />
-                        ) : null}
-                        {/* porthole bolts */}
-                        {Array.from({ length: 8 }).map((_, i) => {
-                            const [x, y] = stmPt(i * 45, 157.5, 165, 165)
-                            return (
-                                <div key={i} style={{
-                                    position: 'absolute', left: x - 5, top: y - 5, width: 10, height: 10, borderRadius: '50%',
-                                    background: 'radial-gradient(circle at 35% 30%, #F0DFBE 0%, #C8973E 40%, #5d431a 100%)',
-                                    boxShadow: '0 1px 3px rgba(0,0,0,0.8)',
-                                }} />
-                            )
-                        })}
-                    </div>
-                </div>
-
-                {/* Title + artist + pipe divider */}
-                <div style={{ textAlign: 'center', maxWidth: 940, animation: 'steam-rise 0.6s ease-out 0.16s both' }}>
-                    <h1 style={{
-                        fontFamily: STM_HEADING, fontWeight: 700, lineHeight: 1.14, margin: 0,
-                        fontSize: stmFitFont(52, np?.isHidden ? 'A Mystery Machine' : track.name),
-                        color: STM_PARCH, letterSpacing: '0.03em',
-                        textShadow: '0 0 20px rgba(200,151,62,0.35), 0 0 50px rgba(200,151,62,0.12), 0 2px 0 rgba(0,0,0,0.5)',
-                    }}>
-                        {np?.isHidden ? 'A Mystery Machine' : track.name}
-                    </h1>
-                    {!np?.isHidden && (
-                        <p style={{ fontFamily: STM_SERIF, fontStyle: 'italic', fontWeight: 500, fontSize: stageFont(16), letterSpacing: '0.26em', textTransform: 'uppercase', color: STM_MID, margin: '12px 0 0' }}>
-                            {track.artists.map((a: any) => a.name).join(', ')}{dur ? '  ·  ' + dur : ''}
-                        </p>
-                    )}
-                    <svg width="340" height="14" viewBox="0 0 340 14" style={{ marginTop: 14, opacity: 0.7 }}>
-                        <line x1="0" y1="7" x2="340" y2="7" stroke={STM_BRASS} strokeWidth="2" />
-                        {[60, 170, 280].map((x, i) => (
-                            <circle key={i} cx={x} cy="7" r="4.5" fill="#17130e" stroke={STM_BRASS} strokeWidth="1.5" />
-                        ))}
-                    </svg>
-                </div>
-
-                {/* Singers: engraved brass nameplates with enamel indicator lamps */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 18, maxWidth: 980 }}>
-                    {singers.map((s: any, i: number) => {
-                        const roleStr =
-                            !np?.isHidden && s.roleIndices && s.roleIndices.length > 0 && roles.length > 0
-                                ? s.roleIndices.map((idx: number) => roles[idx]).filter(Boolean).join(' & ')
-                                : ''
-                        const g = s.guestId ? guestsMap.get(s.guestId) : undefined
-                        const nm = g?.name ?? s.name
-                        const pic = g?.profile_picture ?? null
-                        return (
-                            <div key={s.id} style={{
-                                position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 14, padding: '14px 26px',
-                                background: STM_PLATE_BG, borderRadius: 5, border: '2px solid #0c0a07',
-                                boxShadow: `inset 0 0 0 2px ${STM_BRASS}, inset 0 0 16px rgba(0,0,0,0.5), 0 12px 26px rgba(0,0,0,0.55), 0 0 14px color-mix(in srgb, ${s.color}, transparent 65%)`,
-                                animation: `steam-rise 0.55s ease-out ${0.24 + i * 0.07}s both`,
-                            }}>
-                                <SteamRivets />
-                                {pic ? (
-                                    <img src={pic} alt="" style={{ width: 42, height: 42, borderRadius: '50%', objectFit: 'cover', border: `2.5px solid ${s.color}`, boxShadow: `0 0 10px color-mix(in srgb, ${s.color}, transparent 50%)` }} />
-                                ) : (
-                                    <span style={{
-                                        width: 15, height: 15, borderRadius: '50%',
-                                        background: `radial-gradient(circle at 35% 30%, #FFF3D6 0%, ${s.color} 45%, color-mix(in srgb, ${s.color}, #000 45%) 100%)`,
-                                        boxShadow: `0 0 12px ${s.color}`,
-                                    }} />
-                                )}
-                                <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                                    <span style={{ fontFamily: "'Cinzel', serif", fontWeight: 600, fontSize: stageFont(26), color: STM_PARCH, lineHeight: 1.18, textShadow: '0 0 10px rgba(200,151,62,0.25), 0 1px 0 rgba(0,0,0,0.5)' }}>{nm}</span>
-                                    {roleStr && (
-                                        <span style={{ fontFamily: STM_SERIF, fontStyle: 'italic', fontWeight: 500, fontSize: stageFont(12), letterSpacing: '0.2em', textTransform: 'uppercase', color: STM_MID }}>{roleStr}</span>
-                                    )}
-                                </span>
-                            </div>
-                        )
-                    })}
-                </div>
-            </div>
-        </div>
-    )
-}
-
 // ---- Singer Mic Processing Hook ----
 function useSingerMic(deviceId: string, enabled: boolean, effects: any, mainOutputId: string) {
     const [level, setLevel] = useState(0)
@@ -2123,6 +1794,10 @@ function MicMeter({ singer, active, effects, vocalFx = true, autotune = true, ma
     // Gothic: the level is a votive flame beside the singer's glass, not bars.
     if (theme.name === 'gothic') {
         return <GothicMicBody name={displayName} picture={pic} color={singer.color} meter={<GothFlameMeter level={level} color={singer.color} />} />
+    }
+    // Steampunk: the level is a little pressure gauge, its needle climbing as they sing.
+    if (theme.name === 'steampunk') {
+        return <EngineMicBody name={displayName} picture={pic} color={singer.color} meter={<EngineGaugeMeter level={level} color={singer.color} />} />
     }
     // Space: the level is the singer's star, its spikes reaching out as they sing.
     if (theme.name === 'space') {
@@ -3127,176 +2802,12 @@ function IdleStageScreen({ theme, qrUrl, sessionCode }: {
         return <SpaceIdle qrUrl={qrUrl} sessionCode={sessionCode} />
     }
 
-    // ---- Steampunk (Victorian Industrial) idle ----
+    // ---- Steampunk: "The Vox Engine" ----
+    // The engine at rest in its engine house: the join code in a riveted
+    // porthole, gears turning behind it, the room-pressure gauge, the station
+    // clock, pipes venting steam, airships past the windows.
     if (theme.name === 'steampunk') {
-        return (
-            <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
-                background: 'linear-gradient(180deg, #0e0b09 0%, #14110F 35%, #1a1510 65%, #100d0a 100%)',
-                position: 'relative', overflow: 'hidden',
-            }}>
-                {/* Warm vignette */}
-                <div style={{
-                    position: 'absolute', inset: 0,
-                    background: 'radial-gradient(ellipse at center, rgba(200,151,62,0.03) 0%, transparent 50%, rgba(0,0,0,0.4) 100%)',
-                }} />
-
-                {/* Large gear — top right, spinning clockwise */}
-                <svg style={{ position: 'absolute', top: -60, right: -40, width: 280, height: 280, opacity: 0.08, animation: 'steamGearSpin 30s linear infinite' }} viewBox="0 0 200 200">
-                    <circle cx="100" cy="100" r="60" fill="none" stroke="#C8973E" strokeWidth="3" />
-                    <circle cx="100" cy="100" r="25" fill="none" stroke="#C8973E" strokeWidth="2" />
-                    <circle cx="100" cy="100" r="8" fill="rgba(200,151,62,0.3)" />
-                    {Array.from({ length: 12 }).map((_, i) => {
-                        const angle = (i / 12) * Math.PI * 2
-                        const x1 = 100 + Math.cos(angle) * 60
-                        const y1 = 100 + Math.sin(angle) * 60
-                        const x2 = 100 + Math.cos(angle) * 78
-                        const y2 = 100 + Math.sin(angle) * 78
-                        return <line key={`gt-${i}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#C8973E" strokeWidth="10" strokeLinecap="round" />
-                    })}
-                </svg>
-
-                {/* Medium gear — bottom left, counter-clockwise (interlocking ratio) */}
-                <svg style={{ position: 'absolute', bottom: -30, left: -20, width: 200, height: 200, opacity: 0.06, animation: 'steamGearSpinReverse 20s linear infinite' }} viewBox="0 0 200 200">
-                    <circle cx="100" cy="100" r="50" fill="none" stroke="#E07040" strokeWidth="2.5" />
-                    <circle cx="100" cy="100" r="20" fill="none" stroke="#E07040" strokeWidth="1.5" />
-                    <circle cx="100" cy="100" r="6" fill="rgba(224,112,64,0.3)" />
-                    {Array.from({ length: 8 }).map((_, i) => {
-                        const angle = (i / 8) * Math.PI * 2
-                        const x1 = 100 + Math.cos(angle) * 50
-                        const y1 = 100 + Math.sin(angle) * 50
-                        const x2 = 100 + Math.cos(angle) * 65
-                        const y2 = 100 + Math.sin(angle) * 65
-                        return <line key={`gb-${i}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#E07040" strokeWidth="8" strokeLinecap="round" />
-                    })}
-                </svg>
-
-                {/* Small gear — mid left, clockwise */}
-                <svg style={{ position: 'absolute', top: '40%', left: 60, width: 100, height: 100, opacity: 0.05, animation: 'steamGearSpin 15s linear infinite' }} viewBox="0 0 200 200">
-                    <circle cx="100" cy="100" r="45" fill="none" stroke="#5A9E8F" strokeWidth="2" />
-                    <circle cx="100" cy="100" r="15" fill="none" stroke="#5A9E8F" strokeWidth="1.5" />
-                    {Array.from({ length: 6 }).map((_, i) => {
-                        const angle = (i / 6) * Math.PI * 2
-                        const x1 = 100 + Math.cos(angle) * 45
-                        const y1 = 100 + Math.sin(angle) * 45
-                        const x2 = 100 + Math.cos(angle) * 58
-                        const y2 = 100 + Math.sin(angle) * 58
-                        return <line key={`gs-${i}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#5A9E8F" strokeWidth="7" strokeLinecap="round" />
-                    })}
-                </svg>
-
-                {/* Steam pipe network — horizontal pipes with joints */}
-                <svg style={{ position: 'absolute', bottom: '25%', left: 0, width: '100%', height: 4, opacity: 0.1 }} preserveAspectRatio="none">
-                    <line x1="0" y1="2" x2="100%" y2="2" stroke="#C8973E" strokeWidth="3" />
-                </svg>
-                {[80, 250, 450, 650, 850].map((x, i) => (
-                    <div key={`joint-${i}`} style={{
-                        position: 'absolute', bottom: 'calc(25% - 4px)', left: x, width: 10, height: 10,
-                        borderRadius: '50%', border: '1.5px solid rgba(200,151,62,0.15)',
-                        background: 'rgba(200,151,62,0.06)',
-                    }} />
-                ))}
-
-                {/* Vertical pipe */}
-                <div style={{ position: 'absolute', top: 0, right: '22%', width: 3, height: '25%', background: 'rgba(200,151,62,0.08)' }} />
-                <div style={{ position: 'absolute', top: 0, right: 'calc(22% - 3px)', width: 8, height: 8, borderRadius: '50%', border: '1.5px solid rgba(200,151,62,0.12)', background: 'rgba(200,151,62,0.04)', marginTop: 'calc(25% - 4px)' }} />
-
-                {/* Pressure gauge — SVG */}
-                <svg style={{ position: 'absolute', top: '15%', right: '10%', width: 80, height: 80, opacity: 0.12 }} viewBox="0 0 100 100">
-                    <circle cx="50" cy="50" r="42" fill="none" stroke="#C8973E" strokeWidth="2" />
-                    <circle cx="50" cy="50" r="38" fill="none" stroke="rgba(200,151,62,0.3)" strokeWidth="0.5" />
-                    {/* Tick marks */}
-                    {Array.from({ length: 8 }).map((_, i) => {
-                        const angle = (i / 8) * Math.PI * 2 - Math.PI / 2
-                        const x1 = 50 + Math.cos(angle) * 35
-                        const y1 = 50 + Math.sin(angle) * 35
-                        const x2 = 50 + Math.cos(angle) * 40
-                        const y2 = 50 + Math.sin(angle) * 40
-                        return <line key={`tick-${i}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#C8973E" strokeWidth="1.5" />
-                    })}
-                    {/* Needle */}
-                    <line x1="50" y1="50" x2="50" y2="15" stroke="#E07040" strokeWidth="1.5" strokeLinecap="round" style={{ transformOrigin: '50px 50px', animation: 'steamNeedle 4s ease-in-out infinite' }} />
-                    <circle cx="50" cy="50" r="4" fill="#C8973E" />
-                </svg>
-
-                {/* Steam puffs rising from pipe joints */}
-                {[
-                    { x: 83, delay: 0 }, { x: 253, delay: 3 }, { x: 453, delay: 7 }, { x: 853, delay: 5 },
-                ].map((p, i) => (
-                    <div key={`puff-${i}`} style={{
-                        position: 'absolute', bottom: 'calc(25% + 8px)', left: p.x,
-                        width: 6, height: 6, borderRadius: '50%',
-                        background: 'rgba(212,206,192,0.15)',
-                        filter: 'blur(2px)',
-                        animation: `steamPuff 8s ease-out ${p.delay}s infinite`,
-                    }} />
-                ))}
-
-                {/* Victorian scrollwork corners */}
-                <svg style={{ position: 'absolute', top: 20, left: 20, width: 80, height: 80, opacity: 0.1 }} viewBox="0 0 80 80">
-                    <path d="M5 5 Q5 25 15 18 Q28 8 22 22 Q16 36 28 28 Q40 20 34 34" fill="none" stroke="#C8973E" strokeWidth="1.2" strokeLinecap="round" />
-                    <circle cx="8" cy="8" r="2" fill="rgba(200,151,62,0.4)" />
-                </svg>
-                <svg style={{ position: 'absolute', bottom: 20, right: 20, width: 80, height: 80, opacity: 0.1, transform: 'rotate(180deg)' }} viewBox="0 0 80 80">
-                    <path d="M5 5 Q5 25 15 18 Q28 8 22 22 Q16 36 28 28 Q40 20 34 34" fill="none" stroke="#C8973E" strokeWidth="1.2" strokeLinecap="round" />
-                    <circle cx="8" cy="8" r="2" fill="rgba(200,151,62,0.4)" />
-                </svg>
-
-                {/* Gaslight lantern — top center */}
-                <svg style={{ position: 'absolute', top: 30, left: '50%', transform: 'translateX(-50%)', width: 30, height: 50, opacity: 0.15 }} viewBox="0 0 30 50">
-                    {/* Hook */}
-                    <line x1="15" y1="0" x2="15" y2="10" stroke="#C8973E" strokeWidth="1.5" />
-                    {/* Lantern body */}
-                    <rect x="8" y="10" width="14" height="20" rx="2" fill="none" stroke="#C8973E" strokeWidth="1.5" />
-                    {/* Flame glow */}
-                    <ellipse cx="15" cy="22" rx="3" ry="5" fill="rgba(232,184,76,0.4)" style={{ animation: 'steamFlicker 3s ease-in-out infinite' }} />
-                    {/* Bottom cap */}
-                    <line x1="6" y1="30" x2="24" y2="30" stroke="#C8973E" strokeWidth="1.5" />
-                    <line x1="10" y1="30" x2="10" y2="34" stroke="#C8973E" strokeWidth="1" />
-                    <line x1="20" y1="30" x2="20" y2="34" stroke="#C8973E" strokeWidth="1" />
-                </svg>
-
-                {/* Content */}
-                <div style={{ textAlign: 'center', zIndex: 2 }}>
-                    <h1 style={{
-                        fontFamily: "'Cinzel Decorative', serif", fontSize: stageFont(52), color: '#E8DCC8',
-                        fontWeight: 400, lineHeight: 1.2, marginBottom: 8,
-                        textShadow: '0 0 20px rgba(200,151,62,0.35), 0 0 50px rgba(200,151,62,0.12), 0 0 80px rgba(224,112,64,0.06)',
-                        letterSpacing: '0.06em',
-                    }}>
-                        Queue a Tune
-                    </h1>
-                    <p style={{
-                        fontFamily: "'Spectral', serif", fontSize: stageFont(16), color: '#A89878',
-                        letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: 48,
-                        fontStyle: 'italic',
-                    }}>
-                        Scan to power the engine
-                    </p>
-                    {qrUrl && (
-                        <div style={{
-                            display: 'inline-block', padding: 14,
-                            border: '2px solid rgba(200,151,62,0.3)',
-                            borderImage: 'repeating-linear-gradient(90deg, transparent 0px, transparent 14px, rgba(200,151,62,0.4) 14px, rgba(200,151,62,0.4) 18px, transparent 18px, transparent 32px) 1',
-                            background: 'rgba(20,17,15,0.8)',
-                            backdropFilter: 'blur(12px)',
-                            borderRadius: 4,
-                        }}>
-                            <img src={qrUrl} alt="QR" style={{ width: 210, height: 210, display: 'block', borderRadius: 2 }} />
-                        </div>
-                    )}
-                    {sessionCode && (
-                        <p style={{
-                            fontFamily: "'Cinzel', serif", fontSize: stageFont(26), fontWeight: 600,
-                            color: '#C8973E', letterSpacing: '0.35em', textTransform: 'uppercase', marginTop: 20,
-                            textShadow: '0 0 15px rgba(200,151,62,0.3)',
-                        }}>
-                            {sessionCode}
-                        </p>
-                    )}
-                </div>
-            </div>
-        )
+        return <EngineIdle qrUrl={qrUrl} sessionCode={sessionCode} />
     }
 
     // ---- Retrowave (80s Synthwave) idle ----
@@ -3991,19 +3502,28 @@ function noticeSkin(theme: Theme): NoticeSkin {
                 }}>唄</span>
             )
             break
-        // Riveted brass plate bolted to the engine-room wall.
+        // A deep green enamel nameplate in a riveted brass frame; the art in a
+        // little brass porthole ring.
         case 'steampunk':
             skin.card = {
-                ...skin.card, background: STM_PLATE_BG, border: `2px solid ${STM_BRASS}`, borderRadius: 4,
-                boxShadow: `0 24px 52px rgba(0,0,0,0.7), inset 0 1px 0 rgba(232,220,200,0.12), 0 0 22px -8px ${STM_COPPER}`,
-                padding: '16px 26px 16px 16px',
+                ...skin.card,
+                background: `linear-gradient(180deg, ${ST.ENAMEL_HI} 0%, ${ST.ENAMEL} 45%, ${ST.ENAMEL_LO} 100%) padding-box`,
+                borderStyle: 'solid', borderColor: 'transparent', borderWidth: 18,
+                borderImage: 'var(--st-frame) 48 round', borderRadius: 0,
+                boxShadow: '0 26px 56px rgba(0,0,0,0.7)',
             }
-            skin.label = { ...skin.label, fontFamily: STM_HEADING, color: STM_BRASS, letterSpacing: '0.3em' }
-            skin.title = { ...skin.title, fontFamily: STM_SERIF, color: STM_PARCH, fontWeight: 600, textTransform: 'none' }
-            skin.meta = { ...skin.meta, fontFamily: STM_SERIF, fontStyle: 'italic', color: STM_MID }
-            skin.art = { ...skin.art, borderRadius: 2, border: `1.5px solid ${STM_BRASS}88`, boxShadow: '0 8px 20px rgba(0,0,0,0.6)' }
-            skin.rule = `${STM_BRASS}66`
-            skin.decor = <SteamRivets inset={6} />
+            skin.label = { ...skin.label, fontFamily: ST.FONT_BODY, fontWeight: 700, fontSize: stageFont(12), letterSpacing: '0.32em', textTransform: 'uppercase', color: ST.BRASS_HI }
+            skin.title = { ...skin.title, fontFamily: ST.FONT_DISPLAY, fontWeight: 400, color: ST.PARCHMENT, textTransform: 'none', letterSpacing: '0.01em', textShadow: '0 2px 0 rgba(0,0,0,0.6)' }
+            skin.meta = { ...skin.meta, fontFamily: ST.FONT_BODY, fontStyle: 'italic', color: ST.PARCHMENT_DIM }
+            skin.art = { ...skin.art, borderRadius: '50%', border: 'none', boxShadow: `0 0 0 4px ${ST.BRASS}, 0 0 0 6px ${ST.BRASS_LO}, 0 10px 22px rgba(0,0,0,0.7)` }
+            skin.chip = (color: string) => ({
+                border: `1px solid ${ST.BRASS_DEEP}`,
+                background: 'rgba(12,9,7,0.7)', color: ST.PARCHMENT,
+                borderRadius: 99, fontFamily: ST.FONT_DISPLAY, fontWeight: 400,
+                boxShadow: `inset 3px 0 0 ${color}`,
+            })
+            skin.rule = 'rgba(201,161,90,0.3)'
+            skin.decor = null
             break
         // Bamboo-framed beach sign on sun-warmed sand.
         case 'tropical':
@@ -5080,20 +4600,9 @@ export default function KaraokePage() {
             </div>
         </div>
         ) : theme.name === 'steampunk' ? (
-        <div style={{ position: 'fixed', top: 'calc(100vh - 182px)', left: 80, zIndex: 9999 }}>
-            {/* A riveted brass ticket plate at the box-office window */}
-            <div className="k-qr-card" style={{
-                position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-                background: STM_PLATE_BG, border: '2px solid #0c0a07', borderRadius: 5,
-                padding: '13px 13px 8px',
-                boxShadow: `inset 0 0 0 2px ${STM_BRASS}, inset 0 0 14px rgba(0,0,0,0.5), 0 12px 28px rgba(0,0,0,0.6), 0 0 16px rgba(200,151,62,0.12)`,
-            }}>
-                <SteamRivets inset={5} />
-                <img src={state.karaokeQrDataUrl} alt="QR" style={{ width: 80, height: 80, display: 'block', borderRadius: 3 }} />
-                <span style={{ fontFamily: STM_HEADING, fontWeight: 700, fontSize: 10, letterSpacing: '0.34em', marginRight: '-0.34em', textTransform: 'uppercase', color: STM_BRASS, textShadow: '0 0 8px rgba(200,151,62,0.4)' }}>
-                    Join
-                </span>
-            </div>
+        // A small brass porthole in the corner, the join code inside.
+        <div style={{ position: 'fixed', top: 'calc(100vh - 236px)', left: 34, zIndex: 9999 }}>
+            <EngineQrCard qr={state.karaokeQrDataUrl} />
         </div>
         ) : (
         <div style={{
@@ -5489,63 +4998,21 @@ export default function KaraokePage() {
             )
         }
 
-        // ── Steampunk: BUILDING PRESSURE — a riveted iron plate. The gauge
-        // needle sweeps into the red as the first line approaches, Cinzel
-        // numbers punch in like a metal press, and a copper pressure tube
-        // fills below. "FULL STEAM!" fires as the song lands. ──
+        // ── Steampunk: building pressure. The gauge needle climbs over the
+        // count, the numerals are struck like dies, and "Full steam!" blows
+        // the engine off. ──
         if (theme.name === 'steampunk') {
-            let sCenter: React.ReactNode
-            const sNum = (label: string, key: string | number, size = 70) => (
-                <div key={key} style={{
-                    fontFamily: STM_HEADING, fontWeight: 700, fontSize: stageFont(size), lineHeight: 1.08,
-                    color: '#F0DFBE',
-                    textShadow: '0 0 14px rgba(200,151,62,0.55), 0 0 34px rgba(224,112,64,0.3), 0 2px 0 rgba(0,0,0,0.5)',
-                    animation: 'steam-stamp 0.4s ease-out both', marginTop: 4,
-                }}>
-                    {label}
-                </div>
-            )
-            if (remaining <= 0) sCenter = sNum('FULL STEAM!', 'go', 38)
-            else if (count <= 3) sCenter = sNum(String(count))
-            else {
-                sCenter = (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginTop: 14 }}>
-                        <NbNote size={22} color={STM_BRASS} />
-                        <span style={{ fontFamily: STM_SERIF, fontStyle: 'italic', fontWeight: 600, fontSize: stageFont(23), color: STM_PARCH, maxWidth: 480, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {track.name}
-                        </span>
-                    </div>
-                )
-            }
             return (
-                <div ref={countInRef} className={exitCls} style={{ display: 'flex', justifyContent: 'center', width: '100%', margin: '11vh 0 5vh' }}>
-                    <div style={{ position: 'relative', animation: 'steam-rise 0.5s ease-out both' }}>
-                        <div style={{
-                            position: 'relative', display: 'flex', alignItems: 'center', gap: 26, padding: '22px 34px',
-                            background: STM_PLATE_BG, borderRadius: 6, border: '2px solid #0c0a07',
-                            boxShadow: `inset 0 0 0 2px ${STM_BRASS}, inset 0 0 24px rgba(0,0,0,0.5), 0 16px 44px rgba(0,0,0,0.6), 0 0 26px rgba(200,151,62,0.18)`,
-                        }}>
-                            <SteamRivets />
-                            <SteamGauge size={92} progress={barPct / 100} />
-                            <div style={{ minWidth: 300, textAlign: 'center' }}>
-                                <p style={{ margin: 0, fontFamily: STM_HEADING, fontWeight: 700, fontSize: stageFont(13), letterSpacing: '0.42em', marginRight: '-0.42em', textTransform: 'uppercase', color: STM_BRASS, textShadow: '0 0 10px rgba(200,151,62,0.4)' }}>
-                                    Building Pressure
-                                </p>
-                                {sCenter}
-                                <div style={{
-                                    marginTop: 14, height: 8, borderRadius: 999, position: 'relative', overflow: 'hidden',
-                                    background: '#0d0a07', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.8), 0 1px 0 rgba(200,151,62,0.25)',
-                                }}>
-                                    <div style={{
-                                        position: 'absolute', top: 0, bottom: 0, left: 0, width: `${barPct}%`, borderRadius: 999,
-                                        background: `linear-gradient(90deg, ${STM_BRASS}, ${STM_COPPER} 70%, ${STM_RUST})`,
-                                        boxShadow: '0 0 10px rgba(224,112,64,0.6)', transition: 'width 0.28s linear',
-                                    }} />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <EngineCountIn
+                    remaining={remaining}
+                    count={count}
+                    barPct={barPct}
+                    trackName={track.name}
+                    art={art ?? null}
+                    className={exitCls}
+                    innerRef={countInRef}
+                    stageFont={stageFont}
+                />
             )
         }
 
@@ -5734,8 +5201,9 @@ export default function KaraokePage() {
             {/* Zen ambience — drifting petals + low mist over the live stage */}
             {theme.name === 'zen' && state.stageMode === 'playing' && <ZenAmbient />}
 
-            {/* Steampunk ambience — faint corner gears + venting steam wisps */}
-            {theme.name === 'steampunk' && state.stageMode === 'playing' && <SteamAmbient />}
+            {/* Steampunk: the machine around the edges of the screen, its gears
+                and gauge driven by the room's voice. */}
+            {theme.name === 'steampunk' && state.stageMode === 'playing' && <EngineFrame video={!!ytId} />}
 
             {/* Gothic: the great arch we watch through, a watcher at the edge,
                 candles at the column bases and fog on the floor */}
@@ -5784,7 +5252,12 @@ export default function KaraokePage() {
                     <BarbieSongChip art={art} title={track.name} artist={track.artists.map((a: any) => a.name).join(', ')} />
                 </div>
             )}
-            {!(np?.isHidden && state.stageMode === 'ready') && theme.name !== 'gothic' && theme.name !== 'barbie' && theme.name !== 'space' && (
+            {!(np?.isHidden && state.stageMode === 'ready') && theme.name === 'steampunk' && (
+                <div className="k-song-chip" style={{ position: 'absolute', opacity: 1, top: 26, left: 30 }}>
+                    <EngineSongChip art={art} title={track.name} artist={track.artists.map((a: any) => a.name).join(', ')} />
+                </div>
+            )}
+            {!(np?.isHidden && state.stageMode === 'ready') && theme.name !== 'gothic' && theme.name !== 'barbie' && theme.name !== 'space' && theme.name !== 'steampunk' && (
             <div className="k-song-chip" style={{
                 background: theme.appBg, ...theme.stickerLabel, position: 'absolute', opacity: 1,
                 ...(theme.name === 'psychedelic' ? {
@@ -5844,19 +5317,7 @@ export default function KaraokePage() {
                     maxWidth: 'min(38vw, 520px)',
                     animation: 'zen-scroll-in 0.5s ease-out both',
                 } as React.CSSProperties : {}),
-                ...(theme.name === 'steampunk' ? {
-                    background: 'rgba(23,19,14,0.88)',
-                    border: '1px solid #0c0a07',
-                    boxShadow: `inset 0 0 0 1.5px rgba(200,151,62,0.55), inset 0 0 12px rgba(0,0,0,0.5), 0 10px 26px rgba(0,0,0,0.55)`,
-                    borderRadius: 4,
-                    backdropFilter: 'blur(16px)',
-                    color: '#E8DCC8',
-                    textTransform: 'none',
-                    letterSpacing: 'normal',
-                    textShadow: 'none',
-                    maxWidth: 'min(38vw, 520px)',
-                    animation: 'steam-rise 0.5s ease-out both',
-                } : theme.name === 'retrowave' ? {
+                ...(theme.name === 'retrowave' ? {
                     background: 'rgba(10,6,20,0.88)',
                     border: '1px solid rgba(255,45,149,0.25)',
                     boxShadow: '0 0 10px rgba(255,45,149,0.08), 0 0 20px rgba(0,191,255,0.04)',
@@ -5866,11 +5327,11 @@ export default function KaraokePage() {
                 } : {}),
             }}>
                 {art && <img className="k-song-chip__art" src={art} alt="" style={
-                    theme.name === 'neo-brutal' ? { borderRadius: 0, border: `2.5px solid ${NB_INK}`, boxShadow: 'none' } : theme.name === 'urban' ? { borderRadius: 0, clipPath: 'polygon(8% 0, 100% 0, 92% 100%, 0 100%)', boxShadow: 'none' } : theme.name === 'zen' ? { borderRadius: 8, border: '1px solid rgba(201,168,76,0.35)', boxShadow: '0 4px 14px rgba(0,0,0,0.5)' } : theme.name === 'steampunk' ? { boxShadow: '0 0 10px rgba(200,151,62,0.15), 0 6px 20px rgba(0,0,0,0.5)', borderRadius: 3, border: '1px solid rgba(200,151,62,0.2)' } : theme.name === 'retrowave' ? { boxShadow: '0 0 10px rgba(255,45,149,0.15), 0 6px 20px rgba(0,0,0,0.5)', borderRadius: 4, border: '1px solid rgba(255,45,149,0.15)' } : {}
+                    theme.name === 'neo-brutal' ? { borderRadius: 0, border: `2.5px solid ${NB_INK}`, boxShadow: 'none' } : theme.name === 'urban' ? { borderRadius: 0, clipPath: 'polygon(8% 0, 100% 0, 92% 100%, 0 100%)', boxShadow: 'none' } : theme.name === 'zen' ? { borderRadius: 8, border: '1px solid rgba(201,168,76,0.35)', boxShadow: '0 4px 14px rgba(0,0,0,0.5)' } : theme.name === 'retrowave' ? { boxShadow: '0 0 10px rgba(255,45,149,0.15), 0 6px 20px rgba(0,0,0,0.5)', borderRadius: 4, border: '1px solid rgba(255,45,149,0.15)' } : {}
                 } />}
-                <div className="k-song-chip__text" style={theme.name === 'neo-brutal' || theme.name === 'urban' || theme.name === 'zen' || theme.name === 'steampunk' ? { minWidth: 0 } : {}}>
-                    <h3 style={{ fontFamily: theme.fontDisplay, ...(theme.name === 'neo-brutal' ? { color: NB_INK, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'urban' ? { color: '#FFFFFF', fontFamily: URB_STENCIL, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'zen' ? { color: '#F5EBD8', fontFamily: ZEN_SERIF, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'steampunk' ? { color: '#E8DCC8', fontFamily: "'Cinzel', serif", fontWeight: 600, textShadow: '0 0 10px rgba(200,151,62,0.25), 0 1px 0 rgba(0,0,0,0.5)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'retrowave' ? { color: '#F0E6FF', textShadow: '0 0 10px rgba(255,45,149,0.25)' } : {}) }}>{track.name}</h3>
-                    <p style={{ color: theme.muted, ...(theme.name === 'neo-brutal' ? { color: '#555555', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'urban' ? { color: URB_ASH, fontFamily: URB_STENCIL, fontWeight: 300, letterSpacing: '0.18em', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'zen' ? { color: ZEN_WASHI_DIM, fontFamily: ZEN_SANS, fontWeight: 500, letterSpacing: '0.14em', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'steampunk' ? { color: '#A89878', fontStyle: 'italic', letterSpacing: '0.12em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'retrowave' ? { color: '#9B8CBF' } : {}) }}>{track.artists.map((a: any) => a.name).join(', ')}</p>
+                <div className="k-song-chip__text" style={theme.name === 'neo-brutal' || theme.name === 'urban' || theme.name === 'zen' ? { minWidth: 0 } : {}}>
+                    <h3 style={{ fontFamily: theme.fontDisplay, ...(theme.name === 'neo-brutal' ? { color: NB_INK, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'urban' ? { color: '#FFFFFF', fontFamily: URB_STENCIL, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'zen' ? { color: '#F5EBD8', fontFamily: ZEN_SERIF, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'retrowave' ? { color: '#F0E6FF', textShadow: '0 0 10px rgba(255,45,149,0.25)' } : {}) }}>{track.name}</h3>
+                    <p style={{ color: theme.muted, ...(theme.name === 'neo-brutal' ? { color: '#555555', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'urban' ? { color: URB_ASH, fontFamily: URB_STENCIL, fontWeight: 300, letterSpacing: '0.18em', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'zen' ? { color: ZEN_WASHI_DIM, fontFamily: ZEN_SANS, fontWeight: 500, letterSpacing: '0.14em', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'retrowave' ? { color: '#9B8CBF' } : {}) }}>{track.artists.map((a: any) => a.name).join(', ')}</p>
                 </div>
             </div>
             )}
@@ -5879,7 +5340,7 @@ export default function KaraokePage() {
             {singers.length > 0 && (
                 <div className="k-singers" style={{ opacity: 1, flexDirection: 'column', alignItems: 'flex-end', ...(theme.name === 'barbie' && state.stageMode === 'ready' ? { top: 'calc(14.5vh + 8px)' } : {}) }}>
                     {singers.map((s: any, singerIdx: number) => {
-                        const spaceSingerStyle = theme.name === 'gothic' || theme.name === 'barbie' || theme.name === 'space' ? {
+                        const spaceSingerStyle = theme.name === 'gothic' || theme.name === 'barbie' || theme.name === 'space' || theme.name === 'steampunk' ? {
                             // The plaque is drawn by GothicSingerPlaque inside; the tag
                             // itself is only a positioned slot.
                             background: 'transparent',
@@ -5939,17 +5400,6 @@ export default function KaraokePage() {
                             letterSpacing: 'normal',
                             textShadow: 'none',
                             animation: `zen-scroll-in 0.5s ease-out ${singerIdx * 0.08}s both`,
-                        } as React.CSSProperties : theme.name === 'steampunk' ? {
-                            background: 'rgba(23,19,14,0.88)',
-                            border: '1px solid #0c0a07',
-                            borderRadius: 4,
-                            backdropFilter: 'blur(16px)',
-                            boxShadow: `inset 0 0 0 1.5px rgba(200,151,62,0.5), inset 0 0 10px rgba(0,0,0,0.5), 0 8px 20px rgba(0,0,0,0.5), 0 0 10px color-mix(in srgb, ${s.color}, transparent 65%)`,
-                            color: '#E8DCC8',
-                            textTransform: 'none',
-                            letterSpacing: 'normal',
-                            textShadow: 'none',
-                            animation: `steam-rise 0.5s ease-out ${singerIdx * 0.08}s both`,
                         } as React.CSSProperties : theme.name === 'retrowave' ? {
                             background: 'rgba(10,6,20,0.88)',
                             border: '1px solid rgba(255,45,149,0.25)',
@@ -5989,6 +5439,10 @@ export default function KaraokePage() {
                                         <SpaceSingerTag color={s.color} index={singerIdx}>
                                             <MicMeter singer={s} active={micActive} effects={singerEffects} vocalFx={vocalFx} autotune={autotune} mainOutputId={state.mainOutputId} theme={theme} />
                                         </SpaceSingerTag>
+                                    ) : theme.name === 'steampunk' ? (
+                                        <EngineSingerTag color={s.color} index={singerIdx}>
+                                            <MicMeter singer={s} active={micActive} effects={singerEffects} vocalFx={vocalFx} autotune={autotune} mainOutputId={state.mainOutputId} theme={theme} />
+                                        </EngineSingerTag>
                                     ) : (
                                         <MicMeter singer={s} active={micActive} effects={singerEffects} vocalFx={vocalFx} autotune={autotune} mainOutputId={state.mainOutputId} theme={theme} />
                                     )}
@@ -6015,6 +5469,10 @@ export default function KaraokePage() {
                                         <SpaceSingerTag color={s.color} index={singerIdx}>
                                             <SpaceMicBody name={tagGuest?.name ?? s.name} picture={tagGuest?.profile_picture ?? null} color={s.color} meter={null} />
                                         </SpaceSingerTag>
+                                    ) : theme.name === 'steampunk' ? (
+                                        <EngineSingerTag color={s.color} index={singerIdx}>
+                                            <EngineMicBody name={tagGuest?.name ?? s.name} picture={tagGuest?.profile_picture ?? null} color={s.color} meter={null} />
+                                        </EngineSingerTag>
                                     ) : (
                                         <>
                                             <span style={{ color: 'inherit', fontFamily: theme.fontDisplay }}>{tagGuest?.name ?? s.name}</span>
@@ -6058,7 +5516,8 @@ export default function KaraokePage() {
                   ) : theme.name === 'zen' ? (
                     <ZenUpNext theme={theme} art={art} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} showVideo={showVideoBehindArt} />
                   ) : theme.name === 'steampunk' ? (
-                    <SteampunkUpNext theme={theme} art={art} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} showVideo={showVideoBehindArt} />
+                    // The next song in the engine's porthole, its singers at the controls.
+                    <EngineUpNext art={art ?? null} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} showVideo={showVideoBehindArt && ytVisible} />
                   ) : theme.name === 'psychedelic' ? (
                     <PsyUpNext theme={theme} art={art} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} />
                   ) : theme.name === 'gothic' ? (
@@ -6197,19 +5656,7 @@ export default function KaraokePage() {
                             </UrbanSprayPlate>
                         </div>
                     ) : theme.name === 'steampunk' ? (
-                        <div style={{ textAlign: 'center', animation: 'steam-rise 0.55s ease-out both' }}>
-                            <div style={{
-                                position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 18, padding: '20px 36px',
-                                background: STM_PLATE_BG, borderRadius: 6, border: '2px solid #0c0a07',
-                                boxShadow: `inset 0 0 0 2px ${STM_BRASS}, inset 0 0 18px rgba(0,0,0,0.5), 0 16px 40px rgba(0,0,0,0.6), 0 0 22px rgba(200,151,62,0.15)`,
-                            }}>
-                                <SteamRivets />
-                                <NbNote size={26} color={STM_BRASS} />
-                                <span style={{ fontFamily: STM_SERIF, fontStyle: 'italic', fontWeight: 600, fontSize: stageFont(25), color: STM_PARCH, textShadow: '0 0 12px rgba(200,151,62,0.25)' }}>
-                                    No libretto. Improvise!
-                                </span>
-                            </div>
-                        </div>
+                        <EngineNoLyrics stageFont={stageFont} />
                     ) : theme.name === 'gothic' ? (
                         <GothicNoLyrics stageFont={stageFont} />
                     ) : theme.name === 'barbie' ? (
@@ -6263,6 +5710,10 @@ export default function KaraokePage() {
                                     // star colours a shared line lights singer by singer.
                                     let spPlate = false
                                     let spStars: string[] | null = null
+                                    // Steampunk only: the engine nameplate behind the active
+                                    // line, and the colours a shared line heats singer by singer.
+                                    let stPlate = false
+                                    let stTints: string[] | null = null
                                     let lineDataText: string | undefined
                                     let inlineStyle: React.CSSProperties = {
                                         fontFamily: theme.fontDisplay
@@ -6523,43 +5974,28 @@ export default function KaraokePage() {
                                                 inlineStyle.color = SP.STAR
                                             }
                                         } else if (theme.name === 'steampunk') {
-                                            // Illuminated engine nameplate: the riveted brass frame stays
-                                            // (plate classes in steampunk.ts), but the face is dark iron —
-                                            // singer colors become LIGHT, not paint. An enamel indicator
-                                            // band runs along the top edge (hard-split segments per singer
-                                            // on shared lines, butted like machine enamel), and the letters
-                                            // are Edison filaments: each word ignites in the singer's color
-                                            // mixed toward warm white so ANY color glows on iron. The plate
-                                            // halo breathes in the singer's color via --stm-glow; box-shadow
-                                            // stays OUT of the inline style so the CSS animation wins.
-                                            cls += ' k-line--steampunk k-line--steampunk-active k-line--steampunk-plate'
-                                            const sColors = activeColors.length > 1 ? activeColors : [activeSingerColor]
-                                            const sBand = sColors.length > 1
-                                                ? sColors.map((c: string, k: number) => `${c} ${(k / sColors.length) * 100}% ${((k + 1) / sColors.length) * 100}%`).join(', ')
-                                                : `${sColors[0]}, ${sColors[0]}`
-                                            const sHasSyls = !!(line.syllables && line.syllables.length > 0)
-                                            if (!sHasSyls) {
-                                                // Copper pressure tube tracing the line's real duration
-                                                // along the plate's bottom edge (LRC-only songs).
-                                                const sNextStart = groupedLyrics[i + 1]?.[0]?.startTimeMs
-                                                const sLineDur = typeof sNextStart === 'number' ? sNextStart - group[0].startTimeMs : 0
-                                                if (sLineDur > 1200) {
-                                                    cls += ' k-line--steampunk-timed'
-                                                    inlineStyle['--nb-line-dur'] = `${sLineDur}ms`
-                                                }
+                                            // ── The engine nameplate ─────────────────────
+                                            // The plate (EngineLinePlate, injected as the first
+                                            // child) is deep green enamel in a riveted brass frame.
+                                            // Its letters are cold until sung; each syllable then
+                                            // heats in its singer's colour and a puff of steam
+                                            // chuffs off it (VOX ENGINE STAGE in karaoke.css). A
+                                            // shared line heats singer by singer.
+                                            cls += ' k-line--st'
+                                            const stColors = activeColors.length > 1 ? activeColors : [activeSingerColor]
+                                            const stVars = inlineStyle as Record<string, string>
+                                            stPlate = true
+                                            stTints = stColors
+                                            inlineStyle.background = 'transparent'
+                                            inlineStyle.padding = '0.2em 0.6em 0.24em'
+                                            inlineStyle.textShadow = 'none'
+                                            stVars['--st-tint'] = stColors[0]
+                                            if (!(line.syllables && line.syllables.length > 0)) {
+                                                // No syllable timing: the whole line heats at once.
+                                                cls += ' k-line--st-full'
+                                            } else {
+                                                inlineStyle.color = ST.PARCHMENT
                                             }
-                                            inlineStyle.background = undefined
-                                            inlineStyle.backgroundColor = '#221c14'
-                                            inlineStyle.backgroundImage = `linear-gradient(90deg, ${sBand}), linear-gradient(180deg, rgba(255,235,190,0.07) 0%, rgba(0,0,0,0.28) 100%)`
-                                            inlineStyle.backgroundSize = '100% 0.12em, 100% 100%'
-                                            inlineStyle.backgroundRepeat = 'no-repeat'
-                                            inlineStyle.backgroundPosition = 'left top, left top'
-                                            inlineStyle.color = sColors.length > 1
-                                                ? '#F2E6CC'
-                                                : `color-mix(in srgb, ${sColors[0]}, #F5E9D0 45%)`
-                                            inlineStyle.textShadow = `0 0 0.3em color-mix(in srgb, ${sColors[0]}, transparent 55%), 0 0.03em 0 rgba(0,0,0,0.55)`
-                                            inlineStyle.padding = '0.24em 0.9em 0.22em'
-                                            inlineStyle['--stm-glow'] = `color-mix(in srgb, ${sColors[0]}, transparent 55%)`
                                         } else if (theme.name === 'retrowave') {
                                             // Override the singer-color line bg with a deep synthwave
                                             // night gradient. Retrowave needs a dark void for the neon
@@ -6740,9 +6176,17 @@ export default function KaraokePage() {
                                             // over album art or a bright music video.
                                             inlineStyle.textShadow = '0 0.05em 0.4em rgba(8, 6, 4, 0.8)'
                                         } else if (theme.name === 'steampunk') {
-                                            // Soot shadow: keeps singer-colored type legible over
-                                            // the warm sepia backdrop or a bright music video.
-                                            inlineStyle.textShadow = '0 0.05em 0.35em rgba(6, 4, 2, 0.85)'
+                                            // Upcoming lines are parchment, lightly tinted with their
+                                            // singer's colour. A shared line tints word by word, as
+                                            // it will heat when it's sung, so the gradient text fill
+                                            // set above is undone.
+                                            cls += ' k-line--st-future'
+                                            const sc = line.singerIndex !== undefined && singers[line.singerIndex]?.color
+                                            inlineStyle.backgroundImage = undefined
+                                            inlineStyle.WebkitBackgroundClip = undefined
+                                            inlineStyle.WebkitTextFillColor = undefined
+                                            ;(inlineStyle as Record<string, string>)['--st-tint'] = activeColors.length > 0 ? activeColors[0] : sc || ST.PARCHMENT
+                                            if (activeColors.length > 1) stTints = activeColors
                                         } else if (theme.name === 'space') {
                                             // Upcoming lines are starlight tinted by their singer's
                                             // star. A shared line tints word by word, as it will light;
@@ -6855,6 +6299,8 @@ export default function KaraokePage() {
                                                         ...(barbColors && barbColors.length > 1 ? { ['--syl-c' as string]: barbColors[k % barbColors.length] } : {}),
                                                         // Space: a shared line lights star by star.
                                                         ...(spStars && spStars.length > 1 ? { ['--syl-star' as string]: spStars[k % spStars.length], ['--sp-star' as string]: spStars[k % spStars.length] } : {}),
+                                                        // Steampunk: a shared line heats singer by singer.
+                                                        ...(stTints && stTints.length > 1 ? { ['--syl-tint' as string]: stTints[k % stTints.length], ['--st-tint' as string]: stTints[k % stTints.length] } : {}),
                                                     } as React.CSSProperties}
                                                 >
                                                     {/* data-text lets a theme redraw the glyphs on a
@@ -6870,6 +6316,7 @@ export default function KaraokePage() {
                                             {gothPane && <GothicLinePane key="goth-pane" />}
                                             {barbCloud && <BarbieLineCloud key="barb-cloud" seed={i} />}
                                             {spPlate && <SpaceLinePlate key="sp-plate" seed={i} />}
+                                            {stPlate && <EngineLinePlate key="st-plate" seed={i} />}
                                             {/* FIRST child, so it paints under the line's inline
                                                 content (see .psy-film). Keyed so React reuses the
                                                 same <video> as long as the same line stays active,
@@ -6973,27 +6420,7 @@ export default function KaraokePage() {
                         </div>
                     </div>
                 ) : theme.name === 'steampunk' ? (
-                    <div style={{ animation: 'steam-rise 0.45s ease-out both' }}>
-                        <div style={{
-                            display: 'flex', alignItems: 'center', gap: 16, padding: '10px 24px', borderRadius: 999,
-                            background: 'rgba(23,19,14,0.88)', backdropFilter: 'blur(12px)',
-                            border: '1px solid #0c0a07',
-                            boxShadow: `inset 0 0 0 1.5px rgba(200,151,62,0.5), 0 12px 30px rgba(0,0,0,0.55)`,
-                        }}>
-                            <SteamGear size={24} teeth={8} dur={7} opacity={0.9} style={{ display: 'block' }} />
-                            <span style={{ fontFamily: STM_HEADING, fontWeight: 700, fontSize: 14, letterSpacing: '0.34em', marginRight: '-0.34em', textTransform: 'uppercase', color: STM_PARCH, textShadow: '0 0 10px rgba(200,151,62,0.3)' }}>
-                                Intermission
-                            </span>
-                            <div style={{ width: 130, height: 6, borderRadius: 999, background: '#0d0a07', boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.8), 0 1px 0 rgba(200,151,62,0.2)', position: 'relative', overflow: 'hidden' }}>
-                                <div style={{
-                                    position: 'absolute', top: 0, bottom: 0, left: 0, borderRadius: 999,
-                                    width: `${Math.min(100, Math.max(0, ((elapsed - nbBreak.start) / (nbBreak.end - nbBreak.start)) * 100))}%`,
-                                    background: `linear-gradient(90deg, ${STM_BRASS}, ${STM_COPPER})`,
-                                    boxShadow: '0 0 8px rgba(224,112,64,0.6)', transition: 'width 0.3s linear',
-                                }} />
-                            </div>
-                        </div>
-                    </div>
+                    <EngineBreak progress={Math.min(1, Math.max(0, (elapsed - nbBreak.start) / (nbBreak.end - nbBreak.start)))} />
                 ) : theme.name === 'zen' ? (
                     <div style={{ animation: 'zen-scroll-in 0.45s ease-out both' }}>
                         <div style={{
@@ -7110,20 +6537,7 @@ export default function KaraokePage() {
                         </div>
                     </div>
                 ) : theme.name === 'steampunk' ? (
-                    <div style={{ animation: 'steam-stamp 0.45s ease-out both' }}>
-                        <div style={{
-                            position: 'relative', display: 'flex', alignItems: 'center', gap: 18, padding: '12px 28px',
-                            background: STM_PLATE_BG, borderRadius: 6, border: '2px solid #0c0a07',
-                            boxShadow: `inset 0 0 0 2px ${STM_BRASS}, inset 0 0 18px rgba(0,0,0,0.5), 0 14px 34px rgba(0,0,0,0.6)`,
-                        }}>
-                            <SteamRivets />
-                            {/* needle dropped to zero — pressure released */}
-                            <SteamGauge size={46} progress={0} />
-                            <span style={{ fontFamily: STM_HEADING, fontWeight: 700, fontSize: stageFont(25), letterSpacing: '0.34em', marginRight: '-0.34em', color: STM_PARCH, textShadow: '0 0 12px rgba(200,151,62,0.3), 0 2px 0 rgba(0,0,0,0.5)' }}>
-                                PAUSED
-                            </span>
-                        </div>
-                    </div>
+                    <EnginePaused stageFont={stageFont} />
                 ) : theme.name === 'zen' ? (
                     <div style={{ animation: 'zen-stamp 0.45s ease-out both' }}>
                         <div style={{

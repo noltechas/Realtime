@@ -1,3 +1,4 @@
+import { ART } from './steampunk/parts'
 import React from 'react'
 import { Theme } from '../styles/theme'
 
@@ -209,12 +210,12 @@ function HiddenTileMotif({ theme }: ThemeProps) {
             )
         case 'steampunk':
             return (
-                <svg width="48" height="48" viewBox="0 0 48 48" style={{ position: 'absolute', inset: 0 }}>
-                    <rect x="14" y="22" width="20" height="18" rx="2" fill="#C8973E" stroke="#14110F" strokeWidth="1.5" />
-                    <path d="M18 22 v-4 a6 6 0 0 1 12 0 v4" stroke="#C8973E" strokeWidth="2.5" fill="none" />
-                    <circle cx="24" cy="31" r="1.8" fill="#14110F" />
-                    <rect x="23.3" y="31.5" width="1.4" height="4" fill="#14110F" />
-                </svg>
+                <>
+                    {/* a little brass porthole of smoked glass, sealed with red wax */}
+                    <div style={{ position: 'absolute', inset: 4, borderRadius: '50%', background: 'radial-gradient(circle at 36% 30%, #FFF0C8 0%, #E9C77F 24%, #C9A15A 52%, #4A3312 100%)', boxShadow: '0 2px 4px rgba(0,0,0,0.6)' }} />
+                    <div className="st-smoked" style={{ position: 'absolute', inset: 10, borderRadius: '50%' }} />
+                    <div style={{ position: 'absolute', right: 6, bottom: 6, width: 16, height: 16, borderRadius: '50%', background: 'radial-gradient(circle at 38% 32%, #E0614A 0%, #A3261A 60%, #5E120B 100%)', boxShadow: '0 1px 2px rgba(0,0,0,0.6)' }} />
+                </>
             )
         case 'retrowave':
             return (
@@ -380,22 +381,13 @@ function HiddenStageMotif({ theme }: ThemeProps) {
             )
         case 'steampunk':
             return (
-                <div style={{ ...stageFill, background: 'radial-gradient(ellipse at 50% 50%, #2a1f14 0%, #14110F 70%)' }}>
-                    <svg width="340" height="340" viewBox="0 0 340 340" style={{ position: 'absolute', inset: 0 }}>
-                        <circle cx="50" cy="60" r="30" stroke="#C8973E" strokeWidth="2" fill="none" opacity="0.35" strokeDasharray="2 4" className="hs-gear" />
-                        <circle cx="295" cy="280" r="36" stroke="#C8973E" strokeWidth="2" fill="none" opacity="0.35" strokeDasharray="3 4" className="hs-gear-rev" />
-                        <rect x="110" y="135" width="120" height="130" rx="6" fill="#C8973E" stroke="#8a6420" strokeWidth="3" />
-                        <rect x="118" y="143" width="104" height="114" rx="3" fill="none" stroke="#8a6420" strokeWidth="1.5" opacity="0.6" />
-                        <path d="M130 135 v-22 a40 40 0 0 1 80 0 v22" stroke="#C8973E" strokeWidth="10" fill="none" strokeLinecap="round" />
-                        <circle cx="170" cy="195" r="9" fill="#14110F" />
-                        <rect x="166" y="198" width="8" height="30" fill="#14110F" />
-                        <circle cx="122" cy="148" r="2" fill="#8a6420" />
-                        <circle cx="218" cy="148" r="2" fill="#8a6420" />
-                        <circle cx="122" cy="252" r="2" fill="#8a6420" />
-                        <circle cx="218" cy="252" r="2" fill="#8a6420" />
-                    </svg>
-                    <div style={{ position: 'absolute', top: 18, right: 18, padding: '6px 14px', border: '2.5px solid #E07040', color: '#E07040', fontFamily: theme.fontDisplay, fontSize: 13, fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', transform: 'rotate(8deg)', background: 'rgba(20,17,15,0.7)' }}>
-                        Classified
+                <div style={{ ...stageFill, background: 'radial-gradient(circle at 50% 46%, #2A2016 0%, #120D0A 72%)' }}>
+                    {/* the porthole, its glass smoked over, sealed with red wax */}
+                    <div className="st-smoked" style={{ position: 'absolute', width: 150, height: 150, top: '45%', left: '50%', transform: 'translate(-50%, -50%)', borderRadius: '50%' }} />
+                    <img src={ART.porthole} alt="" style={{ position: 'absolute', width: 244, height: 244, top: '45%', left: '50%', transform: 'translate(-50%, -50%)', filter: 'drop-shadow(0 16px 24px rgba(0,0,0,0.7))' }} />
+                    <div style={{ position: 'absolute', top: '45%', left: '50%', width: 58, height: 58, transform: 'translate(-50%, -50%)', borderRadius: '50%', background: 'radial-gradient(circle at 38% 32%, #E0614A 0%, #A3261A 58%, #5E120B 100%)', boxShadow: '0 3px 6px rgba(0,0,0,0.6), inset 0 -3px 6px rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Abril Fatface', serif", fontSize: 30, color: 'rgba(60,10,6,0.75)' }}>?</div>
+                    <div style={{ position: 'absolute', left: 0, right: 0, bottom: 26, zIndex: 2, textAlign: 'center', color: '#F1E4C6', fontFamily: "'Abril Fatface', serif" }}>
+                        <div style={{ fontSize: 22, letterSpacing: 1 }}>Sealed Orders</div>
                     </div>
                 </div>
             )
@@ -480,7 +472,7 @@ function hiddenLabelFor(name: string): string {
         case 'psychedelic': return 'Mystery Jam'
         case 'zen': return '秘'
         case 'space': return 'UNKNOWN SIGNAL'
-        case 'steampunk': return 'Classified'
+        case 'steampunk': return 'Sealed Orders'
         case 'retrowave': return 'NO SIGNAL'
         case 'tropical': return 'Island Mystery'
         case 'barbie': return 'Surprise Song'
@@ -498,7 +490,7 @@ function hiddenSubtitleFor(name: string): string {
         case 'psychedelic': return 'guess the groove'
         case 'zen': return 'concealed'
         case 'space': return 'transmission encrypted'
-        case 'steampunk': return 'sealed by the archivist'
+        case 'steampunk': return 'opened when it plays'
         case 'retrowave': return 'track.dat: error 404'
         case 'tropical': return 'washed up from who-knows-where'
         case 'barbie': return 'the sun is behind a cloud'
@@ -514,7 +506,7 @@ function hiddenTitleColor(theme: Theme): string {
         case 'psychedelic': return '#ff2d95'
         case 'zen': return '#D4B85A'
         case 'space': return '#E9C46A'
-        case 'steampunk': return '#C8973E'
+        case 'steampunk': return '#E9C77F'
         case 'retrowave': return '#FF2D95'
         case 'urban': return '#D4FF00'
         case 'tropical': return '#0E8F89'
@@ -568,6 +560,7 @@ function subtitleFontStyle(name: string): 'italic' | 'normal' {
     switch (name) {
         case 'sketch':
         case 'zen':
+        case 'steampunk':
             return 'italic'
         default:
             return 'normal'
@@ -635,7 +628,7 @@ function tileExtras(theme: Theme): React.CSSProperties {
         case 'space':
             return { background: '#05060C', borderColor: 'rgba(233,196,106,0.34)' }
         case 'steampunk':
-            return { background: '#14110F', borderColor: 'rgba(200,151,62,0.4)' }
+            return { background: '#16231D', borderColor: 'rgba(201,161,90,0.55)' }
         case 'retrowave':
             return { background: '#0a0614', borderColor: 'rgba(255,45,149,0.4)' }
         default:

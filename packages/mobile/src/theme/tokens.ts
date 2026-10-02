@@ -111,15 +111,13 @@ export const SPACE_MOBILE: ThemeTokens = withMobileFonts(
   'Jost_400Regular',
 )
 
-// Steampunk-Mobile — Victorian engraved typography. Cinzel (a Roman-capital
-// inscriptional serif that reads like an engraved brass plaque) for display
-// headings, IM Fell English (a 17th-century book face with genuine antique
-// letterforms) for body text — it reads as Victorian print, where the old
-// Special Elite typewriter face read as scattered ransom-note ink.
+// Steampunk-Mobile: "The Vox Engine". Abril Fatface (the fat face of Victorian
+// playbills and nameplates) for display; Old Standard TT (a nineteenth-century
+// book face) for body. The theme's atoms pick its bold and italic cuts.
 export const STEAMPUNK_MOBILE: ThemeTokens = withMobileFonts(
   STEAMPUNK_TOKENS,
-  'Cinzel_700Bold',
-  'IMFellEnglish_400Regular',
+  'AbrilFatface_400Regular',
+  'OldStandardTT_400Regular',
 )
 
 // Retrowave-Mobile — 80s neon-tube + arcade-cabinet typography. Monoton

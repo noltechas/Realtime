@@ -185,7 +185,7 @@ export function renderWizardStage(){
     {k:"psychedelic",label:"Psychedelic",c:["#1A0A2E","#FF2D95","#B6FF2D"]},
     {k:"zen",label:"Zen",c:["#1A1814","#D4B85A","#F0E6D2"]},
     {k:"space",label:"Space",c:["#020308","#E9C46A","#ECE6D8"]},
-    {k:"steampunk",label:"Steampunk",c:["#14110F","#C8973E","#D4A04A"]},
+    {k:"steampunk",label:"Steampunk",c:["#16231D","#C9A15A","#B4643A"]},
     {k:"retrowave",label:"Retrowave",c:["#0A0614","#FF2D95","#00BFFF"]},
     {k:"comic-book",label:"Comic Book",c:["#FFFFFF","#FF1F4B","#FFD400"]},
     {k:"tropical",label:"Tropical",c:["#36C5F0","#10B7B0","#FFF4DE"]},

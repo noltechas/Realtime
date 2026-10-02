@@ -1,118 +1,56 @@
 import React, { useEffect, useRef } from 'react'
-import { Pressable, View, Text, Animated, StyleSheet, type ViewStyle, type TextStyle } from 'react-native'
-import { LinearGradient } from 'expo-linear-gradient'
-import Svg, { Circle, Defs, RadialGradient, Stop, Line } from 'react-native-svg'
-import { useTheme } from '../../../ThemeContext'
-import {
-  BRASS_FACE,
-  BRASS_BRIGHT,
-  IRON_WELL,
-  PARCH,
-  PARCH_DIM,
-  HAIRLINE,
-  HAIRLINE_SOFT,
-} from './_steam'
+import { Animated, Easing, Text, View } from 'react-native'
+import Svg, { Circle, Defs, LinearGradient as SvgLinear, Rect, Stop } from 'react-native-svg'
 import type { ToggleBoxProps } from '../../../types'
+import { BRASS, BRASS_HI, BRASS_LO, BRASS_SHEEN, CAST, JewelLamp, LAMP, PARCHMENT_DIM, Plaque, Press, caps, display } from './_engine'
 
-// Steampunk StageToggleBox — a valve slide on an instrument plate. The track
-// is a recessed iron slot; when the valve opens, the slot fills with polished
-// brass and the engraved label lights amber. The thumb is a machined brass
-// knob with a screw slot.
-export function SteampunkStageToggleBox({ label, on, onPress }: ToggleBoxProps) {
-  const { tokens } = useTheme()
-  const slide = useRef(new Animated.Value(on ? 1 : 0)).current
-
+// Steampunk toggle: a brass knife-switch lever on the control panel. Throw it
+// up and it's on (its jewel lamp lights); throw it down and it's off. The
+// lever swings on its pivot with a little overshoot, the way a sprung switch
+// snaps home.
+export function StageToggleBox({ label, on, onPress }: ToggleBoxProps) {
+  const v = useRef(new Animated.Value(on ? 1 : 0)).current
   useEffect(() => {
-    Animated.spring(slide, {
-      toValue: on ? 1 : 0,
-      tension: 90,
-      friction: 10,
-      useNativeDriver: true,
-    }).start()
-  }, [on, slide])
-
-  const thumbX = slide.interpolate({ inputRange: [0, 1], outputRange: [0, 22] })
-
+    Animated.spring(v, { toValue: on ? 1 : 0, stiffness: 260, damping: 13, mass: 0.7, useNativeDriver: true }).start()
+  }, [on, v])
+  const rotate = v.interpolate({ inputRange: [0, 1], outputRange: ['145deg', '35deg'] })
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [wrapStyle(on), pressed ? { opacity: 0.85, transform: [{ translateY: 1 }] } : null]}
-    >
-      {/* recessed track */}
-      <View style={trackStyle(on)}>
-        {on ? (
-          <LinearGradient
-            colors={BRASS_FACE}
-            locations={[0, 0.55, 1]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
-            style={[StyleSheet.absoluteFill, { borderRadius: 12 }]}
-          />
-        ) : null}
-        <Animated.View
-          style={{ position: 'absolute', left: 2, top: 1.5, width: 21, height: 21, transform: [{ translateX: thumbX }] }}
-        >
-          <Svg width={21} height={21} viewBox="0 0 22 22">
+    <Press onPress={onPress} accessibilityRole="switch" accessibilityState={{ checked: on }} outerStyle={{ flex: 1 }} style={{ flex: 1 }}>
+      <Plaque border={10} style={{ flex: 1 }} contentStyle={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 2, paddingHorizontal: 4 }}>
+        <View style={{ width: 44, height: 50 }}>
+          <Svg width={44} height={50} viewBox="0 0 44 50" style={{ position: 'absolute' }}>
             <Defs>
-              <RadialGradient id={on ? 'valve-on' : 'valve-off'} cx="35%" cy="30%" rx="65%" ry="65%">
-                <Stop offset="0%" stopColor={on ? '#F7E6BB' : '#C9B088'} stopOpacity={1} />
-                <Stop offset="60%" stopColor={on ? '#D8AC5A' : '#8A6B3C'} stopOpacity={1} />
-                <Stop offset="100%" stopColor={on ? '#7E571E' : '#3E2C12'} stopOpacity={1} />
-              </RadialGradient>
+              <SvgLinear id="tb" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor={BRASS_SHEEN} />
+                <Stop offset="0.3" stopColor={BRASS_HI} />
+                <Stop offset="0.7" stopColor={BRASS} />
+                <Stop offset="1" stopColor={BRASS_LO} />
+              </SvgLinear>
             </Defs>
-            <Circle cx={11} cy={11} r={10} fill={`url(#${on ? 'valve-on' : 'valve-off'})`} stroke="rgba(0,0,0,0.55)" strokeWidth={0.7} />
-            {/* screw slot */}
-            <Line x1={7} y1={11} x2={15} y2={11} stroke="#3A2810" strokeWidth={1.4} strokeLinecap="round" transform={`rotate(${on ? 90 : 0} 11 11)`} />
+            {/* the mounting plate, with its two screws */}
+            <Rect x={10} y={8} width={24} height={34} rx={4} fill="url(#tb)" stroke={BRASS_LO} strokeWidth={1} />
+            <Circle cx={22} cy={12.5} r={2} fill={BRASS_LO} />
+            <Circle cx={22} cy={37.5} r={2} fill={BRASS_LO} />
+            <Circle cx={22} cy={25} r={5.5} fill="#1A120A" />
           </Svg>
-        </Animated.View>
-      </View>
-
-      <Text style={labelStyle(tokens.fontDisplay, on)} numberOfLines={1}>
-        {label}
-      </Text>
-    </Pressable>
+          {/* the lever, pivoting at the plate's centre: a dark iron arm with
+              a black knob, so it reads against the brass */}
+          <Animated.View style={{ position: 'absolute', left: 22 - 5, top: 25 - 26, width: 10, height: 26, transformOrigin: '50% 100%', transform: [{ rotate }] }}>
+            <View style={{ position: 'absolute', left: 3, top: 6, width: 4, height: 20, borderRadius: 2, backgroundColor: '#2E2A26', borderLeftWidth: 1, borderLeftColor: '#6B655E' }} />
+            <View style={{ position: 'absolute', left: -1, top: -2, width: 12, height: 12, borderRadius: 6, backgroundColor: '#120C08', borderWidth: 1, borderColor: '#3A2A1E' }}>
+              <View style={{ position: 'absolute', left: 2.5, top: 2, width: 4, height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.35)' }} />
+            </View>
+          </Animated.View>
+          <View style={{ position: 'absolute', left: 17, top: 20, width: 10, height: 10, borderRadius: 5, backgroundColor: BRASS_HI, borderWidth: 1, borderColor: BRASS_LO }} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text numberOfLines={1} style={[display(16, undefined, { lineHeight: 21 }), CAST]}>{label}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 }}>
+            <JewelLamp color={on ? LAMP : '#8A7A62'} size={11} lit={on} />
+            <Text style={caps(9, on ? LAMP : PARCHMENT_DIM, { letterSpacing: 1.8 })}>{on ? 'On' : 'Off'}</Text>
+          </View>
+        </View>
+      </Plaque>
+    </Press>
   )
-}
-
-function wrapStyle(on: boolean): ViewStyle {
-  return {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    borderWidth: 1,
-    borderColor: on ? HAIRLINE : HAIRLINE_SOFT,
-    backgroundColor: on ? 'rgba(232,169,59,0.08)' : 'rgba(34,23,17,0.85)',
-    borderRadius: 9,
-    ...(on
-      ? { shadowColor: '#E8A93B', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 8 }
-      : {}),
-  }
-}
-function trackStyle(on: boolean): ViewStyle {
-  return {
-    width: 48,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: IRON_WELL,
-    borderWidth: 1,
-    borderColor: on ? BRASS_BRIGHT : HAIRLINE_SOFT,
-    overflow: 'hidden',
-  }
-}
-function labelStyle(fontDisplay: string, on: boolean): TextStyle {
-  return {
-    flex: 1,
-    fontFamily: fontDisplay,
-    fontSize: 12,
-    letterSpacing: 1.8,
-    textTransform: 'uppercase',
-    color: on ? PARCH : PARCH_DIM,
-    includeFontPadding: false,
-    textShadowColor: on ? 'rgba(232,169,59,0.5)' : 'transparent',
-    textShadowRadius: on ? 6 : 0,
-    textShadowOffset: { width: 0, height: 0 },
-  }
 }

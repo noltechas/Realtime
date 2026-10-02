@@ -1,138 +1,40 @@
 import React from 'react'
-import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native'
-import { LinearGradient } from 'expo-linear-gradient'
-import { useTheme } from '../../../ThemeContext'
-import {
-  BRASS_FACE,
-  BRASS_INK,
-  PARCH_DIM,
-  AMBER,
-  HAIRLINE_SOFT,
-  DEPTH_SHADOW,
-} from './_steam'
+import { ScrollView, Text, View } from 'react-native'
 import type { GenreTabsProps } from '../../../types'
+import { CAST, ENAMEL, ENAMEL_HI, JewelLamp, LAMP, PARCHMENT, PARCHMENT_DIM, Pipe, Plaque, Press, caps, display, mix } from './_engine'
 
-// Steampunk GenreTabs — a rail of engraved index plates. Inactive plates are
-// quiet iron with a soft hairline; the ONE active plate is polished brass
-// with engraved dark lettering. No icons, no gears — the material shift IS
-// the selection state.
-export function SteampunkGenreTabs({ list, counts, value, onChange }: GenreTabsProps) {
-  if (list.length <= 1) return null
-
+// Steampunk genre tabs: nameplates hung along a copper pipe. Each carries a
+// jewel lamp; the chosen one's lamp is lit and its enamel is warmed by it,
+// its name cast in brass. The count is engraved beneath.
+export function GenreTabs({ list, counts, value, onChange }: GenreTabsProps) {
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      style={{ flexGrow: 0 }}
-      contentContainerStyle={{ paddingHorizontal: 24, paddingVertical: 14, gap: 10 }}
-    >
-      {list.map((g) => (
-        <GenrePlate
-          key={g}
-          label={g}
-          count={counts[g] ?? 0}
-          active={g === value}
-          onPress={() => onChange(g)}
-        />
-      ))}
-    </ScrollView>
-  )
-}
-
-const GenrePlate = React.memo(GenrePlateImpl)
-
-function GenrePlateImpl({
-  label,
-  count,
-  active,
-  onPress,
-}: {
-  label: string
-  count: number
-  active: boolean
-  onPress: () => void
-}) {
-  const { tokens } = useTheme()
-
-  return (
-    <Pressable onPress={onPress} hitSlop={6}>
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 8,
-          paddingHorizontal: 14,
-          height: 38,
-          borderRadius: 7,
-          borderWidth: 1,
-          borderColor: active ? 'rgba(46,30,8,0.9)' : HAIRLINE_SOFT,
-          backgroundColor: active ? 'transparent' : 'rgba(34,23,17,0.85)',
-          overflow: 'hidden',
-          ...(active ? DEPTH_SHADOW : {}),
-        }}
-      >
-        {active ? (
-          <>
-            <LinearGradient
-              colors={BRASS_FACE}
-              locations={[0, 0.55, 1]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0, y: 1 }}
-              style={StyleSheet.absoluteFill}
-            />
-            <View
-              pointerEvents="none"
-              style={{ position: 'absolute', top: 1, left: 5, right: 5, height: 1, backgroundColor: 'rgba(255,245,220,0.5)' }}
-            />
-          </>
-        ) : null}
-
-        <Text
-          style={{
-            fontFamily: tokens.fontDisplay,
-            fontSize: 11,
-            lineHeight: 16,
-            letterSpacing: 1.8,
-            textTransform: 'uppercase',
-            color: active ? BRASS_INK : PARCH_DIM,
-            includeFontPadding: false,
-            textShadowColor: active ? 'rgba(255,245,220,0.35)' : 'transparent',
-            textShadowRadius: 0,
-            textShadowOffset: { width: 0, height: active ? 1 : 0 },
-          }}
-          numberOfLines={1}
-        >
-          {label}
-        </Text>
-
-        {/* engraved count plaque */}
-        <View
-          style={{
-            minWidth: 22,
-            paddingHorizontal: 6,
-            paddingVertical: 1,
-            borderRadius: 4,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: active ? 'rgba(20,12,4,0.4)' : 'rgba(200,151,62,0.10)',
-            borderWidth: active ? 0 : StyleSheet.hairlineWidth,
-            borderColor: HAIRLINE_SOFT,
-          }}
-        >
-          <Text
-            style={{
-              fontFamily: tokens.fontDisplay,
-              fontSize: 10,
-              lineHeight: 14,
-              color: active ? '#F5E5BD' : AMBER,
-              includeFontPadding: false,
-            }}
-            numberOfLines={1}
-          >
-            {count}
-          </Text>
-        </View>
+    <View>
+      <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 24 }}>
+        <Pipe length={1200} d={10} every={160} />
       </View>
-    </Pressable>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 10, paddingVertical: 4 }}>
+        {list.map((g) => {
+          const on = g === value
+          const n = counts[g] ?? 0
+          return (
+            <Press key={g} onPress={() => onChange(g)} accessibilityRole="button" accessibilityState={{ selected: on }}>
+              <Plaque
+                border={9}
+                enamel={on ? [mix(ENAMEL_HI, '#6A5020', 0.35), mix(ENAMEL, '#3A2C10', 0.3), '#0C1511'] : undefined}
+                contentStyle={{ flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 8, paddingVertical: 1 }}
+              >
+                <JewelLamp color={LAMP} size={13} lit={on} />
+                <View>
+                  <Text numberOfLines={1} style={[display(15, on ? undefined : PARCHMENT, { lineHeight: 19 }), on ? CAST : null]}>
+                    {g}
+                  </Text>
+                  <Text style={caps(8, on ? LAMP : PARCHMENT_DIM, { letterSpacing: 1.6 })}>{n} songs</Text>
+                </View>
+              </Plaque>
+            </Press>
+          )
+        })}
+      </ScrollView>
+    </View>
   )
 }

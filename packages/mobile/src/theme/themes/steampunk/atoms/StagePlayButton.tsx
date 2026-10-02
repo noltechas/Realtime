@@ -1,187 +1,75 @@
-import React from 'react'
-import { Pressable, View, Animated } from 'react-native'
-import Svg, { Circle, Defs, RadialGradient, Stop, Line, Path } from 'react-native-svg'
-import { hexToRgba } from '../../../helpers'
-import {
-  Gear,
-  BRASS,
-  BRASS_BRIGHT,
-  useLinearLoop,
-  useOscillator,
-  useDelayedBursts,
-} from './_steam'
+import React, { useEffect, useRef } from 'react'
+import { Animated, Easing, Image, Pressable, View } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import type { PlayButtonProps } from '../../../types'
+import { BrassPlate, Gauge, IMG, INK, JewelLamp, SteamPuffs } from './_engine'
 
-// Steampunk StagePlayButton — the Great Engine, and the theme's hero moment:
-//   1. A large brass master gear turning slowly behind everything, with a
-//      smaller iron gear counter-rotating inside it.
-//   2. A fixed engraved chapter ring (watch-face ticks) framing the works —
-//      machinery reads as an instrument, not a pinwheel.
-//   3. The center is the singer's enamel lens set in a polished brass bezel
-//      with a glass glint; its halo breathes in the singer's color.
-//   4. A slow steam ring vents outward every few seconds.
-export function SteampunkStagePlayButton({ isPlaying, singerColor, onPress }: PlayButtonProps) {
-  const halo = useOscillator(3400)
-  const haloScale = halo.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] })
-  const haloOpacity = halo.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0.95] })
+// Steampunk play control: the engine's main STEAM VALVE. A brass hand wheel;
+// press it to open the valve and it spins up, the pressure gauge beside it
+// climbs into the red and steam blows off behind; press again and it winds
+// down and the needle falls back. Your colour burns in the jewel lamp on the
+// boss.
+const WHEEL = 168
+const GAUGE = 74
 
-  const master = useLinearLoop(26000)
-  const inner = useLinearLoop(14000)
-  const masterRot = master.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] })
-  const innerRot = inner.interpolate({ inputRange: [0, 1], outputRange: ['360deg', '0deg'] })
+export function StagePlayButton({ isPlaying, singerColor, onPress }: PlayButtonProps) {
+  const spin = useRef(new Animated.Value(0)).current
+  const pressure = useRef(new Animated.Value(isPlaying ? 0.86 : 0.06)).current
+  const press = useRef(new Animated.Value(0)).current
+  const turned = useRef(0)
 
-  const vent = useDelayedBursts(3600, 2600, 600)
-  const ventScale = vent.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1.35] })
-  const ventOpacity = vent.interpolate({ inputRange: [0, 0.12, 1], outputRange: [0, 0.4, 0] })
+  useEffect(() => {
+    Animated.timing(pressure, { toValue: isPlaying ? 0.86 : 0.06, duration: isPlaying ? 1400 : 900, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start()
+    if (!isPlaying) return
+    // keep turning while the valve is open
+    let stopped = false
+    const step = () => {
+      if (stopped) return
+      turned.current += 1
+      Animated.timing(spin, { toValue: turned.current, duration: 2600, easing: Easing.linear, useNativeDriver: true }).start(({ finished }) => finished && step())
+    }
+    // a hard quarter turn to crack the valve open, then steady
+    turned.current += 0.25
+    Animated.timing(spin, { toValue: turned.current, duration: 420, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(({ finished }) => finished && step())
+    return () => {
+      stopped = true
+      spin.stopAnimation((v) => {
+        turned.current = v
+        // and a short wind-down
+        Animated.timing(spin, { toValue: v + 0.12, duration: 700, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start()
+        turned.current = v + 0.12
+      })
+    }
+  }, [isPlaying, spin, pressure])
 
-  const haloColor = hexToRgba(singerColor, 0.55) ?? 'rgba(232,169,59,0.55)'
-
+  const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] })
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => ({
-        width: 260,
-        height: 260,
-        alignItems: 'center',
-        justifyContent: 'center',
-        transform: [{ scale: pressed ? 0.96 : 1 }],
-      })}
-    >
-      {/* venting steam ring */}
-      <Animated.View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          width: 236,
-          height: 236,
-          borderRadius: 118,
-          borderWidth: 1.5,
-          borderColor: '#E8DDC5',
-          opacity: ventOpacity,
-          transform: [{ scale: ventScale }],
-        }}
-      />
-
-      {/* singer-color halo */}
-      <Animated.View
-        pointerEvents="none"
-        style={{ position: 'absolute', width: 230, height: 230, opacity: haloOpacity, transform: [{ scale: haloScale }] }}
+    <View style={{ width: WHEEL + 60, height: WHEEL + 20, alignItems: 'center', justifyContent: 'center' }}>
+      {isPlaying ? <SteamPuffs x={WHEEL * 0.22} y={WHEEL * 0.3} size={70} period={3600} rise={110} /> : null}
+      <Pressable
+        onPress={onPress}
+        onPressIn={() => Animated.timing(press, { toValue: 1, duration: 80, useNativeDriver: true }).start()}
+        onPressOut={() => Animated.spring(press, { toValue: 0, stiffness: 320, damping: 15, useNativeDriver: true }).start()}
+        accessibilityRole="button"
+        accessibilityLabel={isPlaying ? 'Pause' : 'Play'}
+        hitSlop={8}
       >
-        <Svg width={230} height={230}>
-          <Defs>
-            <RadialGradient id="engine-halo" cx="50%" cy="50%" r="50%">
-              <Stop offset="0%" stopColor={haloColor} stopOpacity={0.55} />
-              <Stop offset="60%" stopColor={haloColor} stopOpacity={0.2} />
-              <Stop offset="100%" stopColor={haloColor} stopOpacity={0} />
-            </RadialGradient>
-          </Defs>
-          <Circle cx={115} cy={115} r={113} fill="url(#engine-halo)" />
-        </Svg>
-      </Animated.View>
-
-      {/* master gear */}
-      <Animated.View
-        pointerEvents="none"
-        style={{ position: 'absolute', width: 238, height: 238, transform: [{ rotate: masterRot }] }}
-      >
-        <Gear size={238} teeth={16} tone="brass" opacity={0.85} />
-      </Animated.View>
-
-      {/* inner counter-gear */}
-      <Animated.View
-        pointerEvents="none"
-        style={{ position: 'absolute', width: 158, height: 158, transform: [{ rotate: innerRot }] }}
-      >
-        <Gear size={158} teeth={12} tone="iron" opacity={0.95} />
-      </Animated.View>
-
-      {/* fixed chapter ring — engraved instrument ticks */}
-      <View pointerEvents="none" style={{ position: 'absolute', width: 190, height: 190 }}>
-        <Svg width={190} height={190} viewBox="0 0 190 190">
-          <Circle cx={95} cy={95} r={90} fill="none" stroke="rgba(200,151,62,0.4)" strokeWidth={1} />
-          {Array.from({ length: 60 }).map((_, i) => {
-            const a = (i / 60) * Math.PI * 2
-            const major = i % 5 === 0
-            const r1 = major ? 84 : 87
-            return (
-              <Line
-                key={i}
-                x1={95 + Math.cos(a) * r1}
-                y1={95 + Math.sin(a) * r1}
-                x2={95 + Math.cos(a) * 90}
-                y2={95 + Math.sin(a) * 90}
-                stroke={major ? BRASS : 'rgba(200,151,62,0.45)'}
-                strokeWidth={major ? 1.6 : 1}
-              />
-            )
-          })}
-        </Svg>
-      </View>
-
-      {/* enamel lens in a brass bezel */}
-      <View
-        style={{
-          position: 'absolute',
-          width: 106,
-          height: 106,
-          borderRadius: 53,
-          backgroundColor: singerColor,
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderWidth: 3,
-          borderColor: BRASS_BRIGHT,
-          shadowColor: singerColor,
-          shadowOffset: { width: 0, height: 0 },
-          shadowOpacity: 0.9,
-          shadowRadius: 16,
-        }}
-      >
-        {/* recessed seat ring */}
-        <View
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            width: 96,
-            height: 96,
-            borderRadius: 48,
-            borderWidth: 1.5,
-            borderColor: 'rgba(0,0,0,0.35)',
-          }}
-        />
-        {/* glass glint */}
-        <View pointerEvents="none" style={{ position: 'absolute', width: 106, height: 106 }}>
-          <Svg width={106} height={106} viewBox="0 0 106 106">
-            <Defs>
-              <RadialGradient id="lens-glint" cx="34%" cy="26%" rx="55%" ry="55%">
-                <Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.5} />
-                <Stop offset="55%" stopColor="#FFFFFF" stopOpacity={0.08} />
-                <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0} />
-              </RadialGradient>
-            </Defs>
-            <Circle cx={53} cy={53} r={50} fill="url(#lens-glint)" />
-          </Svg>
-        </View>
-
-        {isPlaying ? (
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <View style={pistonStyle} />
-            <View style={pistonStyle} />
+        <Animated.View style={{ width: WHEEL, height: WHEEL, transform: [{ scale: press.interpolate({ inputRange: [0, 1], outputRange: [1, 0.96] }) }] }}>
+          <Animated.Image source={IMG.handwheel} style={{ position: 'absolute', width: WHEEL, height: WHEEL, transform: [{ rotate }] }} />
+          <View style={{ position: 'absolute', left: WHEEL / 2 - 30, top: WHEEL / 2 - 30 }}>
+            <BrassPlate radius={30} contentStyle={{ width: 60, height: 60, alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name={isPlaying ? 'pause' : 'play'} size={26} color={INK} style={{ marginLeft: isPlaying ? 0 : 3 }} />
+            </BrassPlate>
           </View>
-        ) : (
-          <Svg width={44} height={44} viewBox="0 0 44 44" style={{ marginLeft: 6 }}>
-            <Path d="M 8 4 L 40 22 L 8 40 Z" fill="rgba(18,12,7,0.92)" />
-          </Svg>
-        )}
+          <View style={{ position: 'absolute', left: WHEEL / 2 - 7, top: WHEEL / 2 + 33 }}>
+            <JewelLamp color={singerColor} size={14} lit={isPlaying} />
+          </View>
+        </Animated.View>
+      </Pressable>
+      <View pointerEvents="none" style={{ position: 'absolute', right: 0, top: 0 }}>
+        <Gauge size={GAUGE} value={pressure} />
       </View>
-    </Pressable>
+      <Image source={IMG.pipeCoupling} style={{ position: 'absolute', right: GAUGE / 2 - 6, top: GAUGE - 6, width: 12, height: 18 }} />
+    </View>
   )
 }
-
-const pistonStyle = {
-  width: 11,
-  height: 38,
-  borderRadius: 3,
-  backgroundColor: 'rgba(18,12,7,0.92)',
-  borderWidth: 1,
-  borderColor: 'rgba(255,245,220,0.25)',
-} as const

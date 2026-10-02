@@ -16,9 +16,6 @@ import {
 import { LuckiestGuy_400Regular } from '@expo-google-fonts/luckiest-guy'
 import { Chicle_400Regular } from '@expo-google-fonts/chicle'
 import { SpicyRice_400Regular } from '@expo-google-fonts/spicy-rice'
-import { Cinzel_400Regular, Cinzel_700Bold, Cinzel_900Black } from '@expo-google-fonts/cinzel'
-import { IMFellEnglish_400Regular } from '@expo-google-fonts/im-fell-english'
-import { SpecialElite_400Regular } from '@expo-google-fonts/special-elite'
 import { Monoton_400Regular } from '@expo-google-fonts/monoton'
 import { Audiowide_400Regular } from '@expo-google-fonts/audiowide'
 import { GreatVibes_400Regular } from '@expo-google-fonts/great-vibes'
@@ -47,6 +44,12 @@ const Jost_500Medium = require('@expo-google-fonts/jost/500Medium/Jost_500Medium
 const Jost_600SemiBold = require('@expo-google-fonts/jost/600SemiBold/Jost_600SemiBold.ttf')
 const IBMPlexMono_400Regular = require('@expo-google-fonts/ibm-plex-mono/400Regular/IBMPlexMono_400Regular.ttf')
 const IBMPlexMono_500Medium = require('@expo-google-fonts/ibm-plex-mono/500Medium/IBMPlexMono_500Medium.ttf')
+// Steampunk ("The Vox Engine"): Abril Fatface for display and numerals, Old
+// Standard TT for reading and engraved capitals.
+const AbrilFatface_400Regular = require('@expo-google-fonts/abril-fatface/400Regular/AbrilFatface_400Regular.ttf')
+const OldStandardTT_400Regular = require('@expo-google-fonts/old-standard-tt/400Regular/OldStandardTT_400Regular.ttf')
+const OldStandardTT_400Regular_Italic = require('@expo-google-fonts/old-standard-tt/400Regular_Italic/OldStandardTT_400Regular_Italic.ttf')
+const OldStandardTT_700Bold = require('@expo-google-fonts/old-standard-tt/700Bold/OldStandardTT_700Bold.ttf')
 // Gothic theme: deep-required for the same reason: Grenze Gotisch ships nine
 // weights and Cormorant Garamond ten, and the theme renders three of each.
 const UnifrakturMaguntia_400Regular = require('@expo-google-fonts/unifrakturmaguntia/400Regular/UnifrakturMaguntia_400Regular.ttf')
@@ -116,11 +119,10 @@ export default function App() {
     Jost_600SemiBold,
     IBMPlexMono_400Regular,
     IBMPlexMono_500Medium,
-    Cinzel_400Regular,
-    Cinzel_700Bold,
-    Cinzel_900Black,
-    IMFellEnglish_400Regular,
-    SpecialElite_400Regular,
+    AbrilFatface_400Regular,
+    OldStandardTT_400Regular,
+    OldStandardTT_400Regular_Italic,
+    OldStandardTT_700Bold,
     Monoton_400Regular,
     Audiowide_400Regular,
     Remalos: require('./assets/fonts/Remalos-Regular.ttf'),

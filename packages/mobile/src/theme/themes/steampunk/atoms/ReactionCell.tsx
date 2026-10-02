@@ -1,183 +1,56 @@
-import React, { useRef } from 'react'
-import {
-  View,
-  Text,
-  Pressable,
-  Animated,
-  StyleSheet,
-  type ViewStyle,
-  type TextStyle,
-} from 'react-native'
-import { LinearGradient } from 'expo-linear-gradient'
-import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg'
+import React from 'react'
+import { Pressable, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { useTheme } from '../../../ThemeContext'
-import { AMBER, PARCH_DIM, IRON_PANEL, HAIRLINE, HAIRLINE_SOFT } from './_steam'
+import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg'
 import type { ReactionCellProps } from '../../../types'
+import { BRASS, BRASS_HI, BRASS_LO, BRASS_SHEEN, Plaque, Press, caps, useMeasured } from './_engine'
 
-// Steampunk ReactionCell — one key of a telegraph keyboard. Every cell is the
-// SAME quiet iron plate (a professional instrument panel is uniform — the
-// icons carry the variety), with an engraved inner rule and a small brass
-// indicator dot that flares amber when the key is struck. Press releases a
-// soft gas-burst from center.
-export function SteampunkReactionCell({
-  label,
-  icon,
-  onPress,
-  onEditPress,
-  disabled,
-}: ReactionCellProps) {
-  const { tokens } = useTheme()
-
-  // Two ripple slots so rapid taps can overlap.
-  const ripples = useRef<Animated.Value[]>([new Animated.Value(0), new Animated.Value(0)]).current
-  const nextSlot = useRef(0)
-  const triggerRipple = () => {
-    const slot = nextSlot.current
-    nextSlot.current = (slot + 1) % ripples.length
-    const v = ripples[slot]
-    v.setValue(0)
-    Animated.timing(v, { toValue: 1, duration: 560, useNativeDriver: true }).start()
-  }
-
+// Steampunk reaction tile: a push-button on the engine's control panel. A
+// domed cream glass button in a brass bezel, the reaction inside it, its name
+// engraved on the enamel below.
+export function ReactionCell({ label, icon, onPress, onEditPress, disabled, index = 0 }: ReactionCellProps) {
+  const [size, onLayout] = useMeasured()
+  const d = size ? Math.min(size.w * 0.62, size.h * 0.6, 92) : 0
+  const id = `rc${index}`
   return (
     <View style={{ flex: 1 }}>
-      <Pressable
-        onPress={() => {
-          if (!disabled) {
-            triggerRipple()
-            onPress()
-          }
-        }}
-        disabled={disabled}
-        style={({ pressed }) => [
-          cellStyle,
-          pressed ? { borderColor: HAIRLINE, transform: [{ translateY: 1 }] } : null,
-          disabled ? { opacity: 0.4 } : null,
-        ]}
-      >
-        {/* engraved inner rule */}
-        <View
-          pointerEvents="none"
-          style={[
-            StyleSheet.absoluteFill,
-            { margin: 3, borderRadius: 7, borderWidth: 1, borderColor: 'rgba(232,169,59,0.08)' },
-          ]}
-        />
-        {/* glass light along the top */}
-        <LinearGradient
-          pointerEvents="none"
-          colors={['rgba(236,203,130,0.06)', 'rgba(236,203,130,0)']}
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 20 }}
-        />
-
-        {/* brass indicator dot */}
-        <View
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            top: 8,
-            right: 8,
-            width: 5,
-            height: 5,
-            borderRadius: 3,
-            backgroundColor: 'rgba(200,151,62,0.55)',
-          }}
-        />
-
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>{icon}</View>
-          <Text style={labelStyle(tokens.fontDisplay)} numberOfLines={1}>
-            {label}
-          </Text>
-        </View>
-
-        {/* gas-burst on press */}
-        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-          {ripples.map((v, i) => (
-            <Burst key={i} value={v} />
-          ))}
-        </View>
-
-        {onEditPress ? (
-          <Pressable onPress={onEditPress} hitSlop={6} style={editStyle}>
-            <Ionicons name="create-outline" size={12} color={AMBER} />
-          </Pressable>
-        ) : null}
-      </Pressable>
+      <Press onPress={onPress} disabled={disabled} outerStyle={{ flex: 1 }} style={{ flex: 1, opacity: disabled ? 0.5 : 1 }}>
+        <Plaque border={10} style={{ flex: 1 }} contentStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <View onLayout={onLayout} style={{ flex: 1, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center' }}>
+            {d ? (
+              <View style={{ width: d, height: d, alignItems: 'center', justifyContent: 'center' }}>
+                <Svg width={d} height={d} viewBox="0 0 100 100" style={{ position: 'absolute' }}>
+                  <Defs>
+                    <RadialGradient id={`${id}b`} cx="0.36" cy="0.3" r="0.8">
+                      <Stop offset="0" stopColor={BRASS_SHEEN} />
+                      <Stop offset="0.28" stopColor={BRASS_HI} />
+                      <Stop offset="0.6" stopColor={BRASS} />
+                      <Stop offset="1" stopColor={BRASS_LO} />
+                    </RadialGradient>
+                    <RadialGradient id={`${id}g`} cx="0.4" cy="0.32" r="0.72">
+                      <Stop offset="0" stopColor="#FFFBEE" />
+                      <Stop offset="0.55" stopColor="#EADBB6" />
+                      <Stop offset="1" stopColor="#B49A68" />
+                    </RadialGradient>
+                  </Defs>
+                  <Circle cx={51} cy={53} r={47} fill="rgba(0,0,0,0.45)" />
+                  <Circle cx={50} cy={50} r={47} fill={`url(#${id}b)`} />
+                  <Circle cx={50} cy={50} r={38} fill="#2A1E10" />
+                  <Circle cx={50} cy={50} r={36} fill={`url(#${id}g)`} />
+                  <Circle cx={39} cy={36} r={9} fill="#FFFFFF" opacity={0.55} />
+                </Svg>
+                {icon}
+              </View>
+            ) : null}
+          </View>
+          {label ? <Text numberOfLines={1} style={caps(9.5, BRASS_HI, { letterSpacing: 1.8 })}>{label}</Text> : null}
+        </Plaque>
+      </Press>
+      {onEditPress ? (
+        <Pressable onPress={onEditPress} hitSlop={10} style={{ position: 'absolute', top: 12, right: 12 }}>
+          <Ionicons name="create-outline" size={15} color={BRASS_HI} />
+        </Pressable>
+      ) : null}
     </View>
   )
-}
-
-function Burst({ value }: { value: Animated.Value }) {
-  const scale = value.interpolate({ inputRange: [0, 1], outputRange: [0.15, 2.1] })
-  const opacity = value.interpolate({ inputRange: [0, 0.12, 1], outputRange: [0, 0.6, 0] })
-  return (
-    <Animated.View
-      style={{
-        position: 'absolute',
-        left: '50%',
-        top: '50%',
-        width: 110,
-        height: 110,
-        marginLeft: -55,
-        marginTop: -55,
-        transform: [{ scale }],
-        opacity,
-      }}
-    >
-      <Svg width={110} height={110} viewBox="0 0 110 110">
-        <Defs>
-          <RadialGradient id="cell-burst" cx="50%" cy="50%" r="50%">
-            <Stop offset="0%" stopColor="#FFE4A0" stopOpacity={0.8} />
-            <Stop offset="55%" stopColor={AMBER} stopOpacity={0.3} />
-            <Stop offset="100%" stopColor={AMBER} stopOpacity={0} />
-          </RadialGradient>
-        </Defs>
-        <Circle cx={55} cy={55} r={53} fill="url(#cell-burst)" />
-      </Svg>
-    </Animated.View>
-  )
-}
-
-const cellStyle: ViewStyle = {
-  flex: 1,
-  backgroundColor: IRON_PANEL,
-  borderRadius: 10,
-  borderWidth: 1,
-  borderColor: HAIRLINE_SOFT,
-  padding: 12,
-  overflow: 'hidden',
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 4 },
-  shadowOpacity: 0.4,
-  shadowRadius: 7,
-  elevation: 4,
-}
-
-function labelStyle(fontDisplay: string): TextStyle {
-  return {
-    textAlign: 'center',
-    marginTop: 8,
-    fontFamily: fontDisplay,
-    fontSize: 10.5,
-    color: PARCH_DIM,
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-    includeFontPadding: false,
-  }
-}
-
-const editStyle: ViewStyle = {
-  position: 'absolute',
-  top: 5,
-  left: 5,
-  width: 22,
-  height: 22,
-  borderRadius: 5,
-  borderWidth: 1,
-  borderColor: HAIRLINE_SOFT,
-  backgroundColor: 'rgba(13,8,5,0.75)',
-  alignItems: 'center',
-  justifyContent: 'center',
 }

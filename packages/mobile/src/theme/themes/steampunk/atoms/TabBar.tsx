@@ -1,20 +1,35 @@
-import React, { useEffect, useRef, useState } from 'react'
-import { View, Pressable, Animated, Text, StyleSheet } from 'react-native'
-import { BlurView } from 'expo-blur'
-import { LinearGradient } from 'expo-linear-gradient'
+import React, { useEffect, useMemo, useRef } from 'react'
+import { Animated, Image, Pressable, Text, View, useWindowDimensions } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { LinearGradient } from 'expo-linear-gradient'
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs'
-import { TAB_ICONS } from '../../../../navigation/TabIcons'
-import { useTheme } from '../../../ThemeContext'
+import { TAB_ICONS, type TabIconComponent } from '../../../../navigation/TabIcons'
 import { useSession } from '../../../../hooks/useSession'
 import { useSessionRow, guestIsUp } from '../../../../hooks/useSessionRow'
-import {
-  BRASS_FACE,
-  BRASS_INK,
-  CornerScrews,
-  HAIRLINE,
-  useOscillator,
-} from './_steam'
+import { STEAMPUNK_MOBILE } from '../../../tokens'
+import { ENAMEL_STOPS, GEAR_IMG, IMG, LAMP, MODULE, OLD_B, gearGeometry } from './_engine'
+
+// Steampunk tab bar: RACK AND PINION. A brass gear rack runs along the top
+// of the enamel control strip, and a pinion rides on it above the active tab.
+// Choose another tab and the pinion rolls along the rack to it, turning
+// exactly as far as it travels, its teeth meshed with the rack's. The active
+// glyph and label are lit lamplight; every other tab shares one colour (house
+// rule). Glyphs are the shared Ionicons set.
+
+const BAR_H = 62
+const FG = STEAMPUNK_MOBILE.tabBarFg
+const ACTIVE = STEAMPUNK_MOBILE.tabBarPill
+
+// the pinion and the rack share one scale, so the teeth match
+const S = 0.26
+const PINION = 10 as const
+const RP = gearGeometry(PINION).pitch * S
+const PIN_SIZE = gearGeometry(PINION).size * S
+const PITCH = Math.PI * MODULE * S
+const RACK_W = 41 * S
+const RACK_H = 34 * S
+/** where the rack's pitch line sits, below its top edge */
+const RACK_PITCH_Y = MODULE * 0.95 * S
 
 function useStageLabel(): string {
   const { session } = useSession()
@@ -22,251 +37,87 @@ function useStageLabel(): string {
   return guestIsUp(row, session?.guestName, session?.guestId) ? 'Stage' : 'React'
 }
 
-// Steampunk TabBar — the instrument console rail:
-//   • A low iron rail with one brass hairline, four machined corner screws,
-//     and a gas-lamp filament running along its top edge, breathing slowly.
-//   • The active tab is a polished brass key that slides into place on a
-//     spring — the ONE bright brass element in the chrome.
-//   • Icons and Cinzel labels; all inactive tabs share the muted bronze
-//     foreground, only the seated key goes engraved-dark.
-
-const PILL_PAD = 10
-const BAR_HEIGHT = 66
-
 export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets()
-  const { tokens } = useTheme()
+  const { width } = useWindowDimensions()
   const stageLabel = useStageLabel()
-  const [trackWidth, setTrackWidth] = useState(0)
-
-  const tabCount = state.routes.length
-  const tabWidth = trackWidth > 0 ? trackWidth / tabCount : 0
-  const activeIndex = state.index
-
-  const pillX = useRef(new Animated.Value(0)).current
-  const positioned = useRef(false)
-
-  // Filament breath along the top edge.
-  const filament = useOscillator(5200)
-  const filamentOpacity = filament.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0.85] })
-
+  const n = state.routes.length
+  const slot = width / n
+  const x = useRef(new Animated.Value(state.index)).current
   useEffect(() => {
-    if (tabWidth <= 0) return
-    const center = tabWidth * (activeIndex + 0.5)
-    // Snap into place the first time we have a measured width — otherwise the
-    // spring animates the key in from the bar's left edge. Spring on later
-    // tab changes only.
-    if (!positioned.current) {
-      positioned.current = true
-      pillX.setValue(center)
-      return
-    }
-    Animated.spring(pillX, {
-      toValue: center,
-      tension: 95,
-      friction: 12,
-      useNativeDriver: true,
-    }).start()
-  }, [activeIndex, tabWidth, pillX])
+    Animated.spring(x, { toValue: state.index, stiffness: 120, damping: 18, mass: 1, useNativeDriver: true }).start()
+  }, [state.index, x])
+
+  const totalH = BAR_H + Math.max(insets.bottom, 10)
+  const rackY = 0
+  const teeth = Math.ceil(width / RACK_W) + 1
+  // pinion centre over the first tab, its pitch circle on the rack's pitch line
+  const cx0 = slot / 2
+  const cy = rackY + RACK_PITCH_Y - RP
+  // phase the pinion so a gap sits on each rack tooth (rack teeth are centred
+  // in each tile, i.e. at (k + 0.5) * pitch)
+  const phase0 = useMemo(() => {
+    let r = (cx0 / PITCH - 0.5) % 1
+    if (r < 0) r += 1
+    return 90 - (360 / PINION) * (0.5 - r)
+  }, [cx0])
+  const travel = slot * Math.max(1, n - 1)
+  const turn = (travel / RP) * (180 / Math.PI)
 
   return (
-    <View
-      pointerEvents="box-none"
-      style={{
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        bottom: 0,
-        paddingBottom: Math.max(insets.bottom, 12),
-        paddingHorizontal: 16,
-      }}
-    >
-      <View
-        onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}
+    <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: totalH }}>
+      <LinearGradient colors={ENAMEL_STOPS as unknown as [string, string, ...string[]]} style={{ position: 'absolute', left: 0, right: 0, top: RACK_H - 2, bottom: 0 }} />
+      <View style={{ position: 'absolute', left: 0, right: 0, top: RACK_H - 2, height: 4, backgroundColor: 'rgba(0,0,0,0.45)' }} />
+
+      {/* the rack */}
+      <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: rackY, height: RACK_H, flexDirection: 'row' }}>
+        {Array.from({ length: teeth }, (_, i) => (
+          <Image key={i} source={IMG.rack} resizeMode="stretch" style={{ width: RACK_W, height: RACK_H }} />
+        ))}
+      </View>
+
+      {/* the pinion, rolling to the active tab */}
+      <Animated.View
+        pointerEvents="none"
         style={{
-          height: BAR_HEIGHT,
-          backgroundColor: 'rgba(18,12,7,0.9)',
-          borderRadius: 14,
-          overflow: 'hidden',
-          borderWidth: 1,
-          borderColor: HAIRLINE,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: 0.55,
-          shadowRadius: 14,
-          elevation: 12,
+          position: 'absolute',
+          left: cx0 - PIN_SIZE / 2,
+          top: cy - PIN_SIZE / 2,
+          width: PIN_SIZE,
+          height: PIN_SIZE,
+          transform: [
+            { translateX: x.interpolate({ inputRange: [0, Math.max(1, n - 1)], outputRange: [0, travel] }) },
+            { rotate: x.interpolate({ inputRange: [0, Math.max(1, n - 1)], outputRange: [`${phase0}deg`, `${phase0 + turn}deg`] }) },
+          ],
         }}
       >
-        <BlurView pointerEvents="none" intensity={22} tint="dark" style={StyleSheet.absoluteFill} />
+        <Image source={GEAR_IMG[PINION].src} style={{ width: PIN_SIZE, height: PIN_SIZE }} />
+      </Animated.View>
 
-        {/* faint interior warmth */}
-        <LinearGradient
-          pointerEvents="none"
-          colors={['rgba(232,169,59,0.06)', 'rgba(0,0,0,0)', 'rgba(0,0,0,0.25)']}
-          style={StyleSheet.absoluteFill}
-        />
-
-        {/* gas-lamp filament along the top edge */}
-        <Animated.View
-          pointerEvents="none"
-          style={{ position: 'absolute', top: 0, left: 10, right: 10, height: 1, opacity: filamentOpacity }}
-        >
-          <LinearGradient
-            colors={['rgba(232,169,59,0)', 'rgba(255,228,160,0.9)', 'rgba(232,169,59,0)']}
-            start={{ x: 0, y: 0.5 }}
-            end={{ x: 1, y: 0.5 }}
-            style={{ flex: 1 }}
-          />
-        </Animated.View>
-
-        {/* sliding brass key */}
-        {trackWidth > 0 ? (
-          <Animated.View
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              width: tabWidth - PILL_PAD,
-              height: BAR_HEIGHT - 12,
-              left: -(tabWidth - PILL_PAD) / 2,
-              top: 6,
-              transform: [{ translateX: pillX }],
-            }}
-          >
-            <View
-              style={{
-                flex: 1,
-                borderRadius: 9,
-                overflow: 'hidden',
-                borderWidth: 1,
-                borderColor: 'rgba(46,30,8,0.9)',
-                shadowColor: '#E8A93B',
-                shadowOffset: { width: 0, height: 0 },
-                shadowOpacity: 0.45,
-                shadowRadius: 8,
-              }}
-            >
-              <LinearGradient
-                colors={BRASS_FACE}
-                locations={[0, 0.55, 1]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 0, y: 1 }}
-                style={StyleSheet.absoluteFill}
-              />
-              {/* machined top edge */}
-              <View
-                style={{
-                  position: 'absolute',
-                  top: 1,
-                  left: 5,
-                  right: 5,
-                  height: 1,
-                  backgroundColor: 'rgba(255,245,220,0.55)',
-                }}
-              />
-            </View>
-          </Animated.View>
-        ) : null}
-
-        {/* corner screws */}
-        <CornerScrews seed="tabbar" inset={5} size={6} />
-
-        {/* tab cells */}
-        <View style={{ flexDirection: 'row', flex: 1 }}>
-          {state.routes.map((route, i) => {
-            const Icon = TAB_ICONS[route.name]
-            const options = descriptors[route.key]?.options
-            const overrideIcon = options?.tabBarIcon as
-              | ((p: { color: string; size?: number; focused: boolean }) => React.ReactNode)
-              | undefined
-            const focused = state.index === i
-            const baseLabel = route.name === 'Stage' ? stageLabel : route.name
-
-            return (
-              <ConsoleTab
-                key={route.key}
-                label={baseLabel}
-                focused={focused}
-                Icon={Icon}
-                overrideIcon={overrideIcon}
-                fontDisplay={tokens.fontDisplay}
-                inactiveColor={tokens.tabBarFg}
-                onPress={() => {
-                  const event = navigation.emit({
-                    type: 'tabPress',
-                    target: route.key,
-                    canPreventDefault: true,
-                  })
-                  if (!focused && !event.defaultPrevented) {
-                    navigation.navigate(route.name)
-                  }
-                }}
-                onLongPress={() => {
-                  navigation.emit({ type: 'tabLongPress', target: route.key })
-                }}
-              />
-            )
-          })}
-        </View>
+      <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, top: RACK_H + 4, height: BAR_H - 6, flexDirection: 'row' }}>
+        {state.routes.map((route, i) => {
+          const Icon: TabIconComponent | undefined = TAB_ICONS[route.name]
+          const options = descriptors[route.key]?.options
+          const overrideIcon = options?.tabBarIcon as ((p: { color: string; size?: number; focused: boolean }) => React.ReactNode) | undefined
+          const label = route.name === 'Stage' ? stageLabel : route.name
+          const focused = state.index === i
+          const color = focused ? ACTIVE : FG
+          const onPress = () => {
+            const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true })
+            if (!focused && !event.defaultPrevented) navigation.navigate(route.name)
+          }
+          return (
+            <Pressable key={route.key} onPress={onPress} accessibilityLabel={label} hitSlop={4} style={{ flex: 1, alignItems: 'center' }}>
+              <View style={{ height: 28, alignItems: 'center', justifyContent: 'center' }}>
+                {overrideIcon ? overrideIcon({ color, size: 21, focused }) : Icon ? <Icon color={color} size={21} /> : null}
+              </View>
+              <Text numberOfLines={1} style={{ fontFamily: OLD_B, fontSize: 9.5, letterSpacing: 1.6, textTransform: 'uppercase', color: focused ? LAMP : FG, marginTop: 2 }}>
+                {label}
+              </Text>
+            </Pressable>
+          )
+        })}
       </View>
     </View>
-  )
-}
-
-function ConsoleTab({
-  label,
-  focused,
-  Icon,
-  overrideIcon,
-  fontDisplay,
-  inactiveColor,
-  onPress,
-  onLongPress,
-}: {
-  label: string
-  focused: boolean
-  Icon: ((p: { color: string; size?: number }) => React.ReactElement) | undefined
-  overrideIcon:
-    | ((p: { color: string; size?: number; focused: boolean }) => React.ReactNode)
-    | undefined
-  fontDisplay: string
-  inactiveColor: string
-  onPress: () => void
-  onLongPress: () => void
-}) {
-  const color = focused ? BRASS_INK : inactiveColor
-
-  return (
-    <Pressable
-      onPress={onPress}
-      onLongPress={onLongPress}
-      style={{ flex: 1, alignItems: 'center', justifyContent: 'center', zIndex: 2 }}
-    >
-      <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-        <View>
-          {overrideIcon
-            ? overrideIcon({ color, size: 21, focused })
-            : Icon
-              ? Icon({ color, size: 21 })
-              : null}
-        </View>
-        <Text
-          style={{
-            marginTop: 4,
-            color,
-            fontFamily: fontDisplay,
-            fontSize: 9,
-            letterSpacing: 1.8,
-            textTransform: 'uppercase',
-            opacity: focused ? 1 : 0.85,
-            includeFontPadding: false,
-            textShadowColor: focused ? 'rgba(255,245,220,0.4)' : 'transparent',
-            textShadowRadius: 0,
-            textShadowOffset: { width: 0, height: focused ? 1 : 0 },
-          }}
-        >
-          {label}
-        </Text>
-      </View>
-    </Pressable>
   )
 }

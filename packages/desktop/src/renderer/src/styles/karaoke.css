@@ -1294,66 +1294,6 @@
     100% { opacity: 1; transform: scale(1); }
 }
 
-/* ── Steampunk — Edison filament ignition (in the singer's color) ─────────
-   The plate face is dark iron (JSX inline); the letters are lamp filaments.
-   Future words are unlit glass — dark and engraved. Sung words hold a steady
-   glow in the singer's color (mixed toward warm white so any color stays
-   bright on iron). The current word IGNITES: a hot white-core flare with a
-   gas-lamp catch-flicker, plus a soft bulb backlight behind the word on an
-   absolutely-positioned pseudo — neighbouring words never shift. */
-[data-theme="steampunk"] .k-line--now .k-syl {
-    position: relative;
-}
-[data-theme="steampunk"] .k-line--now .k-syl .k-syl__word {
-    position: relative;
-    display: inline-block;
-}
-[data-theme="steampunk"] .k-line--now .k-syl--past {
-    opacity: 1;
-    color: color-mix(in srgb, var(--syl-singer, #C8973E), #F5E9D0 40%);
-    text-shadow:
-        0 0 0.22em color-mix(in srgb, var(--syl-singer, #C8973E), transparent 55%),
-        0 0.03em 0 rgba(0, 0, 0, 0.5);
-}
-[data-theme="steampunk"] .k-line--now .k-syl--now {
-    color: color-mix(in srgb, var(--syl-singer, #C8973E), #FFF6E0 62%);
-    font-weight: 900;
-    text-shadow:
-        0 0 0.14em rgba(255, 246, 224, 0.7),
-        0 0 0.34em var(--syl-singer, #C8973E),
-        0 0 0.7em color-mix(in srgb, var(--syl-singer, #C8973E), transparent 35%),
-        0 0.03em 0 rgba(0, 0, 0, 0.45);
-    animation: steam-ignite 0.38s ease-out both;
-}
-[data-theme="steampunk"] .k-line--now .k-syl--now .k-syl__word::before {
-    content: '';
-    position: absolute;
-    inset: -0.12em -0.2em;
-    border-radius: 50%;
-    background: radial-gradient(ellipse at 50% 55%,
-        color-mix(in srgb, var(--syl-singer, #C8973E), transparent 78%) 0%,
-        transparent 70%);
-    animation: steam-bulb-on 0.4s ease-out both;
-    z-index: -1;
-}
-[data-theme="steampunk"] .k-line--now .k-syl--future {
-    opacity: 1;
-    color: rgba(238, 224, 196, 0.3);
-    text-shadow: 0 -0.02em 0 rgba(0, 0, 0, 0.35);
-}
-/* Gas catching in the mantle: two quick stutters, then steady light. */
-@keyframes steam-ignite {
-    0%   { filter: brightness(0.6); }
-    18%  { filter: brightness(1.6); }
-    30%  { filter: brightness(0.9); }
-    48%  { filter: brightness(1.5); }
-    100% { filter: brightness(1); }
-}
-@keyframes steam-bulb-on {
-    0%   { opacity: 0; transform: scale(0.5); }
-    100% { opacity: 1; transform: scale(1); }
-}
-
 /* ── Retrowave — Chrome Synthwave on the Dark Void ──────────────────────────
    The active line for retrowave is a deep purple/navy synthwave card (set
    inline in JSX), so the neon chrome + halo on the active word finally
@@ -1675,133 +1615,6 @@
     0%   { stroke-dashoffset: 240; }
     80%  { stroke-dashoffset: 20; }
     100% { stroke-dashoffset: 15; }
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   STEAMPUNK STAGE — the music-hall engine room
-   Cast iron, riveted brass, gaslight. The singer's color is treated as
-   LIGHT — Edison-filament lettering and an enamel indicator band on the
-   machinery — never as paint, so any color combination stays luminous.
-   (The riveted plate frame itself lives in steampunk.ts globalCss.)
-   ═══════════════════════════════════════════════════════════════════════ */
-
-/* ---- Backdrop: gaslit daguerreotype — warm sepia, heavy vignette ---- */
-[data-theme="steampunk"] .k-bg__img,
-[data-theme="steampunk"] .k-bg__img--prev {
-    filter: blur(60px) saturate(0.5) sepia(0.35) brightness(0.45);
-}
-[data-theme="steampunk"] .k-bg__scrim {
-    background:
-        linear-gradient(180deg, rgba(14, 11, 9, 0.85) 0%, rgba(20, 17, 15, 0.35) 32%, rgba(20, 17, 15, 0.35) 62%, rgba(12, 10, 8, 0.9) 100%),
-        radial-gradient(ellipse at center, transparent 30%, rgba(10, 8, 6, 0.65) 100%);
-}
-
-/* ---- Lyric ladder: aged parchment tones instead of stark white ---- */
-[data-theme="steampunk"] .k-line--future {
-    color: rgba(232, 220, 200, 0.88);
-}
-[data-theme="steampunk"] .k-line--past {
-    color: rgba(232, 220, 200, 0.2);
-}
-
-/* ---- Active plate motion ----
-   Entrance: the nameplate is pressed into place with a mechanical overshoot.
-   Then the halo breathes in the singer's color (--stm-glow, set inline) —
-   the keyframes carry the brass inset ring so the animation can own
-   box-shadow without losing the frame from .k-line--steampunk-plate. */
-[data-theme="steampunk"] .k-line--steampunk-active {
-    animation:
-        steam-plate-in 0.5s cubic-bezier(0.34, 1.4, 0.5, 1) both,
-        steam-plate-breath 4.5s ease-in-out 0.5s infinite;
-}
-/* Static shadow matching the breath's 0% frame, so the singer-colored halo
-   is right from the first paint (before the delayed breath kicks in). The
-   compound selector out-ranks the plate rule injected via theme globalCss. */
-[data-theme="steampunk"] .k-line--steampunk-active.k-line--steampunk-plate {
-    box-shadow:
-        inset 0 0 0 2px #C8973E,
-        inset 0 0 18px rgba(0, 0, 0, 0.35),
-        0 0 16px var(--stm-glow, rgba(200, 151, 62, 0.45));
-}
-@keyframes steam-plate-in {
-    0%   { opacity: 0; transform: translateY(0.35em) scale(0.96); }
-    70%  { opacity: 1; transform: translateY(-0.04em) scale(1.005); }
-    100% { opacity: 1; transform: translateY(0) scale(1); }
-}
-@keyframes steam-plate-breath {
-    0%, 100% {
-        box-shadow:
-            inset 0 0 0 2px #C8973E,
-            inset 0 0 18px rgba(0, 0, 0, 0.35),
-            0 0 16px var(--stm-glow, rgba(200, 151, 62, 0.45));
-    }
-    50% {
-        box-shadow:
-            inset 0 0 0 2px #D8AC5A,
-            inset 0 0 18px rgba(0, 0, 0, 0.3),
-            0 0 32px var(--stm-glow, rgba(200, 151, 62, 0.6));
-    }
-}
-
-/* ---- Pacing tube for lines WITHOUT syllable timing ----
-   A copper pressure tube fills along the plate's bottom edge across the
-   line's real duration (--nb-line-dur). It repurposes the plate's sheen
-   ::after (higher specificity wins), so LRC-only lines trade the sheen
-   sweep for the pacing readout. */
-[data-theme="steampunk"] .k-line--steampunk-plate.k-line--steampunk-timed::after {
-    inset: auto 0.9em 0.12em 0.9em;
-    height: 0.08em;
-    border-radius: 999px;
-    background: linear-gradient(90deg,
-        color-mix(in srgb, var(--syl-singer, #E07040), #C8973E 30%),
-        #E07040);
-    background-size: 100% 100%;
-    mix-blend-mode: normal;
-    transform-origin: left center;
-    transform: scaleX(0);
-    opacity: 0.9;
-    animation: steam-line-fill var(--nb-line-dur, 3000ms) linear 0.1s both;
-}
-@keyframes steam-line-fill {
-    to { transform: scaleX(1); }
-}
-
-/* ---- Pause: freeze the machinery with the music ---- */
-[data-theme="steampunk"] .k-stage--paused .k-line--steampunk-plate.k-line--steampunk-timed::after,
-[data-theme="steampunk"] .k-stage--paused .k-line--steampunk-active {
-    animation-play-state: paused;
-}
-
-/* ---- Count-in exit: the plate vents upward like released steam ---- */
-[data-theme="steampunk"] .k-nb-countin--exit {
-    animation: steam-countin-exit 0.75s ease both;
-}
-@keyframes steam-countin-exit {
-    to { opacity: 0; transform: translateY(-32px); filter: blur(5px); }
-}
-[data-theme="steampunk"] .k-stage--paused .k-nb-countin--exit {
-    animation-play-state: paused;
-}
-
-/* ---- Steampunk motion vocabulary ---- */
-@keyframes steam-rise {
-    0%   { opacity: 0; transform: translateY(16px); }
-    70%  { opacity: 1; transform: translateY(-2px); }
-    100% { opacity: 1; transform: translateY(0); }
-}
-@keyframes steam-stamp {
-    0%   { opacity: 0; transform: scale(1.55); }
-    55%  { opacity: 1; transform: scale(0.96); }
-    75%  { transform: scale(1.03); }
-    100% { opacity: 1; transform: scale(1); }
-}
-
-/* ── Steampunk: idle screen keyframes ────────────────────────────────────── */
-@keyframes steamNeedle {
-    0%, 100% { transform: rotate(-40deg); }
-    30%      { transform: rotate(25deg); }
-    60%      { transform: rotate(-10deg); }
-    80%      { transform: rotate(15deg); }
 }
 
 /* ── Retrowave: scan lines masked INTO the text ─────────────────────────── */
@@ -3322,4 +3135,223 @@
 @keyframes sp-countin-exit {
     from { opacity: 1; transform: translateY(0) scale(1); }
     to   { opacity: 0; transform: translateY(-120%) scale(0.94); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   VOX ENGINE STAGE (steampunk): a brass steam engine that runs on your voice.
+   The parts are rendered sprites (components/steampunk/parts.ts); the gears
+   and gauge needles are turned by the engine clock (engine.ts). This section
+   is the rest of the motion, plus the nameplate.
+
+   THE LYRIC IDEA: the active line is cast on an ENGINE NAMEPLATE, deep green
+   Victorian enamel in a riveted brass frame (the rendered frame, nine-sliced
+   so its rivets repeat along any length). Its letters are cold until sung.
+   Each syllable then heats as a whole (never a wipe), glowing in its singer's
+   colour, and the engine CHUFFS: a little puff of steam rises off the word,
+   like a locomotive taking a beat. The glow holds for the note (--syl-dur).
+   A shared line heats singer by singer.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ---- Shared motion ---- */
+@keyframes st-rise {
+    0%   { opacity: 0; transform: translateY(22px); }
+    70%  { opacity: 1; transform: translateY(-2px); }
+    100% { opacity: 1; transform: none; }
+}
+.st-rise { animation: st-rise 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+/* A count-in numeral struck like a die in a press. */
+@keyframes st-stamp {
+    0%   { opacity: 0; transform: scale(1.5); }
+    55%  { opacity: 1; transform: scale(0.95); }
+    100% { opacity: 1; transform: scale(1); }
+}
+.st-stamp { animation: st-stamp 0.42s cubic-bezier(0.2, 0.9, 0.3, 1) both; display: inline-block; }
+
+/* Steam blowing off a vent: rises, spreads, thins away. */
+@keyframes st-puff {
+    0%   { opacity: 0; transform: translate(0, 0) scale(0.3); }
+    14%  { opacity: 0.85; }
+    100% { opacity: 0; transform: translate(-26px, -190px) scale(2.3); }
+}
+.st-puff { opacity: 0; animation: st-puff 7s ease-out infinite; }
+
+/* The engine blowing off: one big blast. */
+@keyframes st-blast {
+    0%   { opacity: 0.95; transform: translate(0, 0) scale(0.4); }
+    100% { opacity: 0; transform: translate(-50px, -320px) scale(3.2); }
+}
+.st-blast { opacity: 0; animation: st-blast 1.8s cubic-bezier(0.1, 0.6, 0.3, 1) forwards; }
+
+/* An airship crossing the windows. */
+@keyframes st-drift {
+    from { transform: translateX(-700px); }
+    to   { transform: translateX(2000px); }
+}
+.st-airship { animation: st-drift 160s linear infinite; }
+
+/* Smoked glass over a surprise song. */
+.st-smoked {
+    background:
+        radial-gradient(ellipse 50% 38% at 34% 30%, rgba(90, 80, 70, 0.35) 0%, rgba(0, 0, 0, 0) 70%),
+        radial-gradient(ellipse 40% 50% at 70% 64%, rgba(60, 52, 44, 0.4) 0%, rgba(0, 0, 0, 0) 70%),
+        radial-gradient(circle at 50% 50%, #2A231D 0%, #120E0B 70%, #080605 100%);
+}
+
+/* ---- Backdrop while a song plays: the art, warmed, deep in the house ---- */
+[data-theme="steampunk"] .k-bg__img,
+[data-theme="steampunk"] .k-bg__img--prev {
+    filter: blur(50px) sepia(0.35) saturate(1.05) brightness(0.42);
+}
+[data-theme="steampunk"] .k-bg__scrim {
+    background:
+        linear-gradient(180deg, rgba(18, 13, 10, 0.72) 0%, rgba(18, 13, 10, 0.15) 22%, rgba(18, 13, 10, 0.15) 70%, rgba(18, 13, 10, 0.78) 100%),
+        radial-gradient(ellipse at center, transparent 45%, rgba(10, 7, 5, 0.6) 100%);
+}
+
+/* ---- The lyric ladder ---- */
+[data-theme="steampunk"] .k-line--future {
+    color: #F1E4C6;
+    transform: scale(0.9) translateY(4px);
+}
+[data-theme="steampunk"] .k-line--st-future,
+[data-theme="steampunk"] .k-line--st-future .k-syl__word {
+    color: color-mix(in srgb, var(--st-tint, #F1E4C6), #F4EAD2 70%);
+}
+[data-theme="steampunk"] .k-line--st-future {
+    text-shadow: 0 0.04em 0 rgba(0, 0, 0, 0.7), 0 0.04em 0.35em rgba(8, 6, 4, 0.95);
+}
+[data-theme="steampunk"] .k-line--st-future .k-syl--future {
+    opacity: 1;
+}
+[data-theme="steampunk"] .k-line--past {
+    color: #A8977A;
+    opacity: 0.36;
+    transform: scale(0.86);
+    text-shadow: 0 0.04em 0.3em rgba(8, 6, 4, 0.9);
+}
+
+/* ---- The active line: the engine nameplate ---- */
+@keyframes st-plate-in {
+    0%   { opacity: 0; transform: translateY(0.3em) scale(0.97); }
+    70%  { opacity: 1; transform: translateY(-0.03em) scale(1.004); }
+    100% { opacity: 1; transform: none; }
+}
+[data-theme="steampunk"] .k-line--st {
+    position: relative;
+    isolation: isolate;
+    border-radius: 0;
+    margin: 0.4em 1.6em;
+    text-shadow: none;
+    animation: st-plate-in 0.5s cubic-bezier(0.34, 1.3, 0.5, 1) both;
+}
+.st-plate {
+    position: absolute;
+    top: -0.2em;
+    bottom: -0.2em;
+    left: -1.05em;
+    right: -1.05em;
+    z-index: -1;
+    pointer-events: none;
+    border-style: solid;
+    border-color: transparent;
+    border-width: 0.44em;
+    border-image: var(--st-frame) 48 round;
+    background: linear-gradient(180deg, #22352C 0%, #16231D 45%, #0C1511 100%) padding-box;
+    box-shadow: 0 0.3em 0.8em rgba(0, 0, 0, 0.62);
+}
+.st-plate::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    box-shadow: inset 0 0.08em 0.22em rgba(0, 0, 0, 0.7), inset 0 -0.02em 0 rgba(255, 236, 200, 0.08);
+}
+
+[data-theme="steampunk"] .k-line--st .k-syl {
+    opacity: 1;
+}
+[data-theme="steampunk"] .k-line--st .k-syl--now {
+    font-weight: inherit;
+    letter-spacing: inherit;
+}
+[data-theme="steampunk"] .k-line--st .k-syl__word {
+    position: relative;
+    display: inline-block;
+}
+/* Not yet sung: cold metal letters, cast into the enamel. */
+[data-theme="steampunk"] .k-line--st .k-syl--future .k-syl__word {
+    color: rgba(241, 228, 198, 0.34);
+    text-shadow: 0 -0.02em 0 rgba(0, 0, 0, 0.6), 0 0.02em 0 rgba(255, 236, 200, 0.06);
+}
+/* Sung: hot, glowing in the singer's colour, and staying lit. */
+[data-theme="steampunk"] .k-line--st .k-syl--past .k-syl__word,
+[data-theme="steampunk"] .k-line--st .k-syl--now .k-syl__word {
+    color: color-mix(in srgb, var(--syl-tint, var(--st-tint)), #FFE6B0 40%);
+    text-shadow:
+        0 0 0.06em color-mix(in srgb, var(--syl-tint, var(--st-tint)), #FFE6B0 55%),
+        0 0 0.4em color-mix(in srgb, var(--syl-tint, var(--st-tint)), transparent 55%),
+        0 0.04em 0 rgba(0, 0, 0, 0.55);
+}
+/* The syllable being sung: the heat comes up, and the engine chuffs. */
+@keyframes st-heat {
+    0%   { transform: scale(0.96); filter: brightness(2.2); }
+    40%  { transform: scale(1.06); }
+    100% { transform: scale(1); filter: brightness(1); }
+}
+@keyframes st-glow {
+    0%   { text-shadow:
+              0 0 0.1em #FFF1D0,
+              0 0 0.45em var(--syl-tint, var(--st-tint)),
+              0 0 1.1em color-mix(in srgb, var(--syl-tint, var(--st-tint)), transparent 40%),
+              0 0.04em 0 rgba(0, 0, 0, 0.55); }
+    100% { text-shadow:
+              0 0 0.06em color-mix(in srgb, var(--syl-tint, var(--st-tint)), #FFE6B0 55%),
+              0 0 0.4em color-mix(in srgb, var(--syl-tint, var(--st-tint)), transparent 55%),
+              0 0.04em 0 rgba(0, 0, 0, 0.55); }
+}
+@keyframes st-chuff {
+    0%   { opacity: 0; transform: translate(-50%, 0.2em) scale(0.3); }
+    16%  { opacity: 0.95; }
+    100% { opacity: 0; transform: translate(-62%, -1.3em) scale(1.8); }
+}
+[data-theme="steampunk"] .k-line--st .k-syl--now .k-syl__word {
+    color: color-mix(in srgb, var(--syl-tint, var(--st-tint)), #FFF1D0 52%);
+    animation:
+        st-heat 300ms cubic-bezier(0.16, 1, 0.3, 1) both,
+        st-glow var(--syl-dur, 400ms) ease-out both;
+}
+[data-theme="steampunk"] .k-line--st .k-syl--now .k-syl__word::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: -0.75em;
+    width: 1.7em;
+    height: 1.7em;
+    pointer-events: none;
+    background: var(--st-steam) center / contain no-repeat;
+    opacity: 0;
+    animation: st-chuff 1.15s ease-out forwards;
+}
+
+/* LRC-only lines have no syllables: the whole line heats at once. */
+[data-theme="steampunk"] .k-line--st-full {
+    color: color-mix(in srgb, var(--st-tint), #FFE6B0 42%) !important;
+    animation:
+        st-plate-in 0.5s cubic-bezier(0.34, 1.3, 0.5, 1) both,
+        st-glow 1.4s ease-out both !important;
+}
+
+[data-theme="steampunk"] .k-stage--paused .k-syl--now .k-syl__word,
+[data-theme="steampunk"] .k-stage--paused .k-syl--now .k-syl__word::before,
+[data-theme="steampunk"] .k-stage--paused .st-puff,
+[data-theme="steampunk"] .k-stage--paused .k-nb-countin--exit {
+    animation-play-state: paused;
+}
+
+/* ---- Count-in exit: the plate vents away upward ---- */
+[data-theme="steampunk"] .k-nb-countin--exit {
+    animation: st-countin-exit 0.8s ease 0.25s forwards;
+}
+@keyframes st-countin-exit {
+    to { opacity: 0; transform: translateY(-36px); filter: blur(5px); }
 }

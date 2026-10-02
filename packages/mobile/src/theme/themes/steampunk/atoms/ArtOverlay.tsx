@@ -1,25 +1,15 @@
 import React from 'react'
-import { View, StyleSheet } from 'react-native'
+import { Image, StyleSheet, View } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
-import { CornerBrackets, HAIRLINE_SOFT } from './_steam'
+import { IMG } from './_engine'
 
-// Steampunk ArtOverlay — mounts the Stage now-playing art the way the song
-// cards do: four brass corner brackets, an engraved inner hairline, and a
-// whisper of glass light across the top. Purely decorative, fully static.
+// Steampunk now-playing art: seen through a porthole's glass, the skylight's
+// reflection across it and the edge falling into shadow.
 export function ArtOverlay() {
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <View
-        style={[
-          StyleSheet.absoluteFill,
-          { margin: 4, borderRadius: 6, borderWidth: 1, borderColor: HAIRLINE_SOFT },
-        ]}
-      />
-      <LinearGradient
-        colors={['rgba(255,246,224,0.12)', 'rgba(255,246,224,0)']}
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '24%' }}
-      />
-      <CornerBrackets length={16} thickness={2.5} inset={0} />
+      <LinearGradient colors={['rgba(18,13,10,0)', 'rgba(18,13,10,0.35)']} start={{ x: 0.5, y: 0.4 }} end={{ x: 0.5, y: 1 }} style={StyleSheet.absoluteFill} />
+      <Image source={IMG.portholeGlass} resizeMode="stretch" style={{ position: 'absolute', left: '-24%', top: '-24%', width: '148%', height: '148%', opacity: 0.8 }} />
     </View>
   )
 }

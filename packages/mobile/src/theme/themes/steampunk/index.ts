@@ -1,60 +1,74 @@
 import { STEAMPUNK_MOBILE } from '../../tokens'
 import type { ThemeUIModule } from '../../types'
 import { buildSteampunkStyles } from './styles'
-import { SteampunkButton } from './atoms/Button'
-import { SteampunkColorPicker } from './atoms/ColorPicker'
-import { SteampunkGenreTabs } from './atoms/GenreTabs'
+import { Button } from './atoms/Button'
+import { ColorPicker } from './atoms/ColorPicker'
+import { GenreTabs } from './atoms/GenreTabs'
 import { TabBar } from './atoms/TabBar'
 import { Backdrop } from './atoms/Backdrop'
+import { SceneLayer } from './atoms/SceneLayer'
 import { ItemFloater } from './atoms/ItemFloater'
-import { SteampunkSongsSearchBar } from './atoms/SongsSearchBar'
-import { SteampunkSongCard } from './atoms/SongCard'
-import { SteampunkQueueRow } from './atoms/QueueRow'
-import { SteampunkReactionCell } from './atoms/ReactionCell'
-import { SteampunkStageTabIcon } from './atoms/StageTabIcon'
-import { SteampunkStagePlayButton } from './atoms/StagePlayButton'
-import { SteampunkStageToggleBox } from './atoms/StageToggleBox'
+import { ScreenTitle } from './atoms/ScreenTitle'
+import { SongsSearchBar } from './atoms/SongsSearchBar'
+import { SongCard } from './atoms/SongCard'
+import { QueueRow } from './atoms/QueueRow'
+import { ReactionCell } from './atoms/ReactionCell'
+import { StageTabIcon } from './atoms/StageTabIcon'
+import { StagePlayButton } from './atoms/StagePlayButton'
+import { StageToggleBox } from './atoms/StageToggleBox'
 import { YoureUpHero } from './atoms/YoureUpHero'
 import { ArtOverlay } from './atoms/ArtOverlay'
+import { ProfilePortrait } from './atoms/ProfilePortrait'
+import { BRASS_LO, INK } from './atoms/_engine'
 
-// Steampunk theme module — a Victorian PRECISION INSTRUMENT, machined rather
-// than decorated. Near-black iron plates carry thin brass hairlines, engraved
-// inner rules, and small machined corner screws; polished brass is reserved
-// for the single active element on screen (the seated tab key, the active
-// genre plate, the primary button); copper needles and gas-lamp amber mark
-// live states only. Gears appear in exactly three places — the backdrop's
-// ghosted clockwork, the Stage tab icon, and the Great Engine play button —
-// so they stay special. Cinzel is the engraved plate lettering; IM Fell
-// English is the Victorian body face. The shared visual vocabulary (palette,
-// Plaque, Screw, Gear, GaugeDial, CornerBrackets, motion hooks) lives in
-// atoms/_steam.tsx.
+// ── STEAMPUNK: "THE VOX ENGINE" ─────────────────────────────────────────────
+//
+// The phone is a panel of the brass steam engine on the stage. Every metal
+// part is a rendered sprite (scripts/generate-steampunk-assets.py), composed
+// from the vocabulary in atoms/_engine.tsx:
+//
+//   • THE ENGINE HOUSE  the out-of-focus hall behind every screen (SceneLayer):
+//                       a tall arched window with airships drifting past it,
+//                       a train of gears turning along the foot, steam rising
+//   • GEARS             real meshing trains, one native-driven clock for all
+//                       of them; the tab bar is a rack with a pinion rolling
+//                       along it to the active tab
+//   • PORTHOLES         songs, queue rows and your profile photo are seen
+//                       through riveted brass portholes
+//   • PLATES            deep green enamel in riveted brass frames (titles,
+//                       cards, tiles); polished brass for primary buttons
+//   • INSTRUMENTS       a steam valve hand wheel to play, pressure gauges,
+//                       knife-switch toggles, jewel lamps in singers' colours
 export const STEAMPUNK_UI: ThemeUIModule = {
   styles: buildSteampunkStyles(STEAMPUNK_MOBILE),
 
-  Button: SteampunkButton,
-  ColorPicker: SteampunkColorPicker,
-  GenreTabs: SteampunkGenreTabs,
+  Button,
+  ColorPicker,
+  GenreTabs,
 
   TabBar,
   Backdrop,
+  SceneLayer,
   ItemFloater,
+  ScreenTitle,
 
-  SongsSearchBar: SteampunkSongsSearchBar,
-  SongCard: SteampunkSongCard,
+  SongsSearchBar,
+  SongCard,
 
-  QueueRow: SteampunkQueueRow,
+  QueueRow,
 
-  ReactionCell: SteampunkReactionCell,
-  StageTabIcon: SteampunkStageTabIcon,
-  StagePlayButton: SteampunkStagePlayButton,
-  StageToggleBox: SteampunkStageToggleBox,
+  ReactionCell,
+  StageTabIcon,
+  StagePlayButton,
+  StageToggleBox,
   YoureUpHero,
   ArtOverlay,
+  ProfilePortrait,
 
-  // Reaction cells are dark iron plates — icons need parchment light; the
-  // "+" affordance stays a faint brass etch.
+  // Reaction icons sit on cream glass push-buttons: ink, with the empty
+  // tile's "+" in dark brass.
   reactionIconColors: {
-    iconColor: '#EFE0BE',
-    plusIconColor: 'rgba(200,151,62,0.45)',
+    iconColor: INK,
+    plusIconColor: BRASS_LO,
   },
 }

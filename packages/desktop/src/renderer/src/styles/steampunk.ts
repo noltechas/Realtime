@@ -1,455 +1,258 @@
-// Steampunk / Victorian Industrial Design System
-// 19th-century industrial machinery meets Victorian elegance — brass gears,
-// copper pipes, steam wisps, riveted metal, weathered parchment, pressure gauges,
-// clockwork mechanisms, gaslight glow, and ornate scrollwork.
+// Steampunk: "THE VOX ENGINE". A brass steam engine that runs on your voice.
+//
+// The stage is one great machine in a Victorian engine house: brass and copper
+// gears that genuinely mesh, a pressure gauge, a station clock, copper pipes
+// venting steam, riveted plates and a porthole, tall arched windows with
+// airships drifting past. It is DRIVEN BY THE SINGERS: the louder the room
+// sings, the faster the gears turn, the higher the gauge needles climb, and a
+// held, belted note blows off steam (components/steampunk/engine.ts).
+//
+// Every metal part is a rendered sprite (packages/mobile/scripts/generate-
+// steampunk-assets.py): height maps lit as real brass, copper and steel with
+// bevels, polished wear, grime and verdigris. Flat vector gears and faint
+// outlines were what made earlier versions look cheap.
+//
+// The lyric idea: the active line is cast on an ENGINE NAMEPLATE (deep green
+// Victorian enamel in a riveted brass frame). Its letters are cold until sung;
+// each syllable then glows hot in its singer's colour, and the engine CHUFFS:
+// a little puff of steam rises from the word, like a locomotive taking a beat.
+//
+// Type: Abril Fatface (the fat face of every Victorian playbill and
+// nameplate) for display, numerals and lyrics; Old Standard TT (a
+// nineteenth-century book face) for reading and engraved capitals.
+//
+// Kept in sync with packages/shared/src/themes/steampunk.ts.
 
 import type { Theme } from './theme'
+import { STEAMPUNK_TOKENS } from '@karaoke/shared'
+import frameBrass from '../assets/steampunk/frame-brass.png'
+import steam0 from '../assets/steampunk/steam-0.png'
+import rivet from '../assets/steampunk/rivet.png'
 
 // ── Palette ──────────────────────────────────────────────────────────────────
-const IRON_DARK    = '#14110F'   // aged cast iron
-const IRON_PANEL   = '#1C1816'
-const IRON_CARD    = '#252018'
-const BRASS        = '#C8973E'   // polished brass — primary accent
-const COPPER       = '#E07040'   // vivid copper — NOW PLAYING bg
-const VERDIGRIS    = '#5A9E8F'   // oxidized patina green
-const PARCHMENT    = '#E8DCC8'   // warm aged paper text
-const TEXT_MID     = '#A89878'   // muted warm text
+export const ST = {
+    HOUSE: '#120D0A',
+    HOUSE_2: '#1A1410',
+    ENAMEL: '#16231D',
+    ENAMEL_HI: '#22352C',
+    ENAMEL_LO: '#0C1511',
+    BRASS_LO: '#4A3312',
+    BRASS_DEEP: '#7E5A22',
+    BRASS: '#C9A15A',
+    BRASS_HI: '#E9C77F',
+    BRASS_SHEEN: '#FFF0C8',
+    COPPER: '#B4643A',
+    VERDIGRIS: '#5FA08A',
+    LAMP: '#F6C66B',
+    PARCHMENT: '#F1E4C6',
+    PARCHMENT_DIM: '#A8977A',
+    INK: '#2A1B0E',
+    RED: '#C9452F',
+    FONT_DISPLAY: "'Abril Fatface', 'Didot', 'Bodoni 72', Georgia, serif",
+    FONT_BODY: "'Old Standard TT', 'Iowan Old Style', Georgia, serif",
+} as const
 
-const brassGlow    = (spread = 8, a = 0.35) => `0 0 ${spread}px rgba(200,151,62,${a})`
-const copperGlow   = (spread = 8, a = 0.3)  => `0 0 ${spread}px rgba(224,112,64,${a})`
-const verdiGlow    = (spread = 6, a = 0.25) => `0 0 ${spread}px rgba(90,158,143,${a})`
+/** Deterministic 0..1 from a string, for stable per-item variation. */
+export function stHash(key: string, salt = 0): number {
+    let h = 2166136261 ^ salt
+    for (let i = 0; i < key.length; i++) {
+        h ^= key.charCodeAt(i)
+        h = Math.imul(h, 16777619)
+    }
+    return ((h >>> 0) % 100000) / 100000
+}
 
-const FONT_HEADING = "'Cinzel Decorative', 'Cinzel', serif"
-const FONT_DISPLAY = "'Spectral', 'Georgia', serif"
-const FONT_BODY    = "'Spectral', 'Georgia', serif"
-
-// ── Singer colors — industrial palette ───────────────────────────────────────
-// Weathered parchment crosshatch texture SVG
-const PARCHMENT_SVG = encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'><line x1='0' y1='0' x2='60' y2='60' stroke='rgba(200,151,62,0.03)' stroke-width='0.5'/><line x1='20' y1='0' x2='60' y2='40' stroke='rgba(200,151,62,0.025)' stroke-width='0.4'/><line x1='40' y1='0' x2='60' y2='20' stroke='rgba(200,151,62,0.02)' stroke-width='0.3'/><line x1='0' y1='20' x2='40' y2='60' stroke='rgba(200,151,62,0.025)' stroke-width='0.4'/><line x1='0' y1='40' x2='20' y2='60' stroke='rgba(200,151,62,0.02)' stroke-width='0.3'/></svg>`)
-
-// Victorian scrollwork corner flourish SVG
-const SCROLLWORK_SVG = encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><path d='M5 5 Q5 30 20 20 Q35 10 25 25 Q15 40 30 30 Q45 20 35 35' fill='none' stroke='rgba(200,151,62,0.06)' stroke-width='0.8' stroke-linecap='round'/><path d='M115 115 Q115 90 100 100 Q85 110 95 95 Q105 80 90 90 Q75 100 85 85' fill='none' stroke='rgba(200,151,62,0.06)' stroke-width='0.8' stroke-linecap='round'/></svg>`)
-
-// SVG gear shape for background (12-tooth gear)
-const GEAR_SVG = encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'><circle cx='50' cy='50' r='30' fill='none' stroke='rgba(200,151,62,0.08)' stroke-width='1.5'/><circle cx='50' cy='50' r='12' fill='none' stroke='rgba(200,151,62,0.06)' stroke-width='1'/><line x1='50' y1='18' x2='50' y2='8' stroke='rgba(200,151,62,0.07)' stroke-width='6' stroke-linecap='round'/><line x1='50' y1='82' x2='50' y2='92' stroke='rgba(200,151,62,0.07)' stroke-width='6' stroke-linecap='round'/><line x1='18' y1='50' x2='8' y2='50' stroke='rgba(200,151,62,0.07)' stroke-width='6' stroke-linecap='round'/><line x1='82' y1='50' x2='92' y2='50' stroke='rgba(200,151,62,0.07)' stroke-width='6' stroke-linecap='round'/><line x1='27' y1='27' x2='20' y2='20' stroke='rgba(200,151,62,0.06)' stroke-width='5' stroke-linecap='round'/><line x1='73' y1='73' x2='80' y2='80' stroke='rgba(200,151,62,0.06)' stroke-width='5' stroke-linecap='round'/><line x1='73' y1='27' x2='80' y2='20' stroke='rgba(200,151,62,0.06)' stroke-width='5' stroke-linecap='round'/><line x1='27' y1='73' x2='20' y2='80' stroke='rgba(200,151,62,0.06)' stroke-width='5' stroke-linecap='round'/></svg>`)
-
-// ── Global CSS injected when steampunk theme is active ───────────────────────
+// ── Global CSS ───────────────────────────────────────────────────────────────
+// Stage-window only (see ThemeContext). The stage's structure and lyric
+// treatment live in karaoke.css under VOX ENGINE STAGE.
+//
+// NOTE: no backticks anywhere in this string (a stray one ends the template
+// literal early and globalCss silently becomes NaN).
 const GLOBAL_CSS = `
-/* ── Custom fonts ────────────────────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400;500;600;700&family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Old+Standard+TT:ital,wght@0,400;0,700;1,400&display=swap');
 
 [data-theme="steampunk"] * {
-  font-family: ${FONT_BODY};
+  font-family: ${ST.FONT_BODY};
 }
 [data-theme="steampunk"] h1,
 [data-theme="steampunk"] h2,
 [data-theme="steampunk"] h3 {
-  font-family: ${FONT_HEADING};
+  font-family: ${ST.FONT_DISPLAY};
+  font-weight: 400;
+  letter-spacing: 0.01em;
 }
 
-/* ── 1. Interlocking Gear System ─────────────────────────────────────────── */
-@keyframes steamGearSpin {
-  0%   { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+/* Lyrics are cast in the fat face. The descendant selector matters: the
+   glyphs live in .k-syl__word, which the universal rule above matches
+   directly. Abril Fatface has one weight, so no synthesised bold (the base
+   .k-syl--now asks for 900). */
+[data-theme="steampunk"] .k-line,
+[data-theme="steampunk"] .k-line * {
+  font-family: ${ST.FONT_DISPLAY};
+  font-weight: 400;
+  font-synthesis: none;
+  letter-spacing: 0.012em;
 }
 
-@keyframes steamGearSpinReverse {
-  0%   { transform: rotate(0deg); }
-  100% { transform: rotate(-360deg); }
+[data-theme="steampunk"] .karaoke-stage {
+  background: ${ST.HOUSE};
 }
 
-[data-theme="steampunk"] .main::before {
-  content: '';
-  position: fixed;
-  top: -80px;
-  right: -80px;
-  width: 250px;
-  height: 250px;
-  pointer-events: none;
-  z-index: 0;
-  opacity: 0.06;
-  background-image: url("data:image/svg+xml,${GEAR_SVG}");
-  background-size: contain;
-  background-repeat: no-repeat;
-  animation: steamGearSpin 30s linear infinite;
+/* Rendered parts karaoke.css needs (it can't import assets). */
+:root {
+  --st-frame: url("${frameBrass}");
+  --st-steam: url("${steam0}");
+  --st-rivet: url("${rivet}");
 }
 
-/* ── 2. Steam Wisp Particles ─────────────────────────────────────────────── */
-@keyframes steamPuff {
-  0%   { transform: translateY(0) scaleX(1) translateX(0); opacity: 0; }
-  8%   { opacity: 0.15; }
-  35%  { transform: translateY(-20vh) scaleX(1.4) translateX(10px); opacity: 0.1; }
-  65%  { transform: translateY(-45vh) scaleX(1.8) translateX(-8px); opacity: 0.05; }
-  100% { transform: translateY(-70vh) scaleX(2.2) translateX(15px); opacity: 0; }
+[data-theme="steampunk"] ::selection {
+  background: rgba(226,165,75,0.4);
+  color: ${ST.PARCHMENT};
 }
-
-[data-theme="steampunk"] .main::after {
-  content: '';
-  position: fixed;
-  bottom: 20px;
-  left: 0;
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: 0;
-  background: transparent;
-  box-shadow:
-    80px   0px 4px 1px rgba(200,151,62,0.12),
-    220px  -20px 5px 2px rgba(212,206,192,0.10),
-    400px  -10px 3px 1px rgba(200,151,62,0.08),
-    580px  -30px 4px 2px rgba(212,206,192,0.10),
-    720px  -5px 5px 1px rgba(200,151,62,0.06),
-    150px  -80px 3px 1px rgba(212,206,192,0.08),
-    350px  -60px 4px 2px rgba(200,151,62,0.07),
-    500px  -100px 5px 1px rgba(212,206,192,0.06),
-    650px  -40px 3px 1px rgba(200,151,62,0.09),
-    300px  -120px 4px 2px rgba(212,206,192,0.05);
-  animation: steamPuff 16s ease-out infinite;
-}
-
-/* ── 9. Gaslight Heading Glow with flicker ───────────────────────────────── */
-@keyframes steamFlicker {
-  0%, 100%  { opacity: 1; }
-  5%        { opacity: 0.85; }
-  10%       { opacity: 1; }
-  47%       { opacity: 1; }
-  50%       { opacity: 0.9; }
-  53%       { opacity: 1; }
-  80%       { opacity: 1; }
-  83%       { opacity: 0.92; }
-  87%       { opacity: 1; }
-}
-
-[data-theme="steampunk"] h1 {
-  text-shadow: 0 0 15px rgba(200,151,62,0.3), 0 0 35px rgba(200,151,62,0.1), 0 0 60px rgba(224,112,64,0.05);
-  animation: steamFlicker 4s ease-in-out infinite;
-}
-
-/* ── 11. Pendulum Breathing ──────────────────────────────────────────────── */
-@keyframes steamPendulum {
-  0%, 100% { transform: rotate(0deg); }
-  25%      { transform: rotate(0.3deg); }
-  75%      { transform: rotate(-0.3deg); }
-}
-
-/* ── 3. Riveted Borders + 4. Parchment + 12. Scrollwork + 11. Pendulum ─── */
-[data-theme="steampunk"] .card {
-  animation: steamPendulum 5s ease-in-out infinite;
-  background-image:
-    url("data:image/svg+xml,${SCROLLWORK_SVG}"),
-    url("data:image/svg+xml,${PARCHMENT_SVG}");
-  background-repeat: no-repeat, repeat;
-  background-size: 100% 100%, 60px 60px;
-  border-image: repeating-linear-gradient(
-    90deg,
-    transparent 0px,
-    transparent 18px,
-    rgba(200,151,62,0.35) 18px,
-    rgba(200,151,62,0.35) 22px,
-    transparent 22px,
-    transparent 40px
-  ) 1;
-  border-width: 2px;
-  border-style: solid;
-}
-
-/* ── 5. Clockwork Hover Effect ───────────────────────────────────────────── */
-@keyframes steamClockwork {
-  0%   { box-shadow: 0 0 0 rgba(200,151,62,0); border-color: rgba(200,151,62,0.15); }
-  50%  { box-shadow: 0 0 12px rgba(200,151,62,0.2), inset 0 0 8px rgba(200,151,62,0.05); border-color: rgba(200,151,62,0.4); }
-  100% { box-shadow: 0 0 18px rgba(200,151,62,0.25), inset 0 0 12px rgba(200,151,62,0.08); border-color: rgba(200,151,62,0.5); }
-}
-
-[data-theme="steampunk"] button:hover {
-  animation: steamClockwork 0.4s ease-out forwards;
-}
-
-/* ── 6. Pressure Gauge Nav + 13. Pipe Border ─────────────────────────────── */
-[data-theme="steampunk"] .topnav {
-  position: relative;
-  z-index: 10;
-  border-bottom: none !important;
-  box-shadow: 0 2px 0 rgba(200,151,62,0.2), 0 3px 12px rgba(200,151,62,0.06);
-}
-
-[data-theme="steampunk"] .topnav::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: repeating-linear-gradient(
-    90deg,
-    rgba(200,151,62,0.4) 0px,
-    rgba(200,151,62,0.4) 4px,
-    rgba(200,151,62,0.15) 4px,
-    rgba(200,151,62,0.15) 6px,
-    transparent 6px,
-    transparent 28px,
-    rgba(200,151,62,0.15) 28px,
-    rgba(200,151,62,0.15) 30px,
-    rgba(200,151,62,0.4) 30px,
-    rgba(200,151,62,0.4) 34px,
-    transparent 34px,
-    transparent 40px
-  );
-}
-
-/* ── 10. Active nav — gaslight warm glow ─────────────────────────────────── */
-[data-theme="steampunk"] .topnav a[aria-current="page"] {
-  text-shadow: 0 0 10px rgba(200,151,62,0.5), 0 0 25px rgba(200,151,62,0.2);
-  animation: steamFlicker 4s ease-in-out infinite;
-}
-
-/* ── 7. Pipe Scrollbar — brass cylinder ──────────────────────────────────── */
-[data-theme="steampunk"] ::-webkit-scrollbar-thumb {
-  background: linear-gradient(90deg, rgba(160,120,40,0.3) 0%, rgba(200,151,62,0.5) 40%, rgba(220,180,80,0.6) 50%, rgba(200,151,62,0.5) 60%, rgba(160,120,40,0.3) 100%);
-  border-radius: 6px;
-}
-[data-theme="steampunk"] ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(90deg, rgba(160,120,40,0.5) 0%, rgba(200,151,62,0.7) 40%, rgba(220,180,80,0.8) 50%, rgba(200,151,62,0.7) 60%, rgba(160,120,40,0.5) 100%);
-}
-[data-theme="steampunk"] ::-webkit-scrollbar-track {
-  background: rgba(200,151,62,0.04);
-}
-
-/* ── 8. Brass Focus Rings — double ring ──────────────────────────────────── */
-[data-theme="steampunk"] input:focus,
-[data-theme="steampunk"] select:focus,
-[data-theme="steampunk"] textarea:focus {
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(200,151,62,0.4), 0 0 0 4px rgba(224,112,64,0.15), 0 0 16px rgba(200,151,62,0.15) !important;
-  border-color: ${BRASS} !important;
-}
-
-/* ── Active lyric line: 3 random variants (plate / gauge / pipes) ────────── */
-[data-theme="steampunk"] .k-line--steampunk-active {
-  position: relative;
-  isolation: isolate;
-}
-
-/* ── Variant A: Riveted Brass Plate ──────────────────────────────────────── */
-[data-theme="steampunk"] .k-line--steampunk-plate {
-  border-radius: 4px;
-  border: 2px solid ${IRON_DARK};
-  box-shadow:
-    inset 0 0 0 2px ${BRASS},
-    inset 0 0 18px rgba(0,0,0,0.35),
-    0 0 14px rgba(200,151,62,0.45);
-}
-[data-theme="steampunk"] .k-line--steampunk-plate::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  border-radius: inherit;
-  background:
-    radial-gradient(circle 4px at 10px 10px,    #1a1410 0%, #0a0805 55%, transparent 70%),
-    radial-gradient(circle 4px at calc(100% - 10px) 10px,    #1a1410 0%, #0a0805 55%, transparent 70%),
-    radial-gradient(circle 4px at 10px calc(100% - 10px),    #1a1410 0%, #0a0805 55%, transparent 70%),
-    radial-gradient(circle 4px at calc(100% - 10px) calc(100% - 10px), #1a1410 0%, #0a0805 55%, transparent 70%),
-    radial-gradient(circle 1.5px at 9px 9px,    rgba(255,220,150,0.85) 0%, transparent 90%),
-    radial-gradient(circle 1.5px at calc(100% - 11px) 9px, rgba(255,220,150,0.85) 0%, transparent 90%),
-    radial-gradient(circle 1.5px at 9px calc(100% - 11px),    rgba(255,220,150,0.85) 0%, transparent 90%),
-    radial-gradient(circle 1.5px at calc(100% - 11px) calc(100% - 11px), rgba(255,220,150,0.85) 0%, transparent 90%);
-  z-index: 2;
-}
-[data-theme="steampunk"] .k-line--steampunk-plate::after {
-  content: '';
-  position: absolute;
-  inset: 4px;
-  pointer-events: none;
-  border-radius: inherit;
-  background: linear-gradient(115deg, transparent 38%, rgba(255,235,180,0.22) 50%, transparent 62%);
-  background-size: 220% 100%;
-  mix-blend-mode: overlay;
-  animation: steamPlateSheen 9s linear infinite;
-  z-index: 1;
-}
-@keyframes steamPlateSheen {
-  0%   { background-position: -120% 0; }
-  100% { background-position: 220% 0; }
-}
-
 `
 
 // ── Theme export ─────────────────────────────────────────────────────────────
+const T = STEAMPUNK_TOKENS
+
+// Deep green engine enamel, with the soft sheen of a varnished panel.
+const enamelFill = `linear-gradient(180deg, ${ST.ENAMEL_HI} 0%, ${ST.ENAMEL} 45%, ${ST.ENAMEL_LO} 100%)`
+// Polished brass plate lit from above.
+const brassFill = `linear-gradient(180deg, ${ST.BRASS_SHEEN} 0%, ${ST.BRASS_HI} 16%, ${ST.BRASS} 50%, ${ST.BRASS_DEEP} 86%, #9C7531 100%)`
+
 export const STEAMPUNK: Theme = {
-  name: 'steampunk',
-  nextThemeName: 'retrowave',
-  displayName: 'Steampunk',
-  globalCss: GLOBAL_CSS,
+    ...T,
+    globalCss: GLOBAL_CSS,
+    fontDisplay: ST.FONT_DISPLAY,
+    fontBody: ST.FONT_BODY,
 
-  // ── Raw colors (warm parchment text on dark iron backgrounds) ──────────────
-  black:       PARCHMENT,         // primary text
-  white:       IRON_DARK,         // inverted for "light" blocks
-  cream:       IRON_PANEL,
-  creamDark:   IRON_CARD,
-  hotRed:      '#B84030',         // rust red
-  vividYellow: BRASS,
-  softViolet:  '#7A5098',         // forge violet
-  mintGreen:   VERDIGRIS,
-  muted:       TEXT_MID,
-  faint:       'rgba(200,151,62,0.22)',
+    page: {
+        background: 'transparent',
+        color: ST.PARCHMENT,
+        minHeight: '100%',
+        padding: '32px 40px 64px',
+        maxWidth: 1040,
+        margin: '0 auto',
+        fontFamily: ST.FONT_BODY,
+        position: 'relative',
+        zIndex: 2,
+    },
 
-  accentA: BRASS,
-  accentB: COPPER,
-  accentC: VERDIGRIS,
+    // A riveted enamel panel: deep green, a brass edge, a brass hairline inside.
+    card: {
+        background: enamelFill,
+        border: `2px solid ${ST.BRASS_DEEP}`,
+        borderRadius: 6,
+        boxShadow: `0 10px 26px rgba(0,0,0,0.62), inset 0 0 0 1px rgba(233,199,127,0.28), inset 0 1px 0 rgba(255,236,200,0.12)`,
+        color: ST.PARCHMENT,
+    },
 
-  // ── Shell ──────────────────────────────────────────────────────────────────
-  appBg:         IRON_DARK,
-  titlebarBg:    IRON_DARK,
-  titlebarText:  TEXT_MID,
+    cardHover: {
+        border: `2px solid ${ST.BRASS}`,
+        boxShadow: `0 14px 32px rgba(0,0,0,0.72), inset 0 0 0 1px rgba(233,199,127,0.4), inset 0 1px 0 rgba(255,236,200,0.16)`,
+        transform: 'translateY(-1px)',
+    },
 
-  navBg:           'rgba(20,17,15,0.95)',
-  navBorderBottom: '1px solid rgba(200,151,62,0.15)',
-  navLink:         TEXT_MID,
-  navLinkActive:   BRASS,
-  navLinkActiveBg: 'rgba(200,151,62,0.08)',
-  navLinkHoverBg:  'rgba(200,151,62,0.05)',
+    input: {
+        background: '#0D0A08',
+        border: `1px solid ${ST.BRASS_DEEP}`,
+        borderRadius: 4,
+        color: ST.PARCHMENT,
+        fontFamily: ST.FONT_BODY,
+        outline: 'none',
+        caretColor: ST.LAMP,
+        boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.7)',
+    },
 
-  // ── Borders & Shadows ──────────────────────────────────────────────────────
-  border:       '1px solid rgba(200,151,62,0.15)',
-  borderThin:   '1px solid rgba(200,151,62,0.10)',
-  borderLight:  '1px solid rgba(200,151,62,0.06)',
-  shadow:        `${brassGlow(10, 0.1)}, ${copperGlow(6, 0.06)}`,
-  shadowLift:    `${brassGlow(18, 0.2)}, ${copperGlow(12, 0.12)}`,
-  shadowPressed: `${brassGlow(4, 0.08)}`,
-  shadowColor:   (color: string) => `0 0 14px ${color}, 0 0 28px ${color}`,
+    select: {
+        background: '#0D0A08',
+        border: `1px solid ${ST.BRASS_DEEP}`,
+        borderRadius: 4,
+        color: ST.PARCHMENT,
+        fontFamily: ST.FONT_BODY,
+        outline: 'none',
+        cursor: 'pointer',
+        appearance: 'none' as const,
+    },
 
-  // ── Radius — minimal, industrial ──────────────────────────────────────────
-  radius:      6,
-  radiusSmall: 3,
+    // A polished brass plate, its legend engraved and filled with black wax.
+    btnPrimary: {
+        background: brassFill,
+        color: '#2A1B08',
+        border: `1px solid ${ST.BRASS_LO}`,
+        boxShadow: '0 6px 16px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,246,220,0.75), inset 0 -2px 0 rgba(74,51,18,0.4)',
+        borderRadius: 4,
+        fontFamily: ST.FONT_BODY,
+        fontWeight: 700,
+        letterSpacing: '0.14em',
+        textTransform: 'uppercase',
+        textShadow: '0 1px 0 rgba(255,240,205,0.55)',
+        cursor: 'pointer',
+        transition: 'all 0.18s ease',
+    },
 
-  // ── Typography ─────────────────────────────────────────────────────────────
-  fontDisplay: FONT_DISPLAY,
-  fontBody:    FONT_BODY,
+    // An enamel plate in a brass bezel.
+    btnSecondary: {
+        background: enamelFill,
+        color: ST.LAMP,
+        border: `1px solid ${ST.BRASS}`,
+        boxShadow: '0 6px 16px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,236,200,0.12)',
+        borderRadius: 4,
+        fontFamily: ST.FONT_BODY,
+        fontWeight: 700,
+        letterSpacing: '0.14em',
+        textTransform: 'uppercase',
+        cursor: 'pointer',
+        transition: 'all 0.18s ease',
+    },
 
-  // ── Spinner ────────────────────────────────────────────────────────────────
-  spinnerBorder:    'rgba(200,151,62,0.15)',
-  spinnerBorderTop: BRASS,
+    btnOutline: {
+        background: 'transparent',
+        color: ST.PARCHMENT,
+        border: `1px solid ${ST.BRASS_DEEP}`,
+        boxShadow: 'none',
+        borderRadius: 4,
+        fontFamily: ST.FONT_BODY,
+        fontWeight: 700,
+        letterSpacing: '0.14em',
+        textTransform: 'uppercase',
+        cursor: 'pointer',
+        transition: 'all 0.18s ease',
+    },
 
-  // ── Component styles ───────────────────────────────────────────────────────
-  page: {
-    background:  'transparent',
-    color:       PARCHMENT,
-    minHeight:   '100%',
-    padding:     '32px 40px 64px',
-    maxWidth:    960,
-    margin:      '0 auto',
-    fontFamily:  FONT_BODY,
-    position:    'relative',
-    zIndex:      2,
-  },
+    iconBtn: {
+        width: 42,
+        height: 42,
+        borderRadius: '50%',
+        border: `1px solid ${ST.BRASS_LO}`,
+        background: `radial-gradient(circle at 38% 32%, ${ST.BRASS_SHEEN} 0%, ${ST.BRASS_HI} 22%, ${ST.BRASS} 55%, ${ST.BRASS_DEEP} 100%)`,
+        color: '#2A1B08',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        transition: 'all 0.18s ease',
+        boxShadow: '0 4px 10px rgba(0,0,0,0.6)',
+    },
 
-  card: {
-    background:     `rgba(37,32,24,0.8)`,
-    border:         '1px solid rgba(200,151,62,0.12)',
-    borderRadius:   6,
-    backdropFilter: 'blur(8px)',
-  },
+    iconBtnHover: {
+        background: `radial-gradient(circle at 38% 32%, #FFFFFF 0%, ${ST.BRASS_SHEEN} 22%, ${ST.BRASS_HI} 55%, ${ST.BRASS} 100%)`,
+        color: '#1A1006',
+        border: `1px solid ${ST.BRASS_DEEP}`,
+    },
 
-  cardHover: {
-    border:     '1px solid rgba(200,151,62,0.3)',
-    boxShadow:  `${brassGlow(16, 0.2)}, ${copperGlow(10, 0.1)}`,
-  },
-
-  input: {
-    background:   'rgba(200,151,62,0.04)',
-    border:       '1px solid rgba(200,151,62,0.15)',
-    borderRadius: 3,
-    color:        PARCHMENT,
-    fontFamily:   FONT_BODY,
-    outline:      'none',
-    caretColor:   BRASS,
-  },
-
-  select: {
-    background:   'rgba(200,151,62,0.04)',
-    border:       '1px solid rgba(200,151,62,0.12)',
-    borderRadius: 3,
-    color:        PARCHMENT,
-    fontFamily:   FONT_BODY,
-    outline:      'none',
-    cursor:       'pointer',
-    appearance:   'none' as const,
-  },
-
-  btnPrimary: {
-    background:     'rgba(200,151,62,0.12)',
-    color:          PARCHMENT,
-    border:         `1px solid rgba(200,151,62,0.4)`,
-    boxShadow:      `${brassGlow(10, 0.25)}, inset 0 0 20px rgba(200,151,62,0.05)`,
-    borderRadius:   3,
-    fontFamily:     FONT_DISPLAY,
-    fontWeight:     700,
-    cursor:         'pointer',
-    transition:     'all 0.2s ease',
-    letterSpacing:  '1px',
-    textShadow:     '0 0 8px rgba(200,151,62,0.4)',
-  },
-
-  btnSecondary: {
-    background:    'rgba(224,112,64,0.1)',
-    color:         '#E8C0A0',
-    border:        '1px solid rgba(224,112,64,0.35)',
-    boxShadow:     `${copperGlow(8, 0.2)}`,
-    borderRadius:  3,
-    fontFamily:    FONT_DISPLAY,
-    fontWeight:    700,
-    cursor:        'pointer',
-    transition:    'all 0.2s ease',
-  },
-
-  btnOutline: {
-    background:    'transparent',
-    color:         VERDIGRIS,
-    border:        '1px solid rgba(90,158,143,0.35)',
-    boxShadow:     `${verdiGlow(6, 0.15)}`,
-    borderRadius:  3,
-    fontFamily:    FONT_DISPLAY,
-    fontWeight:    700,
-    cursor:        'pointer',
-    transition:    'all 0.2s ease',
-  },
-
-  iconBtn: {
-    width:           40,
-    height:          40,
-    borderRadius:    6,
-    border:          '1px solid rgba(200,151,62,0.15)',
-    background:      'rgba(200,151,62,0.04)',
-    color:           TEXT_MID,
-    cursor:          'pointer',
-    display:         'flex',
-    alignItems:      'center',
-    justifyContent:  'center',
-    transition:      'all 0.2s ease',
-    boxShadow:       'none',
-  },
-
-  iconBtnHover: {
-    background: 'rgba(200,151,62,0.1)',
-    color:      BRASS,
-    boxShadow:  brassGlow(10, 0.25),
-  },
-
-  stickerLabel: {
-    position:       'absolute',
-    fontFamily:     FONT_DISPLAY,
-    fontWeight:     700,
-    fontSize:       10,
-    letterSpacing:  '1.5px',
-    textTransform:  'uppercase',
-    padding:        '3px 10px',
-    border:         '1px solid rgba(200,151,62,0.25)',
-    boxShadow:      `${brassGlow(6, 0.15)}, ${copperGlow(4, 0.08)}`,
-    color:          BRASS,
-    background:     'rgba(20,17,15,0.85)',
-    borderRadius:   3,
-    backdropFilter: 'blur(12px)',
-  },
-
+    // A small brass tag, its legend engraved.
+    stickerLabel: {
+        position: 'absolute',
+        fontFamily: ST.FONT_BODY,
+        fontWeight: 700,
+        fontSize: 11,
+        letterSpacing: '0.14em',
+        textTransform: 'uppercase',
+        padding: '4px 12px',
+        border: `1px solid ${ST.BRASS_LO}`,
+        boxShadow: '0 3px 8px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,246,220,0.6)',
+        color: '#2A1B08',
+        background: brassFill,
+        borderRadius: 3,
+    },
 }

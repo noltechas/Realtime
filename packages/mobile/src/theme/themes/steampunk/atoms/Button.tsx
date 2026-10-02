@@ -1,127 +1,54 @@
 import React from 'react'
-import {
-  Pressable,
-  Text,
-  ActivityIndicator,
-  View,
-  StyleSheet,
-  type ViewStyle,
-  type TextStyle,
-} from 'react-native'
-import { LinearGradient } from 'expo-linear-gradient'
-import { useTheme } from '../../../ThemeContext'
-import {
-  BRASS_FACE,
-  BRASS_INK,
-  IRON_PANEL,
-  PARCH,
-  AMBER,
-  HAIRLINE,
-  DEPTH_SHADOW,
-} from './_steam'
+import { ActivityIndicator, Text, View } from 'react-native'
 import type { ButtonProps } from '../../../types'
+import { BRASS, BRASS_DEEP, BrassPlate, HOUSE, INK, LAMP, PARCHMENT, Plaque, Press, Rivet, caps } from './_engine'
 
-// Steampunk Button — a machined brass bar, not a decorated plate:
-//   primary   → polished brass face (vertical gradient) with a bright
-//               machined top edge and engraved dark Cinzel lettering.
-//   secondary → iron plate with a brass hairline and parchment lettering.
-//   outline   → hairline only, amber lettering.
-// Press feedback is mechanical: the bar seats 1px downward and dims slightly,
-// like a key being pressed on an instrument. No rivets, no ripples.
-export function SteampunkButton({
-  label,
-  onPress,
-  variant = 'primary',
-  loading,
-  disabled,
-}: ButtonProps) {
-  const { tokens } = useTheme()
-
-  const isPrimary = variant === 'primary'
-  const isSecondary = variant === 'secondary'
-  const labelColor = isPrimary ? BRASS_INK : isSecondary ? PARCH : AMBER
-
-  return (
-    <Pressable
-      onPress={() => {
-        if (disabled || loading) return
-        onPress()
-      }}
-      disabled={disabled || loading}
-      style={({ pressed }) => [
-        baseStyle,
-        isPrimary
-          ? { borderColor: 'rgba(46,30,8,0.9)', ...DEPTH_SHADOW }
-          : isSecondary
-            ? { borderColor: HAIRLINE, backgroundColor: IRON_PANEL, ...DEPTH_SHADOW }
-            : { borderColor: HAIRLINE, backgroundColor: 'transparent' },
-        disabled || loading ? { opacity: 0.45 } : null,
-        pressed ? { opacity: 0.88, transform: [{ translateY: 1 }] } : null,
-      ]}
-    >
-      {isPrimary ? (
-        <>
-          <LinearGradient
-            colors={BRASS_FACE}
-            locations={[0, 0.55, 1]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
-            style={[StyleSheet.absoluteFill, { borderRadius: 8 }]}
-          />
-          {/* machined top edge catching the light */}
-          <View
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              top: 1,
-              left: 6,
-              right: 6,
-              height: 1,
-              backgroundColor: 'rgba(255,245,220,0.55)',
-            }}
-          />
-        </>
-      ) : null}
-
-      {/* engraved inner rule on the iron variants */}
-      {isSecondary ? (
-        <View
-          pointerEvents="none"
-          style={[
-            StyleSheet.absoluteFill,
-            { margin: 3, borderRadius: 5, borderWidth: 1, borderColor: 'rgba(232,169,59,0.10)' },
-          ]}
-        />
-      ) : null}
-
-      {loading ? (
-        <ActivityIndicator color={labelColor} />
-      ) : (
-        <Text style={labelStyle(tokens.fontDisplay, labelColor, isPrimary)}>{label}</Text>
-      )}
-    </Pressable>
-  )
-}
-
-const baseStyle: ViewStyle = {
-  paddingVertical: 14,
-  paddingHorizontal: 26,
-  alignItems: 'center',
-  justifyContent: 'center',
-  borderWidth: 1,
-  borderRadius: 8,
-  overflow: 'hidden',
-}
-
-function labelStyle(fontDisplay: string, color: string, primary: boolean): TextStyle {
-  return {
-    color,
-    fontFamily: fontDisplay,
-    fontSize: 13,
-    letterSpacing: 2.6,
-    textTransform: 'uppercase',
-    textShadowColor: primary ? 'rgba(255,245,220,0.35)' : 'rgba(0,0,0,0.5)',
-    textShadowRadius: 0,
-    textShadowOffset: { width: 0, height: 1 },
+// Steampunk button:
+//   primary    a polished brass plate, two rivets, its legend engraved and
+//              filled with black wax
+//   secondary  a deep green enamel plate in a riveted brass frame
+//   outline    a bare brass hairline
+export function Button({ label, onPress, variant = 'primary', loading, disabled }: ButtonProps) {
+  const dead = disabled || loading
+  const legend = (color: string, shadow?: boolean) =>
+    loading ? (
+      <ActivityIndicator color={color} />
+    ) : (
+      <Text
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.7}
+        style={[caps(13.5, color, { letterSpacing: 2.6, textAlign: 'center' }), shadow ? { textShadowColor: 'rgba(255,240,205,0.55)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 0 } : null]}
+      >
+        {label}
+      </Text>
+    )
+  if (variant === 'primary') {
+    return (
+      <Press onPress={onPress} disabled={dead} style={{ borderRadius: 6, backgroundColor: dead ? HOUSE : undefined }}>
+        <BrassPlate radius={6} style={{ opacity: dead ? 0.55 : 1 }} contentStyle={{ minHeight: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 30 }}>
+          <Rivet size={8} style={{ position: 'absolute', left: 9 }} />
+          {legend(INK, true)}
+          <Rivet size={8} style={{ position: 'absolute', right: 9 }} />
+        </BrassPlate>
+      </Press>
+    )
   }
+  if (variant === 'secondary') {
+    return (
+      <Press onPress={onPress} disabled={dead}>
+        <Plaque border={10} style={{ opacity: dead ? 0.55 : 1 }} contentStyle={{ minHeight: 34, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 }}>
+          {legend(LAMP)}
+        </Plaque>
+      </Press>
+    )
+  }
+  return (
+    <Press onPress={onPress} disabled={dead}>
+      <View style={{ minHeight: 50, borderRadius: 6, borderWidth: 1, borderColor: BRASS_DEEP, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, opacity: dead ? 0.5 : 1, backgroundColor: 'rgba(12,9,7,0.4)' }}>
+        <View style={{ position: 'absolute', left: 4, right: 4, top: 4, bottom: 4, borderRadius: 4, borderWidth: 0.5, borderColor: BRASS, opacity: 0.4 }} />
+        {legend(PARCHMENT)}
+      </View>
+    </Press>
+  )
 }

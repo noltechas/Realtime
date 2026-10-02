@@ -18,7 +18,7 @@ import { HudBrackets } from './SpaceWizardChrome'
 import { GoldenRecord, SKY_IMAGE as SPACE_SKY, Star as SpaceStar } from '../../theme/themes/space/atoms/_record'
 import { BrassFrame } from './SteampunkWizardChrome'
 import { NeonFrame } from './RetrowaveWizardChrome'
-import { Gear } from '../../theme/themes/steampunk/atoms/_steam'
+import { GEAR_IMG as STEAM_GEARS, Porthole as SteamPorthole } from '../../theme/themes/steampunk/atoms/_engine'
 import { Hibiscus3D, TimberDetail, useSize } from '../../theme/themes/tropical/atoms/_tropical'
 import { Candle as GothCandle, GlassDot, FRAKTUR, RUBY, SAPPHIRE } from '../../theme/themes/gothic/atoms/_gothic'
 import { Sun as BarbieSun, DISPLAY as BARBIE_DISPLAY } from '../../theme/themes/barbie/atoms/_barbie'
@@ -558,38 +558,46 @@ function SpaceCard({ label, selected, onPress }: CardProps) {
   )
 }
 
-// 9. Steampunk — riveted brass plate over dark mahogany with filigree edges, a
-//    half-clipped turning cog, engraved Cinzel amber label.
+// 9. Steampunk: a corner of the Vox Engine. Deep green enamel, rendered
+//    rivets, a brass gear turning half off the edge, the name cast in brass in
+//    the playbill's fat face.
 function SteampunkCard({ label, selected, onPress }: CardProps) {
   return (
     <BaseCard
       selected={selected}
       onPress={onPress}
-      bg="#2A1A0E"
-      radius={8}
-      border={{ width: 2, color: '#B8762D' }}
-      glowColor="#E8A93B"
-      glowRadius={10}
-      accent="#E8A93B"
-      badge={{ bg: '#E8A93B', fg: '#2A1A0E', ring: '#B8762D' }}
+      bg="#16231D"
+      radius={6}
+      border={{ width: 2, color: selected ? '#E9C77F' : '#7E5A22' }}
+      glowColor="#F6C66B"
+      glowRadius={8}
+      accent="#E9C77F"
+      badge={{ bg: '#E2A54B', fg: '#1A120A', ring: '#16231D' }}
     >
-      <BrassFrame size={7} rivetColor="#B8762D" filigree={false} />
+      <LinearGradient
+        pointerEvents="none"
+        colors={['#22352C', '#16231D', '#0C1511']}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+      />
+      <View pointerEvents="none" style={{ position: 'absolute', right: -22, top: -14 }}>
+        <Image source={STEAM_GEARS[24].src} style={{ width: 84, height: 84 }} />
+      </View>
+      <BrassFrame size={7} filigree={false} />
       <Row>
         <CardLabel
           text={label}
-          color="#E8A93B"
-          font="Cinzel_700Bold"
+          color="#E9C77F"
+          font="AbrilFatface_400Regular"
           style={{
             flex: 1,
-            fontSize: 12,
-            letterSpacing: 1.4,
-            textTransform: 'uppercase',
-            textShadowColor: 'rgba(232,169,59,0.6)',
-            textShadowRadius: 7,
-            textShadowOffset: { width: 0, height: 0 },
+            fontSize: 19,
+            lineHeight: 25,
+            paddingRight: 40,
+            textShadowColor: 'rgba(0,0,0,0.7)',
+            textShadowRadius: 0.5,
+            textShadowOffset: { width: 0, height: 1.5 },
           }}
         />
-        <Gear size={28} teeth={10} tone="brass" />
       </Row>
     </BaseCard>
   )
