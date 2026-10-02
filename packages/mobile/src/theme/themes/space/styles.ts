@@ -1,23 +1,18 @@
-import { StyleSheet, type ViewStyle, type TextStyle } from 'react-native'
+import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native'
 import type { ThemeTokens } from '@karaoke/shared'
 import type { ThemeUIStyles } from '../../types'
+import { DUST, ETCH, GOLD, GOLD_HI, JOST_300, JOST_400, JOST_500, MONO, STAR } from './atoms/_record'
 
-// Space stylesheet — instrument-panel typography on transparent screens.
+// Space stylesheet: the type of a deep-field plate, on transparent screens.
 //
-// TRANSPARENT `screen` AND `page` ARE LOAD-BEARING. This theme mounts a single
-// Filament scene behind the whole navigator via `ui.SceneLayer` (see
-// theme/types.ts). If either of these painted `appBg`, the screens would cover
-// the 3D outboard view and the theme would collapse to a flat dark app. The
-// animated backdrop in ThemeCrossfade already guarantees there is never a
-// see-through hole behind them.
+// TRANSPARENT `screen` AND `page` ARE LOAD-BEARING: deep space (the field, the
+// breathing stars, Voyager crossing) is a single SceneLayer mounted once
+// behind the whole navigator. If these painted `appBg` they would cover it.
 //
-// Type: Chakra Petch caps for anything that labels a control (it is a display
-// face and gets illegible below ~10px, so it is never used for prose), Exo 2
-// for body copy, Share Tech Mono for every numeral the user reads as telemetry.
-// Glow is applied sparingly — a hairline text shadow at low alpha to suggest a
-// backlit panel, not the heavy neon bloom the previous space theme used.
+// Display is Jost light in widely tracked capitals; reading text is Jost; small
+// labels and every number are IBM Plex Mono.
 export function buildSpaceStyles(t: ThemeTokens): ThemeUIStyles {
-  const sheet = StyleSheet.create({
+  return StyleSheet.create({
     screen: {
       flex: 1,
       backgroundColor: 'transparent',
@@ -30,81 +25,75 @@ export function buildSpaceStyles(t: ThemeTokens): ThemeUIStyles {
       flexGrow: 1,
     },
     h1: {
-      fontFamily: t.fontDisplay,
-      fontSize: 26,
-      color: t.black,
-      letterSpacing: 4,
+      fontFamily: JOST_300,
+      fontSize: 29,
+      lineHeight: 38,
+      color: STAR,
+      letterSpacing: 6,
       textTransform: 'uppercase',
-      textShadowColor: 'rgba(91,233,255,0.35)',
-      textShadowRadius: 10,
-      textShadowOffset: { width: 0, height: 0 },
     },
     h2: {
-      fontFamily: t.fontDisplay,
-      fontSize: 18,
+      fontFamily: JOST_400,
+      fontSize: 19,
+      lineHeight: 26,
       color: t.black,
-      letterSpacing: 2.6,
+      letterSpacing: 3,
       textTransform: 'uppercase',
     },
     body: {
-      fontFamily: t.fontBody,
-      fontSize: 15,
+      fontFamily: JOST_400,
+      fontSize: 15.5,
       color: t.black,
       lineHeight: 22,
     },
     muted: {
-      fontFamily: t.fontBody,
-      fontSize: 13,
-      color: t.muted,
+      fontFamily: JOST_400,
+      fontSize: 13.5,
+      color: DUST,
       lineHeight: 19,
     },
-    // Plain-View fallback surface for the few screens that style a card
-    // directly instead of going through `MachinedPanel`. Kept visually close to
-    // a panel — glass fill, powered hairline — but without the chamfer, which
-    // needs a measured SVG.
+    // Plain-View fallback for screens that style a card directly: black glass
+    // with an engraved gold hairline.
     card: {
-      backgroundColor: 'rgba(13,20,29,0.90)',
+      backgroundColor: 'rgba(10,12,20,0.92)',
       borderWidth: 1,
-      borderColor: 'rgba(91,233,255,0.22)',
-      borderRadius: 3,
+      borderColor: ETCH.mid,
+      borderRadius: 14,
       padding: 16,
-    },
+    } as ViewStyle,
     input: {
-      backgroundColor: 'rgba(7,12,19,0.92)',
+      backgroundColor: 'rgba(5,6,12,0.92)',
       borderWidth: 1,
-      borderColor: 'rgba(91,233,255,0.28)',
-      borderRadius: 2,
-      paddingHorizontal: 14,
+      borderColor: ETCH.mid,
+      borderRadius: 12,
+      paddingHorizontal: 16,
       paddingVertical: 12,
-      fontSize: 15,
-      fontFamily: t.fontBody,
-      color: t.black,
+      fontSize: 16,
+      fontFamily: JOST_400,
+      color: STAR,
     } as ViewStyle & TextStyle,
-    // Readout chip — square, not a pill. Nothing on a machined panel is round.
     pillBox: {
-      borderRadius: 2,
+      borderRadius: 999,
       borderWidth: 1,
-      borderColor: 'rgba(91,233,255,0.34)',
-      backgroundColor: 'rgba(91,233,255,0.07)',
-      paddingHorizontal: 9,
+      borderColor: ETCH.mid,
+      backgroundColor: 'rgba(233,196,106,0.07)',
+      paddingHorizontal: 10,
       paddingVertical: 3,
     },
     pillText: {
-      fontFamily: 'ShareTechMono_400Regular',
-      fontSize: 12,
-      color: t.accentA,
-      letterSpacing: 1.2,
+      fontFamily: MONO,
+      fontSize: 10,
+      color: GOLD_HI,
+      letterSpacing: 2,
       textTransform: 'uppercase',
     },
     sectionLabel: {
-      fontFamily: t.fontDisplay,
-      fontSize: 10,
-      letterSpacing: 3.4,
-      color: t.muted,
-      marginBottom: 12,
+      fontFamily: JOST_500,
+      fontSize: 12,
+      letterSpacing: 3.6,
       textTransform: 'uppercase',
+      color: GOLD,
+      marginBottom: 12,
     },
   })
-
-  return sheet
 }

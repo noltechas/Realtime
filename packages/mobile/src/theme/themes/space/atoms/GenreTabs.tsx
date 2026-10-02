@@ -1,116 +1,63 @@
-import React from 'react'
-import { Pressable, ScrollView, Text } from 'react-native'
-import { useTheme } from '../../../ThemeContext'
+import React, { useEffect, useRef } from 'react'
+import { Animated, Easing, Pressable, ScrollView, Text, View } from 'react-native'
 import type { GenreTabsProps } from '../../../types'
-import {
-  CUT_TIGHT,
-  ICE,
-  MONO,
-  MachinedPanel,
-  TEXT,
-  TEXT_FAINT,
-  usePressTravel,
-} from './_ship'
+import { DUST, DUST_DIM, ETCH, GOLD, GOLD_HI, STAR_DIM, Star, display, mono } from './_record'
 
-// Space genre selector — a bank of labelled selector keys.
-//
-// The count is set in the telemetry face inside square brackets rather than in
-// a rounded badge: on a machined panel a number is an engraved readout, not a
-// pill. Selection is carried by the key's face going ice-lit and its system bar
-// coming up, which is the same grammar every other control in the theme uses —
-// no per-chip planet glyph, no orbiting dot.
-export function SpaceGenreTabs({ list, counts, value, onChange }: GenreTabsProps) {
-  if (list.length <= 1) return null
+// Space genre selector: a STAR CHART AXIS. One engraved line runs the length of
+// the chart, the way a sky chart draws the ecliptic, and every genre is a
+// station on it, marked by a tick and a faint point of light. The genre you're
+// browsing is the one that's SHINING: its point blooms into a full eight-
+// pointed star on the line and its name is set in gold. The song count is
+// written beneath each name in the chart's monospace.
 
+const STAR_SLOT = 30
+const AXIS_Y = STAR_SLOT / 2
+
+export function GenreTabs({ list, counts, value, onChange }: GenreTabsProps) {
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      style={{ flexGrow: 0 }}
-      contentContainerStyle={{
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        gap: 8,
-        alignItems: 'center',
-      }}
+      // A ScrollView shrinks by default and the grid below takes every spare
+      // pixel, which would clip the labels. Hold it at its content height.
+      style={{ flexGrow: 0, flexShrink: 0 }}
+      contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 2, paddingBottom: 8 }}
     >
-      {list.map((genre) => (
-        <SelectorKey
-          key={genre}
-          label={genre}
-          count={counts[genre] ?? 0}
-          active={genre === value}
-          onPress={() => onChange(genre)}
-        />
-      ))}
+      <View>
+        <View style={{ position: 'absolute', left: -12, right: -12, top: AXIS_Y, height: 1, backgroundColor: ETCH.mid }} />
+        <View style={{ flexDirection: 'row' }}>
+          {list.map((genre) => (
+            <Station key={genre} label={genre} count={counts[genre] ?? 0} active={genre === value} onPress={() => onChange(genre)} />
+          ))}
+        </View>
+      </View>
     </ScrollView>
   )
 }
 
-function SelectorKey({
-  label,
-  count,
-  active,
-  onPress,
-}: {
-  label: string
-  count: number
-  active: boolean
-  onPress: () => void
-}) {
-  const { tokens } = useTheme()
-  const { transform, onPressIn, onPressOut } = usePressTravel(0.7)
-
+function Station({ label, count, active, onPress }: { label: string; count: number; active: boolean; onPress: () => void }) {
+  const lit = useRef(new Animated.Value(active ? 1 : 0)).current
+  useEffect(() => {
+    Animated.timing(lit, { toValue: active ? 1 : 0, duration: active ? 520 : 240, easing: active ? Easing.out(Easing.back(1.4)) : Easing.in(Easing.quad), useNativeDriver: true }).start()
+  }, [active, lit])
   return (
-    <Pressable
-      onPress={onPress}
-      onPressIn={onPressIn}
-      onPressOut={onPressOut}
-      hitSlop={6}
-    >
-      <MachinedPanel
-        cuts={CUT_TIGHT}
-        tone={active ? 'ice' : 'steel'}
-        fill={active ? 'raised' : 'glass'}
-        edgeStrength={active ? 1.4 : 0.6}
-        systemBar={active}
-        style={{ transform }}
-        contentStyle={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          paddingLeft: active ? 12 : 10,
-          paddingRight: 10,
-          paddingVertical: 7,
-          minHeight: 34,
-        }}
-      >
-        <Text
-          numberOfLines={1}
-          style={{
-            fontFamily: tokens.fontDisplay,
-            fontSize: 11,
-            letterSpacing: 1.7,
-            textTransform: 'uppercase',
-            color: active ? ICE : TEXT,
-            opacity: active ? 1 : 0.7,
-            includeFontPadding: false,
-          }}
-        >
+    <Pressable onPress={onPress} hitSlop={{ top: 6, bottom: 6 }} accessibilityLabel={`${label}, ${count} songs`} accessibilityState={{ selected: active }}>
+      <View style={{ minWidth: 76, paddingHorizontal: 12, alignItems: 'center' }}>
+        <View style={{ width: STAR_SLOT, height: STAR_SLOT, alignItems: 'center', justifyContent: 'center' }}>
+          {/* the station's tick on the axis */}
+          <View style={{ position: 'absolute', top: AXIS_Y - 4, width: 1, height: 8, backgroundColor: ETCH.strong }} />
+          {/* a faint point, always there */}
+          <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: STAR_DIM }} />
+          {/* and the star that blooms when it's chosen */}
+          <Animated.View style={{ position: 'absolute', opacity: lit, transform: [{ scale: lit.interpolate({ inputRange: [0, 1], outputRange: [0.2, 1] }) }] }}>
+            <Star size={STAR_SLOT} color={GOLD_HI} />
+          </Animated.View>
+        </View>
+        <Text numberOfLines={1} style={display(12, active ? GOLD_HI : DUST, active ? 500 : 400, { letterSpacing: 2.2, marginTop: 3 })}>
           {label}
         </Text>
-        <Text
-          style={{
-            marginLeft: 7,
-            fontFamily: MONO,
-            fontSize: 10,
-            letterSpacing: 0.6,
-            color: active ? ICE : TEXT_FAINT,
-            includeFontPadding: false,
-          }}
-        >
-          [{count}]
-        </Text>
-      </MachinedPanel>
+        <Text style={mono(9, active ? GOLD : DUST_DIM, { marginTop: 2, letterSpacing: 1.4 })}>{count}</Text>
+      </View>
     </Pressable>
   )
 }

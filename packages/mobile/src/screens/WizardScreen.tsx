@@ -113,7 +113,7 @@ function formatDuration(ms: number | null | undefined): string {
 // binding / HUD corner brackets) that aren't expressible through the
 // existing flags. Per-theme structural feel:
 //   - zen                                    → tatami binding: vermillion top/bottom bands with gold-hairline sides
-//   - space                                  → HUD console: void panel, magenta/cyan rim, corner brackets
+//   - space                                  → black glass, gold hairline, registration ticks
 //   - sketch (cardShape: 'blob' + offset)   → post-it note: warm paper, slight rotation, blob radii
 //   - psychedelic (cardShape: 'blob' + glow) → translucent purple panel with asymmetric blob corners + pink halo
 //   - urban  (cardBorderWidth: 0)            → parallelogram skew with accent edge
@@ -121,18 +121,18 @@ function formatDuration(ms: number | null | undefined): string {
 //   - default (neo-brutal)                   → solid white card with hard black border
 function wizardCardStyle(tokens: ThemeTokens, color?: string, overrides?: any, index: number = 0): any {
   if (tokens.name === 'space') {
-    // Space HUD console — translucent void panel with a magenta rim (or
-    // singer-color override) and a soft plasma glow. Corners are clean (the
-    // visible HUD brackets are layered in via WizardSpaceBrackets below).
+    // Space "Golden Record": black glass with an engraved gold hairline (a
+    // singer's own colour on their card). The registration ticks are layered
+    // in via SpaceHudBrackets. No glow: light in this theme is starlight.
     return {
-      backgroundColor: 'rgba(14,14,26,0.78)',
+      backgroundColor: 'rgba(8,10,18,0.9)',
       borderWidth: 1,
-      borderColor: color || 'rgba(224,64,251,0.4)',
-      borderRadius: 8,
-      shadowColor: color || tokens.accentGlowColor,
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.55,
-      shadowRadius: 12,
+      borderColor: color || 'rgba(233,196,106,0.36)',
+      borderRadius: 14,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.6,
+      shadowRadius: 10,
       ...overrides,
     }
   }
@@ -398,6 +398,18 @@ function retroHeadingExtras(tokens: ThemeTokens): any {
     textShadowColor: 'rgba(255,45,149,0.95)',
     textShadowRadius: 10,
     textShadowOffset: { width: 0, height: 0 },
+  }
+}
+
+// Space ("Golden Record") step titles: light Jost, widely tracked, the way the
+// rest of the theme sets display type. No glow: light here is starlight.
+function spaceHeadingExtras(tokens: ThemeTokens): any {
+  if (tokens.name !== 'space') return null
+  return {
+    fontFamily: 'Jost_300Light',
+    fontWeight: 'normal',
+    letterSpacing: 3.2,
+    textTransform: 'uppercase',
   }
 }
 
@@ -814,6 +826,7 @@ function WizardBody() {
                     ...(psyHeadingExtras(tokens) ?? {}),
                     ...(steamHeadingExtras(tokens) ?? {}),
                     ...(retroHeadingExtras(tokens) ?? {}),
+                    ...(spaceHeadingExtras(tokens) ?? {}),
                   }}
                 >
                   {stepLabel}
@@ -1100,6 +1113,7 @@ function SingersStep({
           marginBottom: 16,
           ...(steamHeadingExtras(tokens) ?? {}),
           ...(retroHeadingExtras(tokens) ?? {}),
+          ...(spaceHeadingExtras(tokens) ?? {}),
         }}
       >
         Who's singing?
@@ -1115,7 +1129,7 @@ function SingersStep({
           }, i)}
         >
           {tokens.name === 'space' ? (
-            <SpaceHudBrackets size={10} thickness={1.2} inset={3} topColor={s.color} bottomColor="#40E0D0" />
+            <SpaceHudBrackets size={10} thickness={1} inset={3} topColor={s.color} />
           ) : tokens.name === 'steampunk' ? (
             <SteampunkBrassFrame size={9} rivetColor={s.color} filigree />
           ) : tokens.name === 'retrowave' ? (
@@ -1136,11 +1150,9 @@ function SingersStep({
                   ) : (
                     <Text
                       style={{
-                        fontFamily: tokens.fontDisplay,
-                        textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
-                        fontWeight: '900',
+                        fontFamily: 'Jost_500Medium',
                         fontSize: 18,
-                        color: '#08080F',
+                        color: '#1A1206',
                       }}
                     >
                       {(s.name?.[0] ?? '?').toUpperCase()}
@@ -1516,6 +1528,7 @@ function RolesStep({
           letterSpacing: tokens.name === 'tropical' ? 0 : -0.5,
           ...(steamHeadingExtras(tokens) ?? {}),
           ...(retroHeadingExtras(tokens) ?? {}),
+          ...(spaceHeadingExtras(tokens) ?? {}),
         }}
       >
         Who sings what?
@@ -1782,6 +1795,7 @@ function StageStep({
           letterSpacing: tokens.name === 'tropical' ? 0 : -0.5,
           ...(steamHeadingExtras(tokens) ?? {}),
           ...(retroHeadingExtras(tokens) ?? {}),
+          ...(spaceHeadingExtras(tokens) ?? {}),
         }}
       >
         Finish up
@@ -1965,6 +1979,7 @@ function SingerPicker({
             marginBottom: 16,
             ...(steamHeadingExtras(tokens) ?? {}),
             ...(retroHeadingExtras(tokens) ?? {}),
+            ...(spaceHeadingExtras(tokens) ?? {}),
           }}
         >
           Add a singer

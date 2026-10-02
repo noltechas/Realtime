@@ -100,7 +100,7 @@ export function StageScreen() {
 
   // `ui.styles.screen`, NOT a local appBg fill. Themes whose atmosphere is a
   // native layer mounted once behind the whole navigator (`ui.SceneLayer` —
-  // psychedelic's liquid-light footage, space's 3D deck) deliberately ship a
+  // psychedelic's liquid-light footage, space's deep field) deliberately ship a
   // TRANSPARENT screen so it shows through; every other screen already reads
   // this style. This one painted `tokens.appBg` instead, which covered the
   // video and left the Stage tab flat black on those two themes.

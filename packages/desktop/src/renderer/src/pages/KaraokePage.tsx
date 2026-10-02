@@ -8,7 +8,13 @@ import { AwardsRevealAnimation } from '../awards/AwardsRevealAnimation'
 import { HiddenSongStagePanel, HiddenSongStageHeading } from '../components/HiddenSongCard'
 import TomatoSplatterLayer, { TOMATO_EMOJI } from '../components/TomatoSplatterLayer'
 import FlowerLayer, { FLOWER_EMOJI } from '../components/FlowerLayer'
-import { SpaceOutboard } from '../components/SpaceOutboard'
+import { SP } from '../styles/space'
+import { DeepField } from '../components/space/DeepField'
+import {
+    SpaceIdle, SpaceUpNext, SpaceCountIn, SpaceBreak, SpacePaused, SpaceNoLyrics,
+    SpaceQrCard, SpaceSongChip, SpaceSingerTag, SpaceMicBody, SpaceStarMeter,
+} from '../components/space/SpaceScreens'
+import { SpaceAtmosphere, SpaceLinePlate } from '../components/space/SpaceStageLayers'
 import { LiquidLight } from '../components/LiquidLight'
 import { PSY, psyDyeBleed, psyPoured, psyStroke } from '../styles/psychedelic'
 import { GOTH, gothCusp } from '../styles/gothic'
@@ -2118,6 +2124,10 @@ function MicMeter({ singer, active, effects, vocalFx = true, autotune = true, ma
     if (theme.name === 'gothic') {
         return <GothicMicBody name={displayName} picture={pic} color={singer.color} meter={<GothFlameMeter level={level} color={singer.color} />} />
     }
+    // Space: the level is the singer's star, its spikes reaching out as they sing.
+    if (theme.name === 'space') {
+        return <SpaceMicBody name={displayName} picture={pic} color={singer.color} meter={<SpaceStarMeter level={level} color={singer.color} />} />
+    }
     // Barbie: the level is a little sun in the singer's colour, rays reaching out.
     if (theme.name === 'barbie') {
         return <BarbieMicBody name={displayName} picture={pic} color={singer.color} meter={<SunMeter level={level} color={singer.color} />} />
@@ -3109,133 +3119,12 @@ function IdleStageScreen({ theme, qrUrl, sessionCode }: {
         )
     }
 
-    // ---- Space ("Flight Deck") idle ----
-    // A cockpit console floating in front of a real 3D outboard view. The old
-    // version stacked eight decorative SVG layers here — warp trails, two
-    // galaxies, a Saturn, orbiting particles, a blurred nebula. All of that is
-    // now actual geometry in <SpaceOutboard>, which both looks better and costs
-    // less than a 50px blur filter over a fixed full-screen element.
+    // ---- Space ("Golden Record") idle ----
+    // The record adrift in deep space with the join code as its label, the
+    // pulsar map engraved out across the sky from it, Voyager far off, and the
+    // Pale Blue Dot in its sunbeam.
     if (theme.name === 'space') {
-        const CUT = 24
-        const clip = (cut: number) =>
-            `polygon(${cut}px 0, 100% 0, 100% calc(100% - ${cut}px), calc(100% - ${cut}px) 100%, 0 100%, 0 ${cut}px)`
-        return (
-            <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh',
-                background: '#04060B', position: 'relative', overflow: 'hidden',
-            }}>
-                <SpaceOutboard />
-
-                {/* Vignette — pulls the eye to the console without hiding the
-                    station in the upper right or the planet's limb below. */}
-                <div style={{
-                    position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1,
-                    background: 'radial-gradient(ellipse 58% 52% at 50% 52%, rgba(4,6,11,0.80) 0%, rgba(4,6,11,0.34) 58%, transparent 100%)',
-                }} />
-
-                {/* ── The console plate ──────────────────────────────────────
-                    Outer element's background is the 1px hairline; the fill sits
-                    on an inset child. A plain CSS border would be sliced off at
-                    the 45° cuts by clip-path. */}
-                <div style={{
-                    position: 'relative', zIndex: 2,
-                    background: 'rgba(91,233,255,0.26)',
-                    clipPath: clip(CUT),
-                    boxShadow: '0 18px 60px rgba(0,0,0,0.7)',
-                }}>
-                    <div style={{
-                        clipPath: clip(CUT - 1),
-                        margin: 1,
-                        background: 'linear-gradient(158deg, rgba(19,28,39,0.96) 0%, rgba(6,10,17,0.97) 100%)',
-                        backdropFilter: 'blur(14px)',
-                        padding: '38px 46px',
-                        display: 'flex', alignItems: 'center', gap: 52,
-                    }}>
-                        {/* Left: the legend and the session readout */}
-                        <div style={{ position: 'relative', paddingLeft: 20 }}>
-                            {/* System bar — the theme's one-lamp state cue */}
-                            <div style={{
-                                position: 'absolute', left: 0, top: 4, bottom: 4, width: 3,
-                                background: '#5BE9FF', boxShadow: '0 0 12px rgba(91,233,255,0.7)',
-                            }} />
-                            <p style={{
-                                fontFamily: "'Share Tech Mono', monospace", fontSize: stageFont(13),
-                                letterSpacing: '0.26em', color: '#4E5C6D', margin: '0 0 10px',
-                            }}>
-                                SYS/LAUNCH: STANDING BY
-                            </p>
-                            <h1 style={{
-                                fontFamily: "'Chakra Petch', sans-serif", fontSize: stageFont(58), color: '#DCE6F2',
-                                fontWeight: 600, lineHeight: 1.02, margin: 0,
-                                textShadow: '0 0 28px rgba(91,233,255,0.30)',
-                                letterSpacing: '0.1em', textTransform: 'uppercase',
-                            }}>
-                                Launch<br />a Song
-                            </h1>
-
-                            {/* Machined rule: lit segment, then an engraved ladder */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 5, margin: '18px 0 16px' }}>
-                                <div style={{ width: 54, height: 2, background: '#5BE9FF' }} />
-                                <div style={{
-                                    flex: 1, height: 4,
-                                    background: 'repeating-linear-gradient(90deg, rgba(90,107,125,0.5) 0 1px, transparent 1px 12px)',
-                                }} />
-                            </div>
-
-                            <p style={{
-                                fontFamily: "'Exo 2', sans-serif", fontSize: stageFont(15), color: '#7B8A9C',
-                                letterSpacing: '0.2em', textTransform: 'uppercase', margin: '0 0 20px',
-                            }}>
-                                Scan to queue from orbit
-                            </p>
-
-                            {sessionCode && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                    <span style={{
-                                        fontFamily: "'Share Tech Mono', monospace", fontSize: stageFont(12),
-                                        letterSpacing: '0.24em', color: '#4E5C6D',
-                                    }}>
-                                        DECK
-                                    </span>
-                                    <span style={{
-                                        fontFamily: "'Share Tech Mono', monospace", fontSize: stageFont(34),
-                                        color: '#5BE9FF', letterSpacing: '0.2em',
-                                        textShadow: '0 0 18px rgba(91,233,255,0.5)',
-                                    }}>
-                                        {sessionCode}
-                                    </span>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Right: the QR in a recessed bay with registration marks */}
-                        {qrUrl && (
-                            <div style={{ position: 'relative', padding: 14, background: '#070C13' }}>
-                                <img src={qrUrl} alt="QR" style={{ width: 228, height: 228, display: 'block' }} />
-                                {/* Bay rim + corner registration marks — the same
-                                    detail the mobile song cards use on album art. */}
-                                <div style={{
-                                    position: 'absolute', inset: 0, pointerEvents: 'none',
-                                    boxShadow: 'inset 0 0 0 1px rgba(91,233,255,0.4)',
-                                }} />
-                                {[
-                                    { top: -1, left: -1, bx: '2px 0 0 2px' },
-                                    { top: -1, right: -1, bx: '2px 2px 0 0' },
-                                    { bottom: -1, left: -1, bx: '0 0 2px 2px' },
-                                    { bottom: -1, right: -1, bx: '0 2px 2px 0' },
-                                ].map((corner, index) => (
-                                    <div key={index} style={{
-                                        position: 'absolute', width: 14, height: 14,
-                                        borderStyle: 'solid', borderColor: '#5A6B7D', borderWidth: corner.bx,
-                                        ...corner,
-                                    } as React.CSSProperties} />
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
-        )
+        return <SpaceIdle qrUrl={qrUrl} sessionCode={sessionCode} />
     }
 
     // ---- Steampunk (Victorian Industrial) idle ----
@@ -4190,6 +4079,31 @@ function noticeSkin(theme: Theme): NoticeSkin {
                 </span>
             )
             break
+        // Black glass with an engraved gold hairline and registration ticks;
+        // the art is a small record, a star glinting at the corner.
+        case 'space':
+            skin.card = {
+                ...skin.card,
+                background: 'linear-gradient(180deg, rgba(16,19,29,0.95) 0%, rgba(5,6,12,0.96) 100%)',
+                border: '1px solid rgba(233,196,106,0.34)', borderRadius: 18,
+                boxShadow: '0 24px 56px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,240,200,0.10)',
+            }
+            skin.label = { ...skin.label, fontFamily: SP.FONT_MONO, fontWeight: 500, fontSize: stageFont(11), letterSpacing: '0.32em', color: SP.GOLD }
+            skin.title = { ...skin.title, fontFamily: SP.FONT_DISPLAY, fontWeight: 400, color: SP.STAR, textTransform: 'uppercase', letterSpacing: '0.12em' }
+            skin.meta = { ...skin.meta, fontFamily: SP.FONT_MONO, fontSize: stageFont(12), letterSpacing: '0.18em', textTransform: 'uppercase', color: SP.DUST }
+            skin.art = { ...skin.art, borderRadius: '50%', border: 'none', boxShadow: '0 0 0 3px #B48E3F, 0 0 0 4px rgba(255,240,200,0.5), 0 10px 22px rgba(0,0,0,0.7)' }
+            skin.chip = (color: string) => ({
+                border: `1px solid color-mix(in srgb, ${color}, transparent 45%)`,
+                background: 'rgba(2,3,8,0.6)', color: SP.STAR,
+                borderRadius: 99, fontFamily: SP.FONT_DISPLAY, fontWeight: 500, letterSpacing: '0.08em',
+            })
+            skin.rule = 'rgba(233,196,106,0.24)'
+            skin.decor = (
+                <span aria-hidden style={{ position: 'absolute', top: -16, right: -14, zIndex: 1, pointerEvents: 'none' }}>
+                    <SpaceStarMeter level={0.32} color={SP.GOLD_HI} />
+                </span>
+            )
+            break
         // Hand-drawn note: sketchy off-square border, marker underline.
         case 'sketch':
             skin.card = {
@@ -5040,6 +4954,11 @@ export default function KaraokePage() {
         <div style={{ position: 'fixed', top: 'calc(100vh - 184px)', left: 80, zIndex: 9999 }}>
             <GothicQrCard qr={state.karaokeQrDataUrl} />
         </div>
+        ) : theme.name === 'space' ? (
+        // A small record in the corner, its label the join code.
+        <div style={{ position: 'fixed', top: 'calc(100vh - 186px)', left: 36, zIndex: 9999 }}>
+            <SpaceQrCard qr={state.karaokeQrDataUrl} />
+        </div>
         ) : theme.name === 'barbie' ? (
         // A postcard from the party, tucked in the corner.
         <div style={{ position: 'fixed', top: 'calc(100vh - 186px)', left: 44, zIndex: 9999 }}>
@@ -5190,12 +5109,7 @@ export default function KaraokePage() {
                 alignItems: 'center',
                 gap: 6,
                 backdropFilter: 'blur(16px)',
-                ...(theme.name === 'space' ? {
-                    background: 'rgba(8,8,15,0.85)',
-                    border: '1px solid rgba(64,224,208,0.25)',
-                    boxShadow: '0 8px 26px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(91,233,255,0.22)',
-                    borderRadius: 6,
-                } : theme.name === 'retrowave' ? {
+                ...(theme.name === 'retrowave' ? {
                     background: 'rgba(10,6,20,0.88)',
                     border: '1px solid rgba(255,45,149,0.3)',
                     boxShadow: '0 0 12px rgba(255,45,149,0.1), 0 0 25px rgba(0,191,255,0.05)',
@@ -5206,7 +5120,7 @@ export default function KaraokePage() {
                     width: 80, height: 80,
                     borderRadius: theme.radiusSmall,
                     display: 'block',
-                    ...(theme.name === 'space' ? { boxShadow: '0 0 10px rgba(91,233,255,0.18)' } : theme.name === 'retrowave' ? { boxShadow: '0 0 8px rgba(255,45,149,0.15)' } : {}),
+                    ...(theme.name === 'retrowave' ? { boxShadow: '0 0 8px rgba(255,45,149,0.15)' } : {}),
                 }} />
                 <span style={{
                     fontFamily: theme.fontDisplay,
@@ -5218,10 +5132,7 @@ export default function KaraokePage() {
                     textAlign: 'center',
                     display: 'block',
                     width: '100%',
-                    ...(theme.name === 'space' ? {
-                        color: '#5BE9FF',
-                        textShadow: '0 0 8px rgba(64,224,208,0.5)',
-                    } : theme.name === 'retrowave' ? {
+                    ...(theme.name === 'retrowave' ? {
                         color: '#FF2D95',
                         textShadow: '0 0 8px rgba(255,45,149,0.5)',
                     } : {}),
@@ -5425,31 +5336,21 @@ export default function KaraokePage() {
             )
         }
 
-        // ── Space: LAUNCH IN — sleek void console, Orbitron glyphs with a
-        // magenta→cyan glow; a T-minus countdown, then LIFTOFF. ──
+        // ── Space: THE NEEDLE DROP. The tonearm swings in over the count, the
+        // last beats land on the record, and on "Sing" the stylus touches down
+        // and sound rolls out. ──
         if (theme.name === 'space') {
-            const spBig = (label: string, key: string | number, size = 68) => (
-                <div key={key} style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(size), lineHeight: 1.05, color: '#DCE6F2', letterSpacing: '0.06em', textShadow: '0 0 20px rgba(91,233,255,0.6), 0 0 50px rgba(91,233,255,0.28)', marginTop: 6 }}>{label}</div>
-            )
-            let spCenter: React.ReactNode
-            if (remaining <= 0) spCenter = spBig('LIFTOFF!', 'go', 44)
-            else if (count <= 3) spCenter = spBig('T-' + count, count)
-            else spCenter = (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginTop: 12, color: '#E8E6F0' }}>
-                    <NbEq color="#5BE9FF" fontSize={stageFont(22)} />
-                    <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(21), letterSpacing: '0.04em', maxWidth: 520, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.name}</span>
-                </div>
-            )
             return (
-                <div ref={countInRef} className={exitCls} style={{ display: 'flex', justifyContent: 'center', width: '100%', margin: '11vh 0 5vh' }}>
-                    <div style={{ position: 'relative', minWidth: 360, textAlign: 'center', padding: '24px 48px', borderRadius: 10, background: 'rgba(10,10,20,0.86)', backdropFilter: 'blur(10px)', boxShadow: '0 14px 44px rgba(0,0,0,0.66), inset 0 0 0 1px rgba(91,233,255,0.32)', animation: 'urban-spray-in 0.45s ease-out both' }}>
-                        <p style={{ margin: 0, fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(13), letterSpacing: '0.5em', marginRight: '-0.5em', textTransform: 'uppercase', color: '#5BE9FF', textShadow: '0 0 10px rgba(91,233,255,0.5)' }}>Launch In</p>
-                        {spCenter}
-                        <div style={{ marginTop: 16, height: 6, borderRadius: 999, background: 'rgba(91,233,255,0.14)', position: 'relative', overflow: 'hidden' }}>
-                            <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, borderRadius: 999, width: `${barPct}%`, background: 'linear-gradient(90deg, #5BE9FF, #BFF4FF)', boxShadow: '0 0 10px rgba(91,233,255,0.55)', transition: 'width 0.28s linear' }} />
-                        </div>
-                    </div>
-                </div>
+                <SpaceCountIn
+                    remaining={remaining}
+                    count={count}
+                    barPct={barPct}
+                    trackName={track.name}
+                    art={art ?? null}
+                    className={exitCls}
+                    innerRef={countInRef}
+                    stageFont={stageFont}
+                />
             )
         }
 
@@ -5752,6 +5653,9 @@ export default function KaraokePage() {
     // Barbie: with no music video, the album art is printed in pink and
     // sunshine (BarbieSunshine), with sunbeams and glitter that answer the room.
     const barbSun = theme.name === 'barbie' && !ytId && state.stageMode === 'playing'
+    // Space: with no music video the song plays in deep space, its album art
+    // turned into a nebula (DeepField), with bright stars that answer the room.
+    const spField = theme.name === 'space' && !ytId && state.stageMode === 'playing'
 
     return (
         <>
@@ -5761,6 +5665,7 @@ export default function KaraokePage() {
                 (ytId ? ' k-stage--video' : '') +
                 (gothStorm ? ' k-stage--goth-storm' : '') +
                 (barbSun ? ' k-stage--barb-sun' : '') +
+                (spField ? ' k-stage--sp-field' : '') +
                 (state.stageMode === 'playing' && !state.isPlaying ? ' k-stage--paused' : '')
             }
             onMouseMove={handleMouse}
@@ -5805,7 +5710,7 @@ export default function KaraokePage() {
                     instead. Keeping 3D off the playing path also protects the
                     frame budget at exactly the moment it matters most, with
                     audio decoding and per-syllable lyrics already running. */}
-                {theme.name === 'space' && !art && !ytId && <SpaceOutboard performing />}
+                {spField && <DeepField mode="performing" art={art ?? null} />}
                 {/* Psychedelic: same reasoning as space above. A song with neither video
                     nor album art would leave the backdrop bare, so the projector fills in
                     — dimmed and slowed via `performing` so the lyric plates keep the
@@ -5840,6 +5745,10 @@ export default function KaraokePage() {
                 the edges, and glitter thrown on a belted note */}
             {theme.name === 'barbie' && state.stageMode === 'playing' && <BarbieAtmosphere video={!!ytId} />}
 
+            {/* Space: etched registration marks in the corners, like a telescope
+                camera framing a field, and a line of telemetry at the foot */}
+            {theme.name === 'space' && state.stageMode === 'playing' && <SpaceAtmosphere video={!!ytId} />}
+
             {/* Hidden SVG for Filters */}
             <svg style={{ position: 'fixed', pointerEvents: 'none', width: 0, height: 0 }}>
                 <defs>
@@ -5864,13 +5773,18 @@ export default function KaraokePage() {
                     <GothicSongChip art={art} title={track.name} artist={track.artists.map((a: any) => a.name).join(', ')} />
                 </div>
             )}
+            {!(np?.isHidden && state.stageMode === 'ready') && theme.name === 'space' && (
+                <div className="k-song-chip" style={{ position: 'absolute', opacity: 1, top: 24, left: 28 }}>
+                    <SpaceSongChip art={art} title={track.name} artist={track.artists.map((a: any) => a.name).join(', ')} />
+                </div>
+            )}
             {/* Barbie: on deck the awning and the rising title say it all, so the chip waits */}
             {state.stageMode !== 'ready' && theme.name === 'barbie' && (
                 <div className="k-song-chip" style={{ position: 'absolute', opacity: 1, top: 26, left: 30 }}>
                     <BarbieSongChip art={art} title={track.name} artist={track.artists.map((a: any) => a.name).join(', ')} />
                 </div>
             )}
-            {!(np?.isHidden && state.stageMode === 'ready') && theme.name !== 'gothic' && theme.name !== 'barbie' && (
+            {!(np?.isHidden && state.stageMode === 'ready') && theme.name !== 'gothic' && theme.name !== 'barbie' && theme.name !== 'space' && (
             <div className="k-song-chip" style={{
                 background: theme.appBg, ...theme.stickerLabel, position: 'absolute', opacity: 1,
                 ...(theme.name === 'psychedelic' ? {
@@ -5930,14 +5844,7 @@ export default function KaraokePage() {
                     maxWidth: 'min(38vw, 520px)',
                     animation: 'zen-scroll-in 0.5s ease-out both',
                 } as React.CSSProperties : {}),
-                ...(theme.name === 'space' ? {
-                    background: 'rgba(8,8,15,0.85)',
-                    border: '1px solid rgba(64,224,208,0.2)',
-                    boxShadow: '0 6px 20px rgba(0,0,0,0.55), 0 0 10px rgba(91,233,255,0.08)',
-                    borderRadius: 8,
-                    backdropFilter: 'blur(16px)',
-                    color: '#E8E6F0',
-                } : theme.name === 'steampunk' ? {
+                ...(theme.name === 'steampunk' ? {
                     background: 'rgba(23,19,14,0.88)',
                     border: '1px solid #0c0a07',
                     boxShadow: `inset 0 0 0 1.5px rgba(200,151,62,0.55), inset 0 0 12px rgba(0,0,0,0.5), 0 10px 26px rgba(0,0,0,0.55)`,
@@ -5959,11 +5866,11 @@ export default function KaraokePage() {
                 } : {}),
             }}>
                 {art && <img className="k-song-chip__art" src={art} alt="" style={
-                    theme.name === 'neo-brutal' ? { borderRadius: 0, border: `2.5px solid ${NB_INK}`, boxShadow: 'none' } : theme.name === 'urban' ? { borderRadius: 0, clipPath: 'polygon(8% 0, 100% 0, 92% 100%, 0 100%)', boxShadow: 'none' } : theme.name === 'zen' ? { borderRadius: 8, border: '1px solid rgba(201,168,76,0.35)', boxShadow: '0 4px 14px rgba(0,0,0,0.5)' } : theme.name === 'space' ? { boxShadow: '0 8px 26px rgba(0,0,0,0.6), 0 0 14px rgba(91,233,255,0.12)', borderRadius: 0, border: '1px solid rgba(91,233,255,0.22)' } : theme.name === 'steampunk' ? { boxShadow: '0 0 10px rgba(200,151,62,0.15), 0 6px 20px rgba(0,0,0,0.5)', borderRadius: 3, border: '1px solid rgba(200,151,62,0.2)' } : theme.name === 'retrowave' ? { boxShadow: '0 0 10px rgba(255,45,149,0.15), 0 6px 20px rgba(0,0,0,0.5)', borderRadius: 4, border: '1px solid rgba(255,45,149,0.15)' } : {}
+                    theme.name === 'neo-brutal' ? { borderRadius: 0, border: `2.5px solid ${NB_INK}`, boxShadow: 'none' } : theme.name === 'urban' ? { borderRadius: 0, clipPath: 'polygon(8% 0, 100% 0, 92% 100%, 0 100%)', boxShadow: 'none' } : theme.name === 'zen' ? { borderRadius: 8, border: '1px solid rgba(201,168,76,0.35)', boxShadow: '0 4px 14px rgba(0,0,0,0.5)' } : theme.name === 'steampunk' ? { boxShadow: '0 0 10px rgba(200,151,62,0.15), 0 6px 20px rgba(0,0,0,0.5)', borderRadius: 3, border: '1px solid rgba(200,151,62,0.2)' } : theme.name === 'retrowave' ? { boxShadow: '0 0 10px rgba(255,45,149,0.15), 0 6px 20px rgba(0,0,0,0.5)', borderRadius: 4, border: '1px solid rgba(255,45,149,0.15)' } : {}
                 } />}
                 <div className="k-song-chip__text" style={theme.name === 'neo-brutal' || theme.name === 'urban' || theme.name === 'zen' || theme.name === 'steampunk' ? { minWidth: 0 } : {}}>
-                    <h3 style={{ fontFamily: theme.fontDisplay, ...(theme.name === 'neo-brutal' ? { color: NB_INK, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'urban' ? { color: '#FFFFFF', fontFamily: URB_STENCIL, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'zen' ? { color: '#F5EBD8', fontFamily: ZEN_SERIF, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'space' ? { color: '#DCE6F2', textShadow: '0 0 10px rgba(91,233,255,0.3)' } : theme.name === 'steampunk' ? { color: '#E8DCC8', fontFamily: "'Cinzel', serif", fontWeight: 600, textShadow: '0 0 10px rgba(200,151,62,0.25), 0 1px 0 rgba(0,0,0,0.5)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'retrowave' ? { color: '#F0E6FF', textShadow: '0 0 10px rgba(255,45,149,0.25)' } : {}) }}>{track.name}</h3>
-                    <p style={{ color: theme.muted, ...(theme.name === 'neo-brutal' ? { color: '#555555', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'urban' ? { color: URB_ASH, fontFamily: URB_STENCIL, fontWeight: 300, letterSpacing: '0.18em', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'zen' ? { color: ZEN_WASHI_DIM, fontFamily: ZEN_SANS, fontWeight: 500, letterSpacing: '0.14em', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'space' ? { color: '#7B8A9C' } : theme.name === 'steampunk' ? { color: '#A89878', fontStyle: 'italic', letterSpacing: '0.12em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'retrowave' ? { color: '#9B8CBF' } : {}) }}>{track.artists.map((a: any) => a.name).join(', ')}</p>
+                    <h3 style={{ fontFamily: theme.fontDisplay, ...(theme.name === 'neo-brutal' ? { color: NB_INK, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'urban' ? { color: '#FFFFFF', fontFamily: URB_STENCIL, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'zen' ? { color: '#F5EBD8', fontFamily: ZEN_SERIF, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'steampunk' ? { color: '#E8DCC8', fontFamily: "'Cinzel', serif", fontWeight: 600, textShadow: '0 0 10px rgba(200,151,62,0.25), 0 1px 0 rgba(0,0,0,0.5)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'retrowave' ? { color: '#F0E6FF', textShadow: '0 0 10px rgba(255,45,149,0.25)' } : {}) }}>{track.name}</h3>
+                    <p style={{ color: theme.muted, ...(theme.name === 'neo-brutal' ? { color: '#555555', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'urban' ? { color: URB_ASH, fontFamily: URB_STENCIL, fontWeight: 300, letterSpacing: '0.18em', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'zen' ? { color: ZEN_WASHI_DIM, fontFamily: ZEN_SANS, fontWeight: 500, letterSpacing: '0.14em', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'steampunk' ? { color: '#A89878', fontStyle: 'italic', letterSpacing: '0.12em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 } as React.CSSProperties : theme.name === 'retrowave' ? { color: '#9B8CBF' } : {}) }}>{track.artists.map((a: any) => a.name).join(', ')}</p>
                 </div>
             </div>
             )}
@@ -5972,7 +5879,7 @@ export default function KaraokePage() {
             {singers.length > 0 && (
                 <div className="k-singers" style={{ opacity: 1, flexDirection: 'column', alignItems: 'flex-end', ...(theme.name === 'barbie' && state.stageMode === 'ready' ? { top: 'calc(14.5vh + 8px)' } : {}) }}>
                     {singers.map((s: any, singerIdx: number) => {
-                        const spaceSingerStyle = theme.name === 'gothic' || theme.name === 'barbie' ? {
+                        const spaceSingerStyle = theme.name === 'gothic' || theme.name === 'barbie' || theme.name === 'space' ? {
                             // The plaque is drawn by GothicSingerPlaque inside; the tag
                             // itself is only a positioned slot.
                             background: 'transparent',
@@ -6032,13 +5939,6 @@ export default function KaraokePage() {
                             letterSpacing: 'normal',
                             textShadow: 'none',
                             animation: `zen-scroll-in 0.5s ease-out ${singerIdx * 0.08}s both`,
-                        } as React.CSSProperties : theme.name === 'space' ? {
-                            background: 'rgba(8,8,15,0.85)',
-                            border: '1px solid ' + (s.color ? s.color.replace(')', ',0.3)').replace('rgb(', 'rgba(') : 'rgba(64,224,208,0.2)'),
-                            boxShadow: '0 0 10px ' + (s.color ? s.color.replace(')', ',0.1)').replace('rgb(', 'rgba(') : 'rgba(64,224,208,0.08)'),
-                            borderRadius: 6,
-                            backdropFilter: 'blur(16px)',
-                            color: '#E8E6F0',
                         } as React.CSSProperties : theme.name === 'steampunk' ? {
                             background: 'rgba(23,19,14,0.88)',
                             border: '1px solid #0c0a07',
@@ -6085,6 +5985,10 @@ export default function KaraokePage() {
                                         <BarbieSingerTag color={s.color} index={singerIdx}>
                                             <MicMeter singer={s} active={micActive} effects={singerEffects} vocalFx={vocalFx} autotune={autotune} mainOutputId={state.mainOutputId} theme={theme} />
                                         </BarbieSingerTag>
+                                    ) : theme.name === 'space' ? (
+                                        <SpaceSingerTag color={s.color} index={singerIdx}>
+                                            <MicMeter singer={s} active={micActive} effects={singerEffects} vocalFx={vocalFx} autotune={autotune} mainOutputId={state.mainOutputId} theme={theme} />
+                                        </SpaceSingerTag>
                                     ) : (
                                         <MicMeter singer={s} active={micActive} effects={singerEffects} vocalFx={vocalFx} autotune={autotune} mainOutputId={state.mainOutputId} theme={theme} />
                                     )}
@@ -6107,10 +6011,14 @@ export default function KaraokePage() {
                                         <BarbieSingerTag color={s.color} index={singerIdx}>
                                             <BarbieMicBody name={tagGuest?.name ?? s.name} picture={tagGuest?.profile_picture ?? null} color={s.color} meter={null} />
                                         </BarbieSingerTag>
+                                    ) : theme.name === 'space' ? (
+                                        <SpaceSingerTag color={s.color} index={singerIdx}>
+                                            <SpaceMicBody name={tagGuest?.name ?? s.name} picture={tagGuest?.profile_picture ?? null} color={s.color} meter={null} />
+                                        </SpaceSingerTag>
                                     ) : (
                                         <>
                                             <span style={{ color: 'inherit', fontFamily: theme.fontDisplay }}>{tagGuest?.name ?? s.name}</span>
-                                            <div className="k-singer-tag__dot" style={{ background: s.color, ...(theme.name === 'space' ? { boxShadow: '0 0 6px ' + s.color } : {}) }} />
+                                            <div className="k-singer-tag__dot" style={{ background: s.color }} />
                                         </>
                                     )}
                                 </div>
@@ -6159,6 +6067,9 @@ export default function KaraokePage() {
                     // blurred album art while YouTube loaded, or for good when a video
                     // can't be embedded.
                     <GothicUpNext art={art ?? null} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} showVideo={showVideoBehindArt && ytVisible} />
+                  ) : theme.name === 'space' ? (
+                    // The deep field steps back only once the clip is really on screen.
+                    <SpaceUpNext art={art ?? null} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} showVideo={showVideoBehindArt && ytVisible} />
                   ) : theme.name === 'barbie' ? (
                     // Same rule as gothic: the painted town only steps back once
                     // the clip is really on screen.
@@ -6303,6 +6214,8 @@ export default function KaraokePage() {
                         <GothicNoLyrics stageFont={stageFont} />
                     ) : theme.name === 'barbie' ? (
                         <BarbieNoLyrics stageFont={stageFont} />
+                    ) : theme.name === 'space' ? (
+                        <SpaceNoLyrics stageFont={stageFont} />
                     ) : theme.name === 'zen' ? (
                         <div style={{ textAlign: 'center', animation: 'zen-scroll-in 0.55s ease-out both' }}>
                             <div style={{
@@ -6346,6 +6259,10 @@ export default function KaraokePage() {
                                     // singer by singer.
                                     let barbCloud = false
                                     let barbColors: string[] | null = null
+                                    // Space only: the active line's black-glass plate, and the
+                                    // star colours a shared line lights singer by singer.
+                                    let spPlate = false
+                                    let spStars: string[] | null = null
                                     let lineDataText: string | undefined
                                     let inlineStyle: React.CSSProperties = {
                                         fontFamily: theme.fontDisplay
@@ -6583,42 +6500,27 @@ export default function KaraokePage() {
                                             inlineStyle.textShadow = 'none'
                                             inlineStyle['--zen-glow'] = `color-mix(in srgb, ${zColors[0]}, transparent 62%)`
                                         } else if (theme.name === 'space') {
-                                            // The active line is a READOUT PLATE: a chamfered black-glass
-                                            // panel with an ice hairline and a system bar down its left
-                                            // edge in the singer's colour — the same grammar as every
-                                            // other surface in the theme, so the stage and the phone are
-                                            // recognisably one product.
-                                            //
-                                            // The chamfer is a clip-path, which means no CSS border can
-                                            // survive on the diagonals; the plate is drawn instead from
-                                            // stacked background layers (hairline, fill, system bar) in
-                                            // karaoke.css. Everything time-based — the per-syllable sweep
-                                            // and the line's duration vein — is CSS driven off
-                                            // --syl-dur / --nb-line-dur so it stays frame-accurate
-                                            // without React re-rendering mid-line.
-                                            cls += ' k-line--space k-line--space-active'
+                                            // ── Starlight on black glass ─────────────────
+                                            // The plate (SpaceLinePlate, injected as the first
+                                            // child) is a band of black glass with engraved gold
+                                            // hairlines and binary ticks. The words are starlight:
+                                            // faint until sung, then each syllable ignites in its
+                                            // singer's star colour (SPACE STAGE in karaoke.css). A
+                                            // shared line lights singer by singer.
+                                            cls += ' k-line--space'
                                             const spColors = activeColors.length > 1 ? activeColors : [activeSingerColor]
-                                            // Shared lines get one hard-split band per singer, butted like
-                                            // machined enamel rather than blended into a gradient mush.
-                                            const spBand = spColors.length > 1
-                                                ? spColors
-                                                      .map((c: string, k: number) =>
-                                                          `${c} ${(k / spColors.length) * 100}% ${((k + 1) / spColors.length) * 100}%`,
-                                                      )
-                                                      .join(', ')
-                                                : `${spColors[0]}, ${spColors[0]}`
-                                            // @ts-ignore (CSS variables)
-                                            inlineStyle['--space-bar'] = `linear-gradient(180deg, ${spBand})`
-                                            // @ts-ignore (CSS variables)
-                                            inlineStyle['--space-glow'] = spColors[0]
-                                            const spHasSyls = !!(line.syllables && line.syllables.length > 0)
-                                            if (!spHasSyls) {
-                                                // No syllable timings, so the WHOLE LINE ignites as one
-                                                // unit. Deliberately not a progress indicator creeping
-                                                // along the plate — a highlight that slides through the
-                                                // words is hard to sing to, because the thing you need to
-                                                // read is only half-lit at any moment.
+                                            const spVars = inlineStyle as Record<string, string>
+                                            spPlate = true
+                                            spStars = spColors
+                                            inlineStyle.background = 'transparent'
+                                            inlineStyle.padding = '0.22em 0.6em 0.26em'
+                                            inlineStyle.textShadow = 'none'
+                                            spVars['--sp-star'] = spColors[0]
+                                            if (!(line.syllables && line.syllables.length > 0)) {
+                                                // No syllable timing: the whole line ignites as one.
                                                 cls += ' k-line--space-full'
+                                            } else {
+                                                inlineStyle.color = SP.STAR
                                             }
                                         } else if (theme.name === 'steampunk') {
                                             // Illuminated engine nameplate: the riveted brass frame stays
@@ -6841,6 +6743,18 @@ export default function KaraokePage() {
                                             // Soot shadow: keeps singer-colored type legible over
                                             // the warm sepia backdrop or a bright music video.
                                             inlineStyle.textShadow = '0 0.05em 0.35em rgba(6, 4, 2, 0.85)'
+                                        } else if (theme.name === 'space') {
+                                            // Upcoming lines are starlight tinted by their singer's
+                                            // star. A shared line tints word by word, as it will light;
+                                            // the gradient text fill set above is undone, since a
+                                            // shadow behind a transparent fill shows through it.
+                                            cls += ' k-line--sp-future'
+                                            const sc = line.singerIndex !== undefined && singers[line.singerIndex]?.color
+                                            inlineStyle.backgroundImage = undefined
+                                            inlineStyle.WebkitBackgroundClip = undefined
+                                            inlineStyle.WebkitTextFillColor = undefined
+                                            ;(inlineStyle as Record<string, string>)['--sp-star'] = activeColors.length > 0 ? activeColors[0] : sc || SP.STAR
+                                            if (activeColors.length > 1) spStars = activeColors
                                         } else if (theme.name === 'barbie') {
                                             // Upcoming lines are stickers in their singer's colour
                                             // (white die-cut outline in karaoke.css). A shared line
@@ -6939,6 +6853,8 @@ export default function KaraokePage() {
                                                         ...(gothGlass && gothGlass.length > 1 ? { ['--syl-glass' as string]: gothGlass[k % gothGlass.length] } : {}),
                                                         // Barbie: a shared line paints singer by singer.
                                                         ...(barbColors && barbColors.length > 1 ? { ['--syl-c' as string]: barbColors[k % barbColors.length] } : {}),
+                                                        // Space: a shared line lights star by star.
+                                                        ...(spStars && spStars.length > 1 ? { ['--syl-star' as string]: spStars[k % spStars.length], ['--sp-star' as string]: spStars[k % spStars.length] } : {}),
                                                     } as React.CSSProperties}
                                                 >
                                                     {/* data-text lets a theme redraw the glyphs on a
@@ -6953,6 +6869,7 @@ export default function KaraokePage() {
                                         <div key={j} className={cls} style={inlineStyle} data-text={lineDataText ? displayWords : undefined}>
                                             {gothPane && <GothicLinePane key="goth-pane" />}
                                             {barbCloud && <BarbieLineCloud key="barb-cloud" seed={i} />}
+                                            {spPlate && <SpaceLinePlate key="sp-plate" seed={i} />}
                                             {/* FIRST child, so it paints under the line's inline
                                                 content (see .psy-film). Keyed so React reuses the
                                                 same <video> as long as the same line stays active,
@@ -7024,15 +6941,7 @@ export default function KaraokePage() {
                         </div>
                     </div>
                 ) : theme.name === 'space' ? (
-                    <div style={{ animation: 'urban-spray-in 0.35s ease-out both' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '10px 24px', borderRadius: 10, background: 'rgba(10,15,23,0.92)', backdropFilter: 'blur(10px)', boxShadow: '0 10px 30px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(91,233,255,0.3)' }}>
-                            <NbEq color="#5BE9FF" fontSize={18} />
-                            <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: 13, letterSpacing: '0.44em', marginRight: '-0.44em', textTransform: 'uppercase', color: '#E8E6F0' }}>In Orbit</span>
-                            <div style={{ width: 130, height: 6, borderRadius: 999, background: 'rgba(91,233,255,0.14)', position: 'relative', overflow: 'hidden' }}>
-                                <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, borderRadius: 999, width: `${Math.min(100, Math.max(0, ((elapsed - nbBreak.start) / (nbBreak.end - nbBreak.start)) * 100))}%`, background: 'linear-gradient(90deg,#5BE9FF,#BFF4FF)', boxShadow: '0 0 8px rgba(91,233,255,0.55)', transition: 'width 0.3s linear' }} />
-                            </div>
-                        </div>
-                    </div>
+                    <SpaceBreak progress={Math.min(1, Math.max(0, (elapsed - nbBreak.start) / (nbBreak.end - nbBreak.start)))} />
                 ) : theme.name === 'retrowave' ? (
                     <div style={{ animation: 'urban-spray-in 0.35s ease-out both' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '10px 24px', borderRadius: 4, background: 'linear-gradient(180deg,#15082e,#2a1054)', boxShadow: '0 0 22px rgba(255,45,149,0.28), inset 0 0 0 1.5px rgba(255,45,149,0.5)' }}>
@@ -7180,11 +7089,7 @@ export default function KaraokePage() {
                         </div>
                     </div>
                 ) : theme.name === 'space' ? (
-                    <div style={{ animation: 'urban-spray-in 0.35s ease-out both' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 30px', borderRadius: 10, background: 'rgba(10,15,23,0.94)', backdropFilter: 'blur(10px)', boxShadow: '0 10px 30px rgba(0,0,0,0.62), inset 0 0 0 1px rgba(91,233,255,0.34)' }}>
-                            <span style={{ fontFamily: theme.fontDisplay, fontWeight: 700, fontSize: stageFont(26), letterSpacing: '0.3em', marginRight: '-0.3em', textTransform: 'uppercase', color: '#E8E6F0', textShadow: '0 0 16px rgba(91,233,255,0.6), 0 0 40px rgba(91,233,255,0.26)' }}>Paused</span>
-                        </div>
-                    </div>
+                    <SpacePaused stageFont={stageFont} />
                 ) : theme.name === 'retrowave' ? (
                     <div style={{ animation: 'urban-spray-in 0.35s ease-out both' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 30px', borderRadius: 4, background: 'linear-gradient(180deg,#15082e,#2a1054)', boxShadow: '0 0 26px rgba(255,45,149,0.3), inset 0 0 0 1.5px rgba(255,45,149,0.55)' }}>

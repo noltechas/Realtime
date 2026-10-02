@@ -202,8 +202,9 @@ function HiddenTileMotif({ theme }: ThemeProps) {
         case 'space':
             return (
                 <>
-                    <div style={{ position: 'absolute', inset: 4, borderRadius: '50%', background: 'radial-gradient(circle, #000 0%, #000 55%, rgba(224,64,251,0.3) 60%, transparent 75%)', boxShadow: '0 0 12px rgba(224,64,251,0.5)' }} className="hs-space-ring" />
-                    <div style={{ ...centered, color: '#E040FB', fontFamily: theme.fontDisplay, fontSize: 12, fontWeight: 700, letterSpacing: 2 }}>???</div>
+                    {/* a small gold record whose label is radio static: a signal that can't be read yet */}
+                    <div style={{ position: 'absolute', inset: 4, borderRadius: '50%', background: 'radial-gradient(circle, #9C7A33 0%, #E9C46A 58%, #B48E3F 88%, #5A4318 100%)', boxShadow: '0 0 0 1px rgba(255,240,200,0.4)' }} />
+                    <div className="sp-static" style={{ position: 'absolute', inset: 14, borderRadius: '50%' }} />
                 </>
             )
         case 'steampunk':
@@ -360,24 +361,20 @@ function HiddenStageMotif({ theme }: ThemeProps) {
             )
         case 'space':
             return (
-                <div style={{ ...stageFill, background: 'radial-gradient(circle at 50% 50%, #1a0f2a 0%, #08080F 60%)' }}>
+                <div style={{ ...stageFill, background: 'radial-gradient(circle at 50% 50%, #0B0D18 0%, #020308 70%)' }}>
                     <svg width="340" height="340" viewBox="0 0 340 340" style={{ position: 'absolute', inset: 0 }}>
                         <circle cx="60" cy="50" r="1" fill="#fff" opacity="0.8" />
-                        <circle cx="290" cy="80" r="1.5" fill="#fff" opacity="0.6" />
-                        <circle cx="50" cy="270" r="1" fill="#40E0D0" opacity="0.7" />
+                        <circle cx="290" cy="80" r="1.5" fill="#FFE7C2" opacity="0.7" />
+                        <circle cx="50" cy="270" r="1" fill="#A9C3FF" opacity="0.8" />
                         <circle cx="310" cy="240" r="1.2" fill="#fff" opacity="0.8" />
-                        <circle cx="270" cy="30" r="1" fill="#FFB740" opacity="0.5" />
+                        <circle cx="270" cy="30" r="1" fill="#FFB08A" opacity="0.6" />
                         <circle cx="30" cy="180" r="1" fill="#fff" opacity="0.6" />
-                        <circle cx="300" cy="170" r="1.3" fill="#E040FB" opacity="0.7" />
                     </svg>
-                    <div className="hs-space-ring" style={{ position: 'absolute', width: 220, height: 220, top: '50%', left: '50%', transform: 'translate(-50%, -50%)', borderRadius: '50%', background: 'radial-gradient(circle, #000 0%, #000 52%, rgba(224,64,251,0.55) 55%, rgba(64,224,208,0.3) 65%, transparent 80%)', boxShadow: '0 0 60px rgba(224,64,251,0.5), 0 0 120px rgba(64,224,208,0.25)' }} />
-                    <div style={{ position: 'relative', zIndex: 2, textAlign: 'center', color: '#E040FB', fontFamily: theme.fontDisplay, textShadow: '0 0 14px rgba(224,64,251,0.8)' }}>
-                        <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: 6, textTransform: 'uppercase' }} className="hs-pulse">
-                            unknown
-                        </div>
-                        <div style={{ fontSize: 15, fontWeight: 400, letterSpacing: 8, marginTop: 4, opacity: 0.8 }}>
-                            signal
-                        </div>
+                    {/* the record, its label still radio static */}
+                    <div style={{ position: 'absolute', width: 230, height: 230, top: '50%', left: '50%', transform: 'translate(-50%, -50%)', borderRadius: '50%', background: 'radial-gradient(circle, #7A5A22 0%, #D7B35E 48%, #E9C46A 62%, #CFA853 84%, #5A4318 100%)', boxShadow: '0 20px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,240,200,0.4)' }} />
+                    <div className="sp-static" style={{ position: 'absolute', width: 120, height: 120, top: '50%', left: '50%', transform: 'translate(-50%, -50%)', borderRadius: '50%', boxShadow: 'inset 0 0 0 1px rgba(60,42,12,0.6)' }} />
+                    <div style={{ position: 'absolute', left: 0, right: 0, bottom: 26, zIndex: 2, textAlign: 'center', color: '#E9C46A', fontFamily: "'IBM Plex Mono', monospace" }}>
+                        <div style={{ fontSize: 14, fontWeight: 500, letterSpacing: 6, textTransform: 'uppercase' }}>Unknown signal</div>
                     </div>
                 </div>
             )
@@ -516,7 +513,7 @@ function hiddenTitleColor(theme: Theme): string {
         case 'deep-sea': return '#00ffc8'
         case 'psychedelic': return '#ff2d95'
         case 'zen': return '#D4B85A'
-        case 'space': return '#E040FB'
+        case 'space': return '#E9C46A'
         case 'steampunk': return '#C8973E'
         case 'retrowave': return '#FF2D95'
         case 'urban': return '#D4FF00'
@@ -584,7 +581,7 @@ function queueTitleExtras(name: string): React.CSSProperties {
         case 'deep-sea':
             return { textShadow: '0 0 6px rgba(0,255,200,0.5)' }
         case 'space':
-            return { textShadow: '0 0 6px rgba(224,64,251,0.6)' }
+            return { textShadow: '0 0 6px rgba(233,196,106,0.45)' }
         case 'retrowave':
             return { textShadow: '0 0 6px rgba(255,45,149,0.6)' }
         case 'psychedelic':
@@ -603,7 +600,7 @@ function stageTitleExtras(name: string): React.CSSProperties {
         case 'deep-sea':
             return { textShadow: '0 0 14px rgba(0,255,200,0.5)' }
         case 'space':
-            return { textShadow: '0 0 14px rgba(224,64,251,0.7)' }
+            return { textShadow: '0 0 14px rgba(233,196,106,0.5)' }
         case 'retrowave':
             return { textShadow: '3px 0 0 #00BFFF, -3px 0 0 #FFD700, 0 0 14px rgba(255,45,149,0.5)' }
         case 'psychedelic':
@@ -636,7 +633,7 @@ function tileExtras(theme: Theme): React.CSSProperties {
         case 'zen':
             return { background: '#1a1814', borderColor: 'rgba(212,184,90,0.4)' }
         case 'space':
-            return { background: '#08080F', borderColor: 'rgba(224,64,251,0.4)' }
+            return { background: '#05060C', borderColor: 'rgba(233,196,106,0.34)' }
         case 'steampunk':
             return { background: '#14110F', borderColor: 'rgba(200,151,62,0.4)' }
         case 'retrowave':

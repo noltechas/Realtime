@@ -1,86 +1,75 @@
 import { SPACE_MOBILE } from '../../tokens'
 import type { ThemeUIModule } from '../../types'
 import { buildSpaceStyles } from './styles'
-import { SpaceButton } from './atoms/Button'
-import { SpaceColorPicker } from './atoms/ColorPicker'
-import { SpaceGenreTabs } from './atoms/GenreTabs'
+import { Button } from './atoms/Button'
+import { ColorPicker } from './atoms/ColorPicker'
+import { GenreTabs } from './atoms/GenreTabs'
 import { TabBar } from './atoms/TabBar'
 import { Backdrop } from './atoms/Backdrop'
 import { SceneLayer } from './atoms/SceneLayer'
 import { ItemFloater } from './atoms/ItemFloater'
-import { SpaceScreenTitle } from './atoms/ScreenTitle'
-import { SpaceSongsSearchBar } from './atoms/SongsSearchBar'
-import { SpaceSongCard } from './atoms/SongCard'
-import { SpaceQueueRow } from './atoms/QueueRow'
-import { SpaceReactionCell } from './atoms/ReactionCell'
-import { SpaceStageTabIcon } from './atoms/StageTabIcon'
-import { SpaceStagePlayButton } from './atoms/StagePlayButton'
-import { SpaceStageToggleBox } from './atoms/StageToggleBox'
-import { SpaceYoureUpHero } from './atoms/YoureUpHero'
-import { TEXT, TEXT_FAINT } from './atoms/_ship'
+import { ScreenTitle } from './atoms/ScreenTitle'
+import { SongsSearchBar } from './atoms/SongsSearchBar'
+import { SongCard } from './atoms/SongCard'
+import { QueueRow } from './atoms/QueueRow'
+import { ReactionCell } from './atoms/ReactionCell'
+import { StageTabIcon } from './atoms/StageTabIcon'
+import { StagePlayButton } from './atoms/StagePlayButton'
+import { StageToggleBox } from './atoms/StageToggleBox'
+import { YoureUpHero } from './atoms/YoureUpHero'
+import { ArtOverlay } from './atoms/ArtOverlay'
+import { ProfilePortrait } from './atoms/ProfilePortrait'
+import { DUST, STAR } from './atoms/_record'
 
-// ── SPACE — "FLIGHT DECK" ────────────────────────────────────────────────────
+// ── SPACE: "GOLDEN RECORD" ──────────────────────────────────────────────────
 //
-// The phone is a panel on a spacecraft's flight deck, with real space behind it.
+// Earth's music sent out into deep space: the gold record the Voyagers carry,
+// and the sky it sails through, held in your hand. The same theme as the
+// stage. Every atom is built from the vocabulary in atoms/_record.tsx:
 //
-// Three ideas carry every atom, documented in full at the top of
-// `atoms/_ship.tsx`:
-//   1. Chamfered plates — every surface is a milled panel whose top-left and
-//      bottom-right corners are cut at 45°, drawn as a measured SVG silhouette
-//      rather than faked with border radius.
-//   2. One live light per element — structure is desaturated steel; the only
-//      saturated pixels are lamps, and each panel's 2px left system bar is how
-//      state gets communicated.
-//   3. Physical press — controls tip away from the finger on a perspective
-//      transform and settle on a spring. Nothing merely fades.
+//   • DEEP SPACE   one pre-rendered deep field behind every screen (SceneLayer)
+//                  with live stars breathing over it and Voyager crossing
+//   • GOLD         every song is a golden record with its art as the label
+//                  (SongCard, QueueRow); the play button IS the record, with a
+//                  tonearm; your profile photo is pressed as a record's label;
+//                  the tab bar's selection is a small gold record
+//   • ETCHED LINE  black-glass panels with registration ticks, binary marks,
+//                  a star-chart axis for the genres, reticles for reactions
+//   • STARLIGHT    eight-pointed stars: singers, toggles, the colour picker's
+//                  star chart, the active genre
 //
-// ── The 3D ───────────────────────────────────────────────────────────────────
-// Two Filament scenes, and only ever two:
-//   • `SceneLayer` — the outboard viewport. A ring-habitat station whose habitat
-//     ring turns while its core holds still, plus a probe on a two-minute pass.
-//     Mounted ONCE behind the whole navigator, not per screen.
-//   • `TabBar` — the nav console. The selected tab is a machined docking collar
-//     that travels the rail on a spring and yaws into its direction of travel,
-//     animated entirely on Filament's render thread.
-// Everything else that looks dimensional is 2D geometry with native-driver
-// perspective transforms. The reasoning, and what it would take to add a third
-// scene, is in `_ship.tsx` under "Filament budget".
-//
-// Geometry comes from `npm run generate:space-models` — committed as a generator
-// script rather than as opaque binaries.
-//
-// Typography diverges from the desktop space theme on purpose: Chakra Petch for
-// control legends, Share Tech Mono for every telemetry numeral, Exo 2 for prose.
-// Not Orbitron — see the note on SPACE_MOBILE in theme/tokens.ts.
+// Assets come from `npm run generate:space-assets` (a committed, seeded Python
+// script), not hand-made binaries.
 export const SPACE_UI: ThemeUIModule = {
   styles: buildSpaceStyles(SPACE_MOBILE),
 
-  Button: SpaceButton,
-  ColorPicker: SpaceColorPicker,
-  GenreTabs: SpaceGenreTabs,
+  Button,
+  ColorPicker,
+  GenreTabs,
 
   TabBar,
   Backdrop,
   SceneLayer,
   ItemFloater,
-  ScreenTitle: SpaceScreenTitle,
+  ScreenTitle,
 
-  SongsSearchBar: SpaceSongsSearchBar,
-  SongCard: SpaceSongCard,
+  SongsSearchBar,
+  SongCard,
 
-  QueueRow: SpaceQueueRow,
+  QueueRow,
 
-  ReactionCell: SpaceReactionCell,
-  StageTabIcon: SpaceStageTabIcon,
-  StagePlayButton: SpaceStagePlayButton,
-  StageToggleBox: SpaceStageToggleBox,
-  YoureUpHero: SpaceYoureUpHero,
+  ReactionCell,
+  StageTabIcon,
+  StagePlayButton,
+  StageToggleBox,
+  YoureUpHero,
+  ArtOverlay,
+  ProfilePortrait,
 
-  // Reaction cells are black glass over the void, so the Ionicons the Stage
-  // screen renders inside them need to be light. The plus glyph on an empty
-  // slot drops to the engraved tone so it reads as an affordance, not content.
+  // Reaction icons sit in reticles on black glass: starlight, with the empty
+  // tile's "+" in dust.
   reactionIconColors: {
-    iconColor: TEXT,
-    plusIconColor: TEXT_FAINT,
+    iconColor: STAR,
+    plusIconColor: DUST,
   },
 }

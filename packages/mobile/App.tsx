@@ -16,16 +16,6 @@ import {
 import { LuckiestGuy_400Regular } from '@expo-google-fonts/luckiest-guy'
 import { Chicle_400Regular } from '@expo-google-fonts/chicle'
 import { SpicyRice_400Regular } from '@expo-google-fonts/spicy-rice'
-import { Orbitron_700Bold, Orbitron_900Black } from '@expo-google-fonts/orbitron'
-// Space theme (mobile) — Chakra Petch is the angular technical display face and
-// Share Tech Mono carries every telemetry numeral. Orbitron above is retained
-// for the desktop-matching stage themes only.
-import {
-  ChakraPetch_500Medium,
-  ChakraPetch_600SemiBold,
-  ChakraPetch_700Bold,
-} from '@expo-google-fonts/chakra-petch'
-import { ShareTechMono_400Regular } from '@expo-google-fonts/share-tech-mono'
 import { Cinzel_400Regular, Cinzel_700Bold, Cinzel_900Black } from '@expo-google-fonts/cinzel'
 import { IMFellEnglish_400Regular } from '@expo-google-fonts/im-fell-english'
 import { SpecialElite_400Regular } from '@expo-google-fonts/special-elite'
@@ -41,15 +31,22 @@ import { GreatVibes_400Regular } from '@expo-google-fonts/great-vibes'
 // at 7.3 MB each in order to use exactly one.
 //
 // Deep-requiring the single .ttf bypasses the index. Only worth it where the waste is
-// large: these five files recover 64 MB, while every other family below wastes under a
+// large: these files recover 64 MB, while every other family below wastes under a
 // megabyte, so those keep the more readable named import.
 //
 // These packages declare no `exports` map, so the deep paths are resolvable and stable.
 const NotoSerifJP_700Bold = require('@expo-google-fonts/noto-serif-jp/700Bold/NotoSerifJP_700Bold.ttf')
 const ZenKakuGothicNew_400Regular = require('@expo-google-fonts/zen-kaku-gothic-new/400Regular/ZenKakuGothicNew_400Regular.ttf')
-const Exo2_400Regular = require('@expo-google-fonts/exo-2/400Regular/Exo2_400Regular.ttf')
-const Exo2_700Bold = require('@expo-google-fonts/exo-2/700Bold/Exo2_700Bold.ttf')
 const Nunito_400Regular = require('@expo-google-fonts/nunito/400Regular/Nunito_400Regular.ttf')
+// Space theme ("Golden Record"): Jost for display and reading, IBM Plex Mono for
+// every number and coordinate. Deep-required: Jost ships 18 files and Plex Mono
+// 14, and the theme renders four and two.
+const Jost_300Light = require('@expo-google-fonts/jost/300Light/Jost_300Light.ttf')
+const Jost_400Regular = require('@expo-google-fonts/jost/400Regular/Jost_400Regular.ttf')
+const Jost_500Medium = require('@expo-google-fonts/jost/500Medium/Jost_500Medium.ttf')
+const Jost_600SemiBold = require('@expo-google-fonts/jost/600SemiBold/Jost_600SemiBold.ttf')
+const IBMPlexMono_400Regular = require('@expo-google-fonts/ibm-plex-mono/400Regular/IBMPlexMono_400Regular.ttf')
+const IBMPlexMono_500Medium = require('@expo-google-fonts/ibm-plex-mono/500Medium/IBMPlexMono_500Medium.ttf')
 // Gothic theme: deep-required for the same reason: Grenze Gotisch ships nine
 // weights and Cormorant Garamond ten, and the theme renders three of each.
 const UnifrakturMaguntia_400Regular = require('@expo-google-fonts/unifrakturmaguntia/400Regular/UnifrakturMaguntia_400Regular.ttf')
@@ -113,14 +110,12 @@ export default function App() {
     SpicyRice_400Regular,
     NotoSerifJP_700Bold,
     ZenKakuGothicNew_400Regular,
-    Orbitron_700Bold,
-    Orbitron_900Black,
-    ChakraPetch_500Medium,
-    ChakraPetch_600SemiBold,
-    ChakraPetch_700Bold,
-    ShareTechMono_400Regular,
-    Exo2_400Regular,
-    Exo2_700Bold,
+    Jost_300Light,
+    Jost_400Regular,
+    Jost_500Medium,
+    Jost_600SemiBold,
+    IBMPlexMono_400Regular,
+    IBMPlexMono_500Medium,
     Cinzel_400Regular,
     Cinzel_700Bold,
     Cinzel_900Black,

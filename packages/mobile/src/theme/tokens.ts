@@ -99,24 +99,16 @@ export const ZEN_MOBILE: ThemeTokens = withMobileFonts(
   'ZenKakuGothicNew_400Regular',
 )
 
-// Space-Mobile — "FLIGHT DECK". The whole palette now lives in the shared
-// SPACE_TOKENS (see packages/shared/src/themes/space.ts), so desktop, stage,
-// mobile and the companion site are one theme rather than three that drifted.
-// Only the typography is mobile-specific here.
-//
-// Chakra Petch — an angular technical face whose chamfered terminals echo the
-// theme's cut-corner panel geometry — carries display text and control legends.
-// Body stays on Exo 2, which is readable at 15-16px where Chakra Petch is not.
-// Every telemetry numeral (durations, scores, positions, channel codes) is set
-// in Share Tech Mono, which atoms reference directly as `MONO` from
-// themes/space/atoms/_ship.tsx rather than through a token.
-//
-// Deliberately NOT Orbitron: it is the single most over-used sci-fi typeface and
-// instantly reads as generic.
+// Space-Mobile: "Golden Record". The palette is SPACE_TOKENS (see packages/
+// shared/src/themes/space.ts), so the stage, the phone and the companion site
+// are one theme. Only the typography is mobile-specific here: Jost (the
+// geometric face in the Futura tradition, as on the Apollo 11 plaque) for every
+// display and reading role. IBM Plex Mono, for every number and code, is reached
+// for directly by the space UI module (`MONO` in themes/space/atoms/_record.tsx).
 export const SPACE_MOBILE: ThemeTokens = withMobileFonts(
   SPACE_TOKENS,
-  'ChakraPetch_600SemiBold',
-  'Exo2_400Regular',
+  'Jost_400Regular',
+  'Jost_400Regular',
 )
 
 // Steampunk-Mobile — Victorian engraved typography. Cinzel (a Roman-capital

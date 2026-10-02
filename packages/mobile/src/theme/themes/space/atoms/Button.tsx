@@ -1,194 +1,50 @@
 import React from 'react'
-import {
-  ActivityIndicator,
-  Animated,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  type TextStyle,
-} from 'react-native'
-import Svg, {
-  Defs,
-  LinearGradient as SvgLinearGradient,
-  Path,
-  Stop,
-} from 'react-native-svg'
-import { useTheme } from '../../../ThemeContext'
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import type { ButtonProps } from '../../../types'
-import {
-  CUT_CHIP,
-  ICE,
-  ICE_DEEP,
-  MILLED,
-  STEEL_HI,
-  TEXT,
-  VOID,
-  chamferPath,
-  useMeasuredSize,
-  usePressTravel,
-  useSvgId,
-} from './_ship'
+import { ETCH, GOLD, GOLD_DEEP, GOLD_HI, INK, Press, STAR, VOID, display } from './_record'
 
-// Space Button — a machined key with real travel.
-//
-//   primary   → ice-lit face, hull-dark legend. The one "armed" control.
-//   secondary → black glass with a powered ice hairline and ice legend.
-//   outline   → bare steel hairline, instrument-white legend.
-//
-// The press is physical, not a fade: the key tips away from the finger on a
-// perspective transform and settles on a spring (`usePressTravel`), while the
-// status lamp on its leading edge comes up to full. Both run off the same
-// native-driver value, so one gesture drives one animation and the JS thread
-// never sees a frame of it.
-export function SpaceButton({
-  label,
-  onPress,
-  variant = 'primary',
-  loading,
-  disabled,
-}: ButtonProps) {
-  const { tokens } = useTheme()
-  const { size, onLayout } = useMeasuredSize()
-  const { depth, transform, onPressIn, onPressOut } = usePressTravel()
-  const faceId = useSvgId('btnFace')
-
-  const isPrimary = variant === 'primary'
-  const isSecondary = variant === 'secondary'
-  const inert = disabled || loading
-
-  const legendColor = isPrimary ? VOID : isSecondary ? ICE : TEXT
-  const edgeColor = isPrimary ? '#BFF4FF' : isSecondary ? ICE : STEEL_HI
-  const lampColor = isPrimary ? VOID : ICE
-
-  // Face gradient. Primary is a lit ice face; the other two are glass at
-  // different strengths, so only the alpha changes between them.
-  const faceStops = isPrimary
-    ? [
-        { offset: '0', color: '#8FF2FF' },
-        { offset: '0.45', color: ICE },
-        { offset: '1', color: ICE_DEEP },
-      ]
-    : isSecondary
-      ? [
-          { offset: '0', color: 'rgba(19,28,39,0.95)' },
-          { offset: '1', color: 'rgba(6,10,17,0.95)' },
-        ]
-      : [
-          { offset: '0', color: 'rgba(19,28,39,0.55)' },
-          { offset: '1', color: 'rgba(6,10,17,0.60)' },
-        ]
-
-  // Lamp on the leading edge: dim at rest, full under the finger.
-  const lampOpacity = depth.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] })
-
+// Space button:
+//   primary    the record's gold, satin, the legend engraved dark into it
+//   secondary  black glass with a gold hairline and a gold legend
+//   outline    a bare engraved hairline
+export function Button({ label, onPress, variant = 'primary', loading, disabled }: ButtonProps) {
+  const dead = disabled || loading
+  const gold = variant === 'primary'
+  const ink = gold ? INK : variant === 'secondary' ? GOLD_HI : STAR
   return (
-    <Pressable
-      onPress={() => {
-        if (inert) return
-        onPress()
-      }}
-      onPressIn={inert ? undefined : onPressIn}
-      onPressOut={inert ? undefined : onPressOut}
-      disabled={inert}
-      onLayout={onLayout}
-      style={{ opacity: inert ? 0.45 : 1 }}
-    >
-      <Animated.View
+    // A dead button dims its own face over solid black, never the whole pill:
+    // translucent gold over the starfield reads as a smear.
+    <Press onPress={onPress} disabled={dead} style={{ borderRadius: 999, backgroundColor: dead && gold ? VOID : undefined }}>
+      <View
         style={{
-          minHeight: 48,
-          paddingVertical: 14,
-          paddingHorizontal: 22,
+          opacity: dead ? (gold ? 0.55 : 0.5) : 1,
+          minHeight: 54,
+          borderRadius: 999,
+          overflow: 'hidden',
+          borderWidth: 1,
+          borderColor: gold ? '#6E5320' : variant === 'secondary' ? ETCH.mid : ETCH.faint,
           alignItems: 'center',
           justifyContent: 'center',
-          transform,
+          paddingHorizontal: 26,
+          paddingVertical: 12,
+          backgroundColor: gold ? GOLD : variant === 'secondary' ? 'rgba(10,12,20,0.9)' : 'transparent',
         }}
       >
-        {size && size.width > 1 && size.height > 1 ? (
-          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-            <Svg width={size.width} height={size.height}>
-              <Defs>
-                {/* Stops are mapped from a plain array rather than branched as
-                    JSX fragments — react-native-svg types gradient children as
-                    an element array, and a Fragment there fails to typecheck. */}
-                <SvgLinearGradient id={faceId} x1="0" y1="0" x2="0.2" y2="1">
-                  {faceStops.map((stop) => (
-                    <Stop key={stop.offset} offset={stop.offset} stopColor={stop.color} />
-                  ))}
-                </SvgLinearGradient>
-              </Defs>
-              <Path
-                d={chamferPath(size.width, size.height, CUT_CHIP)}
-                fill={`url(#${faceId})`}
-              />
-              <Path
-                d={chamferPath(size.width, size.height, CUT_CHIP, 0.75)}
-                fill="none"
-                stroke={edgeColor}
-                strokeOpacity={isPrimary ? 0.85 : 0.42}
-                strokeWidth={1.5}
-              />
-              {/* Bevel: a bright milled top edge and a dark underside. This
-                  pair is what sells a flat fill as a raised key. */}
-              <Path
-                d={`M ${(CUT_CHIP.tl ?? 0) + 2} 2 L ${size.width - 3} 2`}
-                stroke={isPrimary ? '#DFFAFF' : MILLED}
-                strokeOpacity={isPrimary ? 0.9 : 0.7}
-                strokeWidth={1.2}
-              />
-              <Path
-                d={`M 3 ${size.height - 2} L ${
-                  size.width - (CUT_CHIP.br ?? 0) - 2
-                } ${size.height - 2}`}
-                stroke={VOID}
-                strokeOpacity={isPrimary ? 0.32 : 0.6}
-                strokeWidth={1.2}
-              />
-            </Svg>
-          </View>
+        {gold ? (
+          <>
+            <LinearGradient colors={[GOLD_HI, GOLD, '#C9A24C', GOLD_DEEP]} locations={[0, 0.4, 0.72, 1]} style={StyleSheet.absoluteFill} />
+            <View pointerEvents="none" style={{ position: 'absolute', left: 18, right: 18, top: 1, height: 1, backgroundColor: 'rgba(255,248,224,0.8)' }} />
+          </>
         ) : null}
-
-        {/* Status lamp — a 3px bar hugging the leading chamfer. */}
-        <Animated.View
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            left: 7,
-            top: '36%',
-            bottom: '36%',
-            width: 3,
-            backgroundColor: lampColor,
-            opacity: lampOpacity,
-          }}
-        />
-
         {loading ? (
-          <ActivityIndicator color={legendColor} />
+          <ActivityIndicator color={ink} />
         ) : (
-          <Text
-            numberOfLines={1}
-            style={legendStyle(tokens.fontDisplay, legendColor, isPrimary)}
-          >
+          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={display(14.5, ink, gold ? 600 : 500, { letterSpacing: 3.4, textAlign: 'center' })}>
             {label}
           </Text>
         )}
-      </Animated.View>
-    </Pressable>
+      </View>
+    </Press>
   )
-}
-
-function legendStyle(fontFamily: string, color: string, isPrimary: boolean): TextStyle {
-  return {
-    color,
-    fontFamily,
-    fontSize: 13,
-    letterSpacing: 2.4,
-    textTransform: 'uppercase',
-    // Only the dark-on-light primary gets a lift shadow; on the glass variants
-    // it would just muddy an already lower-contrast legend.
-    textShadowColor: isPrimary ? 'rgba(255,255,255,0.30)' : 'transparent',
-    textShadowRadius: isPrimary ? 3 : 0,
-    textShadowOffset: { width: 0, height: 1 },
-    marginLeft: 8,
-  }
 }

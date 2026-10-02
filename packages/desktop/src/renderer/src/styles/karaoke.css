@@ -626,15 +626,6 @@
 }
 [data-theme="psychedelic"] .k-stage--paused .k-nb-countin--exit { animation-play-state: paused; }
 
-[data-theme="space"] .k-nb-countin--exit {
-    animation: space-countin-exit 0.75s ease 0.1s forwards;
-}
-@keyframes space-countin-exit {
-    from { opacity: 1; transform: translateY(0) scale(1); }
-    to   { opacity: 0; transform: translateY(-150%) scale(0.6); filter: blur(3px); }
-}
-[data-theme="space"] .k-stage--paused .k-nb-countin--exit { animation-play-state: paused; }
-
 [data-theme="retrowave"] .k-nb-countin--exit {
     animation: retro-countin-exit 0.7s var(--ease) 0.1s forwards;
 }
@@ -1303,118 +1294,6 @@
     100% { opacity: 1; transform: scale(1); }
 }
 
-/* ── Space — syllable IGNITION ───────────────────────────────────────────────
-   A syllable lights AS A WHOLE UNIT and stays lit. It does not wipe.
-
-   The earlier version slid a lit/unlit boundary through the glyphs over the
-   syllable's duration. It was smooth, and it was wrong: at any given instant the
-   word you are being asked to sing is only half legible, and the eye tracks the
-   moving edge instead of reading ahead. Karaoke wants a discrete cue.
-
-   So each syllable fires a one-shot 300ms IGNITION — the word punches toward the
-   viewer in real perspective (translateZ inside the plate's preserve-3d space),
-   overshoots to a hot white core with a wide bloom, then settles back and holds
-   at full singer colour until it becomes past. Fixed 300ms on purpose: a spike
-   scaled to --syl-dur would be an 18ms flicker on a short syllable and a lazy
-   63ms swell on a long one.
-
-   --syl-dur still earns its keep on the second animation: the bloom sustains for
-   exactly as long as the note is held, so long notes visibly ring out. */
-@keyframes space-syl-ignite {
-    0% {
-        transform: translateZ(22px) scale(1);
-        color: #66788C;
-        text-shadow: none;
-    }
-    /* The strike — forward, bright, blown out. */
-    22% {
-        transform: translateZ(58px) scale(1.085);
-        color: #FFFFFF;
-        text-shadow:
-            0 0 6px #FFFFFF,
-            0 0 18px var(--syl-singer, #5BE9FF),
-            0 0 44px color-mix(in srgb, var(--syl-singer, #5BE9FF), transparent 35%),
-            0 0 90px color-mix(in srgb, var(--syl-singer, #5BE9FF), transparent 65%);
-    }
-    /* Recoil. */
-    52% {
-        transform: translateZ(30px) scale(1.012);
-    }
-    /* Held lit, in the singer's colour, waiting to become past. */
-    100% {
-        transform: translateZ(22px) scale(1);
-        color: color-mix(in srgb, var(--syl-singer, #5BE9FF), white 55%);
-        text-shadow:
-            0 0 4px color-mix(in srgb, var(--syl-singer, #5BE9FF), white 40%),
-            0 0 16px color-mix(in srgb, var(--syl-singer, #5BE9FF), transparent 40%);
-    }
-}
-
-/* Sustain: the bloom breathes for the length of the held note, so a long vowel
-   reads as ringing rather than as a word that already finished. */
-@keyframes space-syl-sustain {
-    0%   { filter: brightness(1.12); }
-    100% { filter: brightness(1); }
-}
-
-[data-theme="space"] .k-syl {
-    /* Transformable, and sharing the plate's 3D space so translateZ is a real
-       perspective push rather than a no-op. */
-    display: inline-block;
-    transform-style: preserve-3d;
-    transform: translateZ(22px);
-}
-
-[data-theme="space"] .k-line--now .k-syl--past {
-    opacity: 1;
-    /* Already sung: holds the singer's hue but steps back in Z and dims, so the
-       lit syllable is unambiguously the current one. */
-    transform: translateZ(14px);
-    color: color-mix(in srgb, var(--syl-singer, #DCE6F2), #97A6B8 58%);
-    text-shadow: 0 0 10px color-mix(in srgb, var(--syl-singer, #5BE9FF), transparent 78%);
-    transition: transform 0.3s var(--ease), color 0.3s var(--ease);
-}
-
-[data-theme="space"] .k-line--now .k-syl--now .k-syl__word {
-    display: inline-block;
-    animation:
-        space-syl-ignite 300ms cubic-bezier(0.16, 1, 0.3, 1) forwards,
-        space-syl-sustain var(--syl-dur, 320ms) ease-out forwards;
-}
-
-[data-theme="space"] .k-line--now .k-syl--future {
-    opacity: 1;
-    /* Not yet sung: engraved steel, sitting flat on the plate. Legible so the
-       singer can read ahead, clearly inert so it isn't mistaken for the cue. */
-    transform: translateZ(10px);
-    color: #66788C;
-    transition: transform 0.3s var(--ease), color 0.3s var(--ease);
-}
-
-/* LRC-only lines have no syllables, so the entire line ignites as one unit. */
-@keyframes space-line-ignite {
-    0% {
-        transform: translateZ(18px) scale(0.985);
-        color: #66788C;
-        text-shadow: none;
-    }
-    26% {
-        transform: translateZ(56px) scale(1.02);
-        color: #FFFFFF;
-        text-shadow:
-            0 0 8px #FFFFFF,
-            0 0 24px var(--space-glow, #5BE9FF),
-            0 0 60px color-mix(in srgb, var(--space-glow, #5BE9FF), transparent 45%);
-    }
-    100% {
-        transform: translateZ(22px) scale(1);
-        color: color-mix(in srgb, var(--space-glow, #5BE9FF), white 62%);
-        text-shadow:
-            0 0 5px color-mix(in srgb, var(--space-glow, #5BE9FF), white 40%),
-            0 0 20px color-mix(in srgb, var(--space-glow, #5BE9FF), transparent 45%);
-    }
-}
-
 /* ── Steampunk — Edison filament ignition (in the singer's color) ─────────
    The plate face is dark iron (JSX inline); the letters are lamp filaments.
    Future words are unlit glass — dark and engraved. Sung words hold a steady
@@ -1797,157 +1676,6 @@
     80%  { stroke-dashoffset: 20; }
     100% { stroke-dashoffset: 15; }
 }
-
-/* ── Space: the active-line readout plate ────────────────────────────────────
-   A GENUINE 3D OBJECT, not a card with a gradient.
-
-   The line establishes its own perspective and a preserve-3d space, then stacks
-   three surfaces at different depths inside it:
-
-     ::after    z = -26px   ambient glow slab, in the lead singer's colour
-     ::before   z =   0     the machined plate, laid back on rotateX(6deg)
-     .k-syl     z = +22px   the text, floating flat above the tilted plate
-
-   Because those depths are real, the plate's top edge recedes under perspective
-   while the words stay square to the viewer, and a syllable's ignition can punch
-   forward THROUGH that space. It is the same trick the mobile theme's press
-   travel uses, at a larger scale.
-
-   Two things are deliberately absent:
-     • `filter` on this element. drop-shadow was the obvious way to make the
-       chamfered plate glow, and it silently forces transform-style back to flat,
-       collapsing every depth above into one plane. The glow lives on ::after at
-       negative Z instead.
-     • `clip-path` on the line itself. It would chamfer the plate nicely and clip
-       the syllables' bloom off at the same edge. The chamfer goes on ::before,
-       which has no text in it. */
-.k-line--space {
-    --space-cut: 0.40em;
-    position: relative;
-    border-radius: 0;
-    background: none;
-    padding: 0.3em 1.1em 0.34em 1.25em;
-    isolation: isolate;
-    /* `perspective` WITHOUT `transform-style: preserve-3d`, on purpose.
-       preserve-3d looks like the right tool — it lets the plate, the glow slab
-       and the words mutually depth-sort — but it sorts only TRANSFORMED
-       DESCENDANTS. An element's own text node is not one: it paints in the
-       content layer, which comes before positioned descendants, so a plate on
-       ::before covered the words of any line without .k-syl spans (i.e. every
-       LRC-timed song) no matter how far back its Z was pushed.
-       Plain z-index layering does exactly what's needed instead — negative
-       z-index children paint above this element's background and BELOW its text
-       — while each layer below carries its OWN `perspective()` transform
-       function.
-
-       PER-ELEMENT PERSPECTIVE IS THE POINT. A single `perspective` property here
-       would put one vanishing point at the line's centre, so a syllable pushed
-       toward the viewer also slides radially away from that centre — words on the
-       left threw out to the left, words on the right to the right. Moving
-       perspective into each element's own transform list puts its vanishing point
-       at its own transform-origin, so a highlighted word extrudes STRAIGHT OUT of
-       the plate. */
-}
-
-/* The plate. All of its detail is background layers on one element:
-   the singer system bar, a milled top edge, a specular sheen, and the glass. */
-.k-line--space::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    /* translateZ(-10px) is load-bearing: the plate has to stay behind the text
-       plane. Syllable spans sit at +22px, but an LRC line's bare text node sits
-       at Z=0, and rotateX alone swings part of a plate at Z=0 in FRONT of it —
-       which rendered those lines with their words occluded by their own panel. */
-    transform: perspective(1200px) translateZ(-10px) rotateX(6deg);
-    transform-origin: center bottom;
-    clip-path: polygon(
-        var(--space-cut) 0,
-        100% 0,
-        100% calc(100% - var(--space-cut)),
-        calc(100% - var(--space-cut)) 100%,
-        0 100%,
-        0 var(--space-cut)
-    );
-    background-color: rgba(91, 233, 255, 0.32);
-    background-image:
-        /* system bar — hard-split per singer on shared lines */
-        var(--space-bar, linear-gradient(180deg, #5BE9FF, #5BE9FF)),
-        /* milled top edge */
-        linear-gradient(180deg, rgba(200, 224, 242, 0.42) 0%, rgba(200, 224, 242, 0) 100%),
-        /* specular sheen — a raking highlight across the glass */
-        linear-gradient(
-            104deg,
-            rgba(255, 255, 255, 0) 18%,
-            rgba(190, 226, 245, 0.10) 38%,
-            rgba(255, 255, 255, 0.16) 46%,
-            rgba(190, 226, 245, 0.06) 54%,
-            rgba(255, 255, 255, 0) 74%
-        ),
-        /* glass fill */
-        linear-gradient(163deg, rgba(22, 33, 46, 0.97) 0%, rgba(7, 12, 20, 0.98) 100%);
-    background-size:
-        0.15em 100%,
-        calc(100% - 2px) 1.4em,
-        calc(100% - 2px) calc(100% - 2px),
-        calc(100% - 2px) calc(100% - 2px);
-    background-position:
-        left top,
-        1px 1px,
-        1px 1px,
-        1px 1px;
-    background-repeat: no-repeat;
-}
-
-/* Ambient glow slab, well behind the plate. Scaled up and blurred so it reads as
-   light spilling off a lit panel rather than as an outline. */
-.k-line--space::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: -2;
-    transform: scale(1.03);
-    background: radial-gradient(
-        ellipse 68% 130% at 50% 58%,
-        color-mix(in srgb, var(--space-glow, #5BE9FF), transparent 72%) 0%,
-        color-mix(in srgb, var(--space-glow, #5BE9FF), transparent 90%) 48%,
-        transparent 76%
-    );
-    filter: blur(22px);
-}
-
-/* Plate entrance — it rises into place as the line becomes active, which is
-   what makes a line change read as hardware seating rather than text swapping. */
-@keyframes space-plate-seat {
-    from {
-        opacity: 0;
-        transform: perspective(1200px) translateZ(-10px) rotateX(16deg) translateY(0.14em) scale(0.985);
-    }
-    to {
-        opacity: 1;
-        transform: perspective(1200px) translateZ(-10px) rotateX(6deg) translateY(0) scale(1);
-    }
-}
-
-.k-line--space-active::before {
-    animation: space-plate-seat 340ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-/* No syllable timings — the whole line ignites at once. */
-.k-line--space-full {
-    animation: space-line-ignite 420ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.k-stage--paused .k-line--space-full,
-.k-stage--paused [data-theme="space"] .k-syl--now .k-syl__word,
-.k-stage--paused .k-line--space-active::before {
-    animation-play-state: paused;
-}
-
-/* The space idle screen's decoration is real geometry now (SpaceOutboard), so
-   the old `spaceOrbit` particle keyframe and the `space-flare` per-word burst
-   that went with it have been removed rather than left as dead CSS. */
 
 /* ═══════════════════════════════════════════════════════════════════════════
    STEAMPUNK STAGE — the music-hall engine room
@@ -2408,13 +2136,6 @@
     transform-origin: 170px 170px;
 }
 
-@keyframes hs-space-ring {
-    0%, 100% { box-shadow: 0 0 40px rgba(224, 64, 251, 0.4), 0 0 80px rgba(64, 224, 208, 0.2); }
-    50%      { box-shadow: 0 0 70px rgba(224, 64, 251, 0.8), 0 0 140px rgba(64, 224, 208, 0.45); }
-}
-.hs-space-ring {
-    animation: hs-space-ring 3.5s ease-in-out infinite;
-}
 
 @keyframes hs-gear {
     0%   { transform: rotate(0deg); }
@@ -3347,3 +3068,258 @@
 }
 .barb-sway-a { animation: barb-sway 9s ease-in-out infinite; }
 .barb-sway-b { animation: barb-sway 13s ease-in-out -4s infinite reverse; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SPACE STAGE: "GOLDEN RECORD", Earth's music sent out into deep space
+   Deep space, gold, etched line, starlight (see styles/space.ts). The sky
+   is a shader (components/space/DeepField.tsx); the record, the pulsar map
+   and the screens are components in components/space/. This section is
+   their motion, plus the lyric plate.
+
+   THE LYRIC IDEA: words are starlight. The active line sits on a band of
+   black glass with an engraved gold hairline along its top and foot and the
+   record's binary notation at each end. Words not yet sung are faint, far
+   starlight. Each syllable IGNITES as a whole the moment it is sung (never
+   a wipe), flaring white-hot in its singer's star colour with an eight-
+   pointed glint, and its glow rings for exactly as long as the note is held
+   (--syl-dur). A shared line lights singer by singer.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ---- Shared motion ---- */
+@keyframes sp-rise {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: none; }
+}
+.sp-rise { animation: sp-rise 1.1s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+@keyframes sp-fade { from { opacity: 0; } to { opacity: 1; } }
+.sp-fade { animation: sp-fade 1.6s ease both; }
+
+/* Etched lines engrave themselves in (their pathLength is 1). */
+@keyframes sp-draw { to { stroke-dashoffset: 0; } }
+.sp-draw {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: sp-draw 2.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* A record's label turns; the light on its grooves stays put. */
+@keyframes sp-spin { to { transform: rotate(360deg); } }
+.sp-spin { animation: sp-spin 16s linear infinite; }
+
+/* The idle record drifts, weightless, tilting a little as it turns. */
+@keyframes sp-float {
+    0%, 100% { transform: translateY(0) perspective(1400px) rotateX(4deg) rotateY(-5deg); }
+    50%      { transform: translateY(-12px) perspective(1400px) rotateX(-3deg) rotateY(5deg); }
+}
+.sp-float { animation: sp-float 14s ease-in-out infinite; }
+
+/* Voyager crossing its corner of the sky, very slowly. */
+@keyframes sp-voyage {
+    0%   { transform: translate(0, 0) rotate(-8deg); }
+    100% { transform: translate(-240px, 36px) rotate(-4deg); }
+}
+.sp-voyage { animation: sp-voyage 160s linear infinite alternate; }
+
+/* A star breathing: a slow, slight swell, not a blink. */
+@keyframes sp-twinkle {
+    0%, 100% { transform: scale(1); opacity: 0.92; }
+    50%      { transform: scale(1.08); opacity: 1; }
+}
+.sp-twinkle { animation: sp-twinkle 4.2s ease-in-out infinite; }
+
+/* A count-in beat lands like a pulse arriving: bright, then settling. */
+@keyframes sp-beat {
+    0%   { opacity: 0; transform: scale(1.35); filter: brightness(2.4); }
+    35%  { opacity: 1; transform: scale(0.97); }
+    100% { opacity: 1; transform: scale(1); filter: brightness(1); }
+}
+.sp-beat { animation: sp-beat 0.55s cubic-bezier(0.16, 1, 0.3, 1) both; display: inline-block; }
+
+/* Sound rolling out from the needle. */
+@keyframes sp-ring {
+    0%   { transform: scale(0.55); opacity: 0.9; }
+    100% { transform: scale(2.1); opacity: 0; }
+}
+.sp-ring { animation: sp-ring 1.6s cubic-bezier(0.1, 0.6, 0.3, 1) both; }
+
+/* Radio static on the label of a song that's still a surprise. */
+@keyframes sp-static {
+    0%   { background-position: 0 0; }
+    25%  { background-position: -53px 31px; }
+    50%  { background-position: 37px -71px; }
+    75%  { background-position: -19px 47px; }
+    100% { background-position: 0 0; }
+}
+.sp-static {
+    background-image: var(--sp-noise);
+    background-size: 160px 160px;
+    animation: sp-static 0.4s steps(1) infinite;
+}
+
+/* ---- Backdrop while a song plays ----
+   With no music video the deep field (and the song's nebula) is drawn by
+   DeepField inside .k-bg, so the flat blurred art hides. */
+[data-theme="space"] .k-stage--sp-field .k-bg__img,
+[data-theme="space"] .k-stage--sp-field .k-bg__img--prev {
+    opacity: 0 !important;
+}
+[data-theme="space"] .k-bg__img,
+[data-theme="space"] .k-bg__img--prev {
+    filter: blur(60px) saturate(1.1) brightness(0.42);
+}
+[data-theme="space"] .k-bg__scrim {
+    background:
+        linear-gradient(180deg, rgba(2, 3, 8, 0.65) 0%, rgba(2, 3, 8, 0.1) 22%, rgba(2, 3, 8, 0.1) 70%, rgba(2, 3, 8, 0.7) 100%);
+}
+[data-theme="space"] .k-stage--sp-field .k-bg__scrim {
+    background: linear-gradient(180deg, rgba(2, 3, 8, 0.4) 0%, transparent 20%, transparent 78%, rgba(2, 3, 8, 0.45) 100%);
+}
+
+/* ---- The lyric ladder ---- */
+[data-theme="space"] .k-line--future {
+    color: #ECE6D8;
+    transform: scale(0.9) translateY(4px);
+}
+[data-theme="space"] .k-line--sp-future,
+[data-theme="space"] .k-line--sp-future .k-syl__word {
+    color: color-mix(in srgb, var(--sp-star, #ECE6D8), #ECE6D8 58%);
+}
+[data-theme="space"] .k-line--sp-future {
+    text-shadow: 0 0.04em 0.32em rgba(0, 0, 0, 0.95), 0 0 0.12em rgba(0, 0, 0, 0.8);
+}
+[data-theme="space"] .k-line--sp-future .k-syl--future {
+    opacity: 1;
+}
+[data-theme="space"] .k-line--past {
+    color: #8A8EA3;
+    opacity: 0.42;
+    transform: scale(0.86);
+    text-shadow: 0 0.04em 0.3em rgba(0, 0, 0, 0.9);
+}
+
+/* ---- The active line: starlight on black glass ---- */
+[data-theme="space"] .k-line--space {
+    position: relative;
+    isolation: isolate;
+    border-radius: 0;
+    margin: 0.32em 1.5em;
+    text-shadow: none;
+}
+.sp-plate {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -1.35em;
+    right: -1.35em;
+    z-index: -1;
+    pointer-events: none;
+    background:
+        linear-gradient(90deg, rgba(233, 196, 106, 0) 0%, rgba(233, 196, 106, 0.6) 14%, rgba(233, 196, 106, 0.6) 86%, rgba(233, 196, 106, 0) 100%) top / 100% 1px no-repeat,
+        linear-gradient(90deg, rgba(233, 196, 106, 0) 0%, rgba(233, 196, 106, 0.42) 14%, rgba(233, 196, 106, 0.42) 86%, rgba(233, 196, 106, 0) 100%) bottom / 100% 1px no-repeat,
+        linear-gradient(90deg, rgba(2, 3, 8, 0) 0%, rgba(8, 10, 18, 0.8) 10%, rgba(8, 10, 18, 0.86) 50%, rgba(8, 10, 18, 0.8) 90%, rgba(2, 3, 8, 0) 100%);
+    animation: sp-plate-in 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes sp-plate-in {
+    from { opacity: 0; transform: scaleX(0.9); }
+    to   { opacity: 1; transform: none; }
+}
+.sp-plate__ticks {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    line-height: 0;
+    opacity: 0.8;
+}
+.sp-plate__ticks--l { left: 0.12em; }
+.sp-plate__ticks--r { right: 0.12em; }
+
+[data-theme="space"] .k-line--space .k-syl {
+    opacity: 1;
+}
+[data-theme="space"] .k-line--space .k-syl--now {
+    font-weight: inherit;
+    letter-spacing: inherit;
+}
+[data-theme="space"] .k-line--space .k-syl__word {
+    position: relative;
+    display: inline-block;
+}
+/* Not yet sung: far starlight. */
+[data-theme="space"] .k-line--space .k-syl--future .k-syl__word {
+    color: rgba(236, 230, 216, 0.4);
+}
+/* Sung: arrived, and burning steadily in the singer's colour. */
+[data-theme="space"] .k-line--space .k-syl--past .k-syl__word {
+    color: color-mix(in srgb, var(--syl-star, var(--sp-star)), #FFFFFF 32%);
+    text-shadow:
+        0 0 0.06em color-mix(in srgb, var(--syl-star, var(--sp-star)), #FFFFFF 50%),
+        0 0 0.4em color-mix(in srgb, var(--syl-star, var(--sp-star)), transparent 58%);
+}
+/* The syllable being sung: ignition. */
+@keyframes sp-ignite {
+    0%   { transform: scale(0.95); filter: brightness(2.3); }
+    38%  { transform: scale(1.055); }
+    100% { transform: scale(1); filter: brightness(1); }
+}
+@keyframes sp-burn {
+    0%   { text-shadow:
+              0 0 0.08em #FFFFFF,
+              0 0 0.38em var(--syl-star, var(--sp-star)),
+              0 0 1.1em var(--syl-star, var(--sp-star)),
+              0 0 2.2em color-mix(in srgb, var(--syl-star, var(--sp-star)), transparent 45%); }
+    100% { text-shadow:
+              0 0 0.07em color-mix(in srgb, var(--syl-star, var(--sp-star)), #FFFFFF 50%),
+              0 0 0.42em color-mix(in srgb, var(--syl-star, var(--sp-star)), transparent 35%),
+              0 0 1em color-mix(in srgb, var(--syl-star, var(--sp-star)), transparent 72%); }
+}
+@keyframes sp-glint {
+    0%   { transform: scale(0.15) rotate(-24deg); opacity: 0; }
+    22%  { transform: scale(1.12) rotate(0deg); opacity: 1; }
+    100% { transform: scale(0.45) rotate(10deg); opacity: 0; }
+}
+[data-theme="space"] .k-line--space .k-syl--now .k-syl__word {
+    color: color-mix(in srgb, var(--syl-star, var(--sp-star)), #FFFFFF 58%);
+    animation:
+        sp-ignite 320ms cubic-bezier(0.16, 1, 0.3, 1) both,
+        sp-burn var(--syl-dur, 400ms) ease-out both;
+}
+[data-theme="space"] .k-line--space .k-syl--now .k-syl__word::after {
+    content: '';
+    position: absolute;
+    right: -0.32em;
+    top: -0.36em;
+    width: 0.72em;
+    height: 0.72em;
+    pointer-events: none;
+    background: radial-gradient(circle, #FFFFFF 0%, var(--syl-star, var(--sp-star)) 32%, var(--syl-star, var(--sp-star)) 100%);
+    -webkit-mask-image: var(--sp-star-mask);
+    mask-image: var(--sp-star-mask);
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+    animation: sp-glint 0.95s ease-out both;
+}
+
+/* LRC-only lines have no syllables: the whole line ignites at once. */
+[data-theme="space"] .k-line--space-full {
+    color: color-mix(in srgb, var(--sp-star), #FFFFFF 45%) !important;
+    animation:
+        sp-ignite 420ms cubic-bezier(0.16, 1, 0.3, 1) both,
+        sp-burn 1.4s ease-out both;
+}
+
+[data-theme="space"] .k-stage--paused .k-syl--now .k-syl__word,
+[data-theme="space"] .k-stage--paused .k-syl--now .k-syl__word::after,
+[data-theme="space"] .k-stage--paused .sp-spin,
+[data-theme="space"] .k-stage--paused .k-nb-countin--exit {
+    animation-play-state: paused;
+}
+
+/* ---- Count-in exit: the plate sails up and away ---- */
+[data-theme="space"] .k-nb-countin--exit {
+    animation: sp-countin-exit 1s cubic-bezier(0.5, 0, 0.75, 0) 0.35s forwards;
+}
+@keyframes sp-countin-exit {
+    from { opacity: 1; transform: translateY(0) scale(1); }
+    to   { opacity: 0; transform: translateY(-120%) scale(0.94); }
+}

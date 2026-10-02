@@ -156,10 +156,12 @@ export interface ThemeUIModule {
   // Optional full-screen layer mounted ONCE per themed subtree, behind every
   // screen — as opposed to `Backdrop`, which each screen renders for itself.
   //
-  // This exists for themes whose backdrop owns an expensive singleton resource.
-  // Space renders a real Filament 3D scene here: six screens each mounting
-  // their own would mean six GPU engines, whereas one instance above the
-  // navigator means one, shared, for the whole session. A theme that opts in
+  // This exists for themes whose backdrop owns an expensive or continuous
+  // resource: psychedelic's liquid-light video, space's deep field with its
+  // live stars and drifting probe. Six screens each mounting their own would
+  // mean six players or six animation loops, whereas one instance above the
+  // navigator is shared for the whole session (and keeps its motion running
+  // across tab switches instead of restarting). A theme that opts in
   // must also make its `styles.screen` / `styles.page` backgrounds transparent,
   // or its own screens will paint over the layer.
   SceneLayer?: React.ComponentType<{}>

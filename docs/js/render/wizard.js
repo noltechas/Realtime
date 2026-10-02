@@ -184,7 +184,7 @@ export function renderWizardStage(){
     {k:"deep-sea",label:"Deep Sea",c:["#040918","#00FFC8","#B44DFF"]},
     {k:"psychedelic",label:"Psychedelic",c:["#1A0A2E","#FF2D95","#B6FF2D"]},
     {k:"zen",label:"Zen",c:["#1A1814","#D4B85A","#F0E6D2"]},
-    {k:"space",label:"Space",c:["#08080F","#E040FB","#40E0D0"]},
+    {k:"space",label:"Space",c:["#020308","#E9C46A","#ECE6D8"]},
     {k:"steampunk",label:"Steampunk",c:["#14110F","#C8973E","#D4A04A"]},
     {k:"retrowave",label:"Retrowave",c:["#0A0614","#FF2D95","#00BFFF"]},
     {k:"comic-book",label:"Comic Book",c:["#FFFFFF","#FF1F4B","#FFD400"]},

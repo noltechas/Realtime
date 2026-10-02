@@ -1,447 +1,299 @@
-// Space — "FLIGHT DECK" design system
+// Space: "GOLDEN RECORD". Earth's music, sent out into deep space.
 //
-// A spacecraft instrument panel, not a neon poster. Three ideas carry the theme,
-// and they are identical to the mobile app's (packages/mobile/src/theme/themes/
-// space/atoms/_ship.tsx) so the two platforms read as one product:
+// In 1977 the two Voyager probes left for interstellar space carrying a gold
+// record of the sounds and music of Earth. The stage is that record and the
+// deep space it sails through, and every element is built from four materials:
 //
-//   1. CHAMFERED PLATES. Every surface is a milled plate whose top-left and
-//      bottom-right corners are cut at 45°. On mobile that is an SVG silhouette;
-//      here it is `clip-path`, with the hairline produced by clipping the border
-//      colour and insetting the fill onto a pseudo-element (see `.card` below).
-//      The cut is ASYMMETRIC so panels have a reading direction.
-//   2. ONE LIVE LIGHT PER ELEMENT. Structure is desaturated steel; the only
-//      saturated pixels are lamps — ice cyan for nominal, caution amber for
-//      attention, drive violet for the engine.
-//   3. RESTRAINT OVER MOTION. The previous version floated every card on a 6s
-//      loop, cycled their glow magenta→cyan on an 8s loop, scaled buttons on
-//      hover, and drifted a 50px-blurred nebula across a fixed full-screen
-//      layer. All of it is gone: a machined panel is legible because it sits
-//      above its shadow, and a blur filter that size is the most expensive thing
-//      on the page.
+//   1. DEEP SPACE. A real sky, rendered in one shader (components/space/
+//      DeepField.tsx): stars in their true colours, the dust lanes of the Milky
+//      Way, faint emission nebulae, and the long diagonal sunbeam of the Pale
+//      Blue Dot photograph. While a song plays without a video, the song's own
+//      album art becomes a nebula.
+//   2. GOLD. The record: satin anodized gold, cut with fine concentric grooves
+//      that catch the light as a single bright sweep.
+//   3. ETCHED LINE. All ornament is hairline engraving in the record cover's
+//      language: the pulsar map that tells a finder where Earth is, binary tick
+//      marks, the stylus diagram. Never a glow blob.
+//   4. STARLIGHT. Light is a point source with diffraction spikes, the eight-
+//      pointed star of a deep-field telescope photograph. A singer's colour is
+//      the colour of their star; the words they sing light up as starlight.
 //
-// Colours come from the shared SPACE_TOKENS so the stage, app, mobile and
-// companion site cannot drift apart again.
+// Type: Jost (a geometric face in the tradition of Futura, which NASA engraved
+// on the Apollo 11 plaque), light and widely tracked for display, medium for
+// lyrics; IBM Plex Mono for every coordinate, number and code.
+//
+// Kept in sync with packages/shared/src/themes/space.ts.
 
 import type { Theme } from './theme'
+import { SPACE_TOKENS } from '@karaoke/shared'
 
 // ── Palette ──────────────────────────────────────────────────────────────────
-const VOID = '#04060B' // deepest hull shadow / app background
-const HULL = '#0B1119' // panel base
-const HULL_HI = '#131C27' // raised panel / card surface
-const HULL_WELL = '#070C13' // recessed wells (inputs, art bays)
-const STEEL = '#2A3644' // machined edge
-const STEEL_HI = '#5A6B7D' // polished chamfer highlight
+export const SP = {
+    VOID: '#020308',
+    VOID_2: '#05060C',
+    GLASS: '#080A12',
+    GLASS_HI: '#10131D',
+    // Gold, from shadow to sheen
+    GOLD_SHADOW: '#4A3612',
+    GOLD_DEEP: '#9C7A33',
+    GOLD: '#E9C46A',
+    GOLD_HI: '#F6DE9A',
+    GOLD_SHEEN: '#FFF4D2',
+    // Starlight and dust
+    STAR: '#ECE6D8',
+    STAR_DIM: '#B7B2A6',
+    DUST: '#8A8EA3',
+    DUST_DIM: '#5D6175',
+    // Real star and gas colours
+    STAR_BLUE: '#A9C3FF',
+    STAR_RED: '#FFB08A',
+    H_ALPHA: '#E0687A',
+    OIII: '#5FD6C8',
+    PALE_BLUE: '#8FB4FF',
+    FONT_DISPLAY: "'Jost', 'Futura', 'Century Gothic', 'Helvetica Neue', sans-serif",
+    FONT_MONO: "'IBM Plex Mono', 'Menlo', 'Consolas', monospace",
+} as const
 
-const ICE = '#5BE9FF' // live / nominal systems lamp
-const ICE_DEEP = '#2BA9C4'
-const AMBER = '#FFB43D' // caution / attention
-const VIOLET = '#8B5CFF' // drive plasma
-const CRITICAL = '#FF5A4A'
-const NOMINAL = '#52FFB8'
+/** Etched gold hairline colours at three strengths. */
+export const ETCH = {
+    strong: 'rgba(233,196,106,0.62)',
+    mid: 'rgba(233,196,106,0.34)',
+    faint: 'rgba(233,196,106,0.16)',
+} as const
 
-const TEXT_LIGHT = '#DCE6F2' // instrument white
-const TEXT_MID = '#7B8A9C' // secondary
-const TEXT_FAINT = '#4E5C6D' // engraved / tertiary
+// ── Small helpers ────────────────────────────────────────────────────────────
 
-const EDGE = 'rgba(91,233,255,0.22)'
-const MILLED = 'rgba(169,189,208,0.30)'
+/** Deterministic 0..1 from a string, for stable per-item variation. */
+export function spHash(key: string, salt = 0): number {
+    let h = 2166136261 ^ salt
+    for (let i = 0; i < key.length; i++) {
+        h ^= key.charCodeAt(i)
+        h = Math.imul(h, 16777619)
+    }
+    return ((h >>> 0) % 100000) / 100000
+}
 
-// Depth first, glow second — the inverse of the old theme's priorities.
-const depth = (y = 2, spread = 10, a = 0.55) => `0 ${y}px ${spread}px rgba(0,0,0,${a})`
-const iceGlow = (spread = 10, a = 0.18) => `0 0 ${spread}px rgba(91,233,255,${a})`
+/**
+ * A number in the record cover's binary notation: the cover writes 1 as a
+ * short vertical stroke and 0 as a short horizontal one. Returns most
+ * significant digit first, padded to `bits`.
+ */
+export function binaryDigits(n: number, bits = 0): Array<0 | 1> {
+    const s = Math.max(0, Math.floor(n)).toString(2).padStart(bits, '0')
+    return s.split('').map((c) => (c === '1' ? 1 : 0))
+}
 
-// Chakra Petch — an angular technical face whose chamfered terminals echo the
-// panel geometry — for display and control legends. Share Tech Mono carries every
-// telemetry numeral. Exo 2 for prose, where Chakra Petch stops being readable.
-// Deliberately NOT Orbitron: the single most over-used sci-fi typeface.
-const FONT_HEADING = "'Chakra Petch', 'Exo 2', sans-serif"
-const FONT_DISPLAY = "'Chakra Petch', 'Exo 2', sans-serif"
-const FONT_BODY = "'Exo 2', 'Chakra Petch', sans-serif"
-const FONT_MONO = "'Share Tech Mono', ui-monospace, monospace"
+/** The eight-pointed deep-field star as a CSS mask image (colour it with
+ *  background-color). Six long spikes from the hexagonal mirror, two short
+ *  horizontal ones from the struts, and a soft core. */
+export const STAR_MASK = (() => {
+    const spike = (a: number, len: number, w: number) => {
+        const r = (a * Math.PI) / 180
+        const x = Math.cos(r)
+        const y = Math.sin(r)
+        const px = -y * w
+        const py = x * w
+        return `M ${(px).toFixed(3)} ${(py).toFixed(3)} L ${(x * len).toFixed(3)} ${(y * len).toFixed(3)} L ${(-px).toFixed(3)} ${(-py).toFixed(3)} L ${(-x * len).toFixed(3)} ${(-y * len).toFixed(3)} Z`
+    }
+    const paths = [spike(90, 50, 1.6), spike(30, 50, 1.6), spike(150, 50, 1.6), spike(0, 28, 1.1)]
+    const svg =
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='-50 -50 100 100'>" +
+        "<defs><radialGradient id='g'><stop offset='0' stop-color='white'/><stop offset='0.18' stop-color='white' stop-opacity='0.95'/><stop offset='0.42' stop-color='white' stop-opacity='0.25'/><stop offset='1' stop-color='white' stop-opacity='0'/></radialGradient></defs>" +
+        paths.map((d) => `<path d='${d}' fill='white'/>`).join('') +
+        "<circle r='22' fill='url(#g)'/></svg>"
+    return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`
+})()
 
-// The chamfer, as a clip-path. `cut` is the 45° corner size in px.
-// The fill is inset 1px onto ::before so the parent's background reads as a
-// crisp 1px hairline that follows the diagonals — a plain CSS `border` gets
-// sliced off at the cuts by clip-path.
-const plateClip = (cut: string) =>
-  `polygon(${cut} 0, 100% 0, 100% calc(100% - ${cut}), calc(100% - ${cut}) 100%, 0 100%, 0 ${cut})`
+/** Radio static, for a signal that can't be read yet (a surprise song). */
+const NOISE_SVG =
+    "<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'>" +
+    "<filter id='f' x='0' y='0'><feTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='2' seed='3' stitchTiles='stitch'/>" +
+    "<feColorMatrix values='0 0 0 0 0.92  0 0 0 0 0.86  0 0 0 0 0.72  0 0 0 1.6 -0.55'/></filter>" +
+    "<rect width='100%' height='100%' fill='%23050608'/><rect width='100%' height='100%' filter='url(%23f)'/></svg>"
+export const SP_NOISE = `url("data:image/svg+xml,${NOISE_SVG.replace(/</g, '%3C').replace(/>/g, '%3E')}")`
 
-// ── Global CSS injected when the space theme is active ───────────────────────
+// ── Global CSS ───────────────────────────────────────────────────────────────
+// Stage-window only (see ThemeContext). The stage's structure and lyric
+// treatment live in karaoke.css under SPACE STAGE.
+//
+// NOTE: no backticks anywhere in this string (a stray one ends the template
+// literal early and globalCss silently becomes NaN).
 const GLOBAL_CSS = `
-/* ── Fonts ───────────────────────────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Share+Tech+Mono&family=Exo+2:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 [data-theme="space"] * {
-  font-family: ${FONT_BODY};
+  font-family: ${SP.FONT_DISPLAY};
 }
 [data-theme="space"] h1,
 [data-theme="space"] h2,
 [data-theme="space"] h3 {
-  font-family: ${FONT_HEADING};
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-}
-[data-theme="space"] h1 {
-  text-shadow: 0 0 18px rgba(91,233,255,0.28);
+  font-family: ${SP.FONT_DISPLAY};
+  font-weight: 400;
+  letter-spacing: 0.08em;
 }
 
-/* ── Deep space, held still ──────────────────────────────────────────────── */
-/* Two cheap fixed layers: a directional gradient warmed toward the planet in
-   the lower left, and a static star field built from one element's box-shadow.
-   Neither animates — the motion in this theme is the 3D stage scene, and a
-   full-screen blurred layer competing with it is pure cost. */
-[data-theme="space"] .main::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background:
-    radial-gradient(ellipse 70% 50% at 12% 96%, rgba(38,64,92,0.55) 0%, transparent 68%),
-    radial-gradient(ellipse 60% 45% at 88% 6%, rgba(91,233,255,0.05) 0%, transparent 70%),
-    linear-gradient(165deg, ${VOID} 0%, #060B14 45%, #08111C 78%, #040810 100%);
+/* Lyrics are Jost Medium. The descendant selector matters: the glyphs live in
+   .k-syl__word, which the universal rule above matches directly. */
+[data-theme="space"] .k-line,
+[data-theme="space"] .k-line * {
+  font-family: ${SP.FONT_DISPLAY};
+  font-weight: 500;
+  letter-spacing: 0.015em;
 }
 
-[data-theme="space"] .main::after {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 1.5px;
-  height: 1.5px;
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: 0;
-  background: transparent;
-  box-shadow:
-    40px 80px 0 0 rgba(255,255,255,0.55), 120px 30px 0 0 rgba(255,255,255,0.34),
-    200px 150px 0 0 rgba(91,233,255,0.42), 310px 60px 0 0 rgba(255,255,255,0.26),
-    420px 200px 0 0 rgba(255,255,255,0.45), 530px 40px 0 0 rgba(255,180,61,0.32),
-    640px 170px 0 0 rgba(255,255,255,0.3), 750px 90px 0 0 rgba(255,255,255,0.42),
-    80px 300px 0 0 rgba(255,255,255,0.38), 250px 350px 0 0 rgba(91,233,255,0.3),
-    400px 280px 0 0 rgba(255,255,255,0.26), 550px 320px 0 0 rgba(255,255,255,0.48),
-    700px 380px 0 0 rgba(91,233,255,0.26), 150px 450px 0 0 rgba(255,255,255,0.34),
-    350px 500px 0 0 rgba(255,255,255,0.42), 500px 420px 0 0 rgba(255,180,61,0.24),
-    650px 480px 0 0 rgba(255,255,255,0.3), 100px 550px 0 0 rgba(255,255,255,0.38),
-    300px 600px 0 0 rgba(91,233,255,0.28), 480px 570px 0 0 rgba(255,255,255,0.26),
-    600px 520px 0 0 rgba(255,255,255,0.42), 770px 250px 0 0 rgba(255,255,255,0.34),
-    820px 450px 0 0 rgba(91,233,255,0.22), 50px 650px 0 0 rgba(255,255,255,0.3),
-    900px 120px 0 0 rgba(255,255,255,0.4), 1040px 300px 0 0 rgba(255,255,255,0.28),
-    1180px 90px 0 0 rgba(91,233,255,0.3), 1320px 420px 0 0 rgba(255,255,255,0.36),
-    1450px 200px 0 0 rgba(255,255,255,0.26), 1560px 560px 0 0 rgba(255,255,255,0.4);
+[data-theme="space"] .karaoke-stage {
+  background: ${SP.VOID};
 }
 
-/* ── Machined plates ─────────────────────────────────────────────────────── */
-/* The parent's background IS the hairline; ::before carries the fill inset 1px.
-   That is what keeps the 1px edge running along the 45° cuts, which a normal
-   border cannot do under clip-path. */
-[data-theme="space"] .card {
-  --sp-cut: 14px;
-  position: relative;
-  isolation: isolate;
-  background: ${EDGE} !important;
-  border: none !important;
-  border-radius: 0 !important;
-  clip-path: ${plateClip('var(--sp-cut)')};
-  background-image: none !important;
-  animation: none !important;
-  box-shadow: ${depth(3, 14, 0.5)};
+/* Shared images for karaoke.css (it can't import from here). */
+:root {
+  --sp-star-mask: ${STAR_MASK};
+  --sp-noise: ${SP_NOISE};
 }
 
-[data-theme="space"] .card::before {
-  content: '';
-  position: absolute;
-  inset: 1px;
-  z-index: -1;
-  background: linear-gradient(158deg, rgba(19,28,39,0.96) 0%, rgba(6,10,17,0.97) 100%);
-  clip-path: ${plateClip('calc(var(--sp-cut) - 1.4px)')};
-}
-
-/* Milled top edge — the strongest cue that a panel is metal. Stops short of the
-   chamfer so it reads as a machined face rather than a drawn border. */
-[data-theme="space"] .card::after {
-  content: '';
-  position: absolute;
-  top: 1px;
-  left: calc(var(--sp-cut) + 2px);
-  right: 3px;
-  height: 1px;
-  background: ${MILLED};
-  pointer-events: none;
-}
-
-[data-theme="space"] .card:hover {
-  background: rgba(91,233,255,0.38) !important;
-  box-shadow: ${depth(6, 22, 0.55)}, ${iceGlow(16, 0.14)};
-}
-
-/* ── Controls ────────────────────────────────────────────────────────────── */
-/* Buttons are keys with travel: they depress on press rather than scaling up on
-   hover, which is what the old gravitational-lens animation did. */
-[data-theme="space"] button {
-  clip-path: ${plateClip('8px')};
-  border-radius: 0 !important;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  transition: filter 0.16s ease, transform 0.08s ease, box-shadow 0.16s ease;
-}
-[data-theme="space"] button:hover {
-  filter: brightness(1.14);
-  transform: none;
-  animation: none;
-}
-[data-theme="space"] button:active {
-  transform: translateY(1px);
-  filter: brightness(0.94);
-}
-
-[data-theme="space"] input,
-[data-theme="space"] select,
-[data-theme="space"] textarea {
-  clip-path: ${plateClip('7px')};
-  border-radius: 0 !important;
-}
-[data-theme="space"] input:focus,
-[data-theme="space"] select:focus,
-[data-theme="space"] textarea:focus {
-  outline: none;
-  box-shadow: inset 0 0 0 1px ${ICE}, ${iceGlow(14, 0.2)} !important;
-  border-color: ${ICE} !important;
-}
-
-[data-theme="space"] input::placeholder,
-[data-theme="space"] textarea::placeholder {
-  color: ${TEXT_FAINT};
-}
-
-/* ── Nav rail ────────────────────────────────────────────────────────────── */
-/* A machined rail with an engraved index ladder, replacing the old animated
-   aurora gradient. "repeating-linear-gradient" costs nothing and never moves. */
-[data-theme="space"] .topnav {
-  border-bottom: none !important;
-  box-shadow: 0 1px 0 rgba(91,233,255,0.18), ${depth(2, 12, 0.4)};
-}
-
-[data-theme="space"] .topnav::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 5px;
-  background:
-    linear-gradient(90deg, ${ICE} 0 78px, rgba(91,233,255,0.14) 78px 100%) top / 100% 1px no-repeat,
-    repeating-linear-gradient(90deg, rgba(90,107,125,0.34) 0 1px, transparent 1px 13px) bottom / 100% 4px no-repeat;
-  opacity: 0.9;
-  pointer-events: none;
-}
-
-[data-theme="space"] .topnav a[aria-current="page"] {
-  text-shadow: 0 0 10px rgba(91,233,255,0.55);
-}
-
-/* ── Scrollbar — a milled track ──────────────────────────────────────────── */
-[data-theme="space"] ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, ${STEEL_HI} 0%, ${STEEL} 100%);
-  border-radius: 0;
-}
-[data-theme="space"] ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, ${ICE_DEEP} 0%, ${STEEL} 100%);
-}
-[data-theme="space"] ::-webkit-scrollbar-track {
-  background: rgba(91,233,255,0.03);
-}
-
-/* ── Telemetry numerals ──────────────────────────────────────────────────── */
-/* Anything the user reads as an instrument value gets the mono face. */
-[data-theme="space"] .k-mono,
-[data-theme="space"] .sticker,
-[data-theme="space"] time {
-  font-family: ${FONT_MONO} !important;
-  letter-spacing: 0.1em;
+[data-theme="space"] ::selection {
+  background: rgba(233,196,106,0.4);
+  color: ${SP.STAR};
 }
 `
 
 // ── Theme export ─────────────────────────────────────────────────────────────
+const T = SPACE_TOKENS
+
+const glassFill = `linear-gradient(180deg, ${SP.GLASS_HI} 0%, ${SP.GLASS} 100%)`
+// Satin anodized gold: a broad soft highlight across the top third, darker
+// toward the foot, the way a brushed gold plate lit from above reads.
+const goldFill = `linear-gradient(180deg, ${SP.GOLD_HI} 0%, ${SP.GOLD} 38%, #C9A24C 70%, ${SP.GOLD_DEEP} 100%)`
+
 export const SPACE: Theme = {
-  name: 'space',
-  nextThemeName: 'steampunk',
-  displayName: 'Space',
-  globalCss: GLOBAL_CSS,
+    ...T,
+    globalCss: GLOBAL_CSS,
+    fontDisplay: SP.FONT_DISPLAY,
+    fontBody: SP.FONT_DISPLAY,
 
-  // ── Raw colours — `black`/`white` are semantic, not literal ────────────────
-  black: TEXT_LIGHT, // primary text — cool instrument white
-  white: VOID, // inverted for "light" blocks
-  cream: HULL,
-  creamDark: HULL_HI,
-  hotRed: CRITICAL,
-  vividYellow: AMBER,
-  softViolet: VIOLET,
-  mintGreen: NOMINAL,
-  muted: TEXT_MID,
-  faint: 'rgba(91,233,255,0.16)',
+    page: {
+        background: 'transparent',
+        color: SP.STAR,
+        minHeight: '100%',
+        padding: '32px 40px 64px',
+        maxWidth: 1040,
+        margin: '0 auto',
+        fontFamily: SP.FONT_DISPLAY,
+        position: 'relative',
+        zIndex: 2,
+    },
 
-  accentA: ICE, // live systems (primary)
-  accentB: AMBER, // caution — bright, takes dark text (NOW PLAYING banner)
-  accentC: VIOLET, // drive plasma (tertiary)
+    card: {
+        background: glassFill,
+        border: `1px solid ${ETCH.faint}`,
+        borderRadius: 14,
+        boxShadow: '0 10px 30px rgba(0,0,0,0.65), inset 0 1px 0 rgba(233,196,106,0.10)',
+        color: SP.STAR,
+    },
 
-  // ── Shell ──────────────────────────────────────────────────────────────────
-  appBg: VOID,
-  titlebarBg: VOID,
-  titlebarText: TEXT_MID,
+    cardHover: {
+        border: `1px solid ${ETCH.mid}`,
+        boxShadow: '0 14px 36px rgba(0,0,0,0.75), inset 0 1px 0 rgba(233,196,106,0.18)',
+        transform: 'translateY(-1px)',
+    },
 
-  navBg: 'rgba(4,6,11,0.94)',
-  navBorderBottom: '1px solid rgba(91,233,255,0.14)',
-  navLink: TEXT_MID,
-  navLinkActive: ICE,
-  navLinkActiveBg: 'rgba(91,233,255,0.09)',
-  navLinkHoverBg: 'rgba(91,233,255,0.05)',
+    input: {
+        background: SP.VOID_2,
+        border: `1px solid ${ETCH.faint}`,
+        borderRadius: 10,
+        color: SP.STAR,
+        fontFamily: SP.FONT_DISPLAY,
+        outline: 'none',
+        caretColor: SP.GOLD,
+    },
 
-  // ── Borders & shadows ──────────────────────────────────────────────────────
-  border: `1px solid ${EDGE}`,
-  borderThin: '1px solid rgba(91,233,255,0.11)',
-  borderLight: '1px solid rgba(91,233,255,0.07)',
-  shadow: `${depth(2, 10, 0.55)}, ${iceGlow(8, 0.07)}`,
-  shadowLift: `${depth(8, 26, 0.6)}, ${iceGlow(16, 0.16)}`,
-  shadowPressed: depth(1, 3, 0.6),
-  shadowColor: (color: string) => `0 0 14px ${color}, 0 0 28px ${color}`,
+    select: {
+        background: SP.VOID_2,
+        border: `1px solid ${ETCH.faint}`,
+        borderRadius: 10,
+        color: SP.STAR,
+        fontFamily: SP.FONT_DISPLAY,
+        outline: 'none',
+        cursor: 'pointer',
+        appearance: 'none' as const,
+    },
 
-  // ── Radius — the chamfer does the shaping, not the corner radius ───────────
-  radius: 4,
-  radiusSmall: 3,
+    // Primary is the record's gold, with the legend engraved dark into it.
+    btnPrimary: {
+        background: goldFill,
+        color: '#1A1206',
+        border: '1px solid #6E5320',
+        boxShadow: '0 6px 18px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,244,210,0.6), inset 0 -2px 0 rgba(74,54,18,0.35)',
+        borderRadius: 999,
+        fontFamily: SP.FONT_DISPLAY,
+        fontWeight: 600,
+        letterSpacing: '0.16em',
+        textTransform: 'uppercase',
+        cursor: 'pointer',
+        transition: 'all 0.18s ease',
+    },
 
-  // ── Typography ─────────────────────────────────────────────────────────────
-  fontDisplay: FONT_DISPLAY,
-  fontBody: FONT_BODY,
+    btnSecondary: {
+        background: glassFill,
+        color: SP.GOLD_HI,
+        border: `1px solid ${ETCH.mid}`,
+        boxShadow: '0 6px 18px rgba(0,0,0,0.55)',
+        borderRadius: 999,
+        fontFamily: SP.FONT_DISPLAY,
+        fontWeight: 500,
+        letterSpacing: '0.16em',
+        textTransform: 'uppercase',
+        cursor: 'pointer',
+        transition: 'all 0.18s ease',
+    },
 
-  // ── Spinner ────────────────────────────────────────────────────────────────
-  spinnerBorder: 'rgba(91,233,255,0.16)',
-  spinnerBorderTop: ICE,
+    btnOutline: {
+        background: 'transparent',
+        color: SP.STAR,
+        border: `1px solid ${ETCH.mid}`,
+        boxShadow: 'none',
+        borderRadius: 999,
+        fontFamily: SP.FONT_DISPLAY,
+        fontWeight: 500,
+        letterSpacing: '0.16em',
+        textTransform: 'uppercase',
+        cursor: 'pointer',
+        transition: 'all 0.18s ease',
+    },
 
-  // ── Component styles ───────────────────────────────────────────────────────
-  page: {
-    background: 'transparent',
-    color: TEXT_LIGHT,
-    minHeight: '100%',
-    padding: '32px 40px 64px',
-    maxWidth: 1040,
-    margin: '0 auto',
-    fontFamily: FONT_BODY,
-    position: 'relative',
-    zIndex: 2,
-  },
+    iconBtn: {
+        width: 42,
+        height: 42,
+        borderRadius: '50%',
+        border: `1px solid ${ETCH.faint}`,
+        background: SP.VOID_2,
+        color: SP.STAR_DIM,
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        transition: 'all 0.18s ease',
+        boxShadow: 'none',
+    },
 
-  // The chamfer + hairline + fill are applied by globalCss `.card`; these values
-  // are the fallback for inline consumers that don't carry the class.
-  card: {
-    background: 'rgba(19,28,39,0.94)',
-    border: `1px solid ${EDGE}`,
-    borderRadius: 0,
-    backdropFilter: 'blur(8px)',
-  },
+    iconBtnHover: {
+        background: 'rgba(233,196,106,0.10)',
+        color: SP.GOLD_HI,
+        border: `1px solid ${ETCH.mid}`,
+    },
 
-  cardHover: {
-    border: '1px solid rgba(91,233,255,0.4)',
-    boxShadow: `${depth(6, 22, 0.55)}, ${iceGlow(16, 0.14)}`,
-  },
-
-  input: {
-    background: HULL_WELL,
-    border: '1px solid rgba(91,233,255,0.24)',
-    borderRadius: 0,
-    color: TEXT_LIGHT,
-    fontFamily: FONT_BODY,
-    outline: 'none',
-    caretColor: ICE,
-  },
-
-  select: {
-    background: HULL_WELL,
-    border: '1px solid rgba(91,233,255,0.20)',
-    borderRadius: 0,
-    color: TEXT_LIGHT,
-    fontFamily: FONT_BODY,
-    outline: 'none',
-    cursor: 'pointer',
-    appearance: 'none' as const,
-  },
-
-  // Primary is the one "armed" control: a lit ice face with a hull-dark legend,
-  // matching the mobile theme and the `tabBarPill`/`tabBarPillFg` token pair.
-  btnPrimary: {
-    background: `linear-gradient(158deg, #8FF2FF 0%, ${ICE} 45%, ${ICE_DEEP} 100%)`,
-    color: VOID,
-    border: 'none',
-    boxShadow: `${depth(2, 8, 0.45)}, inset 0 1px 0 rgba(255,255,255,0.5)`,
-    borderRadius: 0,
-    fontFamily: FONT_DISPLAY,
-    fontWeight: 700,
-    cursor: 'pointer',
-    transition: 'all 0.16s ease',
-    letterSpacing: '0.16em',
-    textShadow: 'none',
-  },
-
-  btnSecondary: {
-    background: 'rgba(19,28,39,0.95)',
-    color: ICE,
-    border: `1px solid rgba(91,233,255,0.42)`,
-    boxShadow: depth(2, 8, 0.4),
-    borderRadius: 0,
-    fontFamily: FONT_DISPLAY,
-    fontWeight: 600,
-    cursor: 'pointer',
-    transition: 'all 0.16s ease',
-    letterSpacing: '0.16em',
-  },
-
-  btnOutline: {
-    background: 'transparent',
-    color: TEXT_LIGHT,
-    border: `1px solid rgba(140,168,192,0.34)`,
-    boxShadow: 'none',
-    borderRadius: 0,
-    fontFamily: FONT_DISPLAY,
-    fontWeight: 600,
-    cursor: 'pointer',
-    transition: 'all 0.16s ease',
-    letterSpacing: '0.16em',
-  },
-
-  iconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 0,
-    border: '1px solid rgba(91,233,255,0.20)',
-    background: HULL_WELL,
-    color: TEXT_MID,
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    transition: 'all 0.16s ease',
-    boxShadow: 'none',
-  },
-
-  iconBtnHover: {
-    background: 'rgba(91,233,255,0.10)',
-    color: ICE,
-    boxShadow: iceGlow(10, 0.2),
-  },
-
-  stickerLabel: {
-    position: 'absolute',
-    fontFamily: FONT_MONO,
-    fontWeight: 400,
-    fontSize: 10,
-    letterSpacing: '0.14em',
-    textTransform: 'uppercase',
-    padding: '3px 10px',
-    border: '1px solid rgba(91,233,255,0.28)',
-    boxShadow: depth(2, 8, 0.5),
-    color: ICE,
-    background: 'rgba(4,6,11,0.9)',
-    borderRadius: 0,
-    backdropFilter: 'blur(12px)',
-  },
+    stickerLabel: {
+        position: 'absolute',
+        fontFamily: SP.FONT_MONO,
+        fontWeight: 500,
+        fontSize: 11,
+        letterSpacing: '0.2em',
+        textTransform: 'uppercase',
+        padding: '4px 12px',
+        border: `1px solid ${ETCH.mid}`,
+        boxShadow: '0 6px 18px rgba(0,0,0,0.6)',
+        color: SP.GOLD_HI,
+        background: 'rgba(2,3,8,0.9)',
+        borderRadius: 999,
+    },
 }

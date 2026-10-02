@@ -1,38 +1,42 @@
-import React from 'react'
-import { View, Text, Pressable, Animated, type ViewStyle } from 'react-native'
-import { LinearGradient } from 'expo-linear-gradient'
-import Svg, {
-  Circle,
-  Defs,
-  Ellipse,
-  G,
-  RadialGradient,
-  Stop,
-  Path,
-  Line,
-  Polygon,
-} from 'react-native-svg'
-import { useLinearLoop, useOscillator } from '../../theme/themes/space/atoms/_ship'
+import React, { useEffect, useRef } from 'react'
+import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native'
+import Svg, { Circle, Line, Path } from 'react-native-svg'
+import {
+  BinaryMarks,
+  DUST,
+  ETCH,
+  GOLD,
+  GOLD_HI,
+  GoldenRecord,
+  GlassPanel,
+  INK,
+  Star,
+  Twinkle,
+  display,
+  mono,
+} from '../../theme/themes/space/atoms/_record'
 
-// ─── Space-specific wizard chrome ───────────────────────────────────────────
-// These components are only rendered when the active wizard theme is 'space'.
-// They inject distinctive HUD / cosmic structure into the otherwise generic
-// add-a-song flow (mission progress trail, orbit-ringed avatars, rocket-glyph
-// add button, HUD bracket frames, sakura/planet color picker dots).
+// ─── Space ("Golden Record") wizard chrome ──────────────────────────────────
+// Only rendered when the wizard's theme is 'space'; every use is guarded by
+// `tokens.name === 'space' ?`. Same vocabulary as the theme's atoms
+// (theme/themes/space/atoms/_record.tsx): black glass with engraved gold
+// registration ticks, the record, and starlight.
 //
-// Nothing in here should leak into other themes — the wizard guards every
-// use with `tokens.name === 'space' ?` and falls back to the existing
-// markup otherwise.
+//   HudBrackets   → registration ticks in a plate's corners
+//   MissionTrail  → the step header as a flight path: Voyager's trajectory
+//                   bending past one waypoint per step
+//   AvatarOrbit   → a singer's photo pressed as the label of a gold record
+//   PlanetSwatch  → each colour as a star; yours ringed with a target marker
+//   AddCrewButton → an empty sleeve waiting for another record
 
-// ── HudBrackets ─────────────────────────────────────────────────────────────
-// Four 12×12 corner brackets — magenta at the top, plasma cyan at the bottom.
-// Drawn via an absolutely-positioned overlay so the parent can stay a plain
-// rounded rectangle.
+// ── Registration ticks ──────────────────────────────────────────────────────
+// Kept under its old name for the wizard's call sites. A singer's card passes
+// their colour for the top pair, so the plate is marked as theirs.
 export function HudBrackets({
-  topColor = '#E040FB',
-  bottomColor = '#40E0D0',
+  topColor = ETCH.strong,
+  bottomColor = ETCH.strong,
   size = 12,
-  thickness = 1.5,
+  thickness = 1,
   inset = 0,
 }: {
   topColor?: string
@@ -41,67 +45,43 @@ export function HudBrackets({
   thickness?: number
   inset?: number
 }) {
+  const s = size * 0.8
+  const pad = inset + 3
+  const tick = (rot: number, color: string, pos: object, k: number) => (
+    <Svg key={k} width={s} height={s} style={[{ position: 'absolute', transform: [{ rotate: `${rot}deg` }] }, pos]}>
+      <Path d={`M ${thickness / 2} ${s * 0.7} L ${thickness / 2} ${thickness / 2} L ${s * 0.7} ${thickness / 2}`} stroke={color} strokeWidth={thickness} fill="none" />
+    </Svg>
+  )
   return (
-    <>
-      <View
-        pointerEvents="none"
-        style={{ position: 'absolute', top: inset, left: inset, width: size, height: size }}
-      >
-        <View style={{ width: size, height: thickness, backgroundColor: topColor }} />
-        <View style={{ width: thickness, height: size - thickness, backgroundColor: topColor }} />
-      </View>
-      <View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          top: inset,
-          right: inset,
-          width: size,
-          height: size,
-          alignItems: 'flex-end',
-        }}
-      >
-        <View style={{ width: size, height: thickness, backgroundColor: topColor }} />
-        <View style={{ width: thickness, height: size - thickness, backgroundColor: topColor }} />
-      </View>
-      <View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          bottom: inset,
-          left: inset,
-          width: size,
-          height: size,
-          justifyContent: 'flex-end',
-        }}
-      >
-        <View style={{ width: thickness, height: size - thickness, backgroundColor: bottomColor }} />
-        <View style={{ width: size, height: thickness, backgroundColor: bottomColor }} />
-      </View>
-      <View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          bottom: inset,
-          right: inset,
-          width: size,
-          height: size,
-          alignItems: 'flex-end',
-          justifyContent: 'flex-end',
-        }}
-      >
-        <View style={{ width: thickness, height: size - thickness, backgroundColor: bottomColor }} />
-        <View style={{ width: size, height: thickness, backgroundColor: bottomColor }} />
-      </View>
-    </>
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      {tick(0, topColor, { left: pad, top: pad }, 0)}
+      {tick(90, topColor, { right: pad, top: pad }, 1)}
+      {tick(180, bottomColor, { right: pad, bottom: pad }, 2)}
+      {tick(270, bottomColor, { left: pad, bottom: pad }, 3)}
+      {/* the hairline's catch of light along the top edge */}
+      <View style={{ position: 'absolute', left: 18, right: 18, top: 0, height: 1, backgroundColor: 'rgba(255,240,200,0.12)' }} />
+    </View>
   )
 }
 
-// ── Mission progress trail ──────────────────────────────────────────────────
-// Replaces the boring "Step 1 of 2" text in the wizard header. Three planet
-// checkpoints connected by a dashed orbit line. Completed steps show a
-// checkmark, the active step is a glowing magenta planet with a pulsing
-// outer ring + a cyan satellite tracing it, future steps are dim outlines.
+// ── Flight path ─────────────────────────────────────────────────────────────
+// The steps as waypoints on one shallow trajectory. The stretch already flown
+// is solid gold; the rest is the dotted plotted course. Waypoints behind are
+// small gold records, the current one is a star, the ones ahead are rings.
+const TRAIL_W = 188
+const TRAIL_H = 26
+const P0 = { x: 10, y: 21 }
+const P1 = { x: TRAIL_W / 2, y: -2 }
+const P2 = { x: TRAIL_W - 10, y: 17 }
+
+function bez(t: number) {
+  const u = 1 - t
+  return {
+    x: u * u * P0.x + 2 * u * t * P1.x + t * t * P2.x,
+    y: u * u * P0.y + 2 * u * t * P1.y + t * t * P2.y,
+  }
+}
+
 export function MissionTrail({
   current,
   total,
@@ -111,190 +91,76 @@ export function MissionTrail({
   total: number
   label: string
 }) {
-  // For the active checkpoint:
-  const pulse = useOscillator(1800)
-  const ringScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.18] })
-  const ringOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.85, 0.15] })
+  const n = Math.max(1, total)
+  const at = (i: number) => (n === 1 ? 0.5 : 0.08 + (0.84 * i) / (n - 1))
+  const flown = at(Math.min(n, Math.max(1, current)) - 1)
+  // the flown part of the curve, split at `flown` (de Casteljau)
+  const end = bez(flown)
+  const c = { x: P0.x + flown * (P1.x - P0.x), y: P0.y + flown * (P1.y - P0.y) }
+  const full = `M ${P0.x} ${P0.y} Q ${P1.x} ${P1.y} ${P2.x} ${P2.y}`
+  const done = `M ${P0.x} ${P0.y} Q ${c.x.toFixed(2)} ${c.y.toFixed(2)} ${end.x.toFixed(2)} ${end.y.toFixed(2)}`
 
-  const orbit = useLinearLoop(3800)
-  const orbitRot = orbit.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  })
-
-  const dots: Array<'done' | 'active' | 'pending'> = []
-  for (let i = 1; i <= total; i++) {
-    if (i < current) dots.push('done')
-    else if (i === current) dots.push('active')
-    else dots.push('pending')
-  }
+  const enter = useRef(new Animated.Value(0)).current
+  useEffect(() => {
+    enter.setValue(0)
+    Animated.timing(enter, { toValue: 1, duration: 650, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start()
+  }, [current, enter])
 
   return (
     <View style={{ alignItems: 'center' }}>
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: '100%',
-          maxWidth: 220,
-        }}
-      >
-        {dots.map((state, i) => {
-          const isActive = state === 'active'
+      <View style={{ width: TRAIL_W, height: TRAIL_H }}>
+        <Svg width={TRAIL_W} height={TRAIL_H}>
+          <Path d={full} stroke={ETCH.mid} strokeWidth={1} strokeDasharray="1.5 4" strokeLinecap="round" fill="none" />
+          <Path d={done} stroke={ETCH.strong} strokeWidth={1.2} fill="none" />
+          {Array.from({ length: n }, (_, i) => {
+            const p = bez(at(i))
+            const step = i + 1
+            if (step < current) {
+              return (
+                <React.Fragment key={i}>
+                  <Circle cx={p.x} cy={p.y} r={4.2} fill={GOLD} />
+                  <Circle cx={p.x} cy={p.y} r={1.3} fill={INK} />
+                </React.Fragment>
+              )
+            }
+            if (step > current) return <Circle key={i} cx={p.x} cy={p.y} r={3.6} fill="#05060C" stroke={ETCH.strong} strokeWidth={1} />
+            return null
+          })}
+        </Svg>
+        {(() => {
+          const p = bez(at(Math.min(n, Math.max(1, current)) - 1))
           return (
-            <React.Fragment key={i}>
-              {i > 0 ? (
-                <DashSegment
-                  done={state === 'done' || dots[i - 1] === 'done'}
-                  isNextActive={state === 'active'}
-                />
-              ) : null}
-              <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-                {/* Pulsing outer ring on the active checkpoint */}
-                {isActive ? (
-                  <Animated.View
-                    pointerEvents="none"
-                    style={{
-                      position: 'absolute',
-                      width: 28,
-                      height: 28,
-                      borderRadius: 14,
-                      borderWidth: 1,
-                      borderColor: '#E040FB',
-                      opacity: ringOpacity,
-                      transform: [{ scale: ringScale }],
-                    }}
-                  />
-                ) : null}
-                <Checkpoint state={state} />
-                {/* Orbit satellite on the active checkpoint */}
-                {isActive ? (
-                  <Animated.View
-                    pointerEvents="none"
-                    style={{
-                      position: 'absolute',
-                      width: 28,
-                      height: 28,
-                      alignItems: 'center',
-                      transform: [{ rotate: orbitRot }],
-                    }}
-                  >
-                    <View
-                      style={{
-                        width: 4,
-                        height: 4,
-                        borderRadius: 2,
-                        marginTop: -2,
-                        backgroundColor: '#40E0D0',
-                        shadowColor: '#40E0D0',
-                        shadowOffset: { width: 0, height: 0 },
-                        shadowOpacity: 1,
-                        shadowRadius: 4,
-                      }}
-                    />
-                  </Animated.View>
-                ) : null}
-              </View>
-            </React.Fragment>
+            <Animated.View
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                left: p.x - 15,
+                top: p.y - 15,
+                opacity: enter,
+                transform: [{ scale: enter.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] }) }],
+              }}
+            >
+              <Twinkle size={30} color={GOLD_HI} period={3600} />
+            </Animated.View>
           )
-        })}
+        })()}
       </View>
-      <Text
-        style={{
-          marginTop: 6,
-          fontFamily: 'Orbitron_700Bold',
-          fontSize: 14,
-          letterSpacing: 2,
-          textTransform: 'uppercase',
-          color: '#E8E6F0',
-          textShadowColor: 'rgba(224,64,251,0.55)',
-          textShadowRadius: 6,
-          textShadowOffset: { width: 0, height: 0 },
-        }}
-      >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 3 }}>
+        <Text style={mono(9, DUST, { letterSpacing: 2.2 })}>
+          Step {current} of {total}
+        </Text>
+        <BinaryMarks n={current} bits={2} height={8} gap={2.5} color={ETCH.strong} />
+      </View>
+      <Text numberOfLines={1} style={display(15, GOLD_HI, 400, { letterSpacing: 3.4, marginTop: 3 })}>
         {label}
       </Text>
     </View>
   )
 }
 
-function DashSegment({
-  done,
-  isNextActive,
-}: {
-  done: boolean
-  isNextActive: boolean
-}) {
-  const color = done ? '#40E0D0' : isNextActive ? '#E040FB' : 'rgba(168,194,255,0.35)'
-  return (
-    <View style={{ width: 40, height: 1, marginHorizontal: 4 }}>
-      <Svg width={40} height={1.5} viewBox="0 0 40 1.5">
-        <Line
-          x1={0}
-          y1={0.75}
-          x2={40}
-          y2={0.75}
-          stroke={color}
-          strokeWidth={1}
-          strokeDasharray="3,3"
-        />
-      </Svg>
-    </View>
-  )
-}
-
-function Checkpoint({ state }: { state: 'done' | 'active' | 'pending' }) {
-  if (state === 'active') {
-    return (
-      <Svg width={18} height={18} viewBox="0 0 18 18">
-        <Defs>
-          <RadialGradient id="ckptActive" cx="38%" cy="32%" rx="60%" ry="60%">
-            <Stop offset="0%" stopColor="#FFC9FF" stopOpacity={1} />
-            <Stop offset="60%" stopColor="#E040FB" stopOpacity={1} />
-            <Stop offset="100%" stopColor="#5A1480" stopOpacity={0.95} />
-          </RadialGradient>
-        </Defs>
-        <Circle cx={9} cy={9} r={7} fill="url(#ckptActive)" />
-        <Circle cx={9} cy={9} r={7.5} fill="none" stroke="#FFFFFF" strokeWidth={0.6} opacity={0.85} />
-      </Svg>
-    )
-  }
-  if (state === 'done') {
-    return (
-      <Svg width={18} height={18} viewBox="0 0 18 18">
-        <Circle cx={9} cy={9} r={7} fill="rgba(64,224,208,0.25)" stroke="#40E0D0" strokeWidth={1.2} />
-        <Path
-          d="M 5 9 L 8 12 L 13 6"
-          stroke="#40E0D0"
-          strokeWidth={1.4}
-          fill="none"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </Svg>
-    )
-  }
-  // pending
-  return (
-    <Svg width={18} height={18} viewBox="0 0 18 18">
-      <Circle
-        cx={9}
-        cy={9}
-        r={6}
-        fill="rgba(168,194,255,0.08)"
-        stroke="rgba(168,194,255,0.45)"
-        strokeWidth={1}
-        strokeDasharray="2,2"
-      />
-    </Svg>
-  )
-}
-
-// ── Avatar orbit wrapper ────────────────────────────────────────────────────
-// Wraps any avatar (image or initial circle) in a dashed cyan orbit ring with
-// a small cyan satellite that rotates continuously. The avatar's own size is
-// preserved — the orbit padding sits outside it.
+// ── A singer pressed as a record ────────────────────────────────────────────
+// The photo (or initial) is the label of a small gold record; a ring in the
+// singer's colour runs round the label, and their star sits on the rim.
 export function AvatarOrbit({
   size = 44,
   color,
@@ -304,100 +170,43 @@ export function AvatarOrbit({
   color: string
   children: React.ReactNode
 }) {
-  const orbit = useLinearLoop(4400)
-  const rot = orbit.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  })
-  const outer = size + 12 // ring sits 6px outside the avatar
+  const outer = size + 18
+  const ratio = size / outer
+  const ring = size + 3
   return (
-    <View
-      style={{
-        width: outer,
-        height: outer,
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      {/* Dashed orbit ring */}
+    <View style={{ width: outer, height: outer }}>
+      <GoldenRecord size={outer} labelRatio={ratio} labelColor={color}>
+        {children}
+      </GoldenRecord>
       <View
         pointerEvents="none"
         style={{
           position: 'absolute',
-          width: outer,
-          height: outer,
-          borderRadius: outer / 2,
-          borderWidth: 1,
-          borderColor: 'rgba(64,224,208,0.55)',
-          borderStyle: 'dashed',
+          left: (outer - ring) / 2,
+          top: (outer - ring) / 2,
+          width: ring,
+          height: ring,
+          borderRadius: ring / 2,
+          borderWidth: 1.5,
+          borderColor: color,
         }}
       />
-      {/* Avatar (provided by parent) — sized internally to `size` */}
-      <View
-        style={{
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          borderWidth: 2,
-          borderColor: color,
-          alignItems: 'center',
-          justifyContent: 'center',
-          overflow: 'hidden',
-          backgroundColor: color,
-          shadowColor: color,
-          shadowOffset: { width: 0, height: 0 },
-          shadowOpacity: 0.85,
-          shadowRadius: 8,
-        }}
-      >
-        {children}
+      <View pointerEvents="none" style={{ position: 'absolute', right: -6, top: -6 }}>
+        <Star size={20} color={color} />
       </View>
-      {/* Orbiting satellite */}
-      <Animated.View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          width: outer,
-          height: outer,
-          alignItems: 'center',
-          transform: [{ rotate: rot }],
-        }}
-      >
-        <View
-          style={{
-            width: 5,
-            height: 5,
-            borderRadius: 3,
-            marginTop: -2.5,
-            backgroundColor: '#40E0D0',
-            shadowColor: '#40E0D0',
-            shadowOffset: { width: 0, height: 0 },
-            shadowOpacity: 1,
-            shadowRadius: 5,
-          }}
-        />
-      </Animated.View>
     </View>
   )
 }
 
-// ── Planet color swatch ─────────────────────────────────────────────────────
-// Replaces the flat color disc with a tiny planet — radial gradient body with
-// a thin tilted Saturn-style ring at a deterministic angle (so each color
-// sits at a different tilt and the row reads as a planetary chart, not a
-// uniform line of dots). Selected planets get a bright glow halo around the
-// swatch — no extra colored rim because the planet color already tells the
-// user what they picked.
-//
-// The SVG canvas is intentionally *larger* than the planet body so the
-// tilted ring (whose rotated bounding box is wider than the un-rotated
-// ellipse) never gets clipped at the swatch edge.
+// ── A colour as a star ──────────────────────────────────────────────────────
+// Unchosen stars sit small and steady; the chosen one swells, its spikes
+// reaching out, inside the chart's target marker. A colour someone else has
+// is a dim star with an engraved strike through it.
 export function PlanetSwatch({
   color,
   selected,
   takenByOther,
   onPress,
-  seed,
 }: {
   color: string
   selected: boolean
@@ -405,16 +214,11 @@ export function PlanetSwatch({
   onPress: () => void
   seed: number
 }) {
-  const tilt = (seed * 31) % 60 - 30 // -30°..+30° per seed
-  // Render canvas always at the larger size so the ring has breathing room
-  // even when the swatch isn't selected.
-  const canvas = 44
-  const planetRadius = selected ? 13 : 11
-  const ringRx = 17
-  const ringRy = 6
-  const id = `wizPlanet-${seed}-${color.replace('#', '')}`
-  const c = canvas / 2
-
+  const grow = useRef(new Animated.Value(selected ? 1 : 0)).current
+  useEffect(() => {
+    Animated.spring(grow, { toValue: selected ? 1 : 0, stiffness: 220, damping: selected ? 11 : 18, mass: 0.7, useNativeDriver: true }).start()
+  }, [selected, grow])
+  const S = 44
   return (
     <Pressable
       onPress={() => {
@@ -422,254 +226,72 @@ export function PlanetSwatch({
         onPress()
       }}
       hitSlop={4}
+      accessibilityRole="button"
+      accessibilityState={{ selected, disabled: takenByOther }}
+      style={{ width: S, height: S, alignItems: 'center', justifyContent: 'center' }}
     >
-      <View
-        style={{
-          width: canvas,
-          height: canvas,
-          alignItems: 'center',
-          justifyContent: 'center',
-          opacity: takenByOther ? 0.3 : 1,
-          ...(selected
-            ? {
-                shadowColor: color,
-                shadowOffset: { width: 0, height: 0 },
-                shadowOpacity: 1,
-                shadowRadius: 10,
-              }
-            : {}),
-        }}
-      >
-        <Svg width={canvas} height={canvas} viewBox={`0 0 ${canvas} ${canvas}`}>
-          <Defs>
-            <RadialGradient id={id} cx="32%" cy="28%" rx="68%" ry="68%">
-              <Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.85} />
-              <Stop offset="30%" stopColor={color} stopOpacity={1} />
-              <Stop offset="100%" stopColor={color} stopOpacity={0.55} />
-            </RadialGradient>
-          </Defs>
-          {/* Tilted Saturn ring — rotated as a group around the planet
-              center so the ellipse element itself stays well-formed and
-              its rotated bounding box stays inside the canvas. */}
-          <G transform={`rotate(${tilt} ${c} ${c})`}>
-            <Ellipse
-              cx={c}
-              cy={c}
-              rx={ringRx}
-              ry={ringRy}
-              fill="none"
-              stroke={selected ? '#FFFFFF' : 'rgba(168,194,255,0.5)'}
-              strokeWidth={selected ? 1.3 : 0.9}
-              opacity={selected ? 0.95 : 0.6}
-            />
-          </G>
-          <Circle cx={c} cy={c} r={planetRadius} fill={`url(#${id})`} />
-        </Svg>
-      </View>
-    </Pressable>
-  )
-}
-
-// ── Rocket "add crew" button ────────────────────────────────────────────────
-// Replaces the dashed-border "+ Add another singer" plate with a HUD console
-// that pairs a rocket-launch glyph with the label. Continuous plasma scan
-// line travels left→right across the body so the button reads as "live".
-export function AddCrewButton({ onPress }: { onPress: () => void }) {
-  const scan = useLinearLoop(5400)
-  const scanX = scan.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['-40%', '140%'],
-  })
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => ({
-        marginTop: 4,
-        opacity: pressed ? 0.85 : 1,
-      })}
-    >
-      <View
-        style={{
-          backgroundColor: 'rgba(14,14,26,0.78)',
-          borderWidth: 1.5,
-          borderColor: 'rgba(64,224,208,0.55)',
-          borderRadius: 8,
-          paddingVertical: 14,
-          paddingHorizontal: 18,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 12,
-          overflow: 'hidden',
-          shadowColor: '#40E0D0',
-          shadowOffset: { width: 0, height: 0 },
-          shadowOpacity: 0.5,
-          shadowRadius: 10,
-        }}
-      >
-        {/* Scan line */}
-        <Animated.View
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            top: 0,
-            bottom: 0,
-            width: '30%',
-            transform: [{ translateX: scanX }],
-          }}
-        >
-          <LinearGradient
-            colors={[
-              'rgba(64,224,208,0)',
-              'rgba(64,224,208,0.18)',
-              'rgba(64,224,208,0)',
-            ]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={{ width: '100%', height: '100%' }}
-          />
-        </Animated.View>
-
-        <HudBrackets size={10} thickness={1.4} inset={4} />
-
-        <RocketGlyph />
-        <Text
-          style={{
-            fontFamily: 'Orbitron_700Bold',
-            fontSize: 13,
-            letterSpacing: 1.8,
-            textTransform: 'uppercase',
-            color: '#E8E6F0',
-            textShadowColor: 'rgba(64,224,208,0.55)',
-            textShadowRadius: 5,
-            textShadowOffset: { width: 0, height: 0 },
-          }}
-        >
-          Add Crew Member
-        </Text>
-      </View>
-    </Pressable>
-  )
-}
-
-function RocketGlyph() {
-  // Continuous flicker on the engine flame.
-  const flicker = useOscillator(420)
-  const scaleY = flicker.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1.15] })
-  const opacity = flicker.interpolate({ inputRange: [0, 1], outputRange: [0.75, 1] })
-  return (
-    <View style={{ width: 22, height: 22 }}>
-      <Svg width={22} height={22} viewBox="0 0 22 22">
-        {/* Rocket body */}
-        <Polygon points="11,2 14,9 14,16 8,16 8,9" fill="#E8E6F0" />
-        {/* Fins */}
-        <Polygon points="8,12 5,17 8,16" fill="#E040FB" />
-        <Polygon points="14,12 17,17 14,16" fill="#E040FB" />
-        {/* Cockpit window */}
-        <Circle cx={11} cy={8} r={1.4} fill="#40E0D0" />
-        {/* Nose tip highlight */}
-        <Polygon points="11,2 12,5 10,5" fill="#FFC9FF" />
+      <Svg width={S} height={S} style={StyleSheet.absoluteFill}>
+        {selected ? (
+          <>
+            <Circle cx={S / 2} cy={S / 2} r={17} fill="none" stroke={ETCH.strong} strokeWidth={1} />
+            {[0, 90, 180, 270].map((a) => {
+              const r = (a * Math.PI) / 180
+              return (
+                <Line
+                  key={a}
+                  x1={S / 2 + Math.cos(r) * 14}
+                  y1={S / 2 + Math.sin(r) * 14}
+                  x2={S / 2 + Math.cos(r) * 21}
+                  y2={S / 2 + Math.sin(r) * 21}
+                  stroke={ETCH.strong}
+                  strokeWidth={1.2}
+                />
+              )
+            })}
+          </>
+        ) : null}
       </Svg>
-      {/* Engine flame */}
       <Animated.View
         style={{
-          position: 'absolute',
-          bottom: 0,
-          left: 9,
-          width: 4,
-          height: 5,
-          borderRadius: 2,
-          backgroundColor: '#FFC34D',
-          opacity,
-          transform: [{ scaleY }],
-          shadowColor: '#FFC34D',
-          shadowOffset: { width: 0, height: 0 },
-          shadowOpacity: 1,
-          shadowRadius: 4,
+          opacity: takenByOther ? 0.28 : 1,
+          transform: [{ scale: grow.interpolate({ inputRange: [0, 1], outputRange: [0.62, 0.95] }) }],
         }}
-      />
-    </View>
-  )
-}
-
-// ── Constellation backdrop ──────────────────────────────────────────────────
-// A faint, decorative grid of stars + connecting lines layered behind a card
-// to make it read as a star chart rather than a flat panel. Stars are placed
-// deterministically and rendered as a single SVG so the cost stays cheap
-// even when many cards are on screen.
-export function StarChartBackdrop({
-  seed = 0,
-  containerStyle,
-}: {
-  seed?: number
-  containerStyle?: ViewStyle
-}) {
-  // 6 stars + 3 lines, deterministic positions seeded so cards in a list
-  // each get their own chart pattern.
-  const r = pseudoRandom(seed + 1)
-  const stars = Array.from({ length: 6 }, () => ({
-    x: 10 + r() * 80,
-    y: 8 + r() * 84,
-    s: 0.5 + r() * 1.1,
-  }))
-  return (
-    <View
-      pointerEvents="none"
-      style={[
-        {
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          opacity: 0.55,
-        },
-        containerStyle,
-      ]}
-    >
-      <Svg
-        width="100%"
-        height="100%"
-        viewBox="0 0 100 100"
-        preserveAspectRatio="none"
       >
-        <Line
-          x1={stars[0].x}
-          y1={stars[0].y}
-          x2={stars[1].x}
-          y2={stars[1].y}
-          stroke="#A8C2FF"
-          strokeWidth={0.15}
-          opacity={0.5}
-        />
-        <Line
-          x1={stars[2].x}
-          y1={stars[2].y}
-          x2={stars[3].x}
-          y2={stars[3].y}
-          stroke="#A8C2FF"
-          strokeWidth={0.15}
-          opacity={0.5}
-        />
-        {stars.map((s, i) => (
-          <Circle
-            key={i}
-            cx={s.x}
-            cy={s.y}
-            r={s.s * 0.5}
-            fill={i % 3 === 0 ? '#40E0D0' : '#E8E6F0'}
-            opacity={0.55}
-          />
-        ))}
-      </Svg>
-    </View>
+        <Star size={S} color={color} />
+      </Animated.View>
+      {takenByOther ? (
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          <Svg width={S} height={S}>
+            <Line x1={12} y1={32} x2={32} y2={12} stroke={ETCH.mid} strokeWidth={1} />
+          </Svg>
+        </View>
+      ) : null}
+    </Pressable>
   )
 }
 
-function pseudoRandom(seed: number) {
-  let s = (seed * 16807) % 2147483647
-  return () => {
-    s = (s * 16807) % 2147483647
-    return s / 2147483647
-  }
+// ── Add another singer ──────────────────────────────────────────────────────
+// An empty sleeve: a dotted gold outline where another record will go,
+// beside the line that asks for one.
+export function AddCrewButton({ onPress }: { onPress: () => void }) {
+  const press = useRef(new Animated.Value(0)).current
+  const to = (v: number) => Animated.timing(press, { toValue: v, duration: v ? 90 : 220, easing: Easing.out(Easing.quad), useNativeDriver: true }).start()
+  return (
+    <Pressable onPress={onPress} onPressIn={() => to(1)} onPressOut={() => to(0)} style={{ marginTop: 4 }} accessibilityRole="button">
+      <Animated.View style={{ transform: [{ scale: press.interpolate({ inputRange: [0, 1], outputRange: [1, 0.975] }) }] }}>
+        <GlassPanel radius={12} edge={ETCH.faint} contentStyle={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, gap: 14 }}>
+          <Svg width={40} height={40}>
+            <Circle cx={20} cy={20} r={18.5} fill="none" stroke={ETCH.strong} strokeWidth={1} strokeDasharray="1.5 3.5" strokeLinecap="round" />
+            <Circle cx={20} cy={20} r={8} fill="none" stroke={ETCH.mid} strokeWidth={1} strokeDasharray="1.5 3" strokeLinecap="round" />
+            <Line x1={20} y1={15} x2={20} y2={25} stroke={GOLD} strokeWidth={1.4} strokeLinecap="round" />
+            <Line x1={15} y1={20} x2={25} y2={20} stroke={GOLD} strokeWidth={1.4} strokeLinecap="round" />
+          </Svg>
+          <View style={{ flex: 1 }}>
+            <Text style={display(13, GOLD_HI, 500, { letterSpacing: 2.6 })}>Add another singer</Text>
+            <Text style={mono(9, DUST, { marginTop: 3, letterSpacing: 1.6 })}>Another voice for the record</Text>
+          </View>
+        </GlassPanel>
+      </Animated.View>
+    </Pressable>
+  )
 }

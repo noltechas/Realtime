@@ -15,6 +15,7 @@ import Svg, {
   G,
 } from 'react-native-svg'
 import { HudBrackets } from './SpaceWizardChrome'
+import { GoldenRecord, SKY_IMAGE as SPACE_SKY, Star as SpaceStar } from '../../theme/themes/space/atoms/_record'
 import { BrassFrame } from './SteampunkWizardChrome'
 import { NeonFrame } from './RetrowaveWizardChrome'
 import { Gear } from '../../theme/themes/steampunk/atoms/_steam'
@@ -511,39 +512,47 @@ function ZenCard({ label, selected, onPress }: CardProps) {
   )
 }
 
-// 8. Space — void HUD console: magenta/cyan corner brackets, a faint star
-//    field, Orbitron caps label with a magenta plasma glow.
+// 8. Space: a corner of the Golden Record. A crop of the deep field, the gold
+//    record rising off the right edge, the name in light, widely tracked Jost
+//    with one eight-pointed star beside it.
 function SpaceCard({ label, selected, onPress }: CardProps) {
   return (
     <BaseCard
       selected={selected}
       onPress={onPress}
-      bg="#08080F"
-      radius={8}
-      border={{ width: 1, color: selected ? '#E040FB' : 'rgba(224,64,251,0.4)' }}
-      glowColor="#E040FB"
-      glowRadius={11}
-      accent="#E040FB"
-      badge={{ bg: '#E040FB', fg: '#08080F', ring: '#40E0D0' }}
+      bg="#020308"
+      radius={14}
+      border={{ width: 1, color: selected ? 'rgba(233,196,106,0.7)' : 'rgba(233,196,106,0.34)' }}
+      glowColor="#E9C46A"
+      glowRadius={7}
+      accent="#E9C46A"
+      badge={{ bg: '#E9C46A', fg: '#1A1206', ring: '#020308' }}
     >
-      <StarField />
-      <HudBrackets size={9} thickness={1.3} inset={4} topColor="#E040FB" bottomColor="#40E0D0" />
+      <Image source={SPACE_SKY} resizeMode="cover" style={{ position: 'absolute', left: -40, top: -90, width: 320, height: 240, opacity: 0.95 }} />
+      <View pointerEvents="none" style={{ position: 'absolute', right: -26, top: -12 }}>
+        <GoldenRecord size={80} labelRatio={0.38} labelColor="#B8913F">
+          <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 0.8, borderColor: 'rgba(60,42,12,0.55)', alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#020308' }} />
+          </View>
+        </GoldenRecord>
+      </View>
+      <HudBrackets size={9} thickness={1} inset={2} />
       <Row>
+        <View style={{ marginLeft: -6, marginRight: -4 }}>
+          <SpaceStar size={22} color="#F6DE9A" />
+        </View>
         <CardLabel
           text={label}
-          color="#E040FB"
-          font="Orbitron_700Bold"
+          color="#ECE6D8"
+          font="Jost_400Regular"
           style={{
             flex: 1,
-            fontSize: 12,
-            letterSpacing: 1.4,
+            fontSize: 13,
+            letterSpacing: 3.2,
             textTransform: 'uppercase',
-            textShadowColor: 'rgba(224,64,251,0.7)',
-            textShadowRadius: 8,
-            textShadowOffset: { width: 0, height: 0 },
+            paddingRight: 44,
           }}
         />
-        <SaturnPlanet />
       </Row>
     </BaseCard>
   )
@@ -791,63 +800,6 @@ function CherryBlossom() {
         ))}
         <Circle cx={0} cy={0} r={2.6} fill="#D4B85A" />
       </G>
-    </Svg>
-  )
-}
-
-// Faint scattered stars behind the label (no constellation lines). Lives in a
-// stretched SVG — fine for tiny dots; the planet that needs to stay round is a
-// separate fixed-aspect SVG emblem.
-function StarField() {
-  const stars = [
-    { x: 16, y: 14, r: 0.9 },
-    { x: 40, y: 10, r: 0.6 },
-    { x: 58, y: 16, r: 0.5 },
-    { x: 30, y: 40, r: 0.6 },
-    { x: 50, y: 30, r: 0.7 },
-    { x: 12, y: 32, r: 0.5 },
-  ]
-  return (
-    <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
-      <Svg width="100%" height="100%" viewBox="0 0 100 56" preserveAspectRatio="none">
-        {stars.map((s, i) => (
-          <Circle key={i} cx={s.x} cy={s.y} r={s.r} fill={i % 3 === 0 ? '#40E0D0' : '#E8E6F0'} opacity={0.7} />
-        ))}
-      </Svg>
-    </View>
-  )
-}
-
-// Space emblem — a shaded ringed planet (Saturn) with a tilted double ring and
-// a small magenta moon. Drawn in its own fixed-aspect SVG so the sphere stays
-// round and the radial-gradient shading reads as a real 3D body.
-function SaturnPlanet() {
-  const w = 42
-  const h = 34
-  const cx = 17
-  const cy = 18
-  return (
-    <Svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
-      <Defs>
-        <RadialGradient id="spcBody" cx="36%" cy="28%" rx="72%" ry="72%">
-          <Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.95} />
-          <Stop offset="42%" stopColor="#5EE6D8" stopOpacity={1} />
-          <Stop offset="100%" stopColor="#13616F" stopOpacity={1} />
-        </RadialGradient>
-        <RadialGradient id="spcMoon" cx="34%" cy="28%" rx="76%" ry="76%">
-          <Stop offset="0%" stopColor="#FFE0FF" stopOpacity={1} />
-          <Stop offset="55%" stopColor="#E040FB" stopOpacity={1} />
-          <Stop offset="100%" stopColor="#6E1880" stopOpacity={1} />
-        </RadialGradient>
-      </Defs>
-      {/* Tilted Saturn ring — drawn behind the body so the tips read as wings */}
-      <G transform={`rotate(-20 ${cx} ${cy})`}>
-        <Ellipse cx={cx} cy={cy} rx={15.5} ry={4.9} fill="none" stroke="#BFD4FF" strokeWidth={1.7} opacity={0.92} />
-        <Ellipse cx={cx} cy={cy} rx={11.8} ry={3.4} fill="none" stroke="#7FA8E0" strokeWidth={0.8} opacity={0.5} />
-      </G>
-      <Circle cx={cx} cy={cy} r={9} fill="url(#spcBody)" />
-      {/* Small moon */}
-      <Circle cx={35} cy={8} r={3} fill="url(#spcMoon)" />
     </Svg>
   )
 }
