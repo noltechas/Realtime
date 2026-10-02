@@ -7,7 +7,8 @@ import { GRAPHITE, GRAPHITE_SOFT, INK, LETTER_B, Press, RED, RingAround, letter,
 // chosen one inked and ringed fast in red. The count is a pencil note.
 export function GenreTabs({ list, counts, value, onChange }: GenreTabsProps) {
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 22, gap: 18, paddingVertical: 10, alignItems: 'center' }}>
+    // flexGrow 0: a bare ScrollView grows, and opened a gap above a short grid.
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: 22, gap: 18, paddingVertical: 10, alignItems: 'center' }}>
       {list.map((g, i) => {
         const on = g === value
         const n = counts[g] ?? 0

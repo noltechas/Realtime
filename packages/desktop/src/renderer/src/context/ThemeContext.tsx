@@ -14,6 +14,7 @@ import { COMIC_BOOK } from '../styles/comic-book'
 import { TROPICAL } from '../styles/tropical'
 import { GOTHIC } from '../styles/gothic'
 import { BARBIE } from '../styles/barbie'
+import { LIQUID_GLASS } from '../styles/liquid-glass'
 import { useApp } from './AppContext'
 
 export const THEMES: Record<string, Theme> = {
@@ -31,6 +32,7 @@ export const THEMES: Record<string, Theme> = {
   'tropical': TROPICAL,
   'gothic': GOTHIC,
   'barbie': BARBIE,
+  'liquid-glass': LIQUID_GLASS,
 }
 
 export const THEME_LIST = Object.entries(THEMES).map(([key, t]) => ({

@@ -28,6 +28,13 @@ import {
 } from '../components/sketch/SketchScreens'
 import { SketchBall, SketchFrame } from '../components/sketch/SketchStageLayers'
 import { Tape } from '../components/sketch/PencilParts'
+import { LG } from '../styles/liquid-glass'
+import {
+    GlassIdle, GlassUpNext, GlassCountIn, GlassBreak, GlassPaused, GlassNoLyrics,
+    GlassQrCard, GlassNowPlaying, GlassSingerTag, GlassMicBody, GlassMeter,
+} from '../components/glass/GlassScreens'
+import { GlassLyrics, GlassProgress } from '../components/glass/GlassStageLayers'
+import { GlassSongWallpaper } from '../components/glass/GlassWallpaper'
 import { LiquidLight } from '../components/LiquidLight'
 import { PSY, psyDyeBleed, psyPoured, psyStroke } from '../styles/psychedelic'
 import { GOTH, gothCusp } from '../styles/gothic'
@@ -1810,6 +1817,10 @@ function MicMeter({ singer, active, effects, vocalFx = true, autotune = true, ma
     if (theme.name === 'sketch') {
         return <SketchMicBody name={displayName} picture={pic} color={singer.color} meter={<SketchMeter level={level} color={singer.color} />} />
     }
+    // Liquid Glass: the level is a little voice-memo meter in the singer's colour.
+    if (theme.name === 'liquid-glass') {
+        return <GlassMicBody name={displayName} picture={pic} color={singer.color} meter={<GlassMeter level={level} color={singer.color} />} />
+    }
     // Space: the level is the singer's star, its spikes reaching out as they sing.
     if (theme.name === 'space') {
         return <SpaceMicBody name={displayName} picture={pic} color={singer.color} meter={<SpaceStarMeter level={level} color={singer.color} />} />
@@ -2324,6 +2335,13 @@ function IdleStageScreen({ theme, qrUrl, sessionCode }: {
     // spacing chart along the foot, the join code taped to the sheet.
     if (theme.name === 'sketch') {
         return <SketchIdle qrUrl={qrUrl} sessionCode={sessionCode} />
+    }
+
+    // ---- Liquid Glass: a lock screen ----
+    // The time as a great slab of moulded glass refracting a flowing
+    // wallpaper, glass widgets to join below it.
+    if (theme.name === 'liquid-glass') {
+        return <GlassIdle qrUrl={qrUrl} sessionCode={sessionCode} />
     }
 
     // ---- Deep Sea idle ----
@@ -3576,6 +3594,27 @@ function noticeSkin(theme: Theme): NoticeSkin {
                 </span>
             )
             break
+        // A glass notification, sliding in over the wallpaper.
+        case 'liquid-glass':
+            skin.card = {
+                ...skin.card,
+                background: 'linear-gradient(180deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.1) 100%)',
+                backdropFilter: 'blur(28px) saturate(1.7)',
+                border: 'none', borderRadius: 30,
+                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -1px 1px rgba(255,255,255,0.12), 0 24px 54px rgba(0,0,0,0.32)',
+            }
+            skin.label = { ...skin.label, fontFamily: LG.FONT, fontWeight: 600, fontSize: stageFont(13), letterSpacing: '0.04em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)' }
+            skin.title = { ...skin.title, fontFamily: LG.FONT, fontWeight: 700, color: '#fff', textTransform: 'none', letterSpacing: '-0.01em' }
+            skin.meta = { ...skin.meta, fontFamily: LG.FONT, color: 'rgba(255,255,255,0.7)' }
+            skin.art = { ...skin.art, borderRadius: 14, border: 'none', boxShadow: '0 8px 20px rgba(0,0,0,0.3)' }
+            skin.chip = (color: string) => ({
+                border: 'none', background: 'rgba(255,255,255,0.16)', color: '#fff',
+                borderRadius: 99, fontFamily: LG.FONT, fontWeight: 600,
+                boxShadow: `inset 0 1px 0 rgba(255,255,255,0.35), inset 3px 0 0 ${color}`,
+            })
+            skin.rule = 'rgba(255,255,255,0.18)'
+            skin.decor = null
+            break
         // A fresh sheet taped onto the light table, filled in in pencil; the
         // art a taped-up print, each singer underlined in their own pencil.
         case 'sketch':
@@ -3800,9 +3839,13 @@ function LobbyNotices({ theme }: { theme: Theme }) {
     // Anchored bottom-RIGHT rather than bottom-centre: every theme's join screen
     // runs its QR + session code down the middle of the wall, and a centred
     // stack would sit right on top of the code people are trying to type in.
+    //
+    // Liquid Glass: top-right instead, where a Mac's own notifications slide in
+    // (the lock screen's corner buttons own the bottom corners).
+    const lgTop = theme.name === 'liquid-glass'
     return (
         <div style={{
-            position: 'fixed', right: 38, bottom: 34, zIndex: 9998, maxWidth: '46vw',
+            position: 'fixed', right: 38, ...(lgTop ? { top: 30 } : { bottom: 34 }), zIndex: 9998, maxWidth: '46vw',
             display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 12,
             pointerEvents: 'none',
         }}>
@@ -4569,6 +4612,11 @@ export default function KaraokePage() {
         <div style={{ position: 'fixed', top: 'calc(100vh - 236px)', left: 34, zIndex: 9999 }}>
             <EngineQrCard qr={state.karaokeQrDataUrl} />
         </div>
+        ) : theme.name === 'liquid-glass' ? (
+        // A glass card in the corner, the join code on a white tile.
+        <div style={{ position: 'fixed', top: 'calc(100vh - 230px)', left: 40, zIndex: 9999 }}>
+            <GlassQrCard qr={state.karaokeQrDataUrl} />
+        </div>
         ) : theme.name === 'sketch' ? (
         // A card taped to the corner of the sheet, the join code on it.
         <div style={{ position: 'fixed', top: 'calc(100vh - 190px)', left: 44, zIndex: 9999 }}>
@@ -4630,7 +4678,11 @@ export default function KaraokePage() {
         const remaining = Math.max(0, nbFirstStart - elapsed)
         const count = Math.ceil(remaining / 1000)
         const barPct = remaining > 0 ? Math.min(100, (elapsed / nbFirstStart) * 100) : 100
-        const exitCls = 'k-nb-countin' + (remaining <= 0 ? ' k-nb-countin--exit' : '')
+        // Every theme freezes its exit animation while paused. Opened (or
+        // reloaded) paused well into the song, that animation never ran, and
+        // the count-in sat on screen under the paused card. Long after the
+        // first line, it's simply gone.
+        const exitCls = 'k-nb-countin' + (remaining <= 0 ? ' k-nb-countin--exit' : '') + (elapsed > nbFirstStart + 3000 ? ' k-nb-countin--gone' : '')
 
         // ── Gothic: THE BELLS TOLL. A stone plaque: a candle burns down to the
         // first line, the bell tolls the last three seconds in as III, II, I,
@@ -4691,6 +4743,22 @@ export default function KaraokePage() {
                         </div>
                     </div>
                 </div>
+            )
+        }
+
+        // ── Liquid Glass: the count as glass numerals over the wallpaper ──
+        if (theme.name === 'liquid-glass') {
+            return (
+                <GlassCountIn
+                    remaining={remaining}
+                    count={count}
+                    barPct={barPct}
+                    trackName={track.name}
+                    art={art ?? null}
+                    className={exitCls}
+                    innerRef={countInRef}
+                    stageFont={stageFont}
+                />
             )
         }
 
@@ -5079,6 +5147,9 @@ export default function KaraokePage() {
     // Space: with no music video the song plays in deep space, its album art
     // turned into a nebula (DeepField), with bright stars that answer the room.
     const spField = theme.name === 'space' && !ytId && state.stageMode === 'playing'
+    // Liquid Glass: with no music video the glass floats over a mesh-gradient
+    // wallpaper in the song's own colours.
+    const lgWall = theme.name === 'liquid-glass' && !ytId && state.stageMode === 'playing'
 
     return (
         <>
@@ -5089,6 +5160,7 @@ export default function KaraokePage() {
                 (gothStorm ? ' k-stage--goth-storm' : '') +
                 (barbSun ? ' k-stage--barb-sun' : '') +
                 (spField ? ' k-stage--sp-field' : '') +
+                (lgWall ? ' k-stage--lg-wall' : '') +
                 (state.stageMode === 'playing' && !state.isPlaying ? ' k-stage--paused' : '')
             }
             onMouseMove={handleMouse}
@@ -5141,6 +5213,7 @@ export default function KaraokePage() {
                     second moving colour field would only fight the words. */}
                 {theme.name === 'psychedelic' && !art && !ytId && <LiquidLight performing />}
                 {gothStorm && <GothicStorm art={art ?? null} performing />}
+                {lgWall && <GlassSongWallpaper art={art ?? null} />}
                 {barbSun && <BarbieSunshine art={art ?? null} performing />}
                 <div className="k-bg__scrim" style={{ opacity: state.stageMode === 'playing' ? 1 : 0 }} />
             </div>
@@ -5164,6 +5237,11 @@ export default function KaraokePage() {
             {/* Sketch: the sheet on the light table (any video traced under
                 it), a pencil on the desk, the drawing number in the corner */}
             {theme.name === 'sketch' && state.stageMode === 'playing' && <SketchFrame video={!!ytId} drawing={lineIdx + 1} />}
+
+            {/* Liquid Glass: the song's progress as a glass slider along the foot */}
+            {theme.name === 'liquid-glass' && state.stageMode === 'playing' && (
+                <GlassProgress timeAnchorRef={timeAnchorRef} playing={state.isPlaying} durationMs={track?.duration_ms ?? 0} />
+            )}
 
             {/* Gothic: the great arch we watch through, a watcher at the edge,
                 candles at the column bases and fog on the floor */}
@@ -5209,13 +5287,19 @@ export default function KaraokePage() {
                     <EngineSongChip art={art} title={track.name} artist={track.artists.map((a: any) => a.name).join(', ')} />
                 </div>
             )}
+            {/* Liquid Glass: the song as a floating glass capsule (on deck the card says it all) */}
+            {state.stageMode !== 'ready' && theme.name === 'liquid-glass' && (
+                <div className="k-song-chip" style={{ position: 'absolute', opacity: 1, top: 30, left: 34 }}>
+                    <GlassNowPlaying art={art} title={track.name} artist={track.artists.map((a: any) => a.name).join(', ')} />
+                </div>
+            )}
             {/* Sketch: on deck the exposure sheet says it all, so the chip waits */}
             {state.stageMode !== 'ready' && theme.name === 'sketch' && (
                 <div className="k-song-chip" style={{ position: 'absolute', opacity: 1, top: 66, left: 40 }}>
                     <SketchSongChip art={art} title={track.name} artist={track.artists.map((a: any) => a.name).join(', ')} />
                 </div>
             )}
-            {!(np?.isHidden && state.stageMode === 'ready') && theme.name !== 'gothic' && theme.name !== 'barbie' && theme.name !== 'space' && theme.name !== 'steampunk' && theme.name !== 'sketch' && (
+            {!(np?.isHidden && state.stageMode === 'ready') && theme.name !== 'gothic' && theme.name !== 'barbie' && theme.name !== 'space' && theme.name !== 'steampunk' && theme.name !== 'sketch' && theme.name !== 'liquid-glass' && (
             <div className="k-song-chip" style={{
                 background: theme.appBg, ...theme.stickerLabel, position: 'absolute', opacity: 1,
                 ...(theme.name === 'psychedelic' ? {
@@ -5298,7 +5382,7 @@ export default function KaraokePage() {
             {singers.length > 0 && (
                 <div className="k-singers" style={{ opacity: 1, flexDirection: 'column', alignItems: 'flex-end', ...(theme.name === 'barbie' && state.stageMode === 'ready' ? { top: 'calc(14.5vh + 8px)' } : {}) }}>
                     {singers.map((s: any, singerIdx: number) => {
-                        const spaceSingerStyle = theme.name === 'gothic' || theme.name === 'barbie' || theme.name === 'space' || theme.name === 'steampunk' || theme.name === 'sketch' ? {
+                        const spaceSingerStyle = theme.name === 'gothic' || theme.name === 'barbie' || theme.name === 'space' || theme.name === 'steampunk' || theme.name === 'sketch' || theme.name === 'liquid-glass' ? {
                             // The plaque is drawn by GothicSingerPlaque inside; the tag
                             // itself is only a positioned slot.
                             background: 'transparent',
@@ -5405,6 +5489,10 @@ export default function KaraokePage() {
                                         <SketchSingerTag color={s.color} index={singerIdx}>
                                             <MicMeter singer={s} active={micActive} effects={singerEffects} vocalFx={vocalFx} autotune={autotune} mainOutputId={state.mainOutputId} theme={theme} />
                                         </SketchSingerTag>
+                                    ) : theme.name === 'liquid-glass' ? (
+                                        <GlassSingerTag color={s.color} index={singerIdx}>
+                                            <MicMeter singer={s} active={micActive} effects={singerEffects} vocalFx={vocalFx} autotune={autotune} mainOutputId={state.mainOutputId} theme={theme} />
+                                        </GlassSingerTag>
                                     ) : (
                                         <MicMeter singer={s} active={micActive} effects={singerEffects} vocalFx={vocalFx} autotune={autotune} mainOutputId={state.mainOutputId} theme={theme} />
                                     )}
@@ -5439,6 +5527,10 @@ export default function KaraokePage() {
                                         <SketchSingerTag color={s.color} index={singerIdx}>
                                             <SketchMicBody name={tagGuest?.name ?? s.name} picture={tagGuest?.profile_picture ?? null} color={s.color} meter={null} />
                                         </SketchSingerTag>
+                                    ) : theme.name === 'liquid-glass' ? (
+                                        <GlassSingerTag color={s.color} index={singerIdx}>
+                                            <GlassMicBody name={tagGuest?.name ?? s.name} picture={tagGuest?.profile_picture ?? null} color={s.color} meter={null} />
+                                        </GlassSingerTag>
                                     ) : (
                                         <>
                                             <span style={{ color: 'inherit', fontFamily: theme.fontDisplay }}>{tagGuest?.name ?? s.name}</span>
@@ -5463,6 +5555,12 @@ export default function KaraokePage() {
                 mainOutputId={state.mainOutputId}
                 active={state.stageMode === 'playing' || state.stageMode === 'ready'}
             />
+
+            {/* Liquid Glass: the platter under the line being sung, and the lens
+                gliding word to word over it */}
+            {theme.name === 'liquid-glass' && state.stageMode === 'playing' && lyrics.length > 0 && (
+                <GlassLyrics lyricsRef={lyricsRef} timeAnchorRef={timeAnchorRef} lineIdx={lineIdx} playing={state.isPlaying} />
+            )}
 
             {/* Sketch: the bouncing ball, landing on each syllable as it's sung */}
             {theme.name === 'sketch' && state.stageMode === 'playing' && lyrics.length > 0 && (
@@ -5496,6 +5594,9 @@ export default function KaraokePage() {
                   ) : theme.name === 'steampunk' ? (
                     // The next song in the engine's porthole, its singers at the controls.
                     <EngineUpNext art={art ?? null} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} showVideo={showVideoBehindArt && ytVisible} />
+                  ) : theme.name === 'liquid-glass' ? (
+                    // The next song as a now-playing card floating over its own colours.
+                    <GlassUpNext art={art ?? null} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} showVideo={showVideoBehindArt && ytVisible} />
                   ) : theme.name === 'sketch' ? (
                     // The next song as a scene on the exposure sheet, its art taped up as reference.
                     <SketchUpNext art={art ?? null} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} showVideo={showVideoBehindArt && ytVisible} />
@@ -5640,6 +5741,8 @@ export default function KaraokePage() {
                         <EngineNoLyrics stageFont={stageFont} />
                     ) : theme.name === 'sketch' ? (
                         <SketchNoLyrics stageFont={stageFont} />
+                    ) : theme.name === 'liquid-glass' ? (
+                        <GlassNoLyrics stageFont={stageFont} />
                     ) : theme.name === 'gothic' ? (
                         <GothicNoLyrics stageFont={stageFont} />
                     ) : theme.name === 'barbie' ? (
@@ -5697,9 +5800,10 @@ export default function KaraokePage() {
                                     // line, and the colours a shared line heats singer by singer.
                                     let stPlate = false
                                     let stTints: string[] | null = null
-                                    // Sketch only: the singer's pencil colour for the line, and
-                                    // per syllable on a shared line (the ball and the underline
-                                    // take the colour of whoever sings the word).
+                                    // Sketch and Liquid Glass: the singer's colour for the line,
+                                    // and per syllable on a shared line (sketch's ball and
+                                    // underline, the glass lens's tint, take the colour of
+                                    // whoever sings the word).
                                     let skTint: string | null = null
                                     let skTints: string[] | null = null
                                     let lineDataText: string | undefined
@@ -5785,6 +5889,22 @@ export default function KaraokePage() {
                                                 const skDur = typeof skNext === 'number' ? skNext - group[0].startTimeMs : 0
                                                 ;(inlineStyle as Record<string, string>)['--nb-line-dur'] = `${Math.max(1200, Math.min(9000, skDur * 0.9))}ms`
                                             }
+                                        } else if (theme.name === 'liquid-glass') {
+                                            // ── On the glass ──────────────────────────────
+                                            // The line sits on a capsule of glass (the platter,
+                                            // GlassLyrics) that slides and reshapes to it, and a
+                                            // lens of glass glides over it word by word,
+                                            // magnifying the word being sung, tinted in its
+                                            // singer's colour (LIQUID GLASS STAGE in karaoke.css).
+                                            cls += ' k-line--lgl-now'
+                                            const lgColors = activeColors.length > 1 ? activeColors : [activeSingerColor]
+                                            skTint = lgColors[0]
+                                            skTints = lgColors
+                                            inlineStyle.background = 'transparent'
+                                            inlineStyle.color = '#FFFFFF'
+                                            inlineStyle.padding = '0.24em 0.85em 0.26em'
+                                            inlineStyle.textShadow = '0 1px 14px rgba(0,0,0,0.18)'
+                                            if (!(line.syllables && line.syllables.length > 0)) cls += ' k-line--lgl-full'
                                         } else if (theme.name === 'cyberpunk') {
                                             cls += ' k-line--cyber k-line--cyber-active'
                                             inlineStyle.padding = '0.2em 1em'
@@ -6203,6 +6323,17 @@ export default function KaraokePage() {
                                             inlineStyle.color = undefined
                                             skTint = activeColors.length > 0 ? activeColors[0] : sc || null
                                             if (activeColors.length > 1) skTints = activeColors
+                                        } else if (theme.name === 'liquid-glass') {
+                                            // Upcoming lines are soft white over the wallpaper,
+                                            // whoever sings them; the colour comes with the lens.
+                                            cls += ' k-line--lgl-future'
+                                            const lc = line.singerIndex !== undefined && singers[line.singerIndex]?.color
+                                            inlineStyle.backgroundImage = undefined
+                                            inlineStyle.WebkitBackgroundClip = undefined
+                                            inlineStyle.WebkitTextFillColor = undefined
+                                            inlineStyle.color = undefined
+                                            skTint = activeColors.length > 0 ? activeColors[0] : lc || null
+                                            if (activeColors.length > 1) skTints = activeColors
                                         } else if (theme.name === 'space') {
                                             // Upcoming lines are starlight tinted by their singer's
                                             // star. A shared line tints word by word, as it will light;
@@ -6337,7 +6468,7 @@ export default function KaraokePage() {
                                             style={inlineStyle}
                                             data-text={lineDataText ? displayWords : undefined}
                                             // Sketch: the ball finds its words by line, and its colour by singer.
-                                            data-li={theme.name === 'sketch' ? line.originalIndex : undefined}
+                                            data-li={theme.name === 'sketch' || theme.name === 'liquid-glass' ? line.originalIndex : undefined}
                                             data-tint={skTint ?? undefined}
                                         >
                                             {gothPane && <GothicLinePane key="goth-pane" />}
@@ -6368,8 +6499,11 @@ export default function KaraokePage() {
             {/* Instrumental-break pill: appears only when syllable timing proves
                 the line is finished and the next one is far away. */}
             {nbBreak && state.stageMode === 'playing' &&
-                elapsed > nbBreak.start + 1000 && elapsed < nbBreak.end - 800 && (
-                <div style={{ position: 'absolute', bottom: 64, left: 0, right: 0, zIndex: 22, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
+                elapsed > nbBreak.start + 1000 && elapsed < nbBreak.end - 800 &&
+                // Liquid Glass keeps its status capsules up top (the slider owns
+                // the foot), in the Paused capsule's place, which wins if both.
+                !(theme.name === 'liquid-glass' && !state.isPlaying) && (
+                <div style={{ position: 'absolute', ...(theme.name === 'liquid-glass' ? { top: '13%' } : { bottom: 64 }), left: 0, right: 0, zIndex: 22, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
                 {theme.name === 'gothic' ? (
                     <GothicBreak progress={Math.min(1, Math.max(0, (elapsed - nbBreak.start) / (nbBreak.end - nbBreak.start)))} />
                 ) : theme.name === 'barbie' ? (
@@ -6386,6 +6520,8 @@ export default function KaraokePage() {
                     </div>
                 ) : theme.name === 'sketch' ? (
                     <SketchBreak progress={Math.min(1, Math.max(0, (elapsed - nbBreak.start) / (nbBreak.end - nbBreak.start)))} />
+                ) : theme.name === 'liquid-glass' ? (
+                    <GlassBreak progress={Math.min(1, Math.max(0, (elapsed - nbBreak.start) / (nbBreak.end - nbBreak.start)))} />
                 ) : theme.name === 'deep-sea' ? (
                     <div style={{ animation: 'urban-spray-in 0.35s ease-out both' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '10px 24px', borderRadius: 999, background: 'rgba(4,9,24,0.82)', backdropFilter: 'blur(10px)', boxShadow: '0 0 22px rgba(0,255,200,0.25), inset 0 0 0 1.5px rgba(0,255,200,0.4)' }}>
@@ -6517,6 +6653,8 @@ export default function KaraokePage() {
                     </div>
                 ) : theme.name === 'sketch' ? (
                     <SketchPaused stageFont={stageFont} />
+                ) : theme.name === 'liquid-glass' ? (
+                    <GlassPaused stageFont={stageFont} />
                 ) : theme.name === 'deep-sea' ? (
                     <div style={{ animation: 'urban-spray-in 0.35s ease-out both' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 30px', borderRadius: 999, background: 'rgba(4,9,24,0.85)', backdropFilter: 'blur(10px)', boxShadow: '0 0 28px rgba(0,255,200,0.28), inset 0 0 0 1.5px rgba(0,255,200,0.45)' }}>

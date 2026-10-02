@@ -13,6 +13,7 @@ import {
   TROPICAL_TOKENS,
   GOTHIC_TOKENS,
   BARBIE_TOKENS,
+  LIQUID_GLASS_TOKENS,
   resolveThemeTokens,
   type ThemeTokens,
 } from '@karaoke/shared'
@@ -178,6 +179,14 @@ export const BARBIE_MOBILE: ThemeTokens = withMobileFonts(
   'Poppins_600SemiBold',
 )
 
+// Liquid Glass-Mobile: the system face (San Francisco on iOS), which is the
+// point: the theme is Apple's own material and type.
+export const LIQUID_GLASS_MOBILE: ThemeTokens = withMobileFonts(
+  LIQUID_GLASS_TOKENS,
+  'System',
+  'System',
+)
+
 const MOBILE_BY_NAME: Record<string, ThemeTokens> = {
   'neo-brutal': NEO_BRUTAL_MOBILE,
   cyberpunk: CYBERPUNK_MOBILE,
@@ -193,6 +202,7 @@ const MOBILE_BY_NAME: Record<string, ThemeTokens> = {
   tropical: TROPICAL_MOBILE,
   gothic: GOTHIC_MOBILE,
   barbie: BARBIE_MOBILE,
+  'liquid-glass': LIQUID_GLASS_MOBILE,
 }
 
 // Resolve a session theme name to the mobile-flavored token bundle. Falls

@@ -64,6 +64,17 @@ import {
   NeonOrbSwatch as RetrowaveNeonOrbSwatch,
   RetrowaveAddCrewButton,
 } from './wizard/RetrowaveWizardChrome'
+import {
+  GlassFill as LiquidGlassFill,
+  GlassTrail as LiquidGlassTrail,
+  AvatarGlass as LiquidAvatarGlass,
+  GlassSwatch as LiquidGlassSwatch,
+  GlassAddSingerButton as LiquidGlassAddSingerButton,
+  GlassRoleChip as LiquidGlassRoleChip,
+  GlassAddChip as LiquidGlassAddChip,
+  LG_HEADING,
+  singerTint as liquidSingerTint,
+} from './wizard/LiquidGlassWizardChrome'
 import { ThemeStageCard } from './wizard/ThemeStageCards'
 import { TropicalRoleCard, TropicalRoleEyebrow, TropicalRoleName, TropicalSingerPaper, TropicalAddPaper, TropicalWoodFrame, TropicalPaintSwatch } from './wizard/TropicalWizardChrome'
 
@@ -107,6 +118,7 @@ const STAGE_THEMES = [
   { key: 'tropical', label: 'Tropical' },
   { key: 'gothic', label: 'Gothic' },
   { key: 'barbie', label: 'Barbie' },
+  { key: 'liquid-glass', label: 'Liquid Glass' },
 ]
 
 function formatDuration(ms: number | null | undefined): string {
@@ -123,6 +135,7 @@ function formatDuration(ms: number | null | undefined): string {
 //   - zen                                    → tatami binding: vermillion top/bottom bands with gold-hairline sides
 //   - space                                  → black glass, gold hairline, registration ticks
 //   - sketch                                 → a fresh sheet taped to the desk (SketchSheetTape)
+//   - liquid-glass                           → a pane of the system's glass (LiquidGlassFill)
 //   - psychedelic (cardShape: 'blob' + glow) → translucent purple panel with asymmetric blob corners + pink halo
 //   - urban  (cardBorderWidth: 0)            → parallelogram skew with accent edge
 //   - dark   (cyberpunk, deep-sea)           → translucent panel with accent glow
@@ -245,6 +258,16 @@ function wizardCardStyle(tokens: ThemeTokens, color?: string, overrides?: any, i
       shadowOffset: { width: 0, height: 6 },
       shadowOpacity: 0.55,
       shadowRadius: 10,
+      ...overrides,
+    }
+  }
+  if (tokens.name === 'liquid-glass') {
+    // Liquid Glass: the card IS a pane of glass, laid in behind the content by
+    // LiquidGlassFill (tinted in a singer's colour on their card). The View
+    // itself stays clear: just the shape.
+    return {
+      backgroundColor: 'transparent',
+      borderRadius: 24,
       ...overrides,
     }
   }
@@ -405,6 +428,19 @@ function sketchHeadingExtras(tokens: ThemeTokens): any {
 function sketchChromeExtras(tokens: ThemeTokens): any {
   if (tokens.name !== 'sketch') return null
   return { borderColor: 'rgba(28,27,31,0.5)' }
+}
+
+// Liquid Glass step titles: the system face, heavy, lifted off the glass.
+function glassHeadingExtras(tokens: ThemeTokens): any {
+  if (tokens.name !== 'liquid-glass') return null
+  return LG_HEADING
+}
+
+// Liquid Glass small chrome (the close button): no outline, the glass under
+// it (LiquidGlassFill) is the edge.
+function glassChromeExtras(tokens: ThemeTokens): any {
+  if (tokens.name !== 'liquid-glass') return null
+  return { borderWidth: 0, backgroundColor: 'transparent' }
 }
 
 // Steampunk small chrome (icon buttons, the close button, modal input chips):
@@ -807,9 +843,11 @@ function WizardBody() {
               ...(steamChromeExtras(tokens) ?? {}),
               ...(sketchChromeExtras(tokens) ?? {}),
               ...(retroChromeExtras(tokens) ?? {}),
+              ...(glassChromeExtras(tokens) ?? {}),
             }}
           >
-            <CloseGlyph color={tokens.isDark ? tokens.accentA : tokens.black} />
+            {tokens.name === 'liquid-glass' ? <LiquidGlassFill radius={18} /> : null}
+            <CloseGlyph color={tokens.name === 'liquid-glass' ? '#FFFFFF' : tokens.isDark ? tokens.accentA : tokens.black} />
           </Pressable>
           <View style={{ flex: 1, alignItems: 'center' }}>
             {tokens.name === 'space' ? (
@@ -826,6 +864,12 @@ function WizardBody() {
               />
             ) : tokens.name === 'sketch' ? (
               <SketchBounceTrail
+                current={step === 4 ? stepCount : step - 1}
+                total={stepCount}
+                label={stepLabel}
+              />
+            ) : tokens.name === 'liquid-glass' ? (
+              <LiquidGlassTrail
                 current={step === 4 ? stepCount : step - 1}
                 total={stepCount}
                 label={stepLabel}
@@ -866,6 +910,7 @@ function WizardBody() {
                     ...(sketchHeadingExtras(tokens) ?? {}),
                     ...(retroHeadingExtras(tokens) ?? {}),
                     ...(spaceHeadingExtras(tokens) ?? {}),
+                    ...(glassHeadingExtras(tokens) ?? {}),
                   }}
                 >
                   {stepLabel}
@@ -893,6 +938,8 @@ function WizardBody() {
             <SteampunkBrassFrame size={8} filigree />
           ) : tokens.name === 'sketch' ? (
             <SketchSheetTape />
+          ) : tokens.name === 'liquid-glass' ? (
+            <LiquidGlassFill />
           ) : tokens.name === 'retrowave' ? (
             <RetrowaveNeonFrame size={10} thickness={1.2} inset={2} />
           ) : tokens.name === 'tropical' ? (
@@ -1009,9 +1056,10 @@ function WizardBody() {
             paddingTop: 10,
             paddingBottom: Math.max(insets.bottom, 12),
             gap: 10,
-            borderTopWidth: 1,
+            // Liquid Glass: the buttons float as glass over the wallpaper, no bar.
+            borderTopWidth: tokens.name === 'liquid-glass' ? 0 : 1,
             borderColor: tokens.dimBorder,
-            backgroundColor: tokens.appBg,
+            backgroundColor: tokens.name === 'liquid-glass' ? 'transparent' : tokens.appBg,
           }}
         >
           <View style={{ flex: 1 }}>
@@ -1156,6 +1204,7 @@ function SingersStep({
           ...(sketchHeadingExtras(tokens) ?? {}),
           ...(retroHeadingExtras(tokens) ?? {}),
           ...(spaceHeadingExtras(tokens) ?? {}),
+          ...(glassHeadingExtras(tokens) ?? {}),
         }}
       >
         Who's singing?
@@ -1176,6 +1225,8 @@ function SingersStep({
             <SteampunkBrassFrame size={9} filigree />
           ) : tokens.name === 'sketch' ? (
             <SketchSheetTape seed={i + 1} />
+          ) : tokens.name === 'liquid-glass' ? (
+            <LiquidGlassFill tint={liquidSingerTint(s.color, 0.16)} />
           ) : tokens.name === 'retrowave' ? (
             <RetrowaveNeonFrame size={10} thickness={1.4} inset={3} topColor={s.color} bottomColor="#00F0FF" />
           ) : tokens.name === 'tropical' ? (
@@ -1247,6 +1298,22 @@ function SingersStep({
                     </Text>
                   )}
                 </SketchAvatarPrint>
+              </View>
+            ) : tokens.name === 'liquid-glass' ? (
+              <View style={{ marginRight: 12 }}>
+                <LiquidAvatarGlass size={44} color={s.color}>
+                  {s.profilePicture ? (
+                    <Image
+                      source={{ uri: s.profilePicture }}
+                      style={{ width: '100%', height: '100%' }}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Text style={{ fontSize: 19, fontWeight: '800', color: '#FFFFFF' }}>
+                      {(s.name?.[0] ?? '?').toUpperCase()}
+                    </Text>
+                  )}
+                </LiquidAvatarGlass>
               </View>
             ) : tokens.name === 'retrowave' ? (
               <View style={{ marginRight: 12 }}>
@@ -1434,6 +1501,17 @@ function SingersStep({
                     />
                   )
                 }
+                if (tokens.name === 'liquid-glass') {
+                  return (
+                    <LiquidGlassSwatch
+                      key={c.color}
+                      color={c.color}
+                      selected={selected}
+                      takenByOther={takenByOther}
+                      onPress={() => setColor(i, c.color, c.colorGlow)}
+                    />
+                  )
+                }
                 if (tokens.name === 'steampunk') {
                   return (
                     <SteampunkJewelBezelSwatch
@@ -1505,6 +1583,8 @@ function SingersStep({
           <SteampunkAddCrewButton onPress={onAddPress} />
         ) : tokens.name === 'sketch' ? (
           <SketchAddSingerButton onPress={onAddPress} />
+        ) : tokens.name === 'liquid-glass' ? (
+          <LiquidGlassAddSingerButton onPress={onAddPress} />
         ) : tokens.name === 'retrowave' ? (
           <RetrowaveAddCrewButton onPress={onAddPress} />
         ) : (
@@ -1608,6 +1688,7 @@ function RolesStep({
           ...(sketchHeadingExtras(tokens) ?? {}),
           ...(retroHeadingExtras(tokens) ?? {}),
           ...(spaceHeadingExtras(tokens) ?? {}),
+          ...(glassHeadingExtras(tokens) ?? {}),
         }}
       >
         Who sings what?
@@ -1666,6 +1747,8 @@ function RolesStep({
             <SteampunkBrassFrame size={9} filigree />
           ) : tokens.name === 'sketch' ? (
             <SketchSheetTape seed={7} />
+          ) : tokens.name === 'liquid-glass' ? (
+            <LiquidGlassFill />
           ) : tokens.name === 'retrowave' ? (
             <RetrowaveNeonFrame size={10} thickness={1.4} inset={3} />
           ) : null}
@@ -1698,6 +1781,23 @@ function RolesStep({
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {singers.map((s, si) => {
               const active = s.roleIndices.includes(ri)
+              if (tokens.name === 'liquid-glass') {
+                return (
+                  <LiquidGlassRoleChip
+                    key={si}
+                    name={s.name || `Singer ${si + 1}`}
+                    color={s.color}
+                    initial={(s.name?.[0] ?? '?').toUpperCase()}
+                    picture={
+                      s.profilePicture ? (
+                        <Image source={{ uri: s.profilePicture }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                      ) : undefined
+                    }
+                    active={active}
+                    onPress={() => toggle(si, ri)}
+                  />
+                )
+              }
               return (
                 <Pressable
                   key={si}
@@ -1762,7 +1862,9 @@ function RolesStep({
                 </Pressable>
               )
             })}
-            {canAddSinger ? (
+            {canAddSinger && tokens.name === 'liquid-glass' ? (
+              <LiquidGlassAddChip onPress={() => onAddToRole(ri)} />
+            ) : canAddSinger ? (
               <Pressable
                 onPress={() => onAddToRole(ri)}
                 style={({ pressed }) => ({
@@ -1878,6 +1980,7 @@ function StageStep({
           ...(sketchHeadingExtras(tokens) ?? {}),
           ...(retroHeadingExtras(tokens) ?? {}),
           ...(spaceHeadingExtras(tokens) ?? {}),
+          ...(glassHeadingExtras(tokens) ?? {}),
         }}
       >
         Finish up
@@ -1931,7 +2034,7 @@ function StageStep({
           flexDirection: 'row',
           alignItems: 'flex-start',
           padding: 14,
-          ...(tokens.name === 'tropical'
+          ...(tokens.name === 'tropical' || tokens.name === 'liquid-glass'
             ? {}
             : {
                 borderColor: hideSong ? (tokens.isDark ? tokens.accentA : tokens.black) : tokens.dimBorder,
@@ -1940,6 +2043,7 @@ function StageStep({
         })}
       >
         {tokens.name === 'tropical' ? <TropicalWoodFrame /> : null}
+        {tokens.name === 'liquid-glass' ? <LiquidGlassFill tint={hideSong ? 'rgba(100,210,255,0.24)' : undefined} /> : null}
         <View style={[{ flexDirection: 'row', flex: 1 }, wizardCardUnskew(tokens)]}>
           <View
             style={{
@@ -2029,18 +2133,33 @@ function SingerPicker({
     >
       <Pressable
         onPress={(e) => e.stopPropagation()}
-        style={{
-          backgroundColor: tokens.appBg,
-          borderTopLeftRadius: 20,
-          borderTopRightRadius: 20,
-          borderTopWidth: tokens.isDark ? 1 : 2,
-          borderColor: tokens.isDark ? tokens.accentA : tokens.black,
-          paddingHorizontal: 20,
-          paddingTop: 16,
-          paddingBottom: Math.max(insets.bottom, 16) + 8,
-          maxHeight: '80%',
-        }}
+        style={
+          tokens.name === 'liquid-glass'
+            ? {
+                // Liquid Glass: a sheet of glass floating just off the screen's
+                // edges, rounded all round like the system's own sheets.
+                margin: 8,
+                marginBottom: Math.max(insets.bottom - 12, 8),
+                borderRadius: 34,
+                paddingHorizontal: 20,
+                paddingTop: 12,
+                paddingBottom: 22,
+                maxHeight: '80%',
+              }
+            : {
+                backgroundColor: tokens.appBg,
+                borderTopLeftRadius: 20,
+                borderTopRightRadius: 20,
+                borderTopWidth: tokens.isDark ? 1 : 2,
+                borderColor: tokens.isDark ? tokens.accentA : tokens.black,
+                paddingHorizontal: 20,
+                paddingTop: 16,
+                paddingBottom: Math.max(insets.bottom, 16) + 8,
+                maxHeight: '80%',
+              }
+        }
       >
+        {tokens.name === 'liquid-glass' ? <LiquidGlassFill radius={34} /> : null}
         <View
           style={{
             alignSelf: 'center',
@@ -2063,6 +2182,7 @@ function SingerPicker({
             ...(sketchHeadingExtras(tokens) ?? {}),
             ...(retroHeadingExtras(tokens) ?? {}),
             ...(spaceHeadingExtras(tokens) ?? {}),
+            ...(glassHeadingExtras(tokens) ?? {}),
           }}
         >
           Add a singer
@@ -2186,6 +2306,9 @@ function SingerPicker({
               ...(steamChromeExtras(tokens) ?? {}),
               ...(sketchChromeExtras(tokens) ?? {}),
               ...(retroChromeExtras(tokens) ?? {}),
+              ...(tokens.name === 'liquid-glass'
+                ? { backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 0, borderRadius: 999, paddingHorizontal: 16 }
+                : {}),
             }}
             returnKeyType="done"
             onSubmitEditing={onAddCustom}
@@ -2205,6 +2328,10 @@ function SingerPicker({
               ...(customName.trim() ? steamChromeExtras(tokens) ?? {} : {}),
               ...(customName.trim() ? sketchChromeExtras(tokens) ?? {} : {}),
               ...(customName.trim() ? retroChromeExtras(tokens) ?? {} : {}),
+              // Liquid Glass: the system's tinted-glass blue, a capsule.
+              ...(tokens.name === 'liquid-glass'
+                ? { borderWidth: 0, borderRadius: 999, backgroundColor: customName.trim() ? '#0A84FF' : 'rgba(255,255,255,0.12)' }
+                : {}),
             }}
           >
             <Text
@@ -2213,7 +2340,7 @@ function SingerPicker({
                 textTransform: tokens.displayUppercase ? 'uppercase' : 'none',
                 fontWeight: '900',
                 fontSize: 14,
-                color: customName.trim() ? tokens.white : tokens.muted,
+                color: customName.trim() ? (tokens.name === 'liquid-glass' ? '#FFFFFF' : tokens.white) : tokens.muted,
               }}
             >
               Add

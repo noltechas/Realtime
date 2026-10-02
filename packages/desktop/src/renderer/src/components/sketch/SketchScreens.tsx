@@ -153,7 +153,7 @@ export function SketchIdle({ qrUrl, sessionCode }: { qrUrl: string | null; sessi
             const c = Math.floor(t / IDLE_CYCLE)
             const at = (k: number, cycle: number): Target => {
                 const r = (els[k] as HTMLSpanElement).getBoundingClientRect()
-                return { x: r.left + r.width * 0.42, y: r.top + r.height * 0.2, t: cycle * IDLE_CYCLE + k * IDLE_STEP }
+                return { x: r.left + r.width * 0.42, y: r.top + r.height * 0.2, t: cycle * IDLE_CYCLE + k * IDLE_STEP, line: 0 }
             }
             const targets: Target[] = IDLE_SYLLABLES.map((_, k) => at(k, c))
             targets.push(at(0, c + 1))

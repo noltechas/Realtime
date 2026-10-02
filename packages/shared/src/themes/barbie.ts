@@ -28,7 +28,7 @@ import type { ThemeTokens } from './tokens'
 export const BARBIE_TOKENS: ThemeTokens = {
   name: 'barbie',
   displayName: 'Barbie',
-  nextThemeName: 'neo-brutal', // tail of the ring, loops back to the start
+  nextThemeName: 'liquid-glass', // barbie → liquid glass, which loops back to neo-brutal
 
   // A LIGHT theme: plum ink on pink card.
   black: '#4B0A35', // plum ink, primary text

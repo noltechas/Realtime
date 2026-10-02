@@ -23,6 +23,7 @@ import { GEAR_IMG as STEAM_GEARS, Porthole as SteamPorthole } from '../../theme/
 import { Hibiscus3D, TimberDetail, useSize } from '../../theme/themes/tropical/atoms/_tropical'
 import { Candle as GothCandle, GlassDot, FRAKTUR, RUBY, SAPPHIRE } from '../../theme/themes/gothic/atoms/_gothic'
 import { Sun as BarbieSun, DISPLAY as BARBIE_DISPLAY } from '../../theme/themes/barbie/atoms/_barbie'
+import { Glass as LiquidGlass, LIFT as GLASS_LIFT } from '../../theme/themes/liquid-glass/atoms/_glass'
 
 // The deep-sea theme's actual bubble PNG (same asset its backdrop + tab bar
 // use) — rendered un-tinted so the 3D highlight reads.
@@ -968,6 +969,50 @@ function BarbieCard({ label, selected, onPress }: CardProps) {
   )
 }
 
+// 15. Liquid Glass: a slip of the wallpaper (night blue flowing into violet,
+//     magenta and amber) with the name on a capsule of real glass floating over
+//     it, and a droplet of glass beside it bending the colours.
+function LiquidGlassCard({ label, selected, onPress }: CardProps) {
+  return (
+    <BaseCard
+      selected={selected}
+      onPress={onPress}
+      bg="#0B1240"
+      radius={20}
+      border={{ width: 1, color: 'rgba(255,255,255,0.32)' }}
+      glowColor="#7B2FF7"
+      glowRadius={8}
+      accent="#FFFFFF"
+      badge={{ bg: '#FFFFFF', fg: '#0B1240', ring: 'rgba(255,255,255,0.55)' }}
+    >
+      <LinearGradient
+        pointerEvents="none"
+        colors={['#1A2E9E', '#5B2FD6', '#D23A8C', '#FF9A3C']}
+        locations={[0, 0.4, 0.78, 1]}
+        start={{ x: 0, y: 0.2 }}
+        end={{ x: 1, y: 0.9 }}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+      />
+      <Svg pointerEvents="none" width="100%" height="100%" style={{ position: 'absolute' }}>
+        <Defs>
+          <RadialGradient id="lgBlob" cx="50%" cy="50%" r="50%">
+            <Stop offset="0" stopColor="#13C6FF" stopOpacity={0.75} />
+            <Stop offset="1" stopColor="#13C6FF" stopOpacity={0} />
+          </RadialGradient>
+        </Defs>
+        <Ellipse cx="18%" cy="90%" rx="34%" ry="70%" fill="url(#lgBlob)" />
+      </Svg>
+      <Row>
+        <LiquidGlass radius={999} shadow={false} style={{ paddingHorizontal: 11, paddingVertical: 5, flexShrink: 1 }}>
+          <CardLabel text={label} color="#FFFFFF" font="System" style={{ fontSize: 15, fontWeight: '700', letterSpacing: -0.3, ...GLASS_LIFT }} />
+        </LiquidGlass>
+        <View style={{ flex: 1 }} />
+        <LiquidGlass radius={11} variant="clear" shadow={false} style={{ width: 22, height: 22 }} />
+      </Row>
+    </BaseCard>
+  )
+}
+
 // ── Dispatcher ───────────────────────────────────────────────────────────────
 interface CardProps {
   label: string
@@ -990,6 +1035,7 @@ const CARD_BY_KEY: Record<string, React.ComponentType<CardProps>> = {
   tropical: TropicalCard,
   gothic: GothicCard,
   barbie: BarbieCard,
+  'liquid-glass': LiquidGlassCard,
 }
 
 export function ThemeStageCard({

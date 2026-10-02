@@ -13,6 +13,7 @@ import { COMIC_BOOK_TOKENS } from './comic-book'
 import { TROPICAL_TOKENS } from './tropical'
 import { GOTHIC_TOKENS } from './gothic'
 import { BARBIE_TOKENS } from './barbie'
+import { LIQUID_GLASS_TOKENS } from './liquid-glass'
 
 // Lookup map for resolving a session's `theme_name` string to its shared
 // token bundle. Mobile uses this to pick the active theme based on the live
@@ -32,6 +33,7 @@ export const THEME_TOKENS_BY_NAME: Record<string, ThemeTokens> = {
   tropical: TROPICAL_TOKENS,
   gothic: GOTHIC_TOKENS,
   barbie: BARBIE_TOKENS,
+  'liquid-glass': LIQUID_GLASS_TOKENS,
 }
 
 export function resolveThemeTokens(name: string | null | undefined): ThemeTokens {

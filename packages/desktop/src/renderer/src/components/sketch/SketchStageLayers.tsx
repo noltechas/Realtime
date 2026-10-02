@@ -1,9 +1,11 @@
 // Layers on the pencil-test stage while a song plays.
 //
 //   SketchBall   the bouncing ball over the lyrics: it lands on each syllable
-//                as it's sung (exactly when the word is inked), and hops down
-//                to the next line's first word as the line ends. It rides the
-//                lyric scroll, because it reads the words' positions every frame.
+//                as it's sung (exactly when the word is inked), and glides
+//                down to the next line's first word as the line ends (no bounce
+//                between lines). It rides the lyric scroll, because it reads
+//                the words' positions every frame, and runs on its own smoothed
+//                clock so uneven playback-time messages never make it judder.
 //   SketchFrame  the sheet itself. With a music video, the video plays UNDER
 //                the paper the way an animator traces live action on a light
 //                table: grey, soft and faint through the sheet. Plus a pencil
@@ -23,6 +25,7 @@ interface Spot {
     el: Element
     t: number
     tint: string | null
+    line: number
 }
 
 /** Where the ball touches down on a word: over the start of its glyphs. A
@@ -57,6 +60,12 @@ export function SketchBall({
         let spots: Spot[] = []
         let builtFor = ''
         let d = 30
+        // The ball's clock. The song time arrives over IPC in uneven steps, and
+        // re-anchoring on each one nudged the ball back and forth by a few
+        // pixels. Instead the clock runs on its own and is eased toward the
+        // reported time; only a real jump (a seek) snaps it.
+        let clock = NaN
+        let lastPerf = 0
         const build = (container: HTMLElement) => {
             spots = []
             if (lineIdx < 0 || !lyrics[lineIdx]) return
@@ -76,23 +85,36 @@ export function SketchBall({
                 const pw = words(pe)
                 const ps = lyrics[p].syllables as Array<{ startMs: number }> | undefined
                 const el = pw[pw.length - 1] ?? pe
-                if (el) spots.push({ el, t: ps && ps.length ? ps[ps.length - 1].startMs : lyrics[p].startTimeMs, tint: tintOf(el) })
+                if (el) spots.push({ el, t: ps && ps.length ? ps[ps.length - 1].startMs : lyrics[p].startTimeMs, tint: tintOf(el), line: p })
             }
             const syls = line.syllables as Array<{ startMs: number }> | undefined
             const cw = words(lineEl)
             if (syls && syls.length && cw.length === syls.length) {
-                syls.forEach((s, k) => spots.push({ el: cw[k], t: s.startMs, tint: tintOf(cw[k]) }))
+                syls.forEach((s, k) => spots.push({ el: cw[k], t: s.startMs, tint: tintOf(cw[k]), line: lineIdx }))
             } else {
-                spots.push({ el: cw[0] ?? lineEl, t: start, tint: tintOf(lineEl) })
+                spots.push({ el: cw[0] ?? lineEl, t: start, tint: tintOf(lineEl), line: lineIdx })
             }
-            // where it's going: the first word of the next line
-            if (n < lyrics.length) {
-                const ne = container.querySelector(`[data-li="${n}"]`)
-                const nw = words(ne)
-                const ns = lyrics[n].syllables as Array<{ startMs: number }> | undefined
-                const el = nw[0] ?? ne
-                if (el) spots.push({ el, t: ns && ns.length ? ns[0].startMs : lyrics[n].startTimeMs, tint: tintOf(el) })
+            // where it's going: the WHOLE next line, and the first word of the
+            // one after. The line index updates on the playback tick (up to a
+            // quarter second late), so when a line ends the ball must already
+            // know the words that follow, or it would sit on the next line's
+            // first word and then jump mid-hop once the index catches up.
+            const push = (li: number, all: boolean) => {
+                if (li >= lyrics.length) return
+                const le = container.querySelector(`[data-li="${li}"]`)
+                const lw = words(le)
+                const ls = lyrics[li].syllables as Array<{ startMs: number }> | undefined
+                if (all && ls && ls.length && lw.length === ls.length) {
+                    ls.forEach((sy, k) => spots.push({ el: lw[k], t: sy.startMs, tint: tintOf(lw[k]), line: li }))
+                    return
+                }
+                const el = lw[0] ?? le
+                if (el) spots.push({ el, t: ls && ls.length ? ls[0].startMs : lyrics[li].startTimeMs, tint: tintOf(el), line: li })
             }
+            push(n, true)
+            let n2 = n + 1
+            while (n < lyrics.length && n2 < lyrics.length && lyrics[n2].startTimeMs === lyrics[n].startTimeMs) n2++
+            push(n2, false)
             const fs = parseFloat(getComputedStyle(lineEl).fontSize) || 56
             d = Math.max(30, fs * 0.7)
         }
@@ -109,13 +131,21 @@ export function SketchBall({
             }
             // paused: hold at the last reported time (it still moves on a seek)
             const a = timeAnchorRef.current
-            const now = playingRef.current ? a.eventMs + (performance.now() - a.perfAt) : a.eventMs
+            const perf = performance.now()
+            const reported = playingRef.current ? a.eventMs + (perf - a.perfAt) : a.eventMs
+            if (!playingRef.current || !Number.isFinite(clock) || Math.abs(reported - clock) > 240) clock = reported
+            else {
+                clock += perf - lastPerf // run on
+                clock += (reported - clock) * 0.08 // and drift toward the song
+            }
+            lastPerf = perf
+            const now = clock
             if (spots.length === 0) {
                 r.draw({ now, hop: null, d, color: fallbackColor, visible: false })
                 return
             }
-            const targets: Target[] = spots.map(s => ({ ...contact(s.el, d), t: s.t }))
-            const hop = hopAt(targets, now)
+            const targets: Target[] = spots.map(s => ({ ...contact(s.el, d), t: s.t, line: s.line }))
+            const hop = hopAt(targets, now, d * 0.9)
             // the ball's colour: the singer of the word it's on (or heading for)
             let k = 0
             for (let i = 0; i < spots.length; i++) if (spots[i].t <= now) k = i
@@ -133,17 +163,23 @@ export function SketchBall({
 export function SketchFrame({ video = false, drawing }: { video?: boolean; drawing: number }) {
     return (
         <div aria-hidden style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none' }}>
-            {/* the sheet over the video: multiplied, so the footage shows
-                through the paper like a reference on the light table */}
+            {/* the sheet over the video, thin enough to see the footage
+                through it like a reference on the light table: the paper's
+                grain over the picture, and a pale wash so the pencil lettering
+                still reads */}
             {video && (
-                <div
-                    style={{
-                        position: 'absolute',
-                        inset: 0,
-                        background: `${SK.PAPER} url(${ART.paper}) center / cover no-repeat`,
-                        mixBlendMode: 'multiply',
-                    }}
-                />
+                <>
+                    <div
+                        style={{
+                            position: 'absolute',
+                            inset: 0,
+                            background: `${SK.PAPER} url(${ART.paper}) center / cover no-repeat`,
+                            mixBlendMode: 'multiply',
+                            opacity: 0.55,
+                        }}
+                    />
+                    <div style={{ position: 'absolute', inset: 0, background: SK.PAPER, opacity: 0.5 }} />
+                </>
             )}
             <Design>
                 <>

@@ -190,7 +190,8 @@ export function renderWizardStage(){
     {k:"comic-book",label:"Comic Book",c:["#FFFFFF","#FF1F4B","#FFD400"]},
     {k:"tropical",label:"Tropical",c:["#36C5F0","#10B7B0","#FFF4DE"]},
     {k:"gothic",label:"Gothic",c:["#07060A","#E3B04B","#C3203A"]},
-    {k:"barbie",label:"Barbie",c:["#FFC6DF","#E0218A","#FFD23F"]}
+    {k:"barbie",label:"Barbie",c:["#FFC6DF","#E0218A","#FFD23F"]},
+    {k:"liquid-glass",label:"Liquid Glass",c:["#0B1240","#64D2FF","#FF375F"]}
   ];
   var grid=tiles.map(function(tt){
     var sel=(S.stage_theme===tt.k);

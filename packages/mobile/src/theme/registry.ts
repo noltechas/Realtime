@@ -13,6 +13,7 @@ import { COMIC_BOOK_UI } from './themes/comic-book'
 import { TROPICAL_UI } from './themes/tropical'
 import { GOTHIC_UI } from './themes/gothic'
 import { BARBIE_UI } from './themes/barbie'
+import { LIQUID_GLASS_UI } from './themes/liquid-glass'
 
 // Active-theme dispatch. Picks the right ThemeUIModule per theme name.
 // Unknown / not-yet-implemented themes fall back to neo-brutal so the app
@@ -33,6 +34,7 @@ const THEME_UI_BY_NAME: Record<string, ThemeUIModule> = {
   tropical:     TROPICAL_UI,
   gothic:       GOTHIC_UI,
   barbie:       BARBIE_UI,
+  'liquid-glass': LIQUID_GLASS_UI,
 }
 
 export function resolveThemeUI(name: string | null | undefined): ThemeUIModule {
