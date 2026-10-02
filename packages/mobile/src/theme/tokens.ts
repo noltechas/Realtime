@@ -12,6 +12,7 @@ import {
   COMIC_BOOK_TOKENS,
   TROPICAL_TOKENS,
   GOTHIC_TOKENS,
+  BARBIE_TOKENS,
   resolveThemeTokens,
   type ThemeTokens,
 } from '@karaoke/shared'
@@ -179,6 +180,16 @@ export const GOTHIC_MOBILE: ThemeTokens = withMobileFonts(
   'CormorantGaramond_600SemiBold',
 )
 
+// Barbie-Mobile: "Barbie Land". Shrikhand (the sign-painted retro italic) for
+// every display role, Poppins for body. Yellowtail, the brush script, is reached
+// for directly by the barbie UI module (`SCRIPT` in themes/barbie/atoms/
+// _barbie.tsx) for the odd flourish; it is too delicate for a token role.
+export const BARBIE_MOBILE: ThemeTokens = withMobileFonts(
+  BARBIE_TOKENS,
+  'Shrikhand_400Regular',
+  'Poppins_600SemiBold',
+)
+
 const MOBILE_BY_NAME: Record<string, ThemeTokens> = {
   'neo-brutal': NEO_BRUTAL_MOBILE,
   cyberpunk: CYBERPUNK_MOBILE,
@@ -193,6 +204,7 @@ const MOBILE_BY_NAME: Record<string, ThemeTokens> = {
   'comic-book': COMIC_BOOK_MOBILE,
   tropical: TROPICAL_MOBILE,
   gothic: GOTHIC_MOBILE,
+  barbie: BARBIE_MOBILE,
 }
 
 // Resolve a session theme name to the mobile-flavored token bundle. Falls

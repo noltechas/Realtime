@@ -486,6 +486,7 @@ function hiddenLabelFor(name: string): string {
         case 'steampunk': return 'Classified'
         case 'retrowave': return 'NO SIGNAL'
         case 'tropical': return 'Island Mystery'
+        case 'barbie': return 'Surprise Song'
         case 'neo-brutal':
         default: return 'HIDDEN SONG'
     }
@@ -503,6 +504,7 @@ function hiddenSubtitleFor(name: string): string {
         case 'steampunk': return 'sealed by the archivist'
         case 'retrowave': return 'track.dat: error 404'
         case 'tropical': return 'washed up from who-knows-where'
+        case 'barbie': return 'the sun is behind a cloud'
         case 'neo-brutal':
         default: return 'surprise pick!'
     }
@@ -519,6 +521,7 @@ function hiddenTitleColor(theme: Theme): string {
         case 'retrowave': return '#FF2D95'
         case 'urban': return '#D4FF00'
         case 'tropical': return '#0E8F89'
+        case 'barbie': return '#E0218A'
         default: return theme.black
     }
 }

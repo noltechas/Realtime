@@ -59,6 +59,12 @@ const GrenzeGotisch_800ExtraBold = require('@expo-google-fonts/grenze-gotisch/80
 const CormorantGaramond_600SemiBold = require('@expo-google-fonts/cormorant-garamond/600SemiBold/CormorantGaramond_600SemiBold.ttf')
 const CormorantGaramond_600SemiBold_Italic = require('@expo-google-fonts/cormorant-garamond/600SemiBold_Italic/CormorantGaramond_600SemiBold_Italic.ttf')
 const CormorantGaramond_700Bold = require('@expo-google-fonts/cormorant-garamond/700Bold/CormorantGaramond_700Bold.ttf')
+const Shrikhand_400Regular = require('@expo-google-fonts/shrikhand/400Regular/Shrikhand_400Regular.ttf')
+const Yellowtail_400Regular = require('@expo-google-fonts/yellowtail/400Regular/Yellowtail_400Regular.ttf')
+const Poppins_500Medium = require('@expo-google-fonts/poppins/500Medium/Poppins_500Medium.ttf')
+const Poppins_600SemiBold = require('@expo-google-fonts/poppins/600SemiBold/Poppins_600SemiBold.ttf')
+const Poppins_700Bold = require('@expo-google-fonts/poppins/700Bold/Poppins_700Bold.ttf')
+const Poppins_800ExtraBold = require('@expo-google-fonts/poppins/800ExtraBold/Poppins_800ExtraBold.ttf')
 
 // Error boundary so a crash anywhere in the render tree shows visibly on
 // screen instead of leaving us staring at a white screen with no logs.
@@ -157,6 +163,15 @@ export default function App() {
     CormorantGaramond_600SemiBold,
     CormorantGaramond_600SemiBold_Italic,
     CormorantGaramond_700Bold,
+    // Barbie theme: Shrikhand (heavy retro italic, sign-painted titles),
+    // Yellowtail (60s brush script, the odd flourish), Poppins (everything
+    // else). Same faces as the stage.
+    Shrikhand_400Regular,
+    Yellowtail_400Regular,
+    Poppins_500Medium,
+    Poppins_600SemiBold,
+    Poppins_700Bold,
+    Poppins_800ExtraBold,
   })
 
   // Render once fonts are loaded OR once we know they failed. Without the

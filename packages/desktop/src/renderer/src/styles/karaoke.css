@@ -2866,3 +2866,484 @@
     from { opacity: 1; transform: translateY(0); filter: brightness(1); }
     to   { opacity: 0; transform: translateY(-140%); filter: brightness(0.2); }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   BARBIE STAGE: "BARBIE LAND", a pink, sunny day on a painted movie set
+   Painted sky, the sun, pink plastic, Palm Springs, glitter (see
+   styles/barbie.ts). The set, the sun and the screens are components in
+   components/barbie/; this section is their motion, plus the lyric cloud.
+
+   THE LYRIC IDEA: the active line is written on a painted cloud with the sun
+   peeking over it, and the sun's glow is the room's voice. Words not yet sung
+   are outlines waiting to be painted in, like a colouring page: tinted, not
+   filled. As each syllable is sung it is PAINTED IN, in its singer's colour,
+   as sign-painted 3D lettering (a darker edge, an extrusion, a gloss), with a
+   sun-yellow twinkle. A shared line paints word by word, singer by singer.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ---- Shared motion ---- */
+@keyframes barb-spin { to { transform: rotate(360deg); } }
+.barb-spin { animation: barb-spin 70s linear infinite; transform-box: fill-box; transform-origin: center; }
+.barb-spin-slow { animation: barb-spin 300s linear infinite; }
+
+/* The sun's halo is the room's voice. */
+.barb-sun-halo {
+    transform-box: fill-box;
+    transform-origin: center;
+    transform: scale(calc(0.86 + var(--barb-voice, 0) * 0.42));
+    transition: transform 0.25s ease-out;
+}
+
+@keyframes barb-twinkle {
+    0%, 100% { transform: scale(0) rotate(0deg); opacity: 0; }
+    10%      { transform: scale(1) rotate(30deg); opacity: 1; }
+    22%      { transform: scale(0.15) rotate(70deg); opacity: 0; }
+}
+.barb-twinkle { animation: barb-twinkle 4s ease-in-out infinite both; pointer-events: none; }
+
+/* Glitter thrown on a belt or "Sing!": out of a point, then it falls. */
+@keyframes barb-glitter {
+    0%   { transform: translate(0, 0) scale(0.2) rotate(0deg); opacity: 0; }
+    12%  { transform: translate(calc(var(--dx) * 0.35), calc(var(--dy) * 0.35)) scale(1.05) rotate(calc(var(--rot) * 0.2)); opacity: 1; }
+    70%  { opacity: 1; }
+    100% { transform: translate(var(--dx), calc(var(--dy) + 160px)) scale(0.35) rotate(var(--rot)); opacity: 0; }
+}
+.barb-glitter { animation: barb-glitter 1.4s cubic-bezier(0.15, 0.7, 0.35, 1) both; }
+
+/* Clouds drift across the painted sky, each at its own pace. */
+@keyframes barb-drift {
+    from { transform: translateX(var(--barb-from, -500px)); }
+    to   { transform: translateX(var(--barb-to, 2400px)); }
+}
+.barb-drift { animation: barb-drift 160s linear infinite; will-change: transform; }
+
+
+/* The biplane crosses the sky once per cycle, then the sky is clear a while. */
+@keyframes barb-fly {
+    0%   { transform: translateX(var(--barb-span, 2100px)) translateY(0); }
+    18%  { transform: translateX(calc(var(--barb-span, 2100px) * 0.75)) translateY(-8px); }
+    36%  { transform: translateX(calc(var(--barb-span, 2100px) * 0.45)) translateY(6px); }
+    54%  { transform: translateX(calc(var(--barb-span, 2100px) * 0.15)) translateY(-6px); }
+    74%  { transform: translateX(-1600px) translateY(0); }
+    100% { transform: translateX(-1600px) translateY(0); }
+}
+.barb-fly { animation: barb-fly 32s linear infinite; will-change: transform; }
+@keyframes barb-prop { 50% { transform: scaleY(0.2); } }
+.barb-prop { animation: barb-prop 0.12s linear infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes barb-scarf { to { transform: skewY(-14deg) scaleX(1.12); } }
+.barb-scarf { animation: barb-scarf 0.45s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: left center; }
+
+/* The QR snapshot floats on the breeze. */
+@keyframes barb-bob {
+    0%, 100% { transform: translateY(0) rotate(var(--barb-tilt, -2deg)); }
+    50%      { transform: translateY(-12px) rotate(calc(var(--barb-tilt, -2deg) * -0.4)); }
+}
+.barb-bob { animation: barb-bob 5.5s ease-in-out infinite; }
+
+@keyframes barb-rise {
+    from { opacity: 0; transform: translateY(28px) scale(0.96); }
+    to   { opacity: 1; transform: none; }
+}
+.barb-rise { animation: barb-rise 0.8s cubic-bezier(0.2, 0.9, 0.3, 1.15) both; }
+
+/* The up-next song comes up over the town like the sun. */
+@keyframes barb-sunrise {
+    0%   { opacity: 0; transform: translateY(320px) scale(0.9); }
+    45%  { opacity: 1; }
+    100% { opacity: 1; transform: none; }
+}
+.barb-sunrise { animation: barb-sunrise 1.4s cubic-bezier(0.2, 0.8, 0.25, 1.06) both; }
+
+@keyframes barb-pop-in {
+    from { opacity: 0; transform: scale(0.6); }
+    to   { opacity: 1; transform: scale(1); }
+}
+.barb-pop-in { animation: barb-pop-in 0.55s cubic-bezier(0.3, 1.6, 0.5, 1) both; }
+
+/* A count-in beat: it lands big, squashes, settles. */
+@keyframes barb-beat {
+    0%   { transform: scale(1.7); opacity: 0; }
+    40%  { transform: scale(0.88); opacity: 1; }
+    70%  { transform: scale(1.06); }
+    100% { transform: scale(1); }
+}
+.barb-beat { animation: barb-beat 0.5s cubic-bezier(0.3, 1.4, 0.5, 1) both; display: inline-block; }
+
+@keyframes barb-fade-in { from { opacity: 0; } to { opacity: 1; } }
+.barb-scene-in { animation: barb-fade-in 0.8s ease both; }
+
+/* ---- The glint ----
+   One band of sunlight, driven by --barb-glint (components/barbie/sunshine.ts),
+   crosses every glossy surface at the same moment. At 0 the band rests off the
+   left edge; it sweeps to off the right edge as the value runs to 1. */
+.barb-glint::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(105deg, rgba(255,255,255,0) 40%, rgba(255,255,255,0.9) 50%, rgba(255,255,255,0) 60%);
+    background-size: 250% 100%;
+    background-repeat: no-repeat;
+    background-position: calc((1 - var(--barb-glint, 0)) * 100%) 0;
+}
+/* Lettering takes the glint inside its fill only. */
+.barb-title::after {
+    content: attr(data-text);
+    position: absolute;
+    inset: 0;
+    padding: inherit;
+    color: transparent;
+    text-shadow: none;
+    pointer-events: none;
+    white-space: inherit;
+    background: linear-gradient(105deg, rgba(255,255,255,0) 40%, rgba(255,255,255,0.95) 50%, rgba(255,255,255,0) 60%);
+    background-size: 250% 100%;
+    background-repeat: no-repeat;
+    background-position: calc((1 - var(--barb-glint, 0)) * 100%) 0;
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+
+/* ---- Backdrop while a song plays ----
+   With no video the art is printed in pink and sunshine by BarbieSunshine
+   (inside .k-bg), so the flat blurred image hides. */
+[data-theme="barbie"] .k-stage--barb-sun .k-bg__img,
+[data-theme="barbie"] .k-stage--barb-sun .k-bg__img--prev {
+    opacity: 0 !important;
+}
+[data-theme="barbie"] .k-bg__img,
+[data-theme="barbie"] .k-bg__img--prev {
+    filter: blur(50px) saturate(1.25) brightness(1.08);
+}
+[data-theme="barbie"] .k-bg__scrim {
+    background:
+        linear-gradient(180deg, rgba(224, 33, 138, 0.32) 0%, rgba(224, 33, 138, 0) 24%, rgba(224, 33, 138, 0) 66%, rgba(176, 17, 94, 0.42) 100%);
+}
+[data-theme="barbie"] .k-stage--barb-sun .k-bg__scrim {
+    background: none;
+}
+
+/* ---- The lyric ladder ----
+   Upcoming lines read as stickers: the singer's colour with a white die-cut
+   outline (a ring of text-shadows: round joins, unlike text-stroke) and a
+   pink edge under it. Readable over the sunshine print and over any video. */
+[data-theme="barbie"] .k-line--future {
+    color: #FFFFFF;
+    transform: scale(0.9) translateY(4px);
+}
+[data-theme="barbie"] .k-line--barb-future,
+[data-theme="barbie"] .k-line--barb-future .k-syl__word {
+    color: var(--syl-c, var(--barb-ink, #FFFFFF));
+}
+[data-theme="barbie"] .k-line--barb-future .k-syl--future {
+    opacity: 1;
+}
+[data-theme="barbie"] .k-line--barb-future {
+    text-shadow:
+        0.055em 0 0 #FFF, 0.048em 0.028em 0 #FFF, 0.028em 0.048em 0 #FFF, 0 0.055em 0 #FFF,
+        -0.028em 0.048em 0 #FFF, -0.048em 0.028em 0 #FFF, -0.055em 0 0 #FFF, -0.048em -0.028em 0 #FFF,
+        -0.028em -0.048em 0 #FFF, 0 -0.055em 0 #FFF, 0.028em -0.048em 0 #FFF, 0.048em -0.028em 0 #FFF,
+        0 0.1em 0 rgba(176, 17, 94, 0.55),
+        0 0.14em 0.25em rgba(122, 16, 78, 0.35);
+}
+[data-theme="barbie"] .k-line--past {
+    color: #FFFFFF;
+    opacity: 0.6;
+    transform: scale(0.85);
+    text-shadow: 0 0.05em 0 rgba(176, 17, 94, 0.5), 0 0.08em 0.22em rgba(122, 16, 78, 0.35);
+}
+
+/* ---- The active line: a painted cloud ---- */
+[data-theme="barbie"] .k-line--barbie {
+    position: relative;
+    isolation: isolate;
+    border-radius: 0;
+    /* room for the puffs and the sun above, and the cloud's ends */
+    margin: 1.05em 0.75em 0.3em;
+    text-shadow: none;
+}
+
+.barb-cloud {
+    position: absolute;
+    left: -0.6em;
+    right: -0.6em;
+    top: -0.62em;
+    bottom: -0.1em;
+    z-index: -1;
+    pointer-events: none;
+    animation: barb-cloud-in 0.55s cubic-bezier(0.3, 1.5, 0.5, 1) both;
+}
+@keyframes barb-cloud-in {
+    from { opacity: 0; transform: translateY(0.12em) scale(0.92, 0.84); }
+    to   { opacity: 1; transform: none; }
+}
+
+/* The sun, peeking out from behind the cloud's biggest puff. Its glow is the
+   room's voice, and it rises a little as the singing swells. */
+.barb-cloud__sun {
+    position: absolute;
+    top: -0.78em;
+    width: 2em;
+    height: 2em;
+    margin-left: -1em;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 36%, #FFFBE6 0%, #FFF1A8 28%, #FFD23F 70%, #FFB42E 100%);
+    box-shadow:
+        0 0 0 0.06em rgba(255, 241, 168, 0.6),
+        0 0 calc(0.5em + var(--barb-voice, 0) * 1.8em) calc(0.12em + var(--barb-voice, 0) * 0.6em) rgba(255, 226, 120, 0.8);
+    translate: 0 calc(var(--barb-voice, 0) * -0.3em);
+    transition: box-shadow 0.22s ease-out, translate 0.35s ease-out;
+    animation: barb-sun-peek 0.9s cubic-bezier(0.2, 0.9, 0.3, 1.25) 0.12s both;
+}
+.barb-cloud__sun::before {
+    content: '';
+    position: absolute;
+    inset: -0.95em;
+    border-radius: 50%;
+    background: repeating-conic-gradient(from 0deg, rgba(255, 210, 63, 0.9) 0deg 8deg, rgba(255, 210, 63, 0) 8deg 22.5deg);
+    -webkit-mask-image: radial-gradient(circle closest-side, transparent 50%, #000 53%, #000 70%, transparent 100%);
+    mask-image: radial-gradient(circle closest-side, transparent 50%, #000 53%, #000 70%, transparent 100%);
+    animation: barb-spin 26s linear infinite;
+}
+@keyframes barb-sun-peek {
+    from { transform: translateY(0.8em) scale(0.6); opacity: 0; }
+    to   { transform: none; opacity: 1; }
+}
+
+/* The cloud itself, three white layers under one filter so they shadow as a
+   single silhouette (a thin warm rim where the sun lights the tops, a flat
+   painted underside, a soft drop):
+     body             a rounded base, well formed however many rows the line
+                      wraps to
+     shape::before    a row of puffs along the top (two interleaved sizes)
+     shape::after     two big crown puffs, one beside the sun so it peeks out
+                      from behind it, one across the cloud from it */
+.barb-cloud__shape {
+    position: absolute;
+    inset: 0;
+    filter:
+        drop-shadow(0 -0.04em 0 #FFEFA8)
+        drop-shadow(0 0.09em 0 #F1C3E2)
+        drop-shadow(0 0.24em 0.32em rgba(176, 17, 94, 0.3));
+}
+.barb-cloud__body {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0.62em;
+    bottom: 0;
+    border-radius: 1.15em;
+    background:
+        radial-gradient(ellipse 34% 70% at var(--barb-sun-x, 70%) 0%, rgba(255, 243, 184, 0.75), rgba(255, 243, 184, 0) 70%),
+        linear-gradient(180deg, #FFFFFF 0%, #FFFFFF 52%, #FBE3F2 76%, #F4CBE5 100%);
+    overflow: hidden;
+}
+.barb-cloud__shape::before,
+.barb-cloud__shape::after {
+    content: '';
+    position: absolute;
+    pointer-events: none;
+    background: #FFFFFF;
+}
+.barb-cloud__shape::before {
+    left: 0.55em;
+    right: 0.55em;
+    top: 0.04em;
+    height: 1.7em;
+    -webkit-mask-image:
+        radial-gradient(circle 0.66em at 50% 0.8em, #000 calc(100% - 1px), transparent 100%),
+        radial-gradient(circle 0.5em at 50% 0.86em, #000 calc(100% - 1px), transparent 100%),
+        radial-gradient(circle 0.8em at 50% 0.74em, #000 calc(100% - 1px), transparent 100%);
+    mask-image:
+        radial-gradient(circle 0.66em at 50% 0.8em, #000 calc(100% - 1px), transparent 100%),
+        radial-gradient(circle 0.5em at 50% 0.86em, #000 calc(100% - 1px), transparent 100%),
+        radial-gradient(circle 0.8em at 50% 0.74em, #000 calc(100% - 1px), transparent 100%);
+    /* three periods that never line up, so the puffs never read as a pattern */
+    -webkit-mask-size: 1.62em 1.7em, 1.12em 1.7em, 3.7em 1.7em;
+    mask-size: 1.62em 1.7em, 1.12em 1.7em, 3.7em 1.7em;
+    -webkit-mask-position: 0 0, 0.52em 0, 1.1em 0;
+    mask-position: 0 0, 0.52em 0, 1.1em 0;
+    /* round: tiles stretch to a whole number, so no puff is ever cut in half
+       at the cloud's shoulders */
+    -webkit-mask-repeat: round no-repeat, round no-repeat, space no-repeat;
+    mask-repeat: round no-repeat, round no-repeat, space no-repeat;
+}
+.barb-cloud__shape::after {
+    left: 0;
+    right: 0;
+    top: -0.34em;
+    height: 2.2em;
+    /* two crowns, plus a puffy shoulder at each end so the cloud never ends in
+       a pill's flat cap */
+    -webkit-mask-image:
+        radial-gradient(circle 0.98em at calc(var(--barb-sun-x, 70%) + 1.2em) 1.12em, #000 calc(100% - 1px), transparent 100%),
+        radial-gradient(circle 0.8em at calc(100% - var(--barb-sun-x, 70%)) 1.2em, #000 calc(100% - 1px), transparent 100%),
+        radial-gradient(circle 0.74em at 0.8em 1.46em, #000 calc(100% - 1px), transparent 100%),
+        radial-gradient(circle 0.66em at calc(100% - 0.76em) 1.52em, #000 calc(100% - 1px), transparent 100%);
+    mask-image:
+        radial-gradient(circle 0.98em at calc(var(--barb-sun-x, 70%) + 1.2em) 1.12em, #000 calc(100% - 1px), transparent 100%),
+        radial-gradient(circle 0.8em at calc(100% - var(--barb-sun-x, 70%)) 1.2em, #000 calc(100% - 1px), transparent 100%),
+        radial-gradient(circle 0.74em at 0.8em 1.46em, #000 calc(100% - 1px), transparent 100%),
+        radial-gradient(circle 0.66em at calc(100% - 0.76em) 1.52em, #000 calc(100% - 1px), transparent 100%);
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+}
+
+/* ---- The words on the cloud ---- */
+[data-theme="barbie"] .k-line--barbie .k-syl {
+    opacity: 1;
+}
+/* Shrikhand's spaces are narrow for an italic this heavy, and the outline and
+   extrusion eat into them: open them up a little on every line. */
+[data-theme="barbie"] .k-line {
+    word-spacing: 0.09em;
+}
+[data-theme="barbie"] .k-line--barbie .k-syl__word {
+    position: relative;
+    display: inline-block;
+}
+/* Not yet sung: an outline waiting to be painted in. */
+[data-theme="barbie"] .k-line--barbie .k-syl--future .k-syl__word {
+    color: color-mix(in srgb, var(--syl-c, var(--barb-ink)), #FFFFFF 82%);
+    -webkit-text-stroke: 0.03em color-mix(in srgb, var(--syl-c, var(--barb-ink)), #4B0A35 40%);
+}
+/* Sung: painted in, as sign-painted 3D lettering. */
+[data-theme="barbie"] .k-line--barbie .k-syl--past .k-syl__word,
+[data-theme="barbie"] .k-line--barbie .k-syl--now .k-syl__word {
+    color: var(--syl-c, var(--barb-ink));
+    -webkit-text-stroke: 0.024em color-mix(in srgb, var(--syl-c, var(--barb-ink)), #4B0A35 48%);
+    text-shadow:
+        0 0.035em 0 color-mix(in srgb, var(--syl-c, var(--barb-ink)), #4B0A35 45%),
+        0 0.07em 0 color-mix(in srgb, var(--syl-c, var(--barb-ink)), #4B0A35 58%),
+        0 0.12em 0.14em rgba(122, 16, 78, 0.28);
+}
+/* The gloss: a white band clipped to the top half of the letters. Absolute
+   with z-index auto, so it paints over the word's own glyphs. */
+[data-theme="barbie"] .k-line--barbie .k-syl--past .k-syl__word::before,
+[data-theme="barbie"] .k-line--barbie .k-syl--now .k-syl__word::before {
+    content: attr(data-text);
+    position: absolute;
+    left: 0;
+    top: 0;
+    white-space: pre;
+    pointer-events: none;
+    color: transparent;
+    -webkit-text-stroke-width: 0;
+    text-shadow: none;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0) 22%, rgba(255, 255, 255, 0.66) 33%, rgba(255, 255, 255, 0.2) 49%, rgba(255, 255, 255, 0) 53%);
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+/* The syllable being sung: painted in with a bounce, and a twinkle. */
+@keyframes barb-syl-pop {
+    0%   { transform: translateY(0.05em) scale(0.88); }
+    45%  { transform: translateY(-0.1em) scale(1.07); }
+    100% { transform: translateY(0) scale(1); }
+}
+@keyframes barb-syl-twinkle {
+    0%   { transform: scale(0) rotate(-40deg); opacity: 0; }
+    35%  { transform: scale(1.15) rotate(10deg); opacity: 1; }
+    100% { transform: scale(0.4) rotate(50deg); opacity: 0; }
+}
+[data-theme="barbie"] .k-line--barbie .k-syl--now {
+    font-weight: 400;
+    letter-spacing: inherit;
+}
+[data-theme="barbie"] .k-line--barbie .k-syl--now .k-syl__word {
+    animation: barb-syl-pop 0.42s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+}
+[data-theme="barbie"] .k-line--barbie .k-syl--now .k-syl__word::after {
+    content: '';
+    position: absolute;
+    right: -0.24em;
+    top: -0.3em;
+    width: 0.52em;
+    height: 0.52em;
+    pointer-events: none;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-50 -50 100 100'%3E%3Cpath d='M0 -50 C 3 -12 12 -3 50 0 C 12 3 3 12 0 50 C -3 12 -12 3 -50 0 C -12 -3 -3 -12 0 -50 Z' fill='%23FFC21F'/%3E%3Ccircle r='9' fill='%23FFFFFF'/%3E%3C/svg%3E") center / contain no-repeat;
+    filter: drop-shadow(0 0 0.06em rgba(255, 255, 255, 0.9));
+    animation: barb-syl-twinkle 0.7s ease-out both;
+}
+
+/* LRC-only lines have no syllables: the whole line is painted in at once,
+   with the same gloss on the line's own ::before (the cloud is a z -1 child,
+   so it stays underneath). */
+[data-theme="barbie"] .k-line--barbie-full {
+    color: var(--barb-ink);
+    -webkit-text-stroke: 0.024em color-mix(in srgb, var(--barb-ink), #4B0A35 48%);
+    text-shadow:
+        0 0.035em 0 color-mix(in srgb, var(--barb-ink), #4B0A35 45%),
+        0 0.07em 0 color-mix(in srgb, var(--barb-ink), #4B0A35 58%),
+        0 0.12em 0.14em rgba(122, 16, 78, 0.28);
+    animation: barb-line-paint 0.5s cubic-bezier(0.3, 1.5, 0.5, 1) both;
+}
+[data-theme="barbie"] .k-line--barbie-full::before {
+    content: attr(data-text);
+    position: absolute;
+    inset: 0;
+    padding: inherit;
+    pointer-events: none;
+    color: transparent;
+    -webkit-text-stroke-width: 0;
+    text-shadow: none;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0) 22%, rgba(255, 255, 255, 0.55) 33%, rgba(255, 255, 255, 0.16) 49%, rgba(255, 255, 255, 0) 53%);
+    background-size: 100% 1.35em;
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+@keyframes barb-line-paint {
+    from { transform: scale(0.94); filter: brightness(1.4); }
+    to   { transform: none; filter: none; }
+}
+
+[data-theme="barbie"] .k-stage--paused .k-syl--now .k-syl__word,
+[data-theme="barbie"] .k-stage--paused .k-syl--now .k-syl__word::after,
+[data-theme="barbie"] .k-stage--paused .barb-cloud__sun::before,
+[data-theme="barbie"] .k-stage--paused .barb-bank,
+[data-theme="barbie"] .k-stage--paused .k-nb-countin--exit {
+    animation-play-state: paused;
+}
+
+/* ---- The cloud bank along the bottom of the performance ---- */
+@keyframes barb-bank-drift {
+    0%, 100% { transform: translateX(0); }
+    50%      { transform: translateX(3.5%); }
+}
+.barb-bank--back  { animation: barb-bank-drift 70s ease-in-out infinite; }
+.barb-bank--front { animation: barb-bank-drift 52s ease-in-out -18s infinite reverse; }
+
+/* ---- Count-in exit: the sunrise floats up and away ---- */
+[data-theme="barbie"] .k-nb-countin--exit {
+    animation: barb-countin-exit 0.9s cubic-bezier(0.5, 0, 0.75, 0) 0.35s forwards;
+}
+@keyframes barb-countin-exit {
+    from { opacity: 1; transform: translateY(0) scale(1); }
+    to   { opacity: 0; transform: translateY(-130%) scale(0.92); }
+}
+
+/* ---- Barbie: pool life ---- */
+@keyframes barb-float {
+    0%, 100% { transform: translateY(0) rotate(-2deg); }
+    50%      { transform: translateY(5px) rotate(2deg); }
+}
+.barb-float { animation: barb-float 4.8s ease-in-out infinite; }
+@keyframes barb-ring-ripple {
+    0%, 100% { transform: scale(1); opacity: 0.85; }
+    50%      { transform: scale(1.06, 1.12); opacity: 0.45; }
+}
+.barb-ring-ripple { animation: barb-ring-ripple 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes barb-waver {
+    0%, 100% { transform: skewX(0deg) translateX(0); }
+    50%      { transform: skewX(3deg) translateX(2px); }
+}
+.barb-waver { animation: barb-waver 2.2s ease-in-out infinite; transform-box: fill-box; transform-origin: top; }
+@keyframes barb-clock { to { transform: rotate(360deg); } }
+.barb-clock-min { animation: barb-clock 60s linear infinite; transform-origin: 0 0; }
+/* The pool's painted light lines: two layers swaying past each other. */
+@keyframes barb-sway {
+    0%, 100% { transform: translateX(-34px); }
+    50%      { transform: translateX(34px); }
+}
+.barb-sway-a { animation: barb-sway 9s ease-in-out infinite; }
+.barb-sway-b { animation: barb-sway 13s ease-in-out -4s infinite reverse; }

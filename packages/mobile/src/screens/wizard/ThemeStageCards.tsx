@@ -20,6 +20,7 @@ import { NeonFrame } from './RetrowaveWizardChrome'
 import { Gear } from '../../theme/themes/steampunk/atoms/_steam'
 import { Hibiscus3D, TimberDetail, useSize } from '../../theme/themes/tropical/atoms/_tropical'
 import { Candle as GothCandle, GlassDot, FRAKTUR, RUBY, SAPPHIRE } from '../../theme/themes/gothic/atoms/_gothic'
+import { Sun as BarbieSun, DISPLAY as BARBIE_DISPLAY } from '../../theme/themes/barbie/atoms/_barbie'
 
 // The deep-sea theme's actual bubble PNG (same asset its backdrop + tab bar
 // use) — rendered un-tinted so the 3D highlight reads.
@@ -973,6 +974,56 @@ function GothicCard({ label, selected, onPress }: CardProps) {
   )
 }
 
+// 14. Barbie: a little piece of Barbie Land. Painted sky (pool blue into pink),
+//     the sun peeking in at the corner, a white scalloped ruffle along the foot,
+//     and the name sign-painted in Shrikhand with its pink extrusion.
+function BarbieCard({ label, selected, onPress }: CardProps) {
+  return (
+    <BaseCard
+      selected={selected}
+      onPress={onPress}
+      bg="#FFC6DF"
+      radius={18}
+      border={{ width: 2.5, color: '#FFFFFF' }}
+      glowColor="#E0218A"
+      glowRadius={8}
+      accent="#E0218A"
+      badge={{ bg: '#E0218A', fg: '#FFFFFF', ring: '#FFFFFF' }}
+    >
+      <LinearGradient
+        pointerEvents="none"
+        colors={['#8FD8F2', '#C4E9F4', '#FFC6DF']}
+        locations={[0, 0.4, 1]}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+      />
+      <View pointerEvents="none" style={{ position: 'absolute', right: -16, top: -16 }}>
+        <BarbieSun size={58} halo={false} spin={false} />
+      </View>
+      <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: -5, flexDirection: 'row' }}>
+        {Array.from({ length: 16 }, (_, i) => (
+          <View key={i} style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: '#FFFFFF', marginRight: -2 }} />
+        ))}
+      </View>
+      <Row>
+        <CardLabel
+          text={label}
+          color="#E0218A"
+          font={BARBIE_DISPLAY}
+          style={{
+            flex: 1,
+            fontSize: 20,
+            lineHeight: 27,
+            paddingRight: 4,
+            textShadowColor: '#B0115E',
+            textShadowOffset: { width: 0.5, height: 2 },
+            textShadowRadius: 0,
+          }}
+        />
+      </Row>
+    </BaseCard>
+  )
+}
+
 // ── Dispatcher ───────────────────────────────────────────────────────────────
 interface CardProps {
   label: string
@@ -994,6 +1045,7 @@ const CARD_BY_KEY: Record<string, React.ComponentType<CardProps>> = {
   'comic-book': ComicBookCard,
   tropical: TropicalCard,
   gothic: GothicCard,
+  barbie: BarbieCard,
 }
 
 export function ThemeStageCard({

@@ -20,6 +20,14 @@ import {
 import { GothicAtmosphere, GothicLinePane, gothLineFill } from '../components/gothic/GothicStageLayers'
 import { GothFlameMeter } from '../components/gothic/GothicParts'
 import { GothicCandle } from '../components/gothic/GothicCandle'
+import { BARB } from '../styles/barbie'
+import { BarbieSunshine } from '../components/barbie/BarbieSunshine'
+import {
+    BarbieIdle, BarbieUpNext, BarbieCountIn, BarbieBreak, BarbiePaused, BarbieNoLyrics,
+    BarbieQrCard, BarbieSongChip, BarbieSingerTag, BarbieMicBody,
+} from '../components/barbie/BarbieScreens'
+import { BarbieAtmosphere, BarbieLineCloud } from '../components/barbie/BarbieStageLayers'
+import { SunMeter, PaintedSun } from '../components/barbie/BarbieParts'
 
 import { VoiceEffectsEngine } from '../audio/VoiceEffectsEngine'
 import { DEFAULT_VOICE_EFFECTS } from '../audio/VoiceEffectsTypes'
@@ -2110,6 +2118,10 @@ function MicMeter({ singer, active, effects, vocalFx = true, autotune = true, ma
     if (theme.name === 'gothic') {
         return <GothicMicBody name={displayName} picture={pic} color={singer.color} meter={<GothFlameMeter level={level} color={singer.color} />} />
     }
+    // Barbie: the level is a little sun in the singer's colour, rays reaching out.
+    if (theme.name === 'barbie') {
+        return <BarbieMicBody name={displayName} picture={pic} color={singer.color} meter={<SunMeter level={level} color={singer.color} />} />
+    }
 
     // Fallback for dark bars if background is bright
     const inactiveColor = theme.appBg === '#FFF8EE' || theme.appBg === '#faf4ed' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.08)'
@@ -2457,6 +2469,13 @@ function IdleStageScreen({ theme, qrUrl, sessionCode }: {
     // between two altar candles, and something in the dark watching the code.
     if (theme.name === 'gothic') {
         return <GothicIdle qrUrl={qrUrl} sessionCode={sessionCode} />
+    }
+
+    // ---- Barbie idle ----
+    // The painted town in the morning sun: "Hi Barbie!", the QR on a deckle
+    // snapshot floating on the breeze, and a biplane towing the party code.
+    if (theme.name === 'barbie') {
+        return <BarbieIdle qrUrl={qrUrl} sessionCode={sessionCode} />
     }
 
     // ---- Neo-Brutal idle ----
@@ -4147,6 +4166,30 @@ function noticeSkin(theme: Theme): NoticeSkin {
             )
             break
         }
+        // A glossy white card in the sun: candy-pink rim, a sun peeking over
+        // its corner, the title sign-painted.
+        case 'barbie':
+            skin.card = {
+                ...skin.card,
+                background: 'linear-gradient(180deg, #FFFFFF 0%, #FFFFFF 60%, #FFF0F7 100%)',
+                border: '3px solid #FFFFFF', borderRadius: 28,
+                boxShadow: `0 0 0 3px ${BARB.CANDY}, 0 22px 46px rgba(176,17,94,0.32), inset 0 -4px 0 ${BARB.BLUSH}`,
+            }
+            skin.label = { ...skin.label, fontFamily: BARB.FONT_SCRIPT, fontWeight: 400, fontSize: stageFont(24), letterSpacing: 0, textTransform: 'none', color: BARB.PINK }
+            skin.title = { ...skin.title, fontFamily: BARB.FONT_DISPLAY, fontWeight: 400, color: BARB.PINK, textTransform: 'none', letterSpacing: '0.01em' }
+            skin.meta = { ...skin.meta, fontFamily: BARB.FONT_BODY, fontWeight: 600, color: BARB.MUTED }
+            skin.art = { ...skin.art, borderRadius: '50%', border: '3px solid #FFFFFF', boxShadow: `0 0 0 3px ${BARB.SUN}, 0 8px 18px rgba(176,17,94,0.3)` }
+            skin.chip = (color: string) => ({
+                border: `2px solid ${color}`, background: '#FFFFFF', color: BARB.PLUM,
+                borderRadius: 99, fontFamily: BARB.FONT_BODY, fontWeight: 700,
+            })
+            skin.rule = BARB.BLUSH
+            skin.decor = (
+                <span aria-hidden style={{ position: 'absolute', top: -34, right: -30, zIndex: 1, pointerEvents: 'none' }}>
+                    <PaintedSun size={76} rays="burst" halo={false} />
+                </span>
+            )
+            break
         // Hand-drawn note: sketchy off-square border, marker underline.
         case 'sketch':
             skin.card = {
@@ -4997,6 +5040,11 @@ export default function KaraokePage() {
         <div style={{ position: 'fixed', top: 'calc(100vh - 184px)', left: 80, zIndex: 9999 }}>
             <GothicQrCard qr={state.karaokeQrDataUrl} />
         </div>
+        ) : theme.name === 'barbie' ? (
+        // A postcard from the party, tucked in the corner.
+        <div style={{ position: 'fixed', top: 'calc(100vh - 186px)', left: 44, zIndex: 9999 }}>
+            <BarbieQrCard qr={state.karaokeQrDataUrl} />
+        </div>
         ) : theme.name === 'tropical' ? (
             <div style={{ position: 'fixed', left: 0, top: 'calc(100vh - 252px)', zIndex: 9999, width: 180, height: 240 }}>
                 {/* bamboo cane jutting out from the left edge of the screen */}
@@ -5200,6 +5248,22 @@ export default function KaraokePage() {
         if (theme.name === 'gothic') {
             return (
                 <GothicCountIn
+                    remaining={remaining}
+                    count={count}
+                    barPct={barPct}
+                    trackName={track.name}
+                    className={exitCls}
+                    innerRef={countInRef}
+                    stageFont={stageFont}
+                />
+            )
+        }
+
+        // ── Barbie: RISE AND SHINE. The sun climbs out of the pool to the first
+        // line, the last three beats land on it, and "Sing!" throws glitter. ──
+        if (theme.name === 'barbie') {
+            return (
+                <BarbieCountIn
                     remaining={remaining}
                     count={count}
                     barPct={barPct}
@@ -5685,6 +5749,9 @@ export default function KaraokePage() {
     // (its album art refracted by the rain on the glass). Only while playing;
     // on deck, the up-next chapel brings its own storm.
     const gothStorm = theme.name === 'gothic' && !ytId && state.stageMode === 'playing'
+    // Barbie: with no music video, the album art is printed in pink and
+    // sunshine (BarbieSunshine), with sunbeams and glitter that answer the room.
+    const barbSun = theme.name === 'barbie' && !ytId && state.stageMode === 'playing'
 
     return (
         <>
@@ -5693,6 +5760,7 @@ export default function KaraokePage() {
                 'karaoke-stage' +
                 (ytId ? ' k-stage--video' : '') +
                 (gothStorm ? ' k-stage--goth-storm' : '') +
+                (barbSun ? ' k-stage--barb-sun' : '') +
                 (state.stageMode === 'playing' && !state.isPlaying ? ' k-stage--paused' : '')
             }
             onMouseMove={handleMouse}
@@ -5745,6 +5813,7 @@ export default function KaraokePage() {
                     second moving colour field would only fight the words. */}
                 {theme.name === 'psychedelic' && !art && !ytId && <LiquidLight performing />}
                 {gothStorm && <GothicStorm art={art ?? null} performing />}
+                {barbSun && <BarbieSunshine art={art ?? null} performing />}
                 <div className="k-bg__scrim" style={{ opacity: state.stageMode === 'playing' ? 1 : 0 }} />
             </div>
 
@@ -5766,6 +5835,10 @@ export default function KaraokePage() {
             {/* Gothic: the great arch we watch through, a watcher at the edge,
                 candles at the column bases and fog on the floor */}
             {theme.name === 'gothic' && state.stageMode === 'playing' && <GothicAtmosphere video={!!ytId} />}
+
+            {/* Barbie: a bank of painted clouds along the bottom, twinkles at
+                the edges, and glitter thrown on a belted note */}
+            {theme.name === 'barbie' && state.stageMode === 'playing' && <BarbieAtmosphere video={!!ytId} />}
 
             {/* Hidden SVG for Filters */}
             <svg style={{ position: 'fixed', pointerEvents: 'none', width: 0, height: 0 }}>
@@ -5791,7 +5864,13 @@ export default function KaraokePage() {
                     <GothicSongChip art={art} title={track.name} artist={track.artists.map((a: any) => a.name).join(', ')} />
                 </div>
             )}
-            {!(np?.isHidden && state.stageMode === 'ready') && theme.name !== 'gothic' && (
+            {/* Barbie: on deck the awning and the rising title say it all, so the chip waits */}
+            {state.stageMode !== 'ready' && theme.name === 'barbie' && (
+                <div className="k-song-chip" style={{ position: 'absolute', opacity: 1, top: 26, left: 30 }}>
+                    <BarbieSongChip art={art} title={track.name} artist={track.artists.map((a: any) => a.name).join(', ')} />
+                </div>
+            )}
+            {!(np?.isHidden && state.stageMode === 'ready') && theme.name !== 'gothic' && theme.name !== 'barbie' && (
             <div className="k-song-chip" style={{
                 background: theme.appBg, ...theme.stickerLabel, position: 'absolute', opacity: 1,
                 ...(theme.name === 'psychedelic' ? {
@@ -5891,9 +5970,9 @@ export default function KaraokePage() {
 
             {/* Singer tags (top-right) */}
             {singers.length > 0 && (
-                <div className="k-singers" style={{ opacity: 1, flexDirection: 'column', alignItems: 'flex-end' }}>
+                <div className="k-singers" style={{ opacity: 1, flexDirection: 'column', alignItems: 'flex-end', ...(theme.name === 'barbie' && state.stageMode === 'ready' ? { top: 'calc(14.5vh + 8px)' } : {}) }}>
                     {singers.map((s: any, singerIdx: number) => {
-                        const spaceSingerStyle = theme.name === 'gothic' ? {
+                        const spaceSingerStyle = theme.name === 'gothic' || theme.name === 'barbie' ? {
                             // The plaque is drawn by GothicSingerPlaque inside; the tag
                             // itself is only a positioned slot.
                             background: 'transparent',
@@ -6002,6 +6081,10 @@ export default function KaraokePage() {
                                         <GothicSingerPlaque color={s.color} index={singerIdx}>
                                             <MicMeter singer={s} active={micActive} effects={singerEffects} vocalFx={vocalFx} autotune={autotune} mainOutputId={state.mainOutputId} theme={theme} />
                                         </GothicSingerPlaque>
+                                    ) : theme.name === 'barbie' ? (
+                                        <BarbieSingerTag color={s.color} index={singerIdx}>
+                                            <MicMeter singer={s} active={micActive} effects={singerEffects} vocalFx={vocalFx} autotune={autotune} mainOutputId={state.mainOutputId} theme={theme} />
+                                        </BarbieSingerTag>
                                     ) : (
                                         <MicMeter singer={s} active={micActive} effects={singerEffects} vocalFx={vocalFx} autotune={autotune} mainOutputId={state.mainOutputId} theme={theme} />
                                     )}
@@ -6020,6 +6103,10 @@ export default function KaraokePage() {
                                         <GothicSingerPlaque color={s.color} index={singerIdx}>
                                             <GothicMicBody name={tagGuest?.name ?? s.name} picture={tagGuest?.profile_picture ?? null} color={s.color} meter={null} />
                                         </GothicSingerPlaque>
+                                    ) : theme.name === 'barbie' ? (
+                                        <BarbieSingerTag color={s.color} index={singerIdx}>
+                                            <BarbieMicBody name={tagGuest?.name ?? s.name} picture={tagGuest?.profile_picture ?? null} color={s.color} meter={null} />
+                                        </BarbieSingerTag>
                                     ) : (
                                         <>
                                             <span style={{ color: 'inherit', fontFamily: theme.fontDisplay }}>{tagGuest?.name ?? s.name}</span>
@@ -6072,6 +6159,10 @@ export default function KaraokePage() {
                     // blurred album art while YouTube loaded, or for good when a video
                     // can't be embedded.
                     <GothicUpNext art={art ?? null} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} showVideo={showVideoBehindArt && ytVisible} />
+                  ) : theme.name === 'barbie' ? (
+                    // Same rule as gothic: the painted town only steps back once
+                    // the clip is really on screen.
+                    <BarbieUpNext art={art ?? null} track={track} singers={singers} np={np} roles={roles} guestsMap={guestsMap} showVideo={showVideoBehindArt && ytVisible} />
                   ) : (
                     <div className="anim-enter k-upnext" style={{ width: '100%', maxWidth: 1100, margin: '0 auto', padding: '0 48px' }}>
                         <div style={{
@@ -6210,6 +6301,8 @@ export default function KaraokePage() {
                         </div>
                     ) : theme.name === 'gothic' ? (
                         <GothicNoLyrics stageFont={stageFont} />
+                    ) : theme.name === 'barbie' ? (
+                        <BarbieNoLyrics stageFont={stageFont} />
                     ) : theme.name === 'zen' ? (
                         <div style={{ textAlign: 'center', animation: 'zen-scroll-in 0.55s ease-out both' }}>
                             <div style={{
@@ -6248,6 +6341,11 @@ export default function KaraokePage() {
                                     // (GothicLinePane) whose panes are the syllables.
                                     let gothPane = false
                                     let gothGlass: string[] | null = null
+                                    // Barbie only: the active line sits on a painted cloud
+                                    // (BarbieLineCloud); a shared line paints word by word,
+                                    // singer by singer.
+                                    let barbCloud = false
+                                    let barbColors: string[] | null = null
                                     let lineDataText: string | undefined
                                     let inlineStyle: React.CSSProperties = {
                                         fontFamily: theme.fontDisplay
@@ -6642,6 +6740,31 @@ export default function KaraokePage() {
                                             inlineStyle.padding = '0.22em 0.5em 0.28em'
                                             inlineStyle.textShadow = 'none'
                                             gVars['--goth-glass'] = gColors[0]
+                                        } else if (theme.name === 'barbie') {
+                                            // ── A painted cloud ──────────────────────────
+                                            // The cloud (with the sun peeking over it) is
+                                            // BarbieLineCloud, injected as the first child. The
+                                            // words are outlines until sung, then painted in, in
+                                            // the singer's colour (BARBIE STAGE in karaoke.css).
+                                            cls += ' k-line--barbie'
+                                            const bColors = activeColors.length > 1 ? activeColors : [activeSingerColor]
+                                            const bVars = inlineStyle as Record<string, string>
+                                            barbCloud = true
+                                            barbColors = bColors
+                                            inlineStyle.background = 'transparent'
+                                            inlineStyle.padding = '0.32em 0.7em 0.3em'
+                                            bVars['--barb-ink'] = bColors[0]
+                                            if (!(line.syllables && line.syllables.length > 0)) {
+                                                // No syllable timing: the whole line is painted in at
+                                                // once, its 3D edge drawn by .k-line--barbie-full.
+                                                cls += ' k-line--barbie-full'
+                                                lineDataText = '__words__'
+                                                inlineStyle.color = bColors[0]
+                                            } else {
+                                                // The words paint themselves; the line adds nothing.
+                                                inlineStyle.color = BARB.PLUM
+                                                inlineStyle.textShadow = 'none'
+                                            }
                                         } else {
                                             inlineStyle.padding = '0.18em 0.75em'
                                             inlineStyle.borderRadius = '8px'
@@ -6718,6 +6841,19 @@ export default function KaraokePage() {
                                             // Soot shadow: keeps singer-colored type legible over
                                             // the warm sepia backdrop or a bright music video.
                                             inlineStyle.textShadow = '0 0.05em 0.35em rgba(6, 4, 2, 0.85)'
+                                        } else if (theme.name === 'barbie') {
+                                            // Upcoming lines are stickers in their singer's colour
+                                            // (white die-cut outline in karaoke.css). A shared line
+                                            // alternates word by word, as it will when it's sung,
+                                            // so the gradient text fill set above is undone: a
+                                            // shadow behind a transparent fill shows through it.
+                                            cls += ' k-line--barb-future'
+                                            const bc = line.singerIndex !== undefined && singers[line.singerIndex]?.color
+                                            inlineStyle.backgroundImage = undefined
+                                            inlineStyle.WebkitBackgroundClip = undefined
+                                            inlineStyle.WebkitTextFillColor = undefined
+                                            ;(inlineStyle as Record<string, string>)['--barb-ink'] = activeColors.length > 0 ? activeColors[0] : bc || BARB.WHITE
+                                            if (activeColors.length > 1) barbColors = activeColors
                                         } else if (theme.name === 'gothic') {
                                             // Upcoming lines are in the singer's own colour (a
                                             // fifth softened toward bone, so dark picks stay
@@ -6801,6 +6937,8 @@ export default function KaraokePage() {
                                                         ['--syl-dur' as string]: `${Math.max(80, syl.durMs)}ms`,
                                                         // Gothic: a shared line alternates its glass pane by pane.
                                                         ...(gothGlass && gothGlass.length > 1 ? { ['--syl-glass' as string]: gothGlass[k % gothGlass.length] } : {}),
+                                                        // Barbie: a shared line paints singer by singer.
+                                                        ...(barbColors && barbColors.length > 1 ? { ['--syl-c' as string]: barbColors[k % barbColors.length] } : {}),
                                                     } as React.CSSProperties}
                                                 >
                                                     {/* data-text lets a theme redraw the glyphs on a
@@ -6814,6 +6952,7 @@ export default function KaraokePage() {
                                     return (
                                         <div key={j} className={cls} style={inlineStyle} data-text={lineDataText ? displayWords : undefined}>
                                             {gothPane && <GothicLinePane key="goth-pane" />}
+                                            {barbCloud && <BarbieLineCloud key="barb-cloud" seed={i} />}
                                             {/* FIRST child, so it paints under the line's inline
                                                 content (see .psy-film). Keyed so React reuses the
                                                 same <video> as long as the same line stays active,
@@ -6842,6 +6981,8 @@ export default function KaraokePage() {
                 <div style={{ position: 'absolute', bottom: 64, left: 0, right: 0, zIndex: 22, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
                 {theme.name === 'gothic' ? (
                     <GothicBreak progress={Math.min(1, Math.max(0, (elapsed - nbBreak.start) / (nbBreak.end - nbBreak.start)))} />
+                ) : theme.name === 'barbie' ? (
+                    <BarbieBreak progress={Math.min(1, Math.max(0, (elapsed - nbBreak.start) / (nbBreak.end - nbBreak.start)))} />
                 ) : theme.name === 'cyberpunk' ? (
                     <div style={{ animation: 'cyber-glitch 0.35s steps(2) both' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '10px 24px', background: '#0b0b1c', clipPath: 'polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)', boxShadow: '0 0 20px rgba(0,255,136,0.22), inset 0 0 0 1.5px rgba(0,255,136,0.5)' }}>
@@ -7010,6 +7151,8 @@ export default function KaraokePage() {
                 <div style={{ position: 'absolute', top: '13%', left: 0, right: 0, zIndex: 25, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
                 {theme.name === 'gothic' ? (
                     <GothicPaused stageFont={stageFont} />
+                ) : theme.name === 'barbie' ? (
+                    <BarbiePaused stageFont={stageFont} />
                 ) : theme.name === 'cyberpunk' ? (
                     <div style={{ animation: 'cyber-glitch 0.4s steps(2) both' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 30px', background: '#0b0b1c', clipPath: 'polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)', boxShadow: '0 0 26px rgba(0,255,136,0.28), inset 0 0 0 1.5px rgba(0,255,136,0.55)' }}>

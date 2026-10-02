@@ -189,7 +189,8 @@ export function renderWizardStage(){
     {k:"retrowave",label:"Retrowave",c:["#0A0614","#FF2D95","#00BFFF"]},
     {k:"comic-book",label:"Comic Book",c:["#FFFFFF","#FF1F4B","#FFD400"]},
     {k:"tropical",label:"Tropical",c:["#36C5F0","#10B7B0","#FFF4DE"]},
-    {k:"gothic",label:"Gothic",c:["#07060A","#E3B04B","#C3203A"]}
+    {k:"gothic",label:"Gothic",c:["#07060A","#E3B04B","#C3203A"]},
+    {k:"barbie",label:"Barbie",c:["#FFC6DF","#E0218A","#FFD23F"]}
   ];
   var grid=tiles.map(function(tt){
     var sel=(S.stage_theme===tt.k);

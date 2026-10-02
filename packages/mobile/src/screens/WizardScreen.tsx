@@ -98,6 +98,7 @@ const STAGE_THEMES = [
   { key: 'comic-book', label: 'Comic Book' },
   { key: 'tropical', label: 'Tropical' },
   { key: 'gothic', label: 'Gothic' },
+  { key: 'barbie', label: 'Barbie' },
 ]
 
 function formatDuration(ms: number | null | undefined): string {
@@ -203,6 +204,21 @@ function wizardCardStyle(tokens: ThemeTokens, color?: string, overrides?: any, i
       borderLeftColor: 'rgba(212,184,90,0.35)',
       borderRightColor: 'rgba(212,184,90,0.35)',
       borderRadius: 0,
+      ...overrides,
+    }
+  }
+  if (tokens.name === 'barbie') {
+    // Barbie: glossy white plastic with a candy rim and a soft pink drop. A
+    // singer card's rim takes the singer's colour, like a pool float in theirs.
+    return {
+      backgroundColor: '#FFFFFF',
+      borderWidth: 2.5,
+      borderColor: color || '#FFD3E8',
+      borderRadius: 22,
+      shadowColor: '#B0115E',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.2,
+      shadowRadius: 10,
       ...overrides,
     }
   }

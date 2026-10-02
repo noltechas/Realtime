@@ -34,7 +34,7 @@ import type { ThemeTokens } from './tokens'
 export const GOTHIC_TOKENS: ThemeTokens = {
   name: 'gothic',
   displayName: 'Gothic',
-  nextThemeName: 'neo-brutal', // tail of the ring, loops back to the start
+  nextThemeName: 'barbie', // gothic → barbie, which loops back to neo-brutal
 
   // Raw colours. `black` and `white` are SEMANTIC on this dark theme: `black`
   // is the readable foreground (bone), `white` the deepest surface (crypt).
